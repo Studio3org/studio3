@@ -65,6 +65,7 @@ class FeedPreviewItem {
     required this.aspectRatio,
     this.isProcess = false,
     this.seriesName = '',
+    this.seriesId,
     this.seriesThumbs = const [],
     this.seriesThumbUrls = const [],
     this.relatedScenes = const [],
@@ -73,6 +74,7 @@ class FeedPreviewItem {
     this.location,
     this.framingNote,
     this.provenanceNote,
+    this.handlingNotes,
     this.heroImageUrl,
     this.galleryImageUrls = const [],
     this.isLiked = false,
@@ -84,6 +86,7 @@ class FeedPreviewItem {
     this.authorIsFollowing = false,
     this.status,
     this.materials = const [],
+    this.styleTags = const [],
   });
 
   final String id;
@@ -98,6 +101,7 @@ class FeedPreviewItem {
   final FeedAspectRatio aspectRatio;
   final bool isProcess;
   final String seriesName;
+  final String? seriesId;
   final List<int> seriesThumbs;
   final List<String> seriesThumbUrls;
   final List<RelatedScene> relatedScenes;
@@ -106,6 +110,7 @@ class FeedPreviewItem {
   final String? location;
   final String? framingNote;
   final String? provenanceNote;
+  final String? handlingNotes;
   final String? heroImageUrl;
   /// A piece's full ordered gallery (Figma 2716:5774 cover/reorder posting
   /// flow) — index 0 matches [heroImageUrl]. Empty for scenes/posts (still
@@ -120,6 +125,7 @@ class FeedPreviewItem {
   final bool authorIsFollowing;
   final String? status;
   final List<String> materials;
+  final List<String> styleTags;
 
   bool get isLive => status == null || status == 'live';
 
@@ -163,6 +169,7 @@ class FeedPreviewItem {
     FeedAspectRatio? aspectRatio,
     bool? isProcess,
     String? seriesName,
+    String? seriesId,
     List<int>? seriesThumbs,
     List<String>? seriesThumbUrls,
     List<RelatedScene>? relatedScenes,
@@ -171,6 +178,7 @@ class FeedPreviewItem {
     String? location,
     String? framingNote,
     String? provenanceNote,
+    String? handlingNotes,
     String? heroImageUrl,
     List<String>? galleryImageUrls,
     bool? isLiked,
@@ -182,6 +190,7 @@ class FeedPreviewItem {
     bool? authorIsFollowing,
     String? status,
     List<String>? materials,
+    List<String>? styleTags,
   }) {
     return FeedPreviewItem(
       id: id ?? this.id,
@@ -196,6 +205,7 @@ class FeedPreviewItem {
       aspectRatio: aspectRatio ?? this.aspectRatio,
       isProcess: isProcess ?? this.isProcess,
       seriesName: seriesName ?? this.seriesName,
+      seriesId: seriesId ?? this.seriesId,
       seriesThumbs: seriesThumbs ?? this.seriesThumbs,
       seriesThumbUrls: seriesThumbUrls ?? this.seriesThumbUrls,
       relatedScenes: relatedScenes ?? this.relatedScenes,
@@ -204,6 +214,7 @@ class FeedPreviewItem {
       location: location ?? this.location,
       framingNote: framingNote ?? this.framingNote,
       provenanceNote: provenanceNote ?? this.provenanceNote,
+      handlingNotes: handlingNotes ?? this.handlingNotes,
       heroImageUrl: heroImageUrl ?? this.heroImageUrl,
       galleryImageUrls: galleryImageUrls ?? this.galleryImageUrls,
       isLiked: isLiked ?? this.isLiked,
@@ -215,6 +226,7 @@ class FeedPreviewItem {
       authorIsFollowing: authorIsFollowing ?? this.authorIsFollowing,
       status: status ?? this.status,
       materials: materials ?? this.materials,
+      styleTags: styleTags ?? this.styleTags,
     );
   }
 
@@ -248,6 +260,7 @@ class FeedPreviewItem {
       location: piece.location,
       framingNote: piece.framingMounting,
       provenanceNote: piece.provenance,
+      handlingNotes: piece.handlingNotes,
       heroImageUrl: piece.mediaUrl,
       galleryImageUrls: ([...piece.images]
             ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder)))
@@ -255,6 +268,7 @@ class FeedPreviewItem {
           .where((url) => url.isNotEmpty)
           .toList(growable: false),
       seriesName: series?.name ?? '',
+      seriesId: series?.id,
       seriesThumbs: seriesThumbs,
       seriesThumbUrls: seriesThumbUrls,
       isLiked: piece.isLiked,
@@ -266,6 +280,7 @@ class FeedPreviewItem {
       authorIsFollowing: piece.authorIsFollowing,
       status: piece.status,
       materials: piece.materials,
+      styleTags: piece.styleTags,
     );
   }
 
@@ -321,6 +336,7 @@ class FeedPreviewItem {
         'aspectRatio': aspectRatio.name,
         'isProcess': isProcess,
         'seriesName': seriesName,
+        if (seriesId != null) 'seriesId': seriesId,
         'seriesThumbs': seriesThumbs,
         'seriesThumbUrls': seriesThumbUrls,
         'relatedScenes': relatedScenes.map((s) => s.toJson()).toList(),
@@ -329,6 +345,7 @@ class FeedPreviewItem {
         if (location != null) 'location': location,
         if (framingNote != null) 'framingNote': framingNote,
         if (provenanceNote != null) 'provenanceNote': provenanceNote,
+        if (handlingNotes != null) 'handlingNotes': handlingNotes,
         if (heroImageUrl != null) 'heroImageUrl': heroImageUrl,
         if (galleryImageUrls.isNotEmpty) 'galleryImageUrls': galleryImageUrls,
         'isLiked': isLiked,
@@ -340,6 +357,7 @@ class FeedPreviewItem {
         'authorIsFollowing': authorIsFollowing,
         if (status != null) 'status': status,
         'materials': materials,
+        'styleTags': styleTags,
       };
 
   factory FeedPreviewItem.fromCacheJson(Map<String, dynamic> json) {
@@ -358,6 +376,7 @@ class FeedPreviewItem {
           : FeedAspectRatio.portrait3x4,
       isProcess: json['isProcess'] as bool? ?? false,
       seriesName: json['seriesName'] as String? ?? '',
+      seriesId: json['seriesId'] as String?,
       seriesThumbs: (json['seriesThumbs'] as List?)?.cast<int>() ?? const [],
       seriesThumbUrls:
           (json['seriesThumbUrls'] as List?)?.cast<String>() ?? const [],
@@ -371,6 +390,7 @@ class FeedPreviewItem {
       location: json['location'] as String?,
       framingNote: json['framingNote'] as String?,
       provenanceNote: json['provenanceNote'] as String?,
+      handlingNotes: json['handlingNotes'] as String?,
       heroImageUrl: json['heroImageUrl'] as String?,
       galleryImageUrls:
           (json['galleryImageUrls'] as List?)?.whereType<String>().toList() ??
@@ -385,6 +405,9 @@ class FeedPreviewItem {
       status: json['status'] as String?,
       materials:
           (json['materials'] as List?)?.whereType<String>().toList() ??
+              const [],
+      styleTags:
+          (json['styleTags'] as List?)?.whereType<String>().toList() ??
               const [],
     );
   }

@@ -27,7 +27,7 @@ import '../widgets/create_flow/series_picker_sheet.dart';
 import '../widgets/post_create_option_sheet.dart';
 import '../widgets/post_crop_preview.dart';
 import '../utils/payout_setup.dart';
-import '../widgets/uploading_dialog.dart';
+import '../widgets/publish_result_overlays.dart';
 import 'add_materials_page.dart';
 
 /// Add Piece / Scene details — posting flow step (Figma 1995:1486).
@@ -67,6 +67,8 @@ class _PostCreatePageState extends State<PostCreatePage> {
   final _listingFormKey = GlobalKey<ListingDetailsFormState>();
   bool _aiToolsUsed = false;
   bool _publishing = false;
+  bool _publishSuccess = false;
+  bool _publishFailed = false;
   bool _listForSale = false;
   bool? _forSaleChoice;
   String? _sellMode;
@@ -316,61 +318,30 @@ class _PostCreatePageState extends State<PostCreatePage> {
   }
 
   Future<void> _publish(PostDraft draft) async {
-    setState(() => _publishing = true);
-    showUploadingDialog(context, message: 'Publishing…');
+    setState(() {
+      _publishing = true;
+      _publishFailed = false;
+    });
     try {
       await PostPublishService.instance.publish(draft);
       if (!mounted) return;
-      hideUploadingDialog(context);
-      Navigator.of(context).popUntil((route) => route.isFirst);
-      final message = draft.isForSale
-          ? 'Piece listed for sale'
-          : 'Published successfully';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: Colors.white,
-          elevation: 6,
-          margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-          content: Row(
-            children: [
-              const Icon(
-                Icons.check_circle,
-                color: Color(0xFF3BA55D),
-                size: 20,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  message,
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: HomeFeedTokens.textPrimary,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
+      setState(() {
+        _publishing = false;
+        _publishSuccess = true;
+      });
     } catch (e) {
       if (!mounted) return;
-      hideUploadingDialog(context);
-      final message = e is ApiException ? e.message : e.toString();
+      setState(() => _publishing = false);
       if (e is ApiException && isPayoutSetupRequiredMessage(e.message)) {
         await openPayoutSetup(context);
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
-    } finally {
-      if (mounted) setState(() => _publishing = false);
+      setState(() => _publishFailed = true);
     }
+  }
+
+  void _finishPublishSuccess() {
+    Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
   bool get _priceValid {
@@ -484,104 +455,133 @@ class _PostCreatePageState extends State<PostCreatePage> {
         : !_publishing;
     final ctaLabel = _pieceTab == 2 ? 'Publish' : 'Save and continue';
 
-    return PopScope(
-      canPop: _pieceTab == 0,
-      onPopInvokedWithResult: (didPop, result) {
-        if (!didPop) _onPieceBannerBack();
-      },
-      child: Scaffold(
-        backgroundColor: HomeFeedTokens.background,
-        body: Column(
-          children: [
-            CreateFlowBanner(
-              topInset: topInset,
-              title: 'Piece',
-              onClose: _onPieceBannerBack,
-              useBackChevron: true,
-              height: 53,
-            ),
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    _buildPieceCoverAndTabs(),
-                    if (_pieceTab == 0)
-                      PieceAvailabilityForm(
-                        forSale: _forSaleChoice,
-                        sellMode: _sellMode,
-                        auctionDays: _auctionDays,
-                        priceController: _priceController,
-                        onForSaleChanged: _onPieceForSaleChanged,
-                        onSellModeChanged: (mode) {
-                          setState(() => _sellMode = mode);
-                        },
-                        onAuctionDaysChanged: (days) {
-                          setState(() => _auctionDays = days);
-                        },
-                      ),
-                    Visibility(
-                      visible: _pieceTab == 1,
-                      maintainState: true,
-                      maintainAnimation: true,
-                      child: PieceDetailsForm(
-                        key: _pieceDetailsKey,
-                        titleController: _nameController,
-                        descriptionController: _descriptionController,
-                        locationTrailing: _selectedLocation?.name,
-                        mediumTrailing: _mediumTrailing,
-                        styleTrailing: _pieceStyleTrailing,
-                        materialsTrailing: _pieceMaterialsTrailing,
-                        seriesTrailing: _seriesLabel,
-                        relatedScenesTrailing: _relatedScenesTrailing,
-                        onLocation: _openLocationPicker,
-                        onMedium: _openMediumPicker,
-                        onStyle: _openStylePicker,
-                        onMaterials: _openMaterialsPage,
-                        onSeries: _openSeriesPicker,
-                        onRelatedScenes: _openRelatedScenesPicker,
-                        onChanged: () {
-                          if (mounted) setState(() {});
-                        },
-                      ),
-                    ),
-                    if (_pieceTab == 2) _buildSummary(),
-                  ],
-                ),
+    return StudioPublishFlowGate(
+      publishing: _publishing,
+      success: _publishSuccess,
+      failure: _publishFailed,
+      publishingMessage: 'Publishing your piece...',
+      successTitle: 'Your piece is live',
+      onSuccessDismiss: _finishPublishSuccess,
+      onRetry: () => _publish(_buildDraft()),
+      imagePath: widget.imagePaths.isEmpty
+          ? null
+          : widget.imagePaths[widget.previewImageIndex],
+      transform: widget.transforms.isEmpty
+          ? null
+          : widget.transforms[widget.previewImageIndex],
+      videoThumbnailBytes: widget.videoThumbnailBytes,
+      child: PopScope(
+        canPop:
+            _pieceTab == 0 &&
+            !_publishing &&
+            !_publishSuccess &&
+            !_publishFailed,
+        onPopInvokedWithResult: (didPop, result) {
+          if (didPop) return;
+          if (_publishSuccess) {
+            _finishPublishSuccess();
+            return;
+          }
+          if (_publishFailed) {
+            setState(() => _publishFailed = false);
+            return;
+          }
+          _onPieceBannerBack();
+        },
+        child: Scaffold(
+          backgroundColor: HomeFeedTokens.background,
+          body: Column(
+            children: [
+              CreateFlowBanner(
+                topInset: topInset,
+                title: 'Piece',
+                onClose: _onPieceBannerBack,
+                useBackChevron: true,
+                height: 53,
               ),
-            ),
-            Padding(
-              padding: EdgeInsets.fromLTRB(10, 24, 10, bottomInset + 24),
-              child: Opacity(
-                opacity: continueEnabled && !_publishing ? 1 : 0.4,
-                child: CreateFlowBottomButton(
-                  label: ctaLabel,
-                  height: 40,
-                  backgroundColor: HomeFeedTokens.neutral800,
-                  textColor: HomeFeedTokens.textInverse,
-                  onTap: _publishing || !continueEnabled
-                      ? null
-                      : _onPieceContinue,
-                  child: _publishing
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: HomeFeedTokens.textInverse,
-                          ),
-                        )
-                      : Text(
-                          ctaLabel,
-                          style: GoogleFonts.geist(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w400,
-                            color: HomeFeedTokens.textInverse,
-                          ),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      _buildPieceCoverAndTabs(),
+                      if (_pieceTab == 0)
+                        PieceAvailabilityForm(
+                          forSale: _forSaleChoice,
+                          sellMode: _sellMode,
+                          auctionDays: _auctionDays,
+                          priceController: _priceController,
+                          onForSaleChanged: _onPieceForSaleChanged,
+                          onSellModeChanged: (mode) {
+                            setState(() => _sellMode = mode);
+                          },
+                          onAuctionDaysChanged: (days) {
+                            setState(() => _auctionDays = days);
+                          },
                         ),
+                      Visibility(
+                        visible: _pieceTab == 1,
+                        maintainState: true,
+                        maintainAnimation: true,
+                        child: PieceDetailsForm(
+                          key: _pieceDetailsKey,
+                          titleController: _nameController,
+                          descriptionController: _descriptionController,
+                          locationTrailing: _selectedLocation?.name,
+                          mediumTrailing: _mediumTrailing,
+                          styleTrailing: _pieceStyleTrailing,
+                          materialsTrailing: _pieceMaterialsTrailing,
+                          seriesTrailing: _seriesLabel,
+                          relatedScenesTrailing: _relatedScenesTrailing,
+                          onLocation: _openLocationPicker,
+                          onMedium: _openMediumPicker,
+                          onStyle: _openStylePicker,
+                          onMaterials: _openMaterialsPage,
+                          onSeries: _openSeriesPicker,
+                          onRelatedScenes: _openRelatedScenesPicker,
+                          onChanged: () {
+                            if (mounted) setState(() {});
+                          },
+                        ),
+                      ),
+                      if (_pieceTab == 2) _buildSummary(),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+              Padding(
+                padding: EdgeInsets.fromLTRB(10, 24, 10, bottomInset + 24),
+                child: Opacity(
+                  opacity: continueEnabled && !_publishing ? 1 : 0.4,
+                  child: CreateFlowBottomButton(
+                    label: ctaLabel,
+                    height: 40,
+                    backgroundColor: HomeFeedTokens.neutral800,
+                    textColor: HomeFeedTokens.textInverse,
+                    onTap: _publishing || !continueEnabled
+                        ? null
+                        : _onPieceContinue,
+                    child: _publishing
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: HomeFeedTokens.textInverse,
+                            ),
+                          )
+                        : Text(
+                            ctaLabel,
+                            style: GoogleFonts.geist(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w400,
+                              color: HomeFeedTokens.textInverse,
+                            ),
+                          ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

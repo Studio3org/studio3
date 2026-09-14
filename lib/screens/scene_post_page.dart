@@ -11,6 +11,7 @@ import '../widgets/post_gallery/post_gallery_picker.dart';
 import '../widgets/post_gallery/posting_banner.dart';
 import 'scene_create_page.dart';
 import 'scene_edit_page.dart';
+import 'scene_video_edit_page.dart';
 
 enum _SceneFlowStep { gallery, edit, details }
 
@@ -97,24 +98,44 @@ class _ScenePostPageState extends State<ScenePostPage> {
       },
       child: switch (_step) {
         _SceneFlowStep.gallery => _buildGallery(),
-        _SceneFlowStep.edit => SceneEditPage(
-          imagePath: _imagePaths.isEmpty ? null : _imagePaths.first,
-          videoThumbnailBytes: _videoThumbnailBytes,
-          initialTransform: _transforms.isEmpty ? null : _transforms.first,
-          onBack: _backToGallery,
-          onNext: (transform) {
-            setState(() {
-              _transforms = [transform];
-              _step = _SceneFlowStep.details;
-            });
-          },
-        ),
+        _SceneFlowStep.edit =>
+          _videoPath != null
+              ? SceneVideoEditPage(
+                  videoPath: _videoPath!,
+                  onBack: _backToGallery,
+                  onNext: (path, thumbnail) {
+                    setState(() {
+                      _videoPath = path;
+                      if (thumbnail != null) {
+                        _videoThumbnailBytes = thumbnail;
+                      }
+                      _step = _SceneFlowStep.details;
+                    });
+                  },
+                )
+              : SceneEditPage(
+                  imagePath: _imagePaths.isEmpty ? null : _imagePaths.first,
+                  videoThumbnailBytes: _videoThumbnailBytes,
+                  initialTransform: _transforms.isEmpty
+                      ? null
+                      : _transforms.first,
+                  onBack: _backToGallery,
+                  onNext: (transform) {
+                    setState(() {
+                      _transforms = [transform];
+                      _step = _SceneFlowStep.details;
+                    });
+                  },
+                ),
         _SceneFlowStep.details => SceneCreatePage(
           imagePaths: _imagePaths,
           transforms: _transforms,
           previewImageIndex: 0,
           onClose: _exitFlow,
           onEdit: _backToEdit,
+          onCoverChanged: (bytes) {
+            setState(() => _videoThumbnailBytes = bytes);
+          },
           mediaKind: _videoPath != null ? 'video' : 'image',
           videoPath: _videoPath,
           videoThumbnailBytes: _videoThumbnailBytes,

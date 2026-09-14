@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/app_theme.dart';
 import '../theme/home_feed_tokens.dart';
@@ -345,6 +346,47 @@ class StudioLoadingOverlayDark extends StatelessWidget {
   }
 }
 
+/// Full-page cream overlay used while a scene or piece is publishing.
+class StudioPublishingOverlay extends StatelessWidget {
+  const StudioPublishingOverlay({super.key, required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: false,
+      child: ColoredBox(
+        color: HomeFeedTokens.background,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const StudioBubbleLoader(
+                  width: 88,
+                  color: HomeFeedTokens.textPrimary,
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.geist(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w500,
+                    color: HomeFeedTokens.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Immersive loading experience used only while the login request completes.
 class StudioLoginLoadingOverlay extends StatelessWidget {
   const StudioLoginLoadingOverlay({super.key});
@@ -378,6 +420,7 @@ class StudioLoadingGate extends StatelessWidget {
     this.dark = false,
     this.loginExperience = false,
     this.backgroundColor,
+    this.publishingMessage,
   });
 
   final bool loading;
@@ -385,6 +428,7 @@ class StudioLoadingGate extends StatelessWidget {
   final bool dark;
   final bool loginExperience;
   final Color? backgroundColor;
+  final String? publishingMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -393,7 +437,9 @@ class StudioLoadingGate extends StatelessWidget {
         child,
         if (loading)
           Positioned.fill(
-            child: loginExperience
+            child: publishingMessage != null
+                ? StudioPublishingOverlay(message: publishingMessage!)
+                : loginExperience
                 ? const StudioLoginLoadingOverlay()
                 : dark
                 ? const StudioLoadingOverlayDark()

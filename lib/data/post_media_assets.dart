@@ -35,6 +35,9 @@ abstract final class PostMediaAssets {
   static const addPlusIcon = 'assets/post/create/add_plus_icon.svg';
   static const sharePieceIcon = 'assets/post/create/share_piece_icon.svg';
   static const shareSceneIcon = 'assets/post/create/share_scene_icon.svg';
+  static const publishSuccessCheck =
+      'assets/post/create/publish_success_check.svg';
+  static const publishFailAlert = 'assets/post/create/publish_fail_alert.svg';
 
   static const sceneEditBack = 'assets/post/scene/back.svg';
   static const sceneEditSize = 'assets/post/scene/size.svg';

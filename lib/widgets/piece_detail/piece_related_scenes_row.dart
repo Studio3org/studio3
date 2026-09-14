@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/feed_preview_item.dart';
-import '../../theme/home_feed_tokens.dart';
+import '../../theme/piece_detail_type.dart';
 import '../../utils/explore_detail_route.dart';
 import '../../models/feed_item.dart';
 import '../../models/post_summary.dart';
@@ -12,9 +12,17 @@ class PieceRelatedScenesRow extends StatelessWidget {
   const PieceRelatedScenesRow({
     super.key,
     required this.scenes,
+    this.title,
+    this.gap = 12,
+    this.headerPadding = const EdgeInsets.fromLTRB(10, 0, 10, 8),
+    this.listPadding = const EdgeInsets.symmetric(horizontal: 19),
   });
 
   final List<RelatedScene> scenes;
+  final String? title;
+  final double gap;
+  final EdgeInsetsGeometry headerPadding;
+  final EdgeInsetsGeometry listPadding;
 
   @override
   Widget build(BuildContext context) {
@@ -24,23 +32,24 @@ class PieceRelatedScenesRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+          padding: headerPadding,
           child: Text(
-            'Related Scenes · ${scenes.length}',
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              fontWeight: FontWeight.w400,
-              color: HomeFeedTokens.textSecondary,
-            ),
+            title ?? 'Related Scenes · ${scenes.length}',
+            style: title == null
+                ? PieceDetailType.meta
+                : PieceDetailType.storyHeader,
+            strutStyle: title == null
+                ? PieceDetailType.metaStrut
+                : PieceDetailType.storyHeaderStrut,
           ),
         ),
         SizedBox(
           height: 227,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 19),
+            padding: listPadding,
             itemCount: scenes.length,
-            separatorBuilder: (context, index) => const SizedBox(width: 12),
+            separatorBuilder: (context, index) => SizedBox(width: gap),
             itemBuilder: (context, index) {
               final scene = scenes[index];
               return GestureDetector(

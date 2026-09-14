@@ -6,20 +6,24 @@ import '../services/api_exception.dart';
 import '../services/auth_session.dart';
 import '../services/piece_service.dart';
 import '../services/post_service.dart';
+import '../theme/collect_detail_tokens.dart';
 import '../theme/home_feed_tokens.dart';
 import '../utils/content_detail_loader.dart';
 import 'edit_piece_page.dart';
 import 'edit_scene_page.dart';
-import '../widgets/piece_detail/ask_about_piece_sheet.dart';
-import '../widgets/piece_detail/detail_hero_image.dart';
 import '../widgets/piece_detail/detail_follow_state.dart';
+import '../widgets/piece_detail/detail_hero_image.dart';
 import '../widgets/piece_detail/detail_save_state.dart';
 import '../widgets/piece_detail/detail_scroll_handoff.dart';
+import '../widgets/piece_detail/double_tap_like_hint.dart';
+import '../widgets/piece_detail/materials_sheet.dart';
 import '../widgets/piece_detail/piece_action_bar.dart';
 import '../widgets/piece_detail/piece_artist_row.dart';
-import '../widgets/piece_detail/materials_sheet.dart';
 import '../widgets/piece_detail/piece_comment_sheet.dart';
+import '../widgets/piece_detail/piece_figma_detail_body.dart';
+import '../widgets/piece_detail/piece_hero_overlay.dart';
 import '../widgets/piece_detail/piece_location_row.dart';
+import '../widgets/piece_detail/piece_more_sheet.dart';
 import '../widgets/piece_detail/piece_related_scenes_row.dart';
 import '../widgets/piece_detail/piece_share_sheet.dart';
 import '../widgets/piece_detail/piece_series_row.dart';
@@ -29,24 +33,24 @@ class PieceDetailPage extends StatefulWidget {
     super.key,
     required this.item,
     this.initialImageIndex = 0,
-    this.tappedIndex = 0,
-    this.filter = FeedAvailabilityFilter.all,
-    this.onWillAdvance,
   });
 
   final FeedPreviewItem item;
   final int initialImageIndex;
-  final int tappedIndex;
-  final FeedAvailabilityFilter filter;
-  final void Function(int nextIndex)? onWillAdvance;
 
   @override
   State<PieceDetailPage> createState() => _PieceDetailPageState();
 }
 
 class _PieceDetailPageState extends State<PieceDetailPage>
-    with DetailSaveState, DetailLikeState, DetailFollowState {
+    with
+        TickerProviderStateMixin,
+        DetailSaveState,
+        DetailLikeState,
+        DetailFollowState {
   late FeedPreviewItem _item;
+  late final AnimationController _hintController;
+  late final AnimationController _burstController;
 
   @override
   FeedPreviewItem get saveItem => _item;
@@ -66,13 +70,6 @@ class _PieceDetailPageState extends State<PieceDetailPage>
     final viewerUsername = AuthSession.instance.user?.username;
     if (viewerUsername == null || viewerUsername.isEmpty) return false;
     return viewerUsername.toLowerCase() == _authorHandle.toLowerCase();
-  }
-
-  bool get _canAskAboutPiece {
-    if (item.isScene) return false;
-    final viewerUsername = AuthSession.instance.user?.username;
-    if (viewerUsername == null || viewerUsername.isEmpty) return false;
-    return viewerUsername.toLowerCase() != _authorHandle.toLowerCase();
   }
 
   Future<void> _onEdit() async {
@@ -105,44 +102,116 @@ class _PieceDetailPageState extends State<PieceDetailPage>
     }
   }
 
-  Future<void> _onAskAboutPiece() async {
-    final sent = await AskAboutPieceSheet.show(context, pieceId: item.id);
-    if (sent == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Message sent to the artist')),
-      );
-    }
-  }
-
   @override
   void initState() {
     _item = engagementStore.applyToPreview(widget.item);
+    _hintController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2200),
+    );
+    _burstController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
     super.initState();
     liked = _item.isLiked;
     likeCount = _item.likeCount;
     applyFollowState(_item);
     _loadDetail();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || liked || item.isScene) return;
+      _hintController.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _hintController.dispose();
+    _burstController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadDetail() async {
     final loaded = await ContentDetailLoader.load(_item);
     if (!mounted) return;
-    // Engagement overrides already merged in the loader — keep local
-    // optimistic like/save if a toggle is still in flight via apply*.
     setState(() => _item = loaded);
     applySaveItem(loaded);
     applyLikeItem(loaded);
     applyFollowState(loaded);
   }
 
+  Future<void> _onDoubleTapLike() async {
+    _hintController.stop();
+    _hintController.value = 1;
+    await likeFromDoubleTap();
+    if (!mounted) return;
+    _burstController.forward(from: 0);
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (item.isScene) return _buildSceneDetail();
+    return _buildPieceDetail();
+  }
+
+  Widget _buildPieceDetail() {
+    return Scaffold(
+      backgroundColor: CollectDetailTokens.background,
+      body: DetailScrollHandoff(
+        bottomInset: MediaQuery.paddingOf(context).bottom,
+        slivers: [
+          SliverToBoxAdapter(
+            child: AspectRatio(
+              aspectRatio: 3 / 4,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  DetailHeroImage(
+                    item: item,
+                    initialImageIndex: widget.initialImageIndex,
+                    onDoubleTap: _onDoubleTapLike,
+                  ),
+                  PieceHeroOverlay(
+                    saved: saved,
+                    onBack: () => Navigator.pop(context),
+                    onSave: toggleSave,
+                    onShare: () => PieceShareSheet.show(
+                      context,
+                      item,
+                      imageIndex: widget.initialImageIndex,
+                    ),
+                    onMore: () => PieceMoreSheet.show(
+                      context,
+                      item: item,
+                      isOwner: _isOwner,
+                      onEdit: _isOwner ? _onEdit : null,
+                      imageIndex: widget.initialImageIndex,
+                    ),
+                  ),
+                  if (!liked || _hintController.isAnimating)
+                    DoubleTapLikeHint(animation: _hintController),
+                  DoubleTapLikeBurst(animation: _burstController),
+                ],
+              ),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: PieceFigmaDetailBody(
+              item: item,
+              followState: followState,
+              followBusy: followBusy,
+              onFollowToggle: toggleFollow,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSceneDetail() {
     return Scaffold(
       backgroundColor: HomeFeedTokens.detailBackground,
       body: DetailScrollHandoff(
-        tappedIndex: widget.tappedIndex,
-        filter: widget.filter,
-        onWillAdvance: widget.onWillAdvance,
         bottomInset: MediaQuery.paddingOf(context).bottom,
         slivers: [
           SliverToBoxAdapter(
@@ -212,16 +281,6 @@ class _PieceDetailPageState extends State<PieceDetailPage>
                   followBusy: followBusy,
                   onFollowToggle: toggleFollow,
                 ),
-                // "Ask about this piece" (piece-anchored inquiries) deferred to v2 in favor of
-                // general-purpose chat. Left commented out rather than removed.
-                // if (_canAskAboutPiece)
-                //   Padding(
-                //     padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                //     child: OutlinedButton(
-                //       onPressed: _onAskAboutPiece,
-                //       child: const Text('Ask about this piece'),
-                //     ),
-                //   ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                   child: Text(
