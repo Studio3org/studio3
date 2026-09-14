@@ -5,6 +5,8 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../models/feed_item.dart';
 import '../models/feed_preview_item.dart';
+import '../data/event_dummy_data.dart';
+import '../screens/event_detail_page.dart';
 import '../services/post_service.dart';
 import '../services/social_service.dart';
 import '../services/user_service.dart';
@@ -359,6 +361,12 @@ class _SavedItemsViewState extends State<_SavedItemsView> {
   }
 
   void _openEntry(SavedEntry entry) {
+    if (entry.kind == SavedContentKind.event) {
+      final event = entry.event ?? EventDummyData.byId(entry.id);
+      openEventDetail(context, event);
+      return;
+    }
+
     if (entry.isVideoScene && entry.feedItem != null) {
       final videoItems = _store.videoSceneFeedItems;
       final index = videoItems.indexWhere((item) => item.id == entry.id);
@@ -427,7 +435,7 @@ class _SavedItemsViewState extends State<_SavedItemsView> {
       try {
         if (entry.kind == SavedContentKind.scene) {
           await SocialService.instance.unsavePost(entry.id);
-        } else {
+        } else if (entry.kind == SavedContentKind.piece) {
           await SocialService.instance.unsavePiece(entry.id);
         }
       } catch (_) {
@@ -440,11 +448,13 @@ class _SavedItemsViewState extends State<_SavedItemsView> {
   String _emptyMessage() {
     switch (_filter) {
       case SavedContentFilter.all:
-        return 'Saved pieces and scenes will appear here';
+        return 'Saved pieces, scenes, and events will appear here';
       case SavedContentFilter.piece:
         return 'No saved pieces yet';
       case SavedContentFilter.scene:
         return 'No saved scenes yet';
+      case SavedContentFilter.event:
+        return 'No saved events yet';
     }
   }
 
@@ -457,29 +467,39 @@ class _SavedItemsViewState extends State<_SavedItemsView> {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              FeedFilterTab(
-                label: 'All',
-                active: _filter == SavedContentFilter.all,
-                onTap: () => setState(() => _filter = SavedContentFilter.all),
-              ),
-              const SizedBox(width: 24),
-              FeedFilterTab(
-                label: 'Piece',
-                active: _filter == SavedContentFilter.piece,
-                onTap: () =>
-                    setState(() => _filter = SavedContentFilter.piece),
-              ),
-              const SizedBox(width: 24),
-              FeedFilterTab(
-                label: 'Scene',
-                active: _filter == SavedContentFilter.scene,
-                onTap: () =>
-                    setState(() => _filter = SavedContentFilter.scene),
-              ),
-            ],
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                FeedFilterTab(
+                  label: 'All',
+                  active: _filter == SavedContentFilter.all,
+                  onTap: () => setState(() => _filter = SavedContentFilter.all),
+                ),
+                const SizedBox(width: 24),
+                FeedFilterTab(
+                  label: 'Piece',
+                  active: _filter == SavedContentFilter.piece,
+                  onTap: () =>
+                      setState(() => _filter = SavedContentFilter.piece),
+                ),
+                const SizedBox(width: 24),
+                FeedFilterTab(
+                  label: 'Scene',
+                  active: _filter == SavedContentFilter.scene,
+                  onTap: () =>
+                      setState(() => _filter = SavedContentFilter.scene),
+                ),
+                const SizedBox(width: 24),
+                FeedFilterTab(
+                  label: 'Event',
+                  active: _filter == SavedContentFilter.event,
+                  onTap: () =>
+                      setState(() => _filter = SavedContentFilter.event),
+                ),
+              ],
+            ),
           ),
         ),
         Expanded(

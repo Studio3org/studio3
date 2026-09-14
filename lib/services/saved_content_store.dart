@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
+import '../data/event_dummy_data.dart';
 import '../models/feed_item.dart';
 import '../models/feed_preview_item.dart';
 import '../models/piece_summary.dart';
@@ -11,9 +12,9 @@ import 'cache_service.dart';
 import 'engagement_store.dart';
 import 'social_service.dart';
 
-enum SavedContentKind { piece, scene }
+enum SavedContentKind { piece, scene, event }
 
-enum SavedContentFilter { all, piece, scene }
+enum SavedContentFilter { all, piece, scene, event }
 
 class SavedEntry {
   const SavedEntry({
@@ -21,6 +22,7 @@ class SavedEntry {
     required this.kind,
     this.preview,
     this.feedItem,
+    this.event,
     this.savedAt = 0,
   });
 
@@ -28,6 +30,7 @@ class SavedEntry {
   final SavedContentKind kind;
   final FeedPreviewItem? preview;
   final FeedItem? feedItem;
+  final DummyEvent? event;
 
   /// Epoch ms when this item was saved — used to pick a "most recent" cover
   /// for the "Saved" folder tile. Defaults to 0 for cache entries written
@@ -35,7 +38,11 @@ class SavedEntry {
   final int savedAt;
 
   String get title =>
-      preview?.title ?? feedItem?.title ?? feedItem?.post?.caption ?? 'Saved';
+      event?.title ??
+      preview?.title ??
+      feedItem?.title ??
+      feedItem?.post?.caption ??
+      'Saved';
 
   String get authorName =>
       preview?.displayName ?? feedItem?.authorName ?? 'Artist';
@@ -49,15 +56,26 @@ class SavedEntry {
     'savedAt': savedAt,
     if (preview != null) 'preview': preview!.toJson(),
     if (feedItem != null) 'feedItem': feedItem!.toJson(),
+    if (event != null) 'event': event!.toJson(),
   };
 
   factory SavedEntry.fromJson(Map<String, dynamic> json) {
     final feedItemJson = json['feedItem'] as Map<String, dynamic>?;
+    final eventJson = json['event'] as Map<String, dynamic>?;
+    final kind = switch (json['kind'] as String?) {
+      'piece' => SavedContentKind.piece,
+      'event' => SavedContentKind.event,
+      _ => SavedContentKind.scene,
+    };
+    DummyEvent? event;
+    if (eventJson != null) {
+      event = DummyEvent.fromJson(eventJson);
+    } else if (kind == SavedContentKind.event) {
+      event = EventDummyData.byId(json['id'] as String? ?? '');
+    }
     return SavedEntry(
       id: json['id'] as String? ?? '',
-      kind: json['kind'] == 'piece'
-          ? SavedContentKind.piece
-          : SavedContentKind.scene,
+      kind: kind,
       savedAt: json['savedAt'] as int? ?? 0,
       preview: json['preview'] != null
           ? FeedPreviewItem.fromCacheJson(
@@ -65,6 +83,7 @@ class SavedEntry {
             )
           : null,
       feedItem: feedItemJson != null ? FeedItem.fromJson(feedItemJson) : null,
+      event: event,
     );
   }
 }
@@ -115,6 +134,7 @@ class SavedCollection {
 /// Resolves the thumbnail to show for a saved entry, shared by the flat
 /// saved grid and the folder tiles so both fall back the same way.
 String? savedEntryThumbnailUrl(SavedEntry entry) {
+  if (entry.event != null) return entry.event!.imageUrl;
   final preview = entry.preview;
   if (preview != null) {
     return preview.heroImageUrl ?? feedPreviewImageUrl(preview);
@@ -422,6 +442,10 @@ class SavedContentStore extends ChangeNotifier {
         return items
             .where((entry) => entry.kind == SavedContentKind.scene)
             .toList(growable: false);
+      case SavedContentFilter.event:
+        return items
+            .where((entry) => entry.kind == SavedContentKind.event)
+            .toList(growable: false);
     }
   }
 
@@ -451,6 +475,10 @@ class SavedContentStore extends ChangeNotifier {
       case SavedContentFilter.scene:
         return all
             .where((entry) => entry.kind == SavedContentKind.scene)
+            .toList(growable: false);
+      case SavedContentFilter.event:
+        return all
+            .where((entry) => entry.kind == SavedContentKind.event)
             .toList(growable: false);
     }
   }
@@ -493,6 +521,25 @@ class SavedContentStore extends ChangeNotifier {
     unawaited(_persistEntries());
   }
 
+  void saveEvent(DummyEvent event) {
+    _entries[event.id] = SavedEntry(
+      id: event.id,
+      kind: SavedContentKind.event,
+      event: event,
+      savedAt: DateTime.now().millisecondsSinceEpoch,
+    );
+    notifyListeners();
+    unawaited(_persistEntries());
+  }
+
+  void toggleEvent(DummyEvent event) {
+    if (isSaved(event.id)) {
+      unsave(event.id);
+    } else {
+      saveEvent(event);
+    }
+  }
+
   void saveFeedItem(FeedItem item) {
     FeedPreviewItem? preview;
     if (item.type == FeedItemType.post) {
@@ -519,9 +566,11 @@ class SavedContentStore extends ChangeNotifier {
     }
     removeEntryFromAllCollections(
       id,
-      targetType: removedEntry == null
-          ? null
-          : (removedEntry.kind == SavedContentKind.scene ? 'post' : 'piece'),
+      targetType: switch (removedEntry?.kind) {
+        SavedContentKind.scene => 'post',
+        SavedContentKind.piece => 'piece',
+        _ => null,
+      },
     );
   }
 }
