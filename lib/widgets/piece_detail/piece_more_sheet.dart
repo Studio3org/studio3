@@ -8,6 +8,7 @@ import '../../theme/collect_detail_tokens.dart';
 import '../../theme/home_feed_tokens.dart';
 import '../../utils/profile_navigation.dart';
 import 'detail_share.dart';
+import 'report_reason_sheet.dart';
 
 class PieceMoreSheet extends StatelessWidget {
   const PieceMoreSheet({
@@ -95,11 +96,19 @@ class PieceMoreSheet extends StatelessWidget {
               },
             ),
             _MoreRow(
-              label: 'Report',
+              label: item.isScene ? 'Report scene' : 'Report piece',
               destructive: true,
               onTap: () {
                 Navigator.pop(context);
-                _confirmReport(context);
+                _reportContent(context);
+              },
+            ),
+            _MoreRow(
+              label: 'Report artist',
+              destructive: true,
+              onTap: () {
+                Navigator.pop(context);
+                _reportArtist(context);
               },
             ),
             _MoreRow(
@@ -116,44 +125,53 @@ class PieceMoreSheet extends StatelessWidget {
     );
   }
 
-  Future<void> _confirmReport(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: HomeFeedTokens.background,
-        title: Text(
-          'Report this piece?',
-          style: GoogleFonts.geist(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-            color: CollectDetailTokens.textPrimary,
-          ),
-        ),
-        content: Text(
-          'We’ll review it for spam, stolen work, or anything that doesn’t belong on Studio.',
-          style: GoogleFonts.geist(
-            fontSize: 14,
-            color: CollectDetailTokens.textSecondary,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(
-              'Report',
-              style: GoogleFonts.geist(color: const Color(0xFFC45C4A)),
-            ),
-          ),
-        ],
-      ),
+  Future<void> _reportContent(BuildContext context) async {
+    final result = await ReportReasonSheet.show(
+      context,
+      title: item.isScene ? 'Report this scene' : 'Report this piece',
     );
-    if (confirmed == true && context.mounted) {
+    if (result == null || !context.mounted) return;
+    try {
+      if (item.isScene) {
+        await SocialService.instance
+            .reportPost(item.id, result.reason, details: result.details);
+      } else {
+        await SocialService.instance
+            .reportPiece(item.id, result.reason, details: result.details);
+      }
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Thanks — we received your report')),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      final message =
+          e is ApiException ? e.message : 'Could not submit your report';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    }
+  }
+
+  Future<void> _reportArtist(BuildContext context) async {
+    final result = await ReportReasonSheet.show(
+      context,
+      title: 'Report $_handle',
+    );
+    if (result == null || !context.mounted) return;
+    try {
+      await SocialService.instance
+          .reportUser(_handle, result.reason, details: result.details);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Thanks — we received your report')),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      final message =
+          e is ApiException ? e.message : 'Could not submit your report';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
       );
     }
   }

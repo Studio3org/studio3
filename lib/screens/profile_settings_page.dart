@@ -300,6 +300,11 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
               label: 'Blocked accounts',
               onTap: () => Navigator.pushNamed(context, '/blocked-users'),
             ),
+            SettingsTile(
+              icon: Icons.flag_outlined,
+              label: 'My reports',
+              onTap: () => Navigator.pushNamed(context, '/my-reports'),
+            ),
 
             const _SectionHeader('Login & security'),
             SettingsTile(

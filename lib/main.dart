@@ -47,6 +47,7 @@ import 'screens/change_password_page.dart';
 import 'screens/change_email_page.dart';
 import 'screens/notification_preferences_page.dart';
 import 'screens/blocked_users_page.dart';
+import 'screens/my_reports_page.dart';
 import 'screens/privacy_settings_page.dart';
 import 'screens/payout_setup_page.dart';
 import 'models/auth_user.dart';
@@ -155,6 +156,7 @@ class Studio3App extends StatelessWidget {
         '/notification-preferences': (context) => const NotificationPreferencesPage(),
         '/privacy-settings': (context) => const PrivacySettingsPage(),
         '/blocked-users': (context) => const BlockedUsersPage(),
+        '/my-reports': (context) => const MyReportsPage(),
         '/profile': (context) {
           final args = parseProfileRouteArgs(
             ModalRoute.of(context)?.settings.arguments,
