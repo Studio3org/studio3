@@ -70,6 +70,12 @@ class FeedPreviewItem {
     this.seriesThumbUrls = const [],
     this.relatedScenes = const [],
     this.priceCents,
+    this.listingType,
+    this.auctionEndsAt,
+    this.highestBidCents,
+    this.bidCount = 0,
+    this.minNextBidCents,
+    this.isHighestBidder = false,
     this.shippingRegion,
     this.location,
     this.framingNote,
@@ -106,6 +112,14 @@ class FeedPreviewItem {
   final List<String> seriesThumbUrls;
   final List<RelatedScene> relatedScenes;
   final int? priceCents;
+  /// `fixed` | `auction`; null when not for sale or not auction-listed.
+  final String? listingType;
+  final DateTime? auctionEndsAt;
+  final int? highestBidCents;
+  final int bidCount;
+  final int? minNextBidCents;
+  /// Only meaningful once `status == 'auction_won'` — whether the viewer is the winner.
+  final bool isHighestBidder;
   final String? shippingRegion;
   final String? location;
   final String? framingNote;
@@ -128,6 +142,11 @@ class FeedPreviewItem {
   final List<String> styleTags;
 
   bool get isLive => status == null || status == 'live';
+
+  bool get isAuction => listingType == 'auction';
+
+  /// The auction closed with a winning bid and is awaiting the winner's checkout.
+  bool get isAuctionWon => status == 'auction_won';
 
   int get imageCount =>
       galleryImageUrls.isNotEmpty ? galleryImageUrls.length : imageSeeds.length;
@@ -174,6 +193,12 @@ class FeedPreviewItem {
     List<String>? seriesThumbUrls,
     List<RelatedScene>? relatedScenes,
     int? priceCents,
+    String? listingType,
+    DateTime? auctionEndsAt,
+    int? highestBidCents,
+    int? bidCount,
+    int? minNextBidCents,
+    bool? isHighestBidder,
     String? shippingRegion,
     String? location,
     String? framingNote,
@@ -210,6 +235,12 @@ class FeedPreviewItem {
       seriesThumbUrls: seriesThumbUrls ?? this.seriesThumbUrls,
       relatedScenes: relatedScenes ?? this.relatedScenes,
       priceCents: priceCents ?? this.priceCents,
+      listingType: listingType ?? this.listingType,
+      auctionEndsAt: auctionEndsAt ?? this.auctionEndsAt,
+      highestBidCents: highestBidCents ?? this.highestBidCents,
+      bidCount: bidCount ?? this.bidCount,
+      minNextBidCents: minNextBidCents ?? this.minNextBidCents,
+      isHighestBidder: isHighestBidder ?? this.isHighestBidder,
       shippingRegion: shippingRegion ?? this.shippingRegion,
       location: location ?? this.location,
       framingNote: framingNote ?? this.framingNote,
@@ -256,6 +287,12 @@ class FeedPreviewItem {
       isAvailable: piece.isForSale,
       aspectRatio: aspectRatioFromDimensions(piece.dimensions),
       priceCents: piece.priceCents,
+      listingType: piece.listingType,
+      auctionEndsAt: piece.auctionEndsAt,
+      highestBidCents: piece.highestBidCents,
+      bidCount: piece.bidCount,
+      minNextBidCents: piece.minNextBidCents,
+      isHighestBidder: piece.isHighestBidder,
       shippingRegion: piece.shippingRegion,
       location: piece.location,
       framingNote: piece.framingMounting,
@@ -341,6 +378,12 @@ class FeedPreviewItem {
         'seriesThumbUrls': seriesThumbUrls,
         'relatedScenes': relatedScenes.map((s) => s.toJson()).toList(),
         if (priceCents != null) 'priceCents': priceCents,
+        if (listingType != null) 'listingType': listingType,
+        if (auctionEndsAt != null) 'auctionEndsAt': auctionEndsAt!.toIso8601String(),
+        if (highestBidCents != null) 'highestBidCents': highestBidCents,
+        'bidCount': bidCount,
+        if (minNextBidCents != null) 'minNextBidCents': minNextBidCents,
+        'isHighestBidder': isHighestBidder,
         if (shippingRegion != null) 'shippingRegion': shippingRegion,
         if (location != null) 'location': location,
         if (framingNote != null) 'framingNote': framingNote,
@@ -386,6 +429,12 @@ class FeedPreviewItem {
               .toList() ??
           const [],
       priceCents: json['priceCents'] as int?,
+      listingType: json['listingType'] as String?,
+      auctionEndsAt: DateTime.tryParse(json['auctionEndsAt'] as String? ?? ''),
+      highestBidCents: json['highestBidCents'] as int?,
+      bidCount: json['bidCount'] as int? ?? 0,
+      minNextBidCents: json['minNextBidCents'] as int?,
+      isHighestBidder: json['isHighestBidder'] as bool? ?? false,
       shippingRegion: json['shippingRegion'] as String?,
       location: json['location'] as String?,
       framingNote: json['framingNote'] as String?,

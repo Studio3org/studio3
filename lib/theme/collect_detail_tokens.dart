@@ -15,6 +15,7 @@ abstract final class CollectDetailTokens {
   static const Color sheetBackground = Color(0xFFFAFAF7);
   static const Color sheetCardFill = Color(0x33C8C5BC);
   static const Color textDisabled = Color(0xFFC8C5BC);
+  static const Color statusError = Color(0xFFC03030);
 
   static const double frameWidth = 390;
   static const double heroHeight = 844;

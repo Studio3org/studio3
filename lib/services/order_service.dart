@@ -44,6 +44,23 @@ class OrderService {
     return Order.fromJson(data);
   }
 
+  /// Winning bidder's checkout, once `auction_closer` has flipped the piece to
+  /// `auction_won` — priced from the winning bid, not the piece's starting price.
+  Future<Order> auctionCheckout(
+    String pieceId, {
+    required String addressId,
+    required String shippingMethod,
+  }) async {
+    final json = await _api.post(
+      '/api/pieces/$pieceId/auction-checkout',
+      body: {'addressId': addressId, 'shippingMethod': shippingMethod},
+      auth: true,
+    );
+    final data = _api.extractData(json) as Map<String, dynamic>;
+    await CacheService.instance.invalidate('orders.mine');
+    return Order.fromJson(data);
+  }
+
   Future<Order> confirm(String orderId) async {
     final json = await _api.post('/api/orders/$orderId/confirm', auth: true);
     final data = _api.extractData(json) as Map<String, dynamic>;

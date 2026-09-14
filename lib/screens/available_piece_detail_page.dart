@@ -18,6 +18,7 @@ import '../widgets/piece_detail/piece_figma_detail_body.dart';
 import '../widgets/piece_detail/piece_hero_overlay.dart';
 import '../widgets/piece_detail/piece_more_sheet.dart';
 import '../widgets/piece_detail/piece_share_sheet.dart';
+import '../widgets/piece_detail/place_bid_sheet.dart';
 
 /// Collect / buy detail for available pieces (Figma 2707:3548).
 class AvailablePieceDetailPage extends StatefulWidget {
@@ -101,6 +102,18 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
     CollectPieceSheet.show(context, item: item);
   }
 
+  void _onPlaceBid() {
+    PlaceBidSheet.show(context, item: item);
+  }
+
+  void _onCompletePurchase() {
+    CollectPieceSheet.show(
+      context,
+      item: item,
+      winningBidCents: item.highestBidCents,
+    );
+  }
+
   bool get _isOwner {
     final viewerUsername = AuthSession.instance.user?.username;
     if (viewerUsername == null || viewerUsername.isEmpty) return false;
@@ -152,6 +165,8 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
         return 'Reserved';
       case 'delisted':
         return 'Not for sale';
+      case 'auction_won':
+        return 'Auction ended';
       default:
         return 'Unavailable';
     }
@@ -161,6 +176,8 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
   Widget build(BuildContext context) {
     final price = formatCollectPrice(item.priceCents);
     final isLive = item.isLive;
+    final isAuction = item.isAuction;
+    final isAuctionWonByMe = item.isAuctionWon && item.isHighestBidder;
 
     return Scaffold(
       backgroundColor: CollectDetailTokens.background,
@@ -210,8 +227,19 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
               onFollowToggle: toggleFollow,
               showCollect: true,
               collectPrice: price,
-              onCollect: isLive ? _onCollect : null,
-              collectStatusLabel: isLive ? null : _statusLabel(item.status),
+              onCollect: (!isAuction && isLive) ? _onCollect : null,
+              onPlaceBid: isAuction
+                  ? (isLive
+                      ? _onPlaceBid
+                      : (isAuctionWonByMe ? _onCompletePurchase : null))
+                  : null,
+              collectStatusLabel: isAuction
+                  ? (isLive
+                      ? null
+                      : (isAuctionWonByMe
+                          ? 'Complete purchase'
+                          : _statusLabel(item.status)))
+                  : (isLive ? null : _statusLabel(item.status)),
               onMessage: _isOwner ? null : _onAskAboutPiece,
               bottomInset: MediaQuery.paddingOf(context).bottom,
             ),

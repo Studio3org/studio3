@@ -14,23 +14,34 @@ import 'collect_payment_sheet.dart';
 import 'collect_shipping_method_sheet.dart';
 import 'collect_shipping_sheet.dart';
 
-/// Collect checkout sheet — Figma 2340-2049.
+/// Collect checkout sheet — Figma 2340-2049. Also doubles as the auction winner's
+/// checkout (pass [winningBidCents]) — same shipping/payment steps, just priced from
+/// the winning bid and posted to `auction-checkout` instead of `collect`.
 class CollectPieceSheet extends StatefulWidget {
   const CollectPieceSheet({
     super.key,
     required this.item,
+    this.winningBidCents,
   });
 
   final FeedPreviewItem item;
+  final int? winningBidCents;
 
-  static Future<void> show(BuildContext context, {required FeedPreviewItem item}) {
+  static Future<void> show(
+    BuildContext context, {
+    required FeedPreviewItem item,
+    int? winningBidCents,
+  }) {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.2),
-      builder: (context) => CollectPieceSheet(item: item),
+      builder: (context) => CollectPieceSheet(
+        item: item,
+        winningBidCents: winningBidCents,
+      ),
     );
   }
 
@@ -59,7 +70,8 @@ class _CollectPieceSheetState extends State<CollectPieceSheet> {
     return region;
   }
 
-  int get _artworkCents => item.priceCents ?? 0;
+  bool get _isAuctionCheckout => widget.winningBidCents != null;
+  int get _artworkCents => widget.winningBidCents ?? item.priceCents ?? 0;
   int get _shippingCents => _shipping?.method.priceCents ?? 0;
   int get _taxCents => (_artworkCents * 0.0825).round();
   int get _totalCents => _artworkCents + _shippingCents + _taxCents;
@@ -95,11 +107,17 @@ class _CollectPieceSheetState extends State<CollectPieceSheet> {
     if (shipping == null || _collecting) return;
     setState(() => _collecting = true);
     try {
-      final order = await OrderService.instance.collect(
-        item.id,
-        addressId: shipping.address.id,
-        shippingMethod: shipping.method.id,
-      );
+      final order = _isAuctionCheckout
+          ? await OrderService.instance.auctionCheckout(
+              item.id,
+              addressId: shipping.address.id,
+              shippingMethod: shipping.method.id,
+            )
+          : await OrderService.instance.collect(
+              item.id,
+              addressId: shipping.address.id,
+              shippingMethod: shipping.method.id,
+            );
 
       final paid = await _payForOrder(order.id);
       if (!paid) return;
@@ -205,7 +223,10 @@ class _CollectPieceSheetState extends State<CollectPieceSheet> {
           clipBehavior: Clip.antiAlias,
           child: Column(
             children: [
-              _Header(onClose: () => Navigator.pop(context)),
+              _Header(
+                title: _isAuctionCheckout ? 'Complete purchase' : 'Collect',
+                onClose: () => Navigator.pop(context),
+              ),
               Expanded(
                 child: ListView(
                   padding: EdgeInsets.fromLTRB(16, 0, 16, 24 + bottomInset),
@@ -214,7 +235,7 @@ class _CollectPieceSheetState extends State<CollectPieceSheet> {
                       imageUrl: _imageUrl,
                       title: item.title,
                       artistName: item.displayName,
-                      priceDisplay: formatCollectPrice(item.priceCents),
+                      priceDisplay: formatCollectPrice(_artworkCents),
                       year: '${item.year}',
                       medium: item.medium,
                       size: item.dimensions,
@@ -247,6 +268,9 @@ class _CollectPieceSheetState extends State<CollectPieceSheet> {
                     ),
                     const SizedBox(height: 28),
                     _CollectCta(
+                      label: _isAuctionCheckout
+                          ? 'Complete purchase'
+                          : 'Collect this piece',
                       loading: _collecting,
                       onTap: _shipping == null || _collecting
                           ? null
@@ -264,9 +288,10 @@ class _CollectPieceSheetState extends State<CollectPieceSheet> {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.onClose});
+  const _Header({required this.onClose, this.title = 'Collect'});
 
   final VoidCallback onClose;
+  final String title;
 
   @override
   Widget build(BuildContext context) {
@@ -293,7 +318,7 @@ class _Header extends StatelessWidget {
               ),
             ),
             Text(
-              'Collect',
+              title,
               style: GoogleFonts.inter(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
@@ -646,10 +671,15 @@ class _SummaryLine extends StatelessWidget {
 }
 
 class _CollectCta extends StatelessWidget {
-  const _CollectCta({required this.onTap, this.loading = false});
+  const _CollectCta({
+    required this.onTap,
+    this.loading = false,
+    this.label = 'Collect this piece',
+  });
 
   final VoidCallback? onTap;
   final bool loading;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
@@ -679,7 +709,7 @@ class _CollectCta extends StatelessWidget {
                     ),
                   )
                 : Text(
-                    'Collect this piece',
+                    label,
                     style: GoogleFonts.inter(
                       fontSize: 16,
                       fontWeight: FontWeight.w400,

@@ -42,6 +42,13 @@ class PieceSummary {
     this.medium,
     this.isForSale = false,
     this.priceCents,
+    this.listingType,
+    this.auctionDurationDays,
+    this.auctionEndsAt,
+    this.highestBidCents,
+    this.bidCount = 0,
+    this.minNextBidCents,
+    this.isHighestBidder = false,
     this.dimensions,
     this.shippingRegion,
     this.weightKg,
@@ -84,6 +91,15 @@ class PieceSummary {
   final String? medium;
   final bool isForSale;
   final int? priceCents;
+  /// `fixed` | `auction`; null when not for sale.
+  final String? listingType;
+  final int? auctionDurationDays;
+  final DateTime? auctionEndsAt;
+  final int? highestBidCents;
+  final int bidCount;
+  final int? minNextBidCents;
+  /// Only meaningful once `status == 'auction_won'` — whether the viewer is the winner.
+  final bool isHighestBidder;
   final String? dimensions;
   final String? shippingRegion;
   final double? weightKg;
@@ -116,6 +132,11 @@ class PieceSummary {
   final List<PostSummary>? relatedPosts;
 
   bool get isLive => status == null || status == 'live';
+
+  bool get isAuction => listingType == 'auction';
+
+  /// The auction closed with a winning bid and is awaiting the winner's checkout.
+  bool get isAuctionWon => status == 'auction_won';
 
   /// Listed and currently purchasable.
   bool get isAvailableListing {
@@ -155,6 +176,13 @@ class PieceSummary {
       medium: json['medium'] as String?,
       isForSale: json['isForSale'] as bool? ?? false,
       priceCents: json['priceCents'] as int?,
+      listingType: json['listingType'] as String?,
+      auctionDurationDays: _intFrom(json['auctionDurationDays']),
+      auctionEndsAt: DateTime.tryParse(json['auctionEndsAt'] as String? ?? ''),
+      highestBidCents: _intFrom(json['highestBidCents']),
+      bidCount: _intFrom(json['bidCount']) ?? 0,
+      minNextBidCents: _intFrom(json['minNextBidCents']),
+      isHighestBidder: json['isHighestBidder'] as bool? ?? false,
       dimensions: json['dimensions'] as String?,
       shippingRegion: json['shippingRegion'] as String?,
       weightKg: _doubleFrom(json['weightKg']),
@@ -227,6 +255,13 @@ class PieceSummary {
         if (medium != null) 'medium': medium,
         'isForSale': isForSale,
         if (priceCents != null) 'priceCents': priceCents,
+        if (listingType != null) 'listingType': listingType,
+        if (auctionDurationDays != null) 'auctionDurationDays': auctionDurationDays,
+        if (auctionEndsAt != null) 'auctionEndsAt': auctionEndsAt!.toIso8601String(),
+        if (highestBidCents != null) 'highestBidCents': highestBidCents,
+        'bidCount': bidCount,
+        if (minNextBidCents != null) 'minNextBidCents': minNextBidCents,
+        'isHighestBidder': isHighestBidder,
         if (dimensions != null) 'dimensions': dimensions,
         if (shippingRegion != null) 'shippingRegion': shippingRegion,
         if (weightKg != null) 'weightKg': weightKg,

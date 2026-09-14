@@ -4,6 +4,7 @@ import '../../models/feed_preview_item.dart';
 import '../../theme/collect_detail_tokens.dart';
 import '../../theme/piece_detail_type.dart';
 import '../follow_button.dart';
+import 'auction_bid_bar.dart';
 import 'available_collect_bar.dart';
 import 'collect_artist_row.dart';
 import 'materials_sheet.dart';
@@ -22,6 +23,7 @@ class PieceFigmaDetailBody extends StatelessWidget {
     this.collectPrice,
     this.onCollect,
     this.collectStatusLabel,
+    this.onPlaceBid,
     this.onMessage,
     this.bottomInset = 0,
   });
@@ -34,6 +36,7 @@ class PieceFigmaDetailBody extends StatelessWidget {
   final String? collectPrice;
   final VoidCallback? onCollect;
   final String? collectStatusLabel;
+  final VoidCallback? onPlaceBid;
   final VoidCallback? onMessage;
   final double bottomInset;
 
@@ -155,7 +158,16 @@ class PieceFigmaDetailBody extends StatelessWidget {
               ],
             ),
           ),
-        if (showCollect && collectPrice != null)
+        if (showCollect && item.isAuction)
+          AuctionBidBar(
+            bidDisplay: formatCollectPrice(item.highestBidCents ?? item.priceCents),
+            bidCount: item.bidCount,
+            auctionEndsAt: item.auctionEndsAt,
+            onPlaceBid: onPlaceBid,
+            statusLabel: collectStatusLabel,
+            onMessage: onMessage,
+          )
+        else if (showCollect && collectPrice != null)
           AvailableCollectBar(
             priceDisplay: collectPrice!,
             onCollect: onCollect,
