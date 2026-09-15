@@ -7,6 +7,8 @@ import '../models/series_summary.dart';
 import '../services/piece_service.dart';
 import '../services/series_service.dart';
 import '../theme/home_feed_tokens.dart';
+import '../utils/series_share.dart';
+import '../widgets/share/share_sheet.dart';
 import 'profile/profile_constants.dart';
 import 'profile/widgets/profile_masonry_grid.dart';
 import 'series_editor_page.dart';
@@ -40,6 +42,7 @@ class _SeriesViewPageState extends State<SeriesViewPage> {
   static const _heroHeight = 322.0;
   static const _backAsset = 'assets/profile/icon_back.svg';
   static const _moreAsset = 'assets/profile/icon_more.svg';
+  static const _shareAsset = 'assets/piece/hero_share.svg';
 
   SeriesSummary? _series;
   List<PieceSummary> _piecesInSeries = const <PieceSummary>[];
@@ -110,6 +113,12 @@ class _SeriesViewPageState extends State<SeriesViewPage> {
     if (changed == true) await _load();
   }
 
+  void _onShare() {
+    final series = _series;
+    if (series == null) return;
+    ShareSheet.show(context, shareText: buildSeriesShareText(series));
+  }
+
   @override
   Widget build(BuildContext context) {
     final topInset = MediaQuery.paddingOf(context).top;
@@ -165,21 +174,35 @@ class _SeriesViewPageState extends State<SeriesViewPage> {
                       ),
                     ),
                   ),
-                  if (widget.isOwner)
-                    Positioned(
-                      top: topInset + 26.8 - 16,
-                      right: kProfileHorizontalPad - 16,
-                      child: IconButton(
-                        onPressed: _onMore,
-                        padding: const EdgeInsets.all(16),
-                        constraints: const BoxConstraints(),
-                        icon: SvgPicture.asset(
-                          _moreAsset,
-                          width: 16,
-                          height: 2.4,
+                  Positioned(
+                    top: topInset + 26.8 - 16,
+                    right: kProfileHorizontalPad - 16,
+                    child: Row(
+                      children: [
+                        IconButton(
+                          onPressed: _series == null ? null : _onShare,
+                          padding: const EdgeInsets.all(16),
+                          constraints: const BoxConstraints(),
+                          icon: SvgPicture.asset(
+                            _shareAsset,
+                            width: 18,
+                            height: 22,
+                          ),
                         ),
-                      ),
+                        if (widget.isOwner)
+                          IconButton(
+                            onPressed: _onMore,
+                            padding: const EdgeInsets.all(16),
+                            constraints: const BoxConstraints(),
+                            icon: SvgPicture.asset(
+                              _moreAsset,
+                              width: 16,
+                              height: 2.4,
+                            ),
+                          ),
+                      ],
                     ),
+                  ),
                   Positioned(
                     left: 16,
                     right: 16,

@@ -21,6 +21,8 @@ class SceneEditPage extends StatefulWidget {
     this.imagePath,
     this.videoThumbnailBytes,
     this.initialTransform,
+    this.showSizeTool = true,
+    this.lockedAspectRatio,
     required this.onBack,
     required this.onNext,
   });
@@ -28,6 +30,9 @@ class SceneEditPage extends StatefulWidget {
   final String? imagePath;
   final Uint8List? videoThumbnailBytes;
   final PostImageTransform? initialTransform;
+  /// Scene Size tool (aspect chips). Event posting locks 3:4 and hides this.
+  final bool showSizeTool;
+  final CropAspectRatio? lockedAspectRatio;
   final VoidCallback onBack;
   final ValueChanged<PostImageTransform> onNext;
 
@@ -59,9 +64,13 @@ class _SceneEditPageState extends State<SceneEditPage> {
   @override
   void initState() {
     super.initState();
+    final locked = widget.lockedAspectRatio;
     _transform = (widget.initialTransform ??
-            PostImageTransform(aspectRatio: CropAspectRatio.ratio9x16))
+            PostImageTransform(
+              aspectRatio: locked ?? CropAspectRatio.ratio9x16,
+            ))
         .copy();
+    if (locked != null) _transform.aspectRatio = locked;
     _transform.fitMode = CropFitMode.fill;
     _loadImageAspect();
   }
@@ -292,13 +301,16 @@ class _SceneEditPageState extends State<SceneEditPage> {
           Padding(
             padding: EdgeInsets.fromLTRB(32, 12, 32, 16 + bottomInset),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              mainAxisAlignment: widget.showSizeTool
+                  ? MainAxisAlignment.spaceBetween
+                  : MainAxisAlignment.spaceEvenly,
               children: [
-                _LabeledIcon(
-                  asset: PostMediaAssets.sceneEditSize,
-                  label: 'Size',
-                  onTap: () => _open(_SceneEditTool.size),
-                ),
+                if (widget.showSizeTool)
+                  _LabeledIcon(
+                    asset: PostMediaAssets.sceneEditSize,
+                    label: 'Size',
+                    onTap: () => _open(_SceneEditTool.size),
+                  ),
                 _LabeledIcon(
                   asset: PostMediaAssets.sceneEditCrop,
                   label: 'Crop',

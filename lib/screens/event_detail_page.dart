@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../data/event_dummy_data.dart';
 import '../services/saved_content_store.dart';
@@ -9,6 +8,7 @@ import '../theme/home_feed_tokens.dart';
 import '../widgets/events/event_feed_widgets.dart';
 import '../widgets/home_feed/home_feed_widgets.dart';
 import '../widgets/profile_avatar.dart';
+import '../widgets/share/share_sheet.dart';
 
 void openEventDetail(BuildContext context, DummyEvent event) {
   Navigator.of(context).push<void>(
@@ -65,11 +65,14 @@ class _EventDetailPageState extends State<EventDetailPage> {
   }
 
   Future<void> _share() {
-    return SharePlus.instance.share(
-      ShareParams(
-        text: '${_event.title} · ${_event.venue}\n${_event.scheduleLine}',
-        subject: _event.title,
-      ),
+    // Events aren't backed by the API yet (see event_dummy_data.dart), so there's no
+    // resolvable link to share yet — just the event details as text, same channels
+    // (WhatsApp/SMS/native share/copy) pieces and series get.
+    return ShareSheet.show(
+      context,
+      shareText: '${_event.title} · ${_event.venue}\n${_event.scheduleLine}',
+      copyLabel: 'Copy',
+      copiedMessage: 'Copied',
     );
   }
 

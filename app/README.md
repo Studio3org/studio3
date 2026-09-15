@@ -30,6 +30,8 @@ Open the dev server (e.g. http://localhost:5173). The UI is constrained to a 375
 | `/profile` | Profile (Pieces / Process + Insights) |
 | `/post` | New post modal (Piece / Post) |
 | `/notifications` | Activity |
+| `/piece/:id` | Shared piece link fallback |
+| `/series/:id` | Shared series link fallback |
 
 ## Structure
 

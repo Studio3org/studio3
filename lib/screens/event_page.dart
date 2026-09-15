@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/event_dummy_data.dart';
 import '../screens/event_detail_page.dart';
+import '../screens/event_post_page.dart';
 import '../services/saved_content_store.dart';
 import '../theme/home_feed_tokens.dart';
 import '../utils/scrolls_to_top_on_double_tap.dart';
@@ -108,6 +109,11 @@ class _EventPageState extends State<EventPage>
             EventHeaderBar(
               locationLabel: _location,
               onLocationTap: _pickLocation,
+              onLeadingTap: () => Navigator.of(context).push<void>(
+                MaterialPageRoute<void>(
+                  builder: (_) => const EventPostPage(),
+                ),
+              ),
               onSavedTap: () => Navigator.pushNamed(context, '/saved'),
             ),
             EventSearchField(

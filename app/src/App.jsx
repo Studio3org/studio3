@@ -9,6 +9,7 @@ import { ProfilePage } from './screens/ProfilePage';
 import { PostPage } from './screens/PostPage';
 import { NotificationsPage } from './screens/NotificationsPage';
 import { PieceDetailPage } from './screens/PieceDetailPage';
+import { SeriesDetailPage } from './screens/SeriesDetailPage';
 import { BottomNav } from './components/layout/BottomNav';
 
 const routesWithNav = ['/home', '/discover', '/chat', '/profile'];
@@ -33,6 +34,7 @@ export default function App() {
       <Route path="/profile" element={<AppLayout showNav><ProfilePage /></AppLayout>} />
       <Route path="/post" element={<PostPage />} />
       <Route path="/piece/:id" element={<PieceDetailPage />} />
+      <Route path="/series/:id" element={<SeriesDetailPage />} />
       <Route
         path="/notifications"
         element={

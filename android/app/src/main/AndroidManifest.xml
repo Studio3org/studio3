@@ -38,7 +38,7 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-            <!-- App Links for shared piece URLs (studio-3.co is a placeholder
+            <!-- App Links for shared piece/series URLs (studio-3.co is a placeholder
                  domain — see lib/config/app_link_config.dart). autoVerify
                  requires assetlinks.json to be hosted at that domain's
                  /.well-known/ with the real release-signing SHA-256
@@ -51,6 +51,10 @@
                     android:scheme="https"
                     android:host="studio-3.co"
                     android:pathPrefix="/piece"/>
+                <data
+                    android:scheme="https"
+                    android:host="studio-3.co"
+                    android:pathPrefix="/series"/>
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
