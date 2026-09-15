@@ -252,7 +252,7 @@ export function ProfilePage({ isSeller = false, profile = DEFAULT_PROFILE } = {}
                   role="menuitem"
                   onClick={() => {
                     setMenuOpen(false);
-                    navigate('/chat');
+                    navigate('/inbox?tab=chats');
                   }}
                 >
                   Message
@@ -298,7 +298,7 @@ export function ProfilePage({ isSeller = false, profile = DEFAULT_PROFILE } = {}
         <button
           type="button"
           className="profile-btn profile-btn-message"
-          onClick={() => navigate('/chat')}
+          onClick={() => navigate('/inbox?tab=chats')}
         >
           Message
         </button>

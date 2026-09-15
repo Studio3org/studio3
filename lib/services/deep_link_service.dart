@@ -11,12 +11,18 @@ import 'piece_service.dart';
 
 /// Resolves incoming `https://<host>/piece/:id` and `https://<host>/series/:id`
 /// links, plus Stripe Connect return/refresh (`/connect/return`,
-/// `/connect/refresh`), via Android App Links / iOS Universal Links.
+/// `/connect/refresh`), via Android App Links / iOS Universal Links —
+/// *and* the equivalent `studio3://piece/:id` / `studio3://series/:id` /
+/// `studio3://connect/return` custom-scheme links (see the backend's
+/// `src/modules/share`), which need no domain verification and so work
+/// today even though the `https://` host is still a placeholder domain
+/// (see lib/config/app_link_config.dart).
 ///
-/// The host is a placeholder domain until a real production domain is
-/// wired up end-to-end (see lib/config/app_link_config.dart) — until then
-/// these links won't actually reach the app on a real device, but the
-/// in-app resolution logic is exercised the same way once they do.
+/// The two shapes parse differently: `https://host/piece/abc` puts
+/// `["piece", "abc"]` in [Uri.pathSegments], but a custom-scheme URI like
+/// `studio3://piece/abc` treats `piece` as the *authority* — it lands in
+/// [Uri.host], with only `["abc"]` left in [Uri.pathSegments]. `_handle`
+/// normalizes both into one segments list before dispatching.
 class DeepLinkService {
   DeepLinkService._();
   static final DeepLinkService instance = DeepLinkService._();
@@ -43,7 +49,9 @@ class DeepLinkService {
   }
 
   void _handle(BuildContext context, Uri uri) {
-    final segments = uri.pathSegments;
+    final segments = uri.scheme == 'studio3'
+        ? [uri.host, ...uri.pathSegments]
+        : uri.pathSegments;
     if (segments.length >= 2 && segments[0] == 'connect') {
       final action = segments[1];
       if (action == 'return' || action == 'refresh') {

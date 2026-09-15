@@ -1,128 +1,277 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Bell, MessageCircle } from 'lucide-react';
-import { PieceCard } from '../components/feed/PieceCard';
-import { SafeArea } from '../components/layout/SafeArea';
+import { useNavigate } from 'react-router-dom';
+import { Bookmark, ChevronDown } from 'lucide-react';
 
-const headerStyle = {
-  position: 'sticky',
-  top: 0,
-  zIndex: 10,
-  background: 'rgba(255,255,255,0.72)',
-  backdropFilter: 'blur(16px)',
-  padding: '12px 16px',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  borderBottom: '1px solid var(--slate-100)',
-  marginLeft: -16,
-  marginRight: -16,
-  paddingLeft: 16,
-  paddingRight: 16,
-};
-
-const tabStyle = (active) => ({
-  padding: '8px 20px',
-  borderRadius: 9999,
-  fontSize: 14,
-  fontWeight: 500,
-  background: active ? 'var(--slate-900)' : 'transparent',
-  color: active ? 'var(--white)' : 'var(--slate-600)',
-  boxShadow: active ? '0 2px 8px rgba(15,23,42,0.1)' : 'none',
-});
-
+/** Mock feed rows — Figma-derived shape, matches FeedPreviewItem's fields loosely. */
 const feedItems = [
-  { id: 1, title: 'Coastal Forms #3', storyPreview: 'A meditation on erosion and time...', artistName: 'Jordan Lee', medium: 'Oil', forSale: true, price: '2,400' },
-  { id: 2, title: 'Studio Notes — January', storyPreview: 'Exploring new pigments...', artistName: 'Alex Chen', medium: 'Mixed Media', isProcess: true },
-  { id: 3, title: 'Untitled (Series 12)', storyPreview: 'Minimalist study in light.', artistName: 'Sam Rivera', medium: 'Photography', forSale: false },
+  {
+    id: 1,
+    title: 'Coastal Forms #3',
+    medium: 'Oil',
+    artistName: 'Jordan Lee',
+    aspect: '3 / 4',
+    status: 'available',
+  },
+  {
+    id: 2,
+    title: 'Studio Notes — January',
+    medium: 'Mixed Media',
+    artistName: 'Alex Chen',
+    aspect: '16 / 9',
+    status: null,
+  },
+  {
+    id: 3,
+    title: 'Untitled (Series 12)',
+    medium: 'Photography',
+    artistName: 'Sam Rivera',
+    aspect: '3 / 4',
+    status: 'collected',
+  },
 ];
 
+const FILTERS = ['All', 'Piece', 'Scene'];
+
 export function HomeFeedPage() {
-  const [tab, setTab] = useState('foryou');
-  const [inboxOpen, setInboxOpen] = useState(false);
+  const navigate = useNavigate();
+  const [filter, setFilter] = useState('All');
+  const [filterOpen, setFilterOpen] = useState(false);
 
   return (
-    <SafeArea style={{ paddingTop: 0 }}>
-      <header style={headerStyle}>
-        <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--slate-900)' }}>Studio 3</h1>
+    <div style={{ background: 'var(--cream-bg)', minHeight: '100vh', paddingBottom: 96 }}>
+      <header
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '14px 16px 16px',
+        }}
+      >
         <div style={{ position: 'relative' }}>
           <button
-            aria-label="Notifications and chats"
-            onClick={() => setInboxOpen((open) => !open)}
-            style={{ display: 'flex', alignItems: 'center', color: 'var(--slate-700)', padding: 4 }}
+            onClick={() => setFilterOpen((open) => !open)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              fontFamily: 'var(--font-geist)',
+              fontSize: 20,
+              fontWeight: 600,
+              color: 'var(--cream-text)',
+            }}
           >
-            <Bell size={22} strokeWidth={1.75} />
+            {filter}
+            <ChevronDown size={16} strokeWidth={2} />
           </button>
-
-          {inboxOpen && (
+          {filterOpen && (
             <>
-              <div
-                style={{ position: 'fixed', inset: 0, zIndex: 20 }}
-                onClick={() => setInboxOpen(false)}
-              />
+              <div style={{ position: 'fixed', inset: 0, zIndex: 20 }} onClick={() => setFilterOpen(false)} />
               <div
                 className="glass-light"
-                style={{
-                  position: 'absolute',
-                  top: '100%',
-                  right: 0,
-                  marginTop: 8,
-                  minWidth: 180,
-                  padding: 6,
-                  boxShadow: 'var(--shadow-float)',
-                  zIndex: 21,
-                }}
+                style={{ position: 'absolute', top: '100%', left: 0, marginTop: 8, minWidth: 120, padding: 6, zIndex: 21 }}
               >
-                <InboxMenuLink
-                  to="/notifications"
-                  icon={<Bell size={17} strokeWidth={1.75} />}
-                  label="Notifications"
-                  onClick={() => setInboxOpen(false)}
-                />
-                <InboxMenuLink
-                  to="/chat"
-                  icon={<MessageCircle size={17} strokeWidth={1.75} />}
-                  label="Chats"
-                  onClick={() => setInboxOpen(false)}
-                />
+                {FILTERS.map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => {
+                      setFilter(f);
+                      setFilterOpen(false);
+                    }}
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      textAlign: 'left',
+                      padding: '10px 12px',
+                      borderRadius: 10,
+                      fontFamily: 'var(--font-geist)',
+                      fontSize: 14,
+                      fontWeight: f === filter ? 600 : 400,
+                      color: 'var(--cream-text)',
+                    }}
+                  >
+                    {f}
+                  </button>
+                ))}
               </div>
             </>
           )}
         </div>
+
+        <span
+          style={{
+            fontFamily: 'var(--font-geist)',
+            fontSize: 28,
+            fontWeight: 800,
+            color: '#000000',
+            lineHeight: 1,
+          }}
+        >
+          studio 3
+        </span>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+          <button aria-label="Saved" style={{ color: 'var(--cream-text)' }}>
+            <Bookmark size={22} strokeWidth={1.75} />
+          </button>
+          <button
+            aria-label="Inbox"
+            onClick={() => navigate('/inbox')}
+            style={{ position: 'relative', color: 'var(--cream-text)' }}
+          >
+            <InboxIcon />
+            <span
+              style={{
+                position: 'absolute',
+                top: -4,
+                right: -6,
+                minWidth: 14,
+                height: 14,
+                padding: '0 3px',
+                borderRadius: 7,
+                background: '#E05252',
+                color: '#fff',
+                fontSize: 9,
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              3
+            </span>
+          </button>
+        </div>
       </header>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16, marginTop: 12 }}>
-        <button style={tabStyle(tab === 'foryou')} onClick={() => setTab('foryou')}>For You</button>
-        <button style={tabStyle(tab === 'following')} onClick={() => setTab('following')}>Following</button>
-      </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '0 10px' }}>
         {feedItems.map((item) => (
-          <PieceCard key={item.id} {...item} />
+          <FeedTile key={item.id} item={item} onOpen={() => navigate(`/piece/${item.id}`)} />
         ))}
       </div>
-    </SafeArea>
+    </div>
   );
 }
 
-function InboxMenuLink({ to, icon, label, onClick }) {
+function InboxIcon() {
   return (
-    <Link
-      to={to}
-      onClick={onClick}
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6Z"
+        stroke="currentColor"
+        strokeWidth="1.75"
+      />
+      <path d="M4.5 6.5 12 12.5l7.5-6" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function FeedTile({ item, onOpen }) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
       style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 10,
-        padding: '10px 12px',
-        borderRadius: 'var(--radius-md)',
-        fontSize: 14,
-        fontWeight: 500,
-        color: 'var(--slate-900)',
+        display: 'block',
+        width: '100%',
+        borderRadius: 10,
+        overflow: 'hidden',
+        position: 'relative',
+        aspectRatio: item.aspect,
+        background: 'var(--cream-skeleton)',
       }}
     >
-      {icon}
-      {label}
-    </Link>
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background:
+            'linear-gradient(135deg, #d9d4cc 0%, #e2ded6 50%, #cfc9bf 100%)',
+        }}
+      />
+      <div
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: 56,
+          background: 'linear-gradient(to top, rgba(35,31,27,0.8), rgba(35,31,27,0))',
+        }}
+      />
+      <div
+        style={{
+          position: 'absolute',
+          left: 16,
+          right: 16,
+          bottom: 8,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          height: 40,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+          <span
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: '50%',
+              flexShrink: 0,
+              background: 'var(--cream-cta-fill)',
+              color: 'var(--cream-text-inverse)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontFamily: 'var(--font-geist)',
+              fontSize: 12,
+              fontWeight: 600,
+            }}
+          >
+            {item.artistName[0]}
+          </span>
+          <span style={{ minWidth: 0, textAlign: 'left' }}>
+            <div
+              style={{
+                fontFamily: 'var(--font-geist)',
+                fontSize: 12,
+                color: 'var(--cream-text-inverse)',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {item.artistName}
+            </div>
+            <div
+              style={{
+                fontFamily: 'var(--font-geist)',
+                fontSize: 11,
+                color: 'rgba(250,250,247,0.6)',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {item.medium}
+            </div>
+          </span>
+        </div>
+        {item.status && (
+          <span
+            style={{
+              flexShrink: 0,
+              padding: '4px 8px',
+              borderRadius: 22,
+              background: 'rgba(35,31,27,0.6)',
+              color: 'var(--cream-text-inverse)',
+              fontSize: 11,
+              fontFamily: 'var(--font-geist)',
+            }}
+          >
+            {item.status === 'available' ? 'Available' : 'Collected'}
+          </span>
+        )}
+      </div>
+    </button>
   );
 }

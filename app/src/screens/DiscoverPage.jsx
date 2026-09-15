@@ -1,175 +1,200 @@
 import React, { useState } from 'react';
-import { PieceCard } from '../components/feed/PieceCard';
-import { SafeArea } from '../components/layout/SafeArea';
+import { Search, SlidersHorizontal } from 'lucide-react';
 
-const searchBarStyle = {
-  height: 44,
-  borderRadius: 9999,
-  background: 'var(--slate-100)',
-  padding: '0 16px',
-  display: 'flex',
-  alignItems: 'center',
-  gap: 8,
-  flex: 1,
-  fontSize: 14,
-  color: 'var(--slate-500)',
-};
+const CATEGORIES = ['All', 'Pieces', 'Scenes'];
 
-const chipScroll = {
-  display: 'flex',
-  gap: 8,
-  overflowX: 'auto',
-  paddingBottom: 4,
-  marginBottom: 24,
-};
-const chipStyle = (active) => ({
-  height: 32,
-  padding: '0 16px',
-  borderRadius: 9999,
-  flexShrink: 0,
-  fontSize: 13,
-  fontWeight: 500,
-  background: active ? 'var(--slate-900)' : 'var(--slate-100)',
-  color: active ? 'var(--white)' : 'var(--slate-600)',
-  border: '1.5px solid',
-  borderColor: active ? 'var(--slate-900)' : 'var(--slate-200)',
-});
+const NEARBY = [
+  { name: 'Maya K.', distance: '0.4 mi' },
+  { name: 'James T.', distance: '1.1 mi' },
+  { name: 'Riley W.', distance: '2.3 mi' },
+];
 
-const sectionTitle = {
-  fontSize: 16,
-  fontWeight: 600,
-  color: 'var(--slate-900)',
-  marginBottom: 12,
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-};
-const horizontalScroll = {
-  display: 'flex',
-  gap: 12,
-  overflowX: 'auto',
-  paddingBottom: 8,
-  marginBottom: 24,
-};
-const portraitCard = {
-  width: 160,
-  flexShrink: 0,
-  height: 200,
-  borderRadius: 16,
-  overflow: 'hidden',
-  position: 'relative',
-  background: 'var(--slate-100)',
-};
-const artistChip = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 10,
-  padding: '8px 12px',
-  borderRadius: 16,
-  border: '1.5px solid var(--slate-200)',
-  background: 'var(--white)',
-  flexShrink: 0,
-};
+const GRID_TILES = [
+  { ratio: '3 / 4' },
+  { ratio: '1 / 1' },
+  { ratio: '16 / 9' },
+  { ratio: '3 / 4' },
+  { ratio: '1 / 1' },
+  { ratio: '1 / 1' },
+];
+
+const cardShadow = '0 4px 12px rgba(35,31,27,0.08)';
 
 export function DiscoverPage() {
-  const [filter, setFilter] = useState('All');
-  const filters = ['All', 'Painting', 'Sculpture', 'Photography', 'Digital', 'Available'];
+  const [category, setCategory] = useState('All');
+  const [query, setQuery] = useState('');
 
   return (
-    <SafeArea style={{ paddingTop: 0 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-        <div style={searchBarStyle}>
-          <span>🔍</span> Search
+    <div style={{ background: 'var(--cream-bg)', minHeight: '100vh', paddingBottom: 96 }}>
+      <div
+        style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 10,
+          background: 'var(--cream-bg)',
+          padding: '8px 10px 12px',
+        }}
+      >
+        <div
+          style={{
+            height: 48,
+            borderRadius: 10,
+            background: 'rgba(140,136,128,0.2)',
+            display: 'flex',
+            alignItems: 'center',
+            padding: '0 14px',
+            gap: 10,
+          }}
+        >
+          <Search size={22} color="var(--cream-text-secondary)" strokeWidth={1.75} />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search artists, pieces, genres"
+            style={{
+              flex: 1,
+              fontFamily: 'var(--font-inter)',
+              fontSize: 14,
+              background: 'transparent',
+              color: 'var(--cream-text)',
+              outline: 'none',
+            }}
+          />
+          <SlidersHorizontal size={22} color="var(--cream-text)" strokeWidth={1.75} />
         </div>
-        <button style={{ padding: 8, color: 'var(--slate-700)' }} aria-label="Filter">⚙</button>
-      </div>
 
-      <div style={chipScroll}>
-        {filters.map((f) => (
-          <button key={f} style={chipStyle(filter === f)} onClick={() => setFilter(f)}>{f}</button>
-        ))}
-      </div>
-
-      <section>
-        <div style={sectionTitle}>
-          <span>Studio 3 Picks</span>
-          <button style={{ fontSize: 13, color: 'var(--slate-500)', fontWeight: 400 }}>See all</button>
-        </div>
-        <div style={horizontalScroll}>
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} style={portraitCard}>
-              <div style={{ width: '100%', height: '100%', background: 'var(--slate-200)' }} />
-              <div
-                style={{
-                  position: 'absolute',
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  padding: 10,
-                  background: 'rgba(15,23,42,0.55)',
-                  backdropFilter: 'blur(12px)',
-                  borderRadius: '0 0 16px 16px',
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: 'var(--white)',
-                }}
-              >
-                Piece title {i}
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section>
-        <div style={{ ...sectionTitle, marginBottom: 12 }}>Process Spotlight</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 24 }}>
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} style={{ borderRadius: 16, overflow: 'hidden', aspectRatio: '1', background: 'var(--slate-100)' }} />
-          ))}
-        </div>
-      </section>
-
-      <section>
-        <div style={sectionTitle}>
-          <span>New Voices</span>
-          <button style={{ fontSize: 13, color: 'var(--slate-500)' }}>See all</button>
-        </div>
-        <div style={horizontalScroll}>
-          {['Maya K.', 'James T.', 'Riley W.'].map((name, i) => (
-            <div key={name} style={artistChip}>
-              <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--slate-300)' }} />
-              <span style={{ fontSize: 13, fontWeight: 500 }}>{name}</span>
+        <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+          {CATEGORIES.map((c) => {
+            const active = c === category;
+            return (
               <button
+                key={c}
+                onClick={() => setCategory(c)}
                 style={{
-                  padding: '4px 12px',
-                  borderRadius: 9999,
-                  background: i === 0 ? 'var(--slate-900)' : 'transparent',
-                  color: i === 0 ? 'var(--white)' : 'var(--slate-700)',
-                  border: '1.5px solid',
-                  borderColor: i === 0 ? 'var(--slate-900)' : 'var(--slate-200)',
+                  height: 32,
+                  padding: '0 16px',
+                  borderRadius: 35,
+                  border: '1px solid var(--cream-text)',
+                  background: active ? 'var(--cream-text)' : 'transparent',
+                  color: active ? 'var(--cream-text-inverse)' : 'var(--cream-text)',
+                  fontFamily: 'var(--font-inter)',
                   fontSize: 12,
                   fontWeight: 500,
                 }}
               >
-                {i === 0 ? 'Following' : 'Follow'}
+                {c}
               </button>
-            </div>
-          ))}
+            );
+          })}
         </div>
-      </section>
+      </div>
 
-      <section>
-        <div style={sectionTitle}>
-          <span>Collector Favorites</span>
-          <button style={{ fontSize: 13, color: 'var(--slate-500)' }}>See all</button>
+      <div style={{ padding: '0 10px' }}>
+        {/* Featured hero */}
+        <div
+          style={{
+            position: 'relative',
+            height: 208,
+            borderRadius: 10,
+            overflow: 'hidden',
+            boxShadow: cardShadow,
+            marginBottom: 16,
+            background: 'linear-gradient(135deg,#d9d4cc,#cfc9bf)',
+          }}
+        >
+          <span
+            style={{
+              position: 'absolute',
+              top: 12,
+              left: 12,
+              padding: '4px 10px',
+              borderRadius: 4,
+              background: 'rgba(35,31,27,0.72)',
+              color: 'var(--cream-text-inverse)',
+              fontSize: 10,
+              fontWeight: 600,
+              fontFamily: 'var(--font-inter)',
+            }}
+          >
+            Featured for You
+          </span>
+          <div
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              bottom: 0,
+              padding: 16,
+              background: 'linear-gradient(to top, rgba(35,31,27,0.75), rgba(35,31,27,0))',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <span style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--cream-cta-fill)' }} />
+              <span style={{ fontFamily: 'var(--font-geist)', fontSize: 12, color: '#fff' }}>Maya K.</span>
+            </div>
+            <div style={{ fontFamily: 'var(--font-inter)', fontSize: 14, fontWeight: 600, color: '#fff' }}>
+              Golden Hour Study
+            </div>
+            <div style={{ fontFamily: 'var(--font-inter)', fontSize: 12, color: 'rgba(255,255,255,0.85)' }}>
+              A quiet study in warmth and light.
+            </div>
+          </div>
         </div>
-        <div style={horizontalScroll}>
-          {[1, 2, 3].map((i) => (
-            <div key={i} style={{ ...portraitCard, width: 140 }} />
+
+        {/* Sellers near you */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontFamily: 'var(--font-inter)', fontSize: 15, fontWeight: 600, color: 'var(--cream-text)', marginBottom: 12 }}>
+            Sellers near you
+          </div>
+          <div style={{ display: 'flex', gap: 16, overflowX: 'auto' }}>
+            {NEARBY.map((s) => (
+              <div key={s.name} style={{ width: 72, flexShrink: 0, textAlign: 'center' }}>
+                <span
+                  style={{
+                    display: 'block',
+                    width: 56,
+                    height: 56,
+                    borderRadius: '50%',
+                    margin: '0 auto 6px',
+                    background: 'var(--cream-cta-fill)',
+                  }}
+                />
+                <div
+                  style={{
+                    fontFamily: 'var(--font-inter)',
+                    fontSize: 11,
+                    fontWeight: 500,
+                    color: 'var(--cream-text)',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {s.name}
+                </div>
+                <div style={{ fontFamily: 'var(--font-inter)', fontSize: 10, color: 'var(--cream-text-secondary)' }}>
+                  {s.distance}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Feed grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          {GRID_TILES.map((tile, i) => (
+            <div
+              key={i}
+              style={{
+                aspectRatio: tile.ratio,
+                borderRadius: 8,
+                boxShadow: cardShadow,
+                background: i % 2 === 0 ? 'linear-gradient(135deg,#e2ded6,#cfc9bf)' : 'linear-gradient(135deg,#d9d4cc,#e2ded6)',
+              }}
+            />
           ))}
         </div>
-      </section>
-    </SafeArea>
+      </div>
+    </div>
   );
 }

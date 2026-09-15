@@ -56,6 +56,16 @@
                     android:host="studio-3.co"
                     android:pathPrefix="/series"/>
             </intent-filter>
+            <!-- Custom scheme for shared piece/series links (see src/modules/share in the
+                 backend) — unlike App Links this needs no domain/fingerprint verification,
+                 so "open the app if installed" works before that's set up. Not autoVerify:
+                 there's no domain association to verify for a custom scheme. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="studio3"/>
+            </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->

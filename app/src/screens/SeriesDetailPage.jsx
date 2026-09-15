@@ -5,59 +5,6 @@ import { useParams } from 'react-router-dom';
 // (lib/config/api_config.dart) — this web app has no env-driven config yet.
 const API_BASE_URL = 'https://studio3-backend.onrender.com';
 
-const containerStyle = {
-  maxWidth: 480,
-  margin: '0 auto',
-  minHeight: '100vh',
-  background: 'var(--white)',
-};
-
-const coverStyle = {
-  width: '100%',
-  aspectRatio: '4 / 5',
-  objectFit: 'cover',
-  background: 'var(--slate-100)',
-  display: 'block',
-};
-
-const bodyStyle = {
-  padding: 16,
-};
-
-const titleStyle = {
-  fontSize: 18,
-  fontWeight: 600,
-  color: 'var(--slate-900)',
-  marginBottom: 4,
-};
-
-const authorRowStyle = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 8,
-  marginTop: 12,
-};
-
-const avatarStyle = {
-  width: 32,
-  height: 32,
-  borderRadius: '50%',
-  background: 'var(--slate-200)',
-  objectFit: 'cover',
-};
-
-const countStyle = {
-  fontSize: 13,
-  color: 'var(--slate-500)',
-};
-
-const stateStyle = {
-  padding: 48,
-  textAlign: 'center',
-  color: 'var(--slate-500)',
-  fontSize: 14,
-};
-
 /// Web fallback for a shared series link (`/series/:id`) — mirrors
 /// PieceDetailPage.jsx. This is what Android App Links / iOS Universal
 /// Links open when the Studio 3 app isn't installed, and what a plain
@@ -95,34 +42,79 @@ export function SeriesDetailPage() {
   }, [id]);
 
   if (loading) {
-    return <div style={stateStyle}>Loading…</div>;
+    return <StateScreen text="Loading…" />;
   }
-
   if (error || !series) {
-    return <div style={stateStyle}>This series couldn't be found.</div>;
+    return <StateScreen text="This series couldn't be found." />;
   }
 
   const author = series.author ?? {};
 
   return (
-    <div style={containerStyle}>
+    <div style={{ background: 'var(--cream-bg-detail)', minHeight: '100vh' }}>
       {series.coverUrl && (
-        <img src={series.coverUrl} alt={series.name ?? ''} style={coverStyle} />
+        <img
+          src={series.coverUrl}
+          alt={series.name ?? ''}
+          style={{ width: '100%', aspectRatio: '4 / 5', objectFit: 'cover', display: 'block', background: 'var(--cream-skeleton)' }}
+        />
       )}
-      <div style={bodyStyle}>
-        <div style={titleStyle}>{series.name}</div>
-        <div style={countStyle}>
+      <div style={{ padding: 16 }}>
+        <h1 style={{ fontFamily: 'var(--font-geist)', fontSize: 24, fontWeight: 500, color: 'var(--cream-text)', marginBottom: 4 }}>
+          {series.name}
+        </h1>
+        <p style={{ fontFamily: 'var(--font-inter)', fontSize: 13, color: 'var(--cream-text-secondary)' }}>
           {series.pieceCount} {series.pieceCount === 1 ? 'piece' : 'pieces'}
-        </div>
-        <div style={authorRowStyle}>
+        </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 16 }}>
           {author.profilePhotoUrl && (
-            <img src={author.profilePhotoUrl} alt={author.name ?? ''} style={avatarStyle} />
+            <img src={author.profilePhotoUrl} alt={author.name ?? ''} style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }} />
           )}
-          <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--slate-900)' }}>
+          <span style={{ fontFamily: 'var(--font-geist)', fontSize: 14, fontWeight: 500, color: 'var(--cream-text)' }}>
             {author.name}
           </span>
         </div>
       </div>
+
+      <div style={{ padding: '0 16px 16px' }}>
+        <a
+          href={`studio3://series/${id}`}
+          style={{
+            display: 'block',
+            textAlign: 'center',
+            height: 40,
+            lineHeight: '40px',
+            borderRadius: 8,
+            background: 'var(--cream-cta-fill)',
+            color: 'var(--cream-text-inverse)',
+            fontFamily: 'var(--font-inter)',
+            fontSize: 16,
+          }}
+        >
+          Open in app
+        </a>
+      </div>
+    </div>
+  );
+}
+
+function StateScreen({ text }) {
+  return (
+    <div
+      style={{
+        background: 'var(--cream-bg-detail)',
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontFamily: 'var(--font-inter)',
+        fontSize: 14,
+        color: 'var(--cream-text-secondary)',
+        padding: 48,
+        textAlign: 'center',
+      }}
+    >
+      {text}
     </div>
   );
 }

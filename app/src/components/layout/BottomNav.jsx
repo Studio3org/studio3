@@ -5,11 +5,10 @@ import { FloatingPillBottomNav } from './FloatingPillBottomNav';
 /** @param {string} pathname */
 function activeTabFromPath(pathname) {
   if (pathname.startsWith('/home')) return 'home';
-  if (pathname.startsWith('/discover')) return 'compass';
-  if (pathname.startsWith('/post')) return 'plus';
-  if (pathname.startsWith('/notifications')) return 'bell';
+  if (pathname.startsWith('/discover')) return 'explore';
+  if (pathname.startsWith('/post')) return 'post';
+  if (pathname.startsWith('/event')) return 'event';
   if (pathname.startsWith('/profile')) return 'profile';
-  if (pathname.startsWith('/chat')) return 'bookmark';
   return 'home';
 }
 
@@ -34,22 +33,17 @@ export function BottomNav({ avatarSrc, avatarAlt } = {}) {
       avatarAlt={avatarAlt}
       onActiveTabChange={(id) => {
         switch (id) {
-          case 'more':
-            break;
           case 'home':
             navigate('/home');
             break;
-          case 'compass':
+          case 'explore':
             navigate('/discover');
             break;
-          case 'plus':
+          case 'post':
             navigate('/post');
             break;
-          case 'bookmark':
-            navigate('/chat');
-            break;
-          case 'bell':
-            navigate('/notifications');
+          case 'event':
+            navigate('/event');
             break;
           case 'profile':
             navigate('/profile');
