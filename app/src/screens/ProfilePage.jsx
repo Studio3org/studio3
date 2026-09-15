@@ -1,27 +1,16 @@
-import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { apiFetch } from '../services/apiClient';
 import './ProfilePage.css';
 
-const ASSETS = {
+const FALLBACK_ASSETS = {
   banner: '/profile/banner.png',
   avatar: '/profile/avatar.jpg',
+};
+const ICONS = {
   back: '/profile/icon-back.svg',
   more: '/profile/icon-more.svg',
-};
-
-/** Viewer non-seller artist from Figma 2650:1892. Set `isSeller` to show Collect. */
-const DEFAULT_PROFILE = {
-  isSeller: false,
-  name: 'Sarah Osmei',
-  handle: '@sarahsunnyart',
-  followers: '100',
-  following: '60',
-  bio: "I'm Sarah Olson, an artist based in Dallas, TX. My paintings reflect the beauty of the natural world.",
-  stats: [
-    { value: '24', label: 'pieces' },
-    { value: '15', label: 'scenes' },
-    { value: '1.2k', label: 'saves' },
-  ],
 };
 
 const RATIO = {
@@ -30,59 +19,35 @@ const RATIO = {
   wide: '181 / 113',
 };
 
-const PIECES = {
-  left: [
-    { src: '/profile/piece-l1.png', ratio: RATIO.portrait },
-    { src: '/profile/piece-l2.png', ratio: RATIO.square },
-    { src: '/profile/piece-l3.png', ratio: RATIO.square },
-    { src: '/profile/piece-l4.png', ratio: RATIO.portrait },
-  ],
-  right: [
-    { src: '/profile/piece-r1.png', ratio: RATIO.square },
-    { src: '/profile/piece-r2.png', ratio: RATIO.wide },
-    { src: '/profile/piece-r3.png', ratio: RATIO.portrait, bordered: true },
-    { src: '/profile/piece-r4.png', ratio: RATIO.wide },
-    { src: '/profile/piece-r5.png', ratio: RATIO.portrait },
-  ],
-};
-
+// Scenes/Series aren't wired to a real endpoint yet (time-boxed for this pass — see
+// GET /api/users/:username/posts and /series for the real data once that's worth doing).
 const SCENES = {
   left: [
     { src: '/profile/piece-r2.png', ratio: RATIO.wide },
     { src: '/profile/piece-l2.png', ratio: RATIO.square },
-    { src: '/profile/piece-r4.png', ratio: RATIO.wide },
-    { src: '/profile/piece-l3.png', ratio: RATIO.square },
   ],
   right: [
     { src: '/profile/piece-r1.png', ratio: RATIO.square },
     { src: '/profile/piece-l1.png', ratio: RATIO.portrait },
-    { src: '/profile/piece-r5.png', ratio: RATIO.portrait },
   ],
 };
+const SERIES = { left: [], right: [] };
 
-const SERIES = {
-  left: [
-    { src: '/profile/piece-l1.png', ratio: RATIO.portrait },
-    { src: '/profile/piece-l4.png', ratio: RATIO.portrait },
-  ],
-  right: [
-    { src: '/profile/piece-r3.png', ratio: RATIO.portrait },
-    { src: '/profile/piece-r5.png', ratio: RATIO.portrait },
-  ],
-};
-
-const COLLECT = {
-  left: [
-    { src: '/profile/piece-l2.png', ratio: RATIO.square },
-    { src: '/profile/piece-l3.png', ratio: RATIO.square },
-    { src: '/profile/piece-r1.png', ratio: RATIO.square },
-  ],
-  right: [
-    { src: '/profile/piece-r3.png', ratio: RATIO.square },
-    { src: '/profile/piece-l1.png', ratio: RATIO.square },
-    { src: '/profile/piece-r5.png', ratio: RATIO.square },
-  ],
-};
+/** Splits a flat, newest-first piece list into the two masonry columns (alternating by
+ * index), same visual pattern as the original Figma-derived mock columns. */
+function toMasonryColumns(pieces) {
+  const left = [];
+  const right = [];
+  pieces.forEach((piece, index) => {
+    const entry = {
+      src: piece.mediaUrl,
+      ratio: piece.mediaAspectRatio || RATIO.portrait,
+      priceLabel: piece.isForSale && piece.priceCents ? `US$ ${Math.round(piece.priceCents / 100)}` : null,
+    };
+    (index % 2 === 0 ? left : right).push(entry);
+  });
+  return { left, right };
+}
 
 function MasonryGrid({ columns }) {
   return (
@@ -94,10 +59,28 @@ function MasonryGrid({ columns }) {
               key={`${side}-${item.src}-${item.ratio}`}
               type="button"
               className={`profile-card${item.bordered ? ' is-bordered' : ''}`}
-              style={{ aspectRatio: item.ratio }}
+              style={{ aspectRatio: item.ratio, position: 'relative' }}
               aria-label="Artwork"
             >
               <img src={item.src} alt="" draggable={false} />
+              {item.priceLabel && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    left: 6,
+                    bottom: 6,
+                    padding: '3px 8px',
+                    borderRadius: 6,
+                    background: 'rgba(35,31,27,0.65)',
+                    color: '#fafaf7',
+                    fontSize: 11,
+                    fontWeight: 600,
+                    fontFamily: 'var(--font-geist)',
+                  }}
+                >
+                  {item.priceLabel}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -161,18 +144,30 @@ function ProfileTabs({ tabs, active, onChange }) {
   );
 }
 
-/**
- * @param {object} [props]
- * @param {boolean} [props.isSeller] — sellers also get a Collect tab
- * @param {typeof DEFAULT_PROFILE} [props.profile]
- */
-export function ProfilePage({ isSeller = false, profile = DEFAULT_PROFILE } = {}) {
+/** The logged-in user's own profile — real data from GET /api/user/me + their pieces. */
+export function ProfilePage() {
   const navigate = useNavigate();
-  const showCollect = Boolean(isSeller || profile.isSeller);
+  const { user, logout } = useAuth();
+  const [pieces, setPieces] = useState(null);
   const [tab, setTab] = useState('pieces');
-  const [following, setFollowing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
+  useEffect(() => {
+    if (!user?.username) return;
+    let cancelled = false;
+    apiFetch(`/api/users/${user.username}/pieces`, { auth: true })
+      .then((list) => {
+        if (!cancelled) setPieces(Array.isArray(list) ? list : []);
+      })
+      .catch(() => {
+        if (!cancelled) setPieces([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.username]);
+
+  const showCollect = Boolean(user?.isSeller || user?.sellerEnabled);
   const tabs = useMemo(
     () => [
       { id: 'pieces', label: 'Pieces' },
@@ -182,20 +177,18 @@ export function ProfilePage({ isSeller = false, profile = DEFAULT_PROFILE } = {}
     ],
     [showCollect],
   );
-
   const activeTab = tabs.some((item) => item.id === tab) ? tab : 'pieces';
 
   const handleShare = async () => {
     setMenuOpen(false);
-    const url = window.location.href;
+    const url = user?.username ? `${window.location.origin}/profile` : window.location.href;
     try {
       if (navigator.share) {
-        await navigator.share({ title: profile.name, url });
+        await navigator.share({ title: user?.name, url });
         return;
       }
     } catch {
-      /* user cancelled */
-      return;
+      return; // user cancelled the native share sheet
     }
     try {
       await navigator.clipboard.writeText(url);
@@ -204,19 +197,27 @@ export function ProfilePage({ isSeller = false, profile = DEFAULT_PROFILE } = {}
     }
   };
 
-  const grid =
-    activeTab === 'scenes'
-      ? SCENES
-      : activeTab === 'series'
-        ? SERIES
-        : activeTab === 'collect'
-          ? COLLECT
-          : PIECES;
+  const handleLogout = async () => {
+    setMenuOpen(false);
+    await logout();
+    navigate('/login', { replace: true });
+  };
+
+  const piecesColumns = useMemo(() => toMasonryColumns(pieces || []), [pieces]);
+  const grid = activeTab === 'scenes' ? SCENES : activeTab === 'series' ? SERIES : activeTab === 'pieces' ? piecesColumns : { left: [], right: [] };
+
+  if (!user) return null;
+
+  const stats = [
+    { value: String(user.piecesCount ?? 0), label: 'pieces' },
+    { value: String(user.savesCount ?? 0), label: 'saves' },
+    { value: String(user.collectedCount ?? 0), label: 'collected' },
+  ];
 
   return (
     <div className="profile-page">
       <div className="profile-hero">
-        <img className="profile-banner" src={ASSETS.banner} alt="" draggable={false} />
+        <img className="profile-banner" src={user.coverPhotoUrl || FALLBACK_ASSETS.banner} alt="" draggable={false} />
         <div className="profile-banner-scrim" />
 
         <div className="profile-topbar">
@@ -226,7 +227,7 @@ export function ProfilePage({ isSeller = false, profile = DEFAULT_PROFILE } = {}
             aria-label="Back"
             onClick={() => navigate(-1)}
           >
-            <img src={ASSETS.back} alt="" width={9} height={16.5} />
+            <img src={ICONS.back} alt="" width={9} height={16.5} />
           </button>
           <button
             type="button"
@@ -235,27 +236,20 @@ export function ProfilePage({ isSeller = false, profile = DEFAULT_PROFILE } = {}
             aria-expanded={menuOpen}
             onClick={() => setMenuOpen((open) => !open)}
           >
-            <img src={ASSETS.more} alt="" width={16} height={2.4} />
+            <img src={ICONS.more} alt="" width={16} height={2.4} />
           </button>
           {menuOpen && (
             <>
               <div
-                style={{ position: 'fixed', inset: 0, zIndex: 3 }}
+                style={{ position: 'absolute', inset: 0, zIndex: 3 }}
                 onClick={() => setMenuOpen(false)}
               />
               <div className="profile-more-menu" role="menu">
                 <button type="button" role="menuitem" onClick={handleShare}>
                   Share profile
                 </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    navigate('/inbox?tab=chats');
-                  }}
-                >
-                  Message
+                <button type="button" role="menuitem" onClick={handleLogout}>
+                  Log out
                 </button>
               </div>
             </>
@@ -264,26 +258,26 @@ export function ProfilePage({ isSeller = false, profile = DEFAULT_PROFILE } = {}
 
         <img
           className="profile-avatar"
-          src={ASSETS.avatar}
-          alt={profile.name}
+          src={user.profilePhotoUrl || FALLBACK_ASSETS.avatar}
+          alt={user.name}
           draggable={false}
         />
       </div>
 
       <div className="profile-identity">
-        <h1 className="profile-name">{profile.name}</h1>
+        <h1 className="profile-name">{user.name}</h1>
         <div className="profile-handle-block">
-          <p className="profile-handle">{profile.handle}</p>
+          <p className="profile-handle">@{user.username}</p>
           <p className="profile-follow-line">
-            {profile.followers} followers · {profile.following} following
+            {user.followersCount ?? 0} followers · {user.followingCount ?? 0} following
           </p>
         </div>
       </div>
 
-      <p className="profile-bio">{profile.bio}</p>
+      {user.bio && <p className="profile-bio">{user.bio}</p>}
 
       <div className="profile-stats">
-        {profile.stats.map((stat, index) => (
+        {stats.map((stat, index) => (
           <React.Fragment key={stat.label}>
             {index > 0 && <div className="profile-stat-divider" />}
             <div className="profile-stat">
@@ -294,26 +288,11 @@ export function ProfilePage({ isSeller = false, profile = DEFAULT_PROFILE } = {}
         ))}
       </div>
 
-      <div className="profile-actions">
-        <button
-          type="button"
-          className="profile-btn profile-btn-message"
-          onClick={() => navigate('/inbox?tab=chats')}
-        >
-          Message
-        </button>
-        <button
-          type="button"
-          className={`profile-btn profile-btn-follow${following ? ' is-following' : ''}`}
-          onClick={() => setFollowing((value) => !value)}
-        >
-          {following ? 'Following' : 'Follow'}
-        </button>
-      </div>
-
       <ProfileTabs tabs={tabs} active={activeTab} onChange={setTab} />
 
-      {grid.left.length === 0 && grid.right.length === 0 ? (
+      {pieces === null && activeTab === 'pieces' ? (
+        <p className="profile-empty">Loading…</p>
+      ) : grid.left.length === 0 && grid.right.length === 0 ? (
         <p className="profile-empty">Nothing here yet.</p>
       ) : (
         <MasonryGrid columns={grid} />

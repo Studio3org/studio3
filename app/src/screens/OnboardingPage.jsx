@@ -1,6 +1,8 @@
 import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, ImageIcon, User } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { apiFetch, ApiError } from '../services/apiClient';
 
 const ROLES = [
   { id: 'artist', title: 'Artist', subtitle: 'I make and share my own work.' },
@@ -13,9 +15,13 @@ const STYLES = ['Abstract', 'Figurative', 'Landscape', 'Portrait', 'Contemporary
 const THEMES = ['Nature', 'Urban', 'Identity', 'Surreal', 'Geometric'];
 
 /** Post-signup profile setup — ported from lib/screens/onboarding/onboarding_page.dart.
- * Light cream palette, unlike the dark auth flow it follows. */
+ * Light cream palette, unlike the dark auth flow it follows. Role and taste preferences
+ * are saved for real; photos stay local-preview-only (no S3 upload wired from this web
+ * prototype yet) — the backend's onboarding/photos step accepts `{skip:true}` for exactly
+ * this case. */
 export function OnboardingPage() {
   const navigate = useNavigate();
+  const { setUser } = useAuth();
   const [step, setStep] = useState(0);
   const [role, setRole] = useState(null);
   const [mediums, setMediums] = useState([]);
@@ -23,6 +29,8 @@ export function OnboardingPage() {
   const [themes, setThemes] = useState([]);
   const [avatarUrl, setAvatarUrl] = useState(null);
   const [coverUrl, setCoverUrl] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
   const avatarInput = useRef(null);
   const coverInput = useRef(null);
 
@@ -38,8 +46,46 @@ export function OnboardingPage() {
     if (file) setUrl(URL.createObjectURL(file));
   };
 
+  const advance = async () => {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      if (step === 0) {
+        await apiFetch('/api/user/me/role', { method: 'PATCH', auth: true, body: { role } });
+        setStep(1);
+      } else if (step === 1) {
+        await apiFetch('/api/user/me/onboarding/preferences', {
+          method: 'POST',
+          auth: true,
+          body: { mediums, styles, themes },
+        });
+        setStep(2);
+      } else {
+        // Photos stay local-preview-only for now — tell the backend to skip that step.
+        await apiFetch('/api/user/me/onboarding/photos', { method: 'POST', auth: true, body: { skip: true } });
+        const user = await apiFetch('/api/user/me/onboarding/complete', { method: 'POST', auth: true });
+        setUser(user);
+        navigate('/home', { replace: true });
+      }
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Something went wrong. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
-    <div style={{ background: 'var(--cream-bg)', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div
+      style={{
+        background: 'var(--cream-bg)',
+        minHeight: '100vh',
+        width: '100%',
+        display: 'flex',
+        justifyContent: 'center',
+      }}
+    >
+    <div style={{ width: '100%', maxWidth: 480, display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <header style={{ padding: '16px 16px 12px', textAlign: 'center' }}>
         <h1 style={{ fontFamily: 'var(--font-inter)', fontSize: 17, fontWeight: 600, color: 'var(--cream-text)' }}>
           Set up your profile
@@ -60,6 +106,12 @@ export function OnboardingPage() {
       </div>
 
       <div style={{ flex: 1, padding: '0 20px', overflowY: 'auto' }}>
+        {error && (
+          <p style={{ fontFamily: 'var(--font-inter)', fontSize: 12, color: 'var(--cream-status-error)', marginBottom: 16 }}>
+            {error}
+          </p>
+        )}
+
         {step === 0 && (
           <>
             <h2 style={{ fontFamily: 'var(--font-inter)', fontSize: 22, fontWeight: 700, color: 'var(--cream-text)', marginBottom: 16 }}>
@@ -144,17 +196,18 @@ export function OnboardingPage() {
               icon={<ImageIcon size={22} color="var(--cream-text-secondary)" />}
               label={coverUrl ? 'Cover photo added' : 'Add cover photo'}
             />
+            <p style={{ fontFamily: 'var(--font-inter)', fontSize: 11, color: 'var(--cream-text-secondary)', marginTop: 16 }}>
+              Photo upload isn't wired up on the web yet — this preview stays local, and
+              finishing here just completes your profile without a photo.
+            </p>
           </>
         )}
       </div>
 
       <div style={{ padding: 20 }}>
         <button
-          disabled={!canContinue}
-          onClick={() => {
-            if (step < 2) setStep(step + 1);
-            else navigate('/home');
-          }}
+          disabled={!canContinue || busy}
+          onClick={advance}
           style={{
             width: '100%',
             height: 52,
@@ -166,9 +219,10 @@ export function OnboardingPage() {
             fontWeight: 600,
           }}
         >
-          {step < 2 ? 'Continue' : 'Finish'}
+          {busy ? 'Please wait…' : step < 2 ? 'Continue' : 'Finish'}
         </button>
       </div>
+    </div>
     </div>
   );
 }

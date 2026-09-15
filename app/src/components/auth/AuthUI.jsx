@@ -2,16 +2,24 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronLeft, Eye, EyeOff } from 'lucide-react';
 
-/** Dark "premium" auth shell — ported from lib/widgets/auth_ui.dart (AuthColors/AuthScaffold). */
+/** Dark "premium" auth shell — ported from lib/widgets/auth_ui.dart (AuthColors/AuthScaffold).
+ * Genuinely responsive: the background/curves fill the full viewport at any screen size
+ * (phone, tablet, desktop), while the form content is capped to a readable width and
+ * centered — a real desktop login page, not the mobile design stretched or letterboxed. */
 export function AuthScaffold({ children, showBackButton = false, onBack, compact = false }) {
   return (
     <div
       style={{
         minHeight: '100vh',
+        width: '100%',
         background:
           'linear-gradient(135deg, #121212 0%, #0A0A0A 30%, #000000 65%, #1A1A1A 100%)',
         position: 'relative',
         overflow: 'hidden',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '32px 24px',
       }}
     >
       {/* Soft radial highlight + vignette — approximates the Flutter background's
@@ -41,8 +49,8 @@ export function AuthScaffold({ children, showBackButton = false, onBack, compact
       <div
         style={{
           position: 'relative',
-          minHeight: '100vh',
-          padding: '24px 24px 32px',
+          width: '100%',
+          maxWidth: 440,
           display: 'flex',
           flexDirection: 'column',
         }}
@@ -69,35 +77,21 @@ export function AuthScaffold({ children, showBackButton = false, onBack, compact
 
         <StudioAuthLogo compact={compact} />
 
-        <div style={{ marginTop: compact ? 28 : 40, flex: 1 }}>{children}</div>
+        <div style={{ marginTop: compact ? 28 : 40 }}>{children}</div>
       </div>
     </div>
   );
 }
 
+/** The real app logo (lib/widgets/studio_logo.dart's StudioAuthLogo) — icon + wordmark
+ * stacked, both the cream-tinted "white" variant made for this same dark background. */
 export function StudioAuthLogo({ compact = false }) {
+  const iconHeight = compact ? 40 : 64;
+  const textHeight = compact ? 22 : 32;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-      <div
-        style={{
-          width: compact ? 40 : 64,
-          height: compact ? 40 : 64,
-          borderRadius: '50%',
-          border: '1.5px solid #fff',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <span style={{ color: '#fff', fontFamily: 'var(--font-geist)', fontWeight: 700, fontSize: compact ? 18 : 26 }}>
-          3
-        </span>
-      </div>
-      {!compact && (
-        <span style={{ color: '#fff', fontFamily: 'var(--font-inter)', fontSize: 15, letterSpacing: 2 }}>
-          STUDIO&nbsp;3
-        </span>
-      )}
+      <img src="/logo/logo_icon_white.png" alt="" height={iconHeight} style={{ height: iconHeight, width: 'auto' }} />
+      <img src="/logo/logo_text_white.png" alt="Studio 3" height={textHeight} style={{ height: textHeight, width: 'auto' }} />
     </div>
   );
 }
@@ -224,7 +218,6 @@ export function AuthPrimaryButton({ children, disabled, loading, onClick, style,
       ) : (
         children
       )}
-      <style>{'@keyframes auth-spin{to{transform:rotate(360deg)}}'}</style>
     </button>
   );
 }

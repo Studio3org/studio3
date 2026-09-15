@@ -12,11 +12,19 @@ Mobile-first (375×812px) React web prototype for the Studio 3 Discover social p
 
 ```bash
 cd app
+cp .env.example .env   # if you don't already have app/.env
 npm install
 npm run dev
 ```
 
 Open the dev server (e.g. http://localhost:5173). The UI is constrained to a 375px-wide frame in the center.
+
+API and app URLs live in `app/.env` (see `.env.example`). Uncomment the local or deployed line for each:
+
+| | Local | Deployed |
+|---|---|---|
+| API | `http://localhost:9000` | `https://studio3-backend.onrender.com` |
+| Web app | `http://localhost:5173` | `https://studio-3.co` |
 
 ## Routes
 

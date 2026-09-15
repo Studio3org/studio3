@@ -46,12 +46,12 @@ export function FloatingPillBottomNav({
       role="navigation"
       aria-label="Main"
       style={{
-        position: 'fixed',
+        position: 'absolute',
         bottom: 12,
         left: '50%',
         transform: 'translateX(-50%)',
         zIndex: 100,
-        width: 'min(342px, calc(min(100vw, 390px) - 20px))',
+        width: 'min(342px, calc(100% - 20px))',
         height: 64,
         borderRadius: 32,
         background: 'rgba(35, 31, 27, 0.85)',

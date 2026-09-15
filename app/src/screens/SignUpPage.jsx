@@ -1,6 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AtSign, Badge, Lock, Mail, Phone } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { apiFetch, ApiError } from '../services/apiClient';
 import {
   AuthGhostButton,
   AuthLinkFooter,
@@ -26,8 +28,11 @@ function passwordStrength(pw) {
 }
 
 export function SignUpPage() {
+  const { register } = useAuth();
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -36,9 +41,11 @@ export function SignUpPage() {
   const [cooldown, setCooldown] = useState(RESEND_COOLDOWN);
   const [username, setUsername] = useState('');
   const [usernameStatus, setUsernameStatus] = useState(null); // 'checking' | 'available' | 'taken'
+  const [usernameMessage, setUsernameMessage] = useState(null);
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const usernameCheckId = useRef(0);
 
   useEffect(() => {
     if (step !== 3 || cooldown <= 0) return;
@@ -47,21 +54,76 @@ export function SignUpPage() {
   }, [step, cooldown]);
 
   useEffect(() => {
-    if (step !== 4 || !username) {
+    if (step !== 4 || !username.trim()) {
       setUsernameStatus(null);
       return;
     }
+    const id = ++usernameCheckId.current;
     setUsernameStatus('checking');
-    const t = setTimeout(() => {
-      setUsernameStatus(username.toLowerCase() === 'taken' ? 'taken' : 'available');
+    const t = setTimeout(async () => {
+      try {
+        const result = await apiFetch(`/api/auth/username/check?username=${encodeURIComponent(username.trim())}`);
+        if (usernameCheckId.current !== id) return;
+        setUsernameStatus(result.available ? 'available' : 'taken');
+        setUsernameMessage(result.message || null);
+      } catch {
+        if (usernameCheckId.current !== id) return;
+        setUsernameStatus(null);
+      }
     }, 450);
     return () => clearTimeout(t);
   }, [step, username]);
 
   const goBack = () => {
+    setError(null);
     if (step > 1) setStep(step - 1);
     else navigate(-1);
   };
+
+  const withBusy = async (fn) => {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await fn();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Something went wrong. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const sendCode = () =>
+    withBusy(async () => {
+      await apiFetch('/api/auth/otp/generate', { method: 'POST', body: { email } });
+      setCooldown(RESEND_COOLDOWN);
+      setStep(3);
+    });
+
+  const resendCode = () =>
+    withBusy(async () => {
+      await apiFetch('/api/auth/otp/resend', { method: 'POST', body: { email } });
+      setCooldown(RESEND_COOLDOWN);
+    });
+
+  const verifyCode = () =>
+    withBusy(async () => {
+      await apiFetch('/api/auth/otp/verify', { method: 'POST', body: { email, otp } });
+      setStep(4);
+    });
+
+  const createAccount = () =>
+    withBusy(async () => {
+      const user = await register({
+        username: username.trim(),
+        name: `${firstName.trim()} ${lastName.trim()}`.trim(),
+        email,
+        password,
+        otp,
+        phone: phone.trim() || undefined,
+      });
+      navigate('/welcome', { replace: true, state: { onboardingComplete: user.onboardingComplete } });
+    });
 
   const strength = passwordStrength(password);
   const strengthColor = strength < 0.4 ? '#FF6B6B' : strength < 0.7 ? '#FFB347' : 'var(--auth-success)';
@@ -71,6 +133,12 @@ export function SignUpPage() {
       <div style={{ marginBottom: 24 }}>
         <AuthStepProgress total={TOTAL_STEPS} current={step} />
       </div>
+
+      {error && (
+        <p style={{ fontFamily: 'var(--font-inter)', fontSize: 12, color: 'var(--auth-error)', marginBottom: 12 }}>
+          {error}
+        </p>
+      )}
 
       {step === 1 && (
         <StepBody title="What's your name?">
@@ -83,7 +151,7 @@ export function SignUpPage() {
       {step === 2 && (
         <StepBody title="What's your email?" subtitle="We'll send you a verification code.">
           <AuthPillInput icon={<Mail size={20} strokeWidth={1.75} />} type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
-          <AuthPrimaryButton disabled={!email} onClick={() => { setCooldown(RESEND_COOLDOWN); setStep(3); }}>Send code</AuthPrimaryButton>
+          <AuthPrimaryButton disabled={!email} loading={busy} onClick={sendCode}>Send code</AuthPrimaryButton>
         </StepBody>
       )}
 
@@ -94,10 +162,10 @@ export function SignUpPage() {
             {cooldown > 0 ? (
               <span>Resend code in {String(Math.floor(cooldown / 60)).padStart(2, '0')}:{String(cooldown % 60).padStart(2, '0')}</span>
             ) : (
-              <button onClick={() => setCooldown(RESEND_COOLDOWN)} style={{ color: '#fff', fontWeight: 500 }}>Resend code</button>
+              <button onClick={resendCode} style={{ color: '#fff', fontWeight: 500 }}>Resend code</button>
             )}
           </div>
-          <AuthPrimaryButton disabled={otp.length !== 6} onClick={() => setStep(4)}>Verify</AuthPrimaryButton>
+          <AuthPrimaryButton disabled={otp.length !== 6} loading={busy} onClick={verifyCode}>Verify</AuthPrimaryButton>
         </StepBody>
       )}
 
@@ -120,7 +188,7 @@ export function SignUpPage() {
             >
               {usernameStatus === 'checking' && 'Checking availability…'}
               {usernameStatus === 'available' && 'Username is available'}
-              {usernameStatus === 'taken' && 'That username is taken'}
+              {usernameStatus === 'taken' && (usernameMessage || 'That username is taken')}
             </p>
           )}
           <AuthPrimaryButton disabled={usernameStatus !== 'available'} onClick={() => setStep(5)}>Continue</AuthPrimaryButton>
@@ -145,8 +213,9 @@ export function SignUpPage() {
           )}
           <AuthPasswordInput icon={<Lock size={20} strokeWidth={1.75} />} placeholder="Confirm password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
           <AuthPrimaryButton
-            disabled={!password || password !== confirmPassword}
-            onClick={() => navigate('/welcome')}
+            disabled={!password || password.length < 8 || password !== confirmPassword}
+            loading={busy}
+            onClick={createAccount}
           >
             Create Account
           </AuthPrimaryButton>

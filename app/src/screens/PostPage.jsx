@@ -19,7 +19,7 @@ export function PostPage() {
 
 function ShareTypeSheet({ onChoose, onCancel }) {
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 200 }}>
+    <div style={{ position: 'absolute', inset: 0, zIndex: 200 }}>
       <div
         onClick={onCancel}
         style={{

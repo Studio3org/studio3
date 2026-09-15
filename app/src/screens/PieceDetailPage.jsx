@@ -1,9 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 
-// Same deployed backend used by the Flutter app's ApiConfig fallback
-// (lib/config/api_config.dart) — this web app has no env-driven config yet.
-const API_BASE_URL = 'https://studio3-backend.onrender.com';
+import { API_BASE_URL } from '../services/apiClient';
 
 function formatUsd(cents) {
   if (cents == null) return '—';
