@@ -43,18 +43,74 @@ export class ApiError extends Error {
   }
 }
 
+/** Called once, terminally, when a 401 survives a refresh attempt — lets
+ * AuthContext clear its session/redirect instead of every caller having to
+ * guess whether a 401 means "this call needs auth" or "you're logged out". */
+let onAuthFailure = null;
+export function setAuthFailureHandler(fn) {
+  onAuthFailure = fn;
+}
+
+// The access token is short-lived (15 min server-side) and the refresh token
+// only exists as an httpOnly cookie (never in a JSON body — see auth_controller
+// .py's _issue_session_and_tokens), so refreshing is the only way to stay
+// signed in past that window. Refresh tokens rotate (single-use), so two
+// concurrent refreshes would have the second one fail after the first
+// revokes it — this single-flight promise makes every caller during a
+// refresh share the same in-flight request instead of racing.
+let refreshInFlight = null;
+
+async function doRefresh() {
+  const res = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+  });
+  let json = null;
+  try {
+    json = await res.json();
+  } catch {
+    /* empty body */
+  }
+  if (!res.ok) {
+    throw new ApiError(json?.message || `Request failed (${res.status})`, res.status);
+  }
+  const data = json?.data ?? json;
+  setAccessToken(data.accessToken);
+  return data;
+}
+
+/** Silently exchanges the refresh cookie for a fresh access token. Exported so
+ * AuthContext can also call it proactively on a timer, well before the 15-
+ * minute expiry, so an idle-but-open tab never actually reaches an expired
+ * token in the first place. */
+export function refreshAccessToken() {
+  if (!refreshInFlight) {
+    refreshInFlight = doRefresh().finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return refreshInFlight;
+}
+
 /**
  * Thin fetch wrapper matching the backend's `{success, message, data}` envelope
  * (src/shared/utils/api_response.py) and bearer-token auth
  * (src/middlewares/auth_middleware.py). `credentials: 'include'` is set so the
- * httpOnly refreshToken cookie round-trips when the web app happens to be
- * same-site with the API — cross-origin browsers will drop it per
- * SameSite=Lax, in which case refresh silently fails and the caller re-logs-in;
- * there's no reliable web workaround for that without a backend cookie-policy
- * change, so callers should treat "session expired, please log in again" as
- * expected behavior, not a bug.
+ * httpOnly refreshToken cookie round-trips — the backend sets it with
+ * SameSite=None; Secure for cross-origin requests (see
+ * src/shared/config/cors.py's refresh_cookie_flags), so this works whether
+ * the web app is same-site with the API or not.
+ *
+ * An authenticated call (`auth: true`) that comes back 401 gets one silent
+ * refresh-and-retry before giving up — this is what keeps a long-idle tab
+ * from suddenly failing every request the moment the 15-minute access token
+ * expires. Only a 401 that survives that retry (refresh token itself is
+ * gone/expired/revoked) is a real "you're logged out", which is reported via
+ * `onAuthFailure` so AuthContext can clear its session once, instead of
+ * every screen improvising its own "am I logged out?" logic.
  */
-export async function apiFetch(path, { method = 'GET', body, auth = false, signal } = {}) {
+export async function apiFetch(path, { method = 'GET', body, auth = false, signal, _retried = false } = {}) {
   const headers = { 'Content-Type': 'application/json' };
   if (auth) {
     const token = getAccessToken();
@@ -77,6 +133,14 @@ export async function apiFetch(path, { method = 'GET', body, auth = false, signa
   }
 
   if (!res.ok) {
+    if (auth && res.status === 401 && !_retried && path !== '/api/auth/refresh') {
+      try {
+        await refreshAccessToken();
+        return apiFetch(path, { method, body, auth, signal, _retried: true });
+      } catch {
+        onAuthFailure?.();
+      }
+    }
     throw new ApiError(json?.message || `Request failed (${res.status})`, res.status);
   }
   return json?.data ?? json;

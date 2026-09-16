@@ -1,7 +1,14 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { apiFetch, setAccessToken } from '../services/apiClient';
+import { apiFetch, refreshAccessToken, setAccessToken, setAuthFailureHandler } from '../services/apiClient';
 
 const AuthContext = createContext(null);
+
+// Access tokens expire after 15 minutes server-side (JWT_ACCESS_EXPIRY_MINUTES) —
+// refresh well before that so an open-but-idle tab never actually reaches an
+// expired token (apiFetch's retry-on-401 is the reactive backstop for calls
+// this proactive timer's interval happens to miss, e.g. right after a laptop
+// wakes from sleep).
+const SILENT_REFRESH_INTERVAL_MS = 10 * 60 * 1000;
 
 /** 'loading' while the initial session check is in flight, then 'authenticated' or 'guest'. */
 export function AuthProvider({ children }) {
@@ -20,24 +27,40 @@ export function AuthProvider({ children }) {
     setStatus('guest');
   }, []);
 
+  // Registered once: a 401 that survives apiFetch's own refresh-and-retry means
+  // the refresh token itself is gone (expired/revoked/never existed) — that's
+  // the one real "you're logged out" signal, reported from one place instead
+  // of every screen guessing at what a 401 means.
+  useEffect(() => {
+    setAuthFailureHandler(clearSession);
+    return () => setAuthFailureHandler(null);
+  }, [clearSession]);
+
   useEffect(() => {
     (async () => {
       try {
+        // No manual refresh fallback needed here — apiFetch already retries once
+        // via the refresh cookie on a 401 before giving up.
         const me = await apiFetch('/api/user/me', { auth: true });
         setUser(me);
         setStatus('authenticated');
       } catch {
-        // Access token missing/expired. Try the refresh cookie — only works if the
-        // browser actually sent it (same-site only, see apiClient.js's note).
-        try {
-          const session = await apiFetch('/api/auth/refresh', { method: 'POST' });
-          applySession(session);
-        } catch {
-          clearSession();
-        }
+        clearSession();
       }
     })();
-  }, [applySession, clearSession]);
+  }, [clearSession]);
+
+  // Silent refresh while a session is open — keeps an idle tab's token from
+  // ever actually reaching its 15-minute expiry.
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    const id = setInterval(() => {
+      refreshAccessToken().catch(() => {
+        /* apiFetch's reactive retry-on-401 is the backstop if this misses */
+      });
+    }, SILENT_REFRESH_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [status]);
 
   const login = useCallback(
     async (identifier, password) => {

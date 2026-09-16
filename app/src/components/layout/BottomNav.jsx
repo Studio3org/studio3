@@ -1,16 +1,7 @@
 import React, { useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { FloatingPillBottomNav } from './FloatingPillBottomNav';
-
-/** @param {string} pathname */
-function activeTabFromPath(pathname) {
-  if (pathname.startsWith('/home')) return 'home';
-  if (pathname.startsWith('/discover')) return 'explore';
-  if (pathname.startsWith('/post')) return 'post';
-  if (pathname.startsWith('/event')) return 'event';
-  if (pathname.startsWith('/profile')) return 'profile';
-  return 'home';
-}
+import { activeTabFromPath, routeForTab } from './navConfig';
 
 /**
  * @param {object} [props]
@@ -31,27 +22,7 @@ export function BottomNav({ avatarSrc, avatarAlt } = {}) {
       activeTab={activeTab}
       avatarSrc={avatarSrc}
       avatarAlt={avatarAlt}
-      onActiveTabChange={(id) => {
-        switch (id) {
-          case 'home':
-            navigate('/home');
-            break;
-          case 'explore':
-            navigate('/discover');
-            break;
-          case 'post':
-            navigate('/post');
-            break;
-          case 'event':
-            navigate('/event');
-            break;
-          case 'profile':
-            navigate('/profile');
-            break;
-          default:
-            break;
-        }
-      }}
+      onActiveTabChange={(id) => navigate(routeForTab(id))}
     />
   );
 }

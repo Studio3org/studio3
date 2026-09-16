@@ -103,98 +103,32 @@
 html {
   font-family: 'Inter', sans-serif;
   -webkit-font-smoothing: antialiased;
-  color-scheme: light dark;
-  /* Matches body — belt-and-suspenders so there's never a flash of the
-     browser's own default background before body's style applies. */
-  background: #ffffff;
+  background: var(--cream-bg, #fafaf7);
+  color-scheme: light;
 }
 
 body {
   min-height: 100vh;
-  /* App-store-preview style: the app itself is a fixed-width phone frame
-     (#root below); on any screen wider than that frame — tablet, desktop —
-     this is the backdrop filling the rest of the viewport. It tracks the
-     *system* light/dark setting, independent of the app's own (always
-     light) design, the same way a phone's home screen background does
-     regardless of which app is open. */
-  background: #ffffff;
-  color: var(--slate-900);
+  background: var(--cream-bg, #fafaf7);
+  color: var(--cream-text, #231f1b);
   overflow-x: hidden;
-}
-
-@media (prefers-color-scheme: dark) {
-  html,
-  body {
-    background: #000000;
-  }
 }
 
 #root {
   min-height: 100vh;
+  background: var(--cream-bg, #fafaf7);
 }
 
-/* Device frame: on a real phone this is just the viewport (full-bleed, no
-   visible shape of its own) — the interesting behavior is >480px (tablet,
-   desktop), where the app renders inside an actual tablet-proportioned
-   device card floating on the backdrop, rather than a phone-narrow strip
-   stretched to full height. The app's own screens are still authored at
-   their native ~390px mobile width (`.device-screen`'s max-width) and sit
-   centered inside that tablet card with bezel padding on the sides — like
-   viewing a phone app on a tablet, not a redesigned tablet layout. */
-.device-frame {
+/* AppShell chrome (components/layout/AppShell.jsx): full-viewport content,
+   with a left rail (SideNav) offsetting `.app-shell-main` at >=768px, or a
+   fixed bottom pill nav (BottomNav) below that. Each screen owns its own
+   background and max-width/grid — this is layout plumbing only. */
+.app-shell {
   min-height: 100vh;
-  display: flex;
-  justify-content: center;
 }
 
-.device-screen {
-  position: relative;
-  width: 100%;
-  max-width: 390px;
+.app-shell-main {
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background: var(--cream-bg);
-  overflow: hidden;
-}
-
-.device-scroll {
-  flex: 1 1 auto;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  min-height: 0;
-}
-
-@media (min-width: 481px) {
-  body {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding-block: 32px;
-  }
-
-  #root {
-    min-height: 0;
-  }
-
-  .device-frame {
-    min-height: 0;
-    width: min(600px, 92vw);
-    aspect-ratio: 3 / 4;
-    max-height: 90vh;
-    align-items: stretch;
-    background: #0b0b0b;
-    padding: 22px 22px 30px;
-    border-radius: 36px;
-    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.06);
-  }
-
-  .device-screen {
-    min-height: 0;
-    height: 100%;
-    border-radius: 18px;
-    box-shadow: 0 0 0 1px var(--slate-200);
-  }
 }
 
 /* Glass utilities */
@@ -236,6 +170,21 @@ body {
 @keyframes auth-spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+.feed-skeleton-block {
+  background: linear-gradient(90deg, #e2ded6 25%, #ece8e0 50%, #e2ded6 75%);
+  background-size: 200% 100%;
+  animation: feed-shimmer 1.5s infinite ease-in-out;
+}
+
+@keyframes feed-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
   }
 }
 

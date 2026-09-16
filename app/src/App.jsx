@@ -9,18 +9,23 @@ import { HomeFeedPage } from './screens/HomeFeedPage';
 import { DiscoverPage } from './screens/DiscoverPage';
 import { EventPage } from './screens/EventPage';
 import { ProfilePage } from './screens/ProfilePage';
+import { EditProfilePage } from './screens/EditProfilePage';
+import { ProfileSettingsPage } from './screens/ProfileSettingsPage';
+import { SavedPage } from './screens/SavedPage';
 import { PostPage } from './screens/PostPage';
-import { InboxPage } from './screens/InboxPage';
+import { InboxLayout } from './screens/InboxLayout';
 import { ChatThreadPage } from './screens/ChatThreadPage';
 import { PieceDetailPage } from './screens/PieceDetailPage';
 import { SeriesDetailPage } from './screens/SeriesDetailPage';
-import { BottomNav } from './components/layout/BottomNav';
+import { AppShell } from './components/layout/AppShell';
+import { StudioLogoLoader } from './components/common/StudioLogoLoader';
+import { PostModal } from './components/layout/PostModal';
 
-const NAV_PREFIXES = ['/home', '/discover', '/event', '/profile'];
+const NAV_PREFIXES = ['/home', '/discover', '/event', '/saved', '/profile', '/profile-settings'];
 // Auth pages are a full-viewport, genuinely responsive experience on every screen size —
-// unlike the rest of the app (a mobile-only design shown inside a phone-in-tablet device
-// mockup on desktop, see .device-frame in index.css), login/signup/welcome/onboarding
-// render outside that mockup entirely.
+// unlike the rest of the app, which renders inside AppShell (bottom nav on phones, a left
+// rail on tablet/desktop, see components/layout/AppShell.jsx) — login/signup/welcome/
+// onboarding render outside that shell entirely.
 const AUTH_PREFIXES = ['/login', '/signup', '/welcome', '/onboarding'];
 
 /** Signed-in users only — everything past login/signup/welcome/onboarding. */
@@ -41,37 +46,17 @@ function RequireGuest({ children }) {
 }
 
 function LoadingScreen() {
-  return (
-    <div
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'var(--cream-bg)',
-      }}
-    >
-      <span
-        style={{
-          width: 22,
-          height: 22,
-          borderRadius: '50%',
-          border: '2px solid var(--cream-divider)',
-          borderTopColor: 'var(--cream-cta-fill)',
-          animation: 'app-spin 0.7s linear infinite',
-        }}
-      />
-    </div>
-  );
+  return <StudioLogoLoader fullScreen />;
 }
 
 export default function App() {
   const location = useLocation();
+  const backgroundLocation = location.state?.backgroundLocation;
   const isAuthRoute = AUTH_PREFIXES.some((p) => location.pathname.startsWith(p));
   const showNav = NAV_PREFIXES.some((p) => location.pathname.startsWith(p));
 
   const routes = (
-    <Routes>
+    <Routes location={backgroundLocation || location}>
       <Route path="/login" element={<RequireGuest><LoginPage /></RequireGuest>} />
       <Route path="/signup" element={<RequireGuest><SignUpPage /></RequireGuest>} />
       <Route path="/welcome" element={<RequireAuth><WelcomePage /></RequireAuth>} />
@@ -80,12 +65,18 @@ export default function App() {
       <Route path="/home" element={<RequireAuth><HomeFeedPage /></RequireAuth>} />
       <Route path="/discover" element={<RequireAuth><DiscoverPage /></RequireAuth>} />
       <Route path="/event" element={<RequireAuth><EventPage /></RequireAuth>} />
+      <Route path="/saved" element={<RequireAuth><SavedPage /></RequireAuth>} />
       <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
+      <Route path="/profile/edit" element={<RequireAuth><EditProfilePage /></RequireAuth>} />
+      <Route path="/profile-settings" element={<RequireAuth><ProfileSettingsPage /></RequireAuth>} />
+      {/* Full-page fallback: reached directly (refresh/deep-link) or on mobile, where
+          Post never uses the backgroundLocation modal treatment below. */}
       <Route path="/post" element={<RequireAuth><PostPage /></RequireAuth>} />
 
       {/* Reached from the home header's inbox icon, not a bottom-nav slot. */}
-      <Route path="/inbox" element={<RequireAuth><InboxPage /></RequireAuth>} />
-      <Route path="/inbox/thread/:id" element={<RequireAuth><ChatThreadPage /></RequireAuth>} />
+      <Route path="/inbox" element={<RequireAuth><InboxLayout /></RequireAuth>}>
+        <Route path="thread/:id" element={<ChatThreadPage />} />
+      </Route>
       {/* Old direct links to the pre-merge chat/notifications pages. */}
       <Route path="/chat" element={<Navigate to="/inbox?tab=chats" replace />} />
       <Route path="/notifications" element={<Navigate to="/inbox?tab=notifications" replace />} />
@@ -104,11 +95,20 @@ export default function App() {
   }
 
   return (
-    <div className="device-frame">
-      <div className="device-screen">
-        <div className="device-scroll">{routes}</div>
-        {showNav && <BottomNav />}
-      </div>
-    </div>
+    <AppShell showNav={showNav}>
+      {routes}
+      {backgroundLocation && (
+        <Routes>
+          <Route
+            path="/post"
+            element={
+              <RequireAuth>
+                <PostModal />
+              </RequireAuth>
+            }
+          />
+        </Routes>
+      )}
+    </AppShell>
   );
 }

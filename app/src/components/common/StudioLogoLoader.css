@@ -1,0 +1,105 @@
+/* StudioLogoLoader.css — Studio 3 blinking logo loading animation */
+
+.studio-loader-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--cream-bg, #fafaf7);
+  width: 100%;
+}
+
+.studio-loader-container.is-fullscreen {
+  min-height: 100vh;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+}
+
+.studio-loader-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  animation: studio-fade-in 0.3s ease;
+}
+
+/* Studio 3 Logo Pulsing/Blinking Animation */
+.studio-loader-logo {
+  height: 38px;
+  width: auto;
+  object-fit: contain;
+  animation: studio-logo-blink 1.4s ease-in-out infinite alternate;
+}
+
+/* 3 Pulsing Bubbles matching Flutter StudioBubbleLoader */
+.studio-loader-bubbles {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.studio-bubble {
+  border-radius: 50%;
+  background: var(--cream-text, #231f1b);
+}
+
+.studio-bubble.bubble-1 {
+  width: 16px;
+  height: 16px;
+  animation: studio-bubble-pulse 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  animation-delay: 0s;
+}
+
+.studio-bubble.bubble-2 {
+  width: 12px;
+  height: 12px;
+  animation: studio-bubble-pulse 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  animation-delay: 0.25s;
+}
+
+.studio-bubble.bubble-3 {
+  width: 8px;
+  height: 8px;
+  animation: studio-bubble-pulse 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  animation-delay: 0.5s;
+}
+
+.studio-loader-message {
+  font-family: var(--font-inter, sans-serif);
+  font-size: 13px;
+  color: var(--cream-text-secondary, #8c8880);
+  margin-top: 4px;
+}
+
+@keyframes studio-logo-blink {
+  0% {
+    opacity: 0.35;
+    transform: scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1.03);
+  }
+}
+
+@keyframes studio-bubble-pulse {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+@keyframes studio-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

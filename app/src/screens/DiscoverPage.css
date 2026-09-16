@@ -1,0 +1,486 @@
+/* DiscoverPage.css — Instagram-styled Discover Page layout & animations */
+
+.discover-page {
+  background: var(--cream-bg);
+  min-height: 100vh;
+  padding-bottom: 96px;
+  color: var(--cream-text);
+  font-family: var(--font-inter);
+}
+
+.discover-container {
+  max-width: 935px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+/* Sticky Header */
+.discover-sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--cream-bg);
+  padding: 12px 0 14px;
+  border-bottom: 1px solid var(--cream-divider);
+  transition: all 0.2s ease;
+}
+
+.discover-search-bar {
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(140, 136, 128, 0.14);
+  border: 1px solid rgba(140, 136, 128, 0.2);
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  gap: 10px;
+  transition: all 0.2s ease;
+}
+
+.discover-search-bar:focus-within {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: var(--cream-text);
+  box-shadow: 0 2px 8px rgba(35, 31, 27, 0.08);
+}
+
+.discover-search-input {
+  flex: 1;
+  font-family: var(--font-inter);
+  font-size: 14px;
+  background: transparent;
+  color: var(--cream-text);
+  outline: none;
+  border: none;
+}
+
+.discover-search-input::placeholder {
+  color: var(--cream-text-secondary);
+}
+
+.discover-clear-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--cream-text-secondary);
+  color: var(--cream-bg);
+  cursor: pointer;
+  border: none;
+  padding: 0;
+}
+
+/* Category Filter Chips */
+.discover-category-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.discover-category-row::-webkit-scrollbar {
+  display: none;
+}
+
+.discover-chip {
+  height: 32px;
+  padding: 0 18px;
+  border-radius: 35px;
+  border: 1px solid var(--cream-text);
+  background: transparent;
+  color: var(--cream-text);
+  font-family: var(--font-inter);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.discover-chip.active {
+  background: var(--cream-text);
+  color: var(--cream-text-inverse);
+}
+
+.discover-chip:hover:not(.active) {
+  background: rgba(35, 31, 27, 0.06);
+}
+
+/* User Search List */
+.discover-user-results {
+  padding-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.discover-user-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid var(--cream-divider);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  text-decoration: none;
+  color: inherit;
+}
+
+.discover-user-card:hover {
+  background: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(35, 31, 27, 0.06);
+}
+
+.discover-user-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--cream-skeleton);
+  flex-shrink: 0;
+}
+
+.discover-user-avatar-placeholder {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--cream-cta-fill);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.discover-user-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--cream-text);
+}
+
+.discover-user-username {
+  font-size: 13px;
+  color: var(--cream-text-secondary);
+}
+
+/* Featured Hero Section */
+.discover-hero-card {
+  position: relative;
+  height: 230px;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 6px 20px rgba(35, 31, 27, 0.1);
+  margin: 16px 0 24px;
+  cursor: pointer;
+  background: var(--cream-skeleton);
+}
+
+.discover-hero-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+
+.discover-hero-card:hover .discover-hero-img {
+  transform: scale(1.03);
+}
+
+.discover-hero-badge {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  background: rgba(35, 31, 27, 0.75);
+  backdrop-filter: blur(8px);
+  color: var(--cream-text-inverse);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+.discover-hero-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(35, 31, 27, 0.88) 0%, rgba(35, 31, 27, 0.35) 45%, transparent 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 18px;
+  color: #ffffff;
+}
+
+.discover-hero-artist {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.discover-hero-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1.5px solid rgba(255, 255, 255, 0.8);
+}
+
+.discover-hero-artist-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.discover-hero-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 2px;
+  line-height: 1.25;
+}
+
+.discover-hero-subtitle {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.85);
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Sellers Near You Row */
+.discover-sellers-section {
+  margin-bottom: 24px;
+}
+
+.discover-section-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--cream-text);
+  margin-bottom: 12px;
+}
+
+.discover-sellers-scroll {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.discover-sellers-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.discover-seller-item {
+  width: 76px;
+  flex-shrink: 0;
+  text-align: center;
+  cursor: pointer;
+  transition: transform 0.18s ease;
+}
+
+.discover-seller-item:hover {
+  transform: translateY(-2px);
+}
+
+.discover-seller-avatar-ring {
+  position: relative;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  margin: 0 auto 6px;
+  padding: 2px;
+  background: linear-gradient(135deg, var(--cream-cta-fill), var(--cream-text-secondary));
+}
+
+.discover-seller-avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--cream-skeleton);
+  border: 2px solid var(--cream-bg);
+}
+
+.discover-seller-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--cream-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.discover-seller-dist {
+  font-size: 10px;
+  color: var(--cream-text-secondary);
+}
+
+/* Instagram Block Grid Engine */
+.discover-grid-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Quad Block: 2 Columns */
+.discover-quad-block {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.discover-quad-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Tile Component */
+.discover-tile {
+  position: relative;
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 14px rgba(35, 31, 27, 0.07);
+  background: var(--cream-skeleton);
+  cursor: pointer;
+  transition: box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.discover-tile:hover {
+  box-shadow: 0 8px 24px rgba(35, 31, 27, 0.14);
+}
+
+.discover-tile:active {
+  transform: scale(0.98);
+}
+
+.discover-tile-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.discover-tile:hover .discover-tile-img {
+  transform: scale(1.04);
+}
+
+/* Video Badge Overlay */
+.discover-video-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.discover-play-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+}
+
+/* Listing Status Pill */
+.discover-tile-badge {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(35, 31, 27, 0.72);
+  backdrop-filter: blur(4px);
+}
+
+.discover-tile-badge.available {
+  background: rgba(30, 41, 59, 0.85);
+}
+
+.discover-tile-badge.collected {
+  background: rgba(148, 163, 184, 0.85);
+}
+
+/* Two-Up Block */
+.discover-twoup-block {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+/* Full Width Block */
+.discover-fullwidth-block {
+  width: 100%;
+}
+
+/* Skeleton Loading State */
+.discover-skeleton-tile {
+  background: linear-gradient(90deg, #e2ded6 25%, #ece8e0 50%, #e2ded6 75%);
+  background-size: 200% 100%;
+  animation: discover-shimmer 1.5s infinite;
+  border-radius: 12px;
+}
+
+@keyframes discover-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Responsive Tweaks */
+@media (max-width: 600px) {
+  .discover-container {
+    padding: 0 10px;
+  }
+
+  .discover-hero-card {
+    height: 180px;
+    margin: 12px 0 18px;
+  }
+
+  .discover-hero-title {
+    font-size: 15px;
+  }
+
+  .discover-quad-block,
+  .discover-twoup-block {
+    gap: 6px;
+  }
+
+  .discover-quad-col {
+    gap: 6px;
+  }
+
+  .discover-grid-container {
+    gap: 6px;
+  }
+
+  .discover-tile {
+    border-radius: 8px;
+  }
+}

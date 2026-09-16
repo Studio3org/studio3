@@ -1,37 +1,15 @@
 import React from 'react';
-import { Calendar, Compass, Home, SquarePlus, User } from 'lucide-react';
-
-/** @typedef {'home' | 'explore' | 'post' | 'event' | 'profile'} NavTabId */
-
-export const NAV_TAB_ORDER = /** @type {const} */ (['home', 'explore', 'post', 'event', 'profile']);
-
-const ICON_MAP = {
-  home: Home,
-  explore: Compass,
-  post: SquarePlus,
-  event: Calendar,
-};
-
-const ARIA_LABEL = {
-  home: 'Home',
-  explore: 'Explore',
-  post: 'Create',
-  event: 'Events',
-  profile: 'Profile',
-};
+import { NavIcon } from '../icons/NavIcon';
+import { ARIA_LABEL, NAV_ICON_ID, NAV_ICON_USER, NAV_ICON_SAVED, NAV_TAB_ORDER } from './navConfig';
 
 /**
- * Floating bottom nav — a single pill capsule with 5 equal icon slots
- * (Home / Explore / Post / Event / Profile-avatar), matching the real app's
- * `lib/widgets/bottom_nav.dart` exactly: 342x64, radius 32, dark frosted
- * glass (`#231F1B` @ 85%, blur 24), selected icon `#FAFAF7`, inactive
- * `#8C8880`. Sized to the 390px app frame (not the real browser viewport —
- * see index.css's `#root`), so it never overflows on desktop/tablet the way
- * a `100vw`-based size would.
+ * Floating bottom nav — a single pill capsule with 6 equal icon slots
+ * (Home / Explore / Post / Event / Saved / Profile-avatar), matching the real app's
+ * `lib/widgets/bottom_nav.dart` exactly.
  *
  * @param {object} props
- * @param {NavTabId} [props.activeTab]
- * @param {(id: NavTabId) => void} [props.onActiveTabChange]
+ * @param {import('./navConfig').NavTabId} [props.activeTab]
+ * @param {(id: import('./navConfig').NavTabId) => void} [props.onActiveTabChange]
  * @param {string} [props.avatarSrc]
  * @param {string} [props.avatarAlt='Profile']
  */
@@ -46,12 +24,12 @@ export function FloatingPillBottomNav({
       role="navigation"
       aria-label="Main"
       style={{
-        position: 'absolute',
+        position: 'fixed',
         bottom: 12,
         left: '50%',
         transform: 'translateX(-50%)',
         zIndex: 100,
-        width: 'min(342px, calc(100% - 20px))',
+        width: 'min(380px, calc(100% - 20px))',
         height: 64,
         borderRadius: 32,
         background: 'rgba(35, 31, 27, 0.85)',
@@ -61,13 +39,13 @@ export function FloatingPillBottomNav({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '0 16px',
+        padding: '0 12px',
       }}
     >
       {NAV_TAB_ORDER.map((id) => {
         const isActive = activeTab === id;
         const isProfile = id === 'profile';
-        const Icon = ICON_MAP[id];
+        const isSaved = id === 'saved';
         return (
           <button
             key={id}
@@ -79,8 +57,8 @@ export function FloatingPillBottomNav({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: 48,
-              height: 48,
+              width: 44,
+              height: 44,
               borderRadius: '50%',
               flexShrink: 0,
             }}
@@ -109,16 +87,13 @@ export function FloatingPillBottomNav({
                     style={{ objectFit: 'cover', width: '100%', height: '100%' }}
                   />
                 ) : (
-                  <User size={14} color={isActive ? '#FAFAF7' : '#8C8880'} strokeWidth={1.75} aria-hidden />
+                  <NAV_ICON_USER size={14} color={isActive ? '#FAFAF7' : '#8C8880'} strokeWidth={1.75} aria-hidden />
                 )}
               </span>
+            ) : isSaved ? (
+              <NAV_ICON_SAVED size={22} color={isActive ? '#FAFAF7' : '#8C8880'} strokeWidth={1.75} />
             ) : (
-              <Icon
-                size={24}
-                color={isActive ? '#FAFAF7' : '#8C8880'}
-                strokeWidth={isActive ? 2.1 : 1.75}
-                aria-hidden
-              />
+              <NavIcon id={NAV_ICON_ID[id]} size={24} color={isActive ? '#FAFAF7' : '#8C8880'} />
             )}
           </button>
         );

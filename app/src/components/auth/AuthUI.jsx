@@ -2,6 +2,81 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronLeft, Eye, EyeOff } from 'lucide-react';
 
+/** Ports `_AuthCurvePainter` + the two radial-gradient overlay layers from
+ * lib/widgets/auth_ui.dart's `AuthBackground` 1:1: three sweeping quadratic
+ * curves (as an SVG using a 0-100 fractional viewBox with
+ * `preserveAspectRatio="none"`, the direct equivalent of Flutter's
+ * width/height-fraction canvas coordinates), a circle glow sized off the
+ * container's width the same way `w * 0.35` is, a soft top highlight, and a
+ * center vignette. */
+function AuthBackgroundArt() {
+  return (
+    <>
+      <svg
+        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+      >
+        <path
+          d="M -10 15 Q 50 5 110 35 Q 70 55 120 75"
+          fill="none"
+          stroke="#2E2E2E"
+          strokeWidth={1.2}
+          strokeLinecap="round"
+          vectorEffect="non-scaling-stroke"
+        />
+        <path
+          d="M -5 45 Q 40 30 95 50 Q 55 70 115 60"
+          fill="none"
+          stroke="#3A3A3A"
+          strokeOpacity={0.7}
+          strokeWidth={0.8}
+          strokeLinecap="round"
+          vectorEffect="non-scaling-stroke"
+        />
+        <path
+          d="M 10 85 Q 55 65 100 90"
+          fill="none"
+          stroke="#252525"
+          strokeWidth={1}
+          strokeLinecap="round"
+          vectorEffect="non-scaling-stroke"
+        />
+      </svg>
+
+      <div
+        style={{
+          position: 'absolute',
+          left: '85%',
+          top: '12%',
+          width: '70%',
+          aspectRatio: '1 / 1',
+          transform: 'translate(-50%, -50%)',
+          borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(64,64,64,0.15), transparent 70%)',
+          pointerEvents: 'none',
+        }}
+      />
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'radial-gradient(circle at 50% 35%, rgba(255,255,255,0.03), transparent 65%)',
+          pointerEvents: 'none',
+        }}
+      />
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'radial-gradient(circle at 50% 50%, transparent 40%, rgba(0,0,0,0.55) 100%)',
+          pointerEvents: 'none',
+        }}
+      />
+    </>
+  );
+}
+
 /** Dark "premium" auth shell — ported from lib/widgets/auth_ui.dart (AuthColors/AuthScaffold).
  * Genuinely responsive: the background/curves fill the full viewport at any screen size
  * (phone, tablet, desktop), while the form content is capped to a readable width and
@@ -22,29 +97,7 @@ export function AuthScaffold({ children, showBackButton = false, onBack, compact
         padding: '32px 24px',
       }}
     >
-      {/* Soft radial highlight + vignette — approximates the Flutter background's
-          painted curves/glow without needing a canvas. */}
-      <div
-        style={{
-          position: 'absolute',
-          top: -80,
-          right: -80,
-          width: 280,
-          height: 280,
-          borderRadius: '50%',
-          background: 'rgba(64,64,64,0.18)',
-          filter: 'blur(40px)',
-          pointerEvents: 'none',
-        }}
-      />
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          background: 'radial-gradient(circle at 50% 40%, transparent 45%, rgba(0,0,0,0.55) 100%)',
-          pointerEvents: 'none',
-        }}
-      />
+      <AuthBackgroundArt />
 
       <div
         style={{

@@ -50,6 +50,7 @@ export function SeriesDetailPage() {
 
   return (
     <div style={{ background: 'var(--cream-bg-detail)', minHeight: '100vh' }}>
+      <div style={{ maxWidth: 935, margin: '0 auto' }}>
       {series.coverUrl && (
         <img
           src={series.coverUrl}
@@ -91,6 +92,7 @@ export function SeriesDetailPage() {
         >
           Open in app
         </a>
+      </div>
       </div>
     </div>
   );

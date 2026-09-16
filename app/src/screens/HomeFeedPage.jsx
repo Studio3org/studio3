@@ -2,16 +2,25 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bookmark, ChevronDown } from 'lucide-react';
 import { apiFetch } from '../services/apiClient';
+import { useBreakpoint } from '../hooks/useBreakpoint';
+import { NavIcon } from '../components/icons/NavIcon';
+import {
+  fetchConversations,
+  fetchNotifications,
+  fetchUnreadConversationCount,
+  fetchUnreadNotificationCount,
+} from '../services/inboxApi';
+import { isChatLikeNotification, notificationDisplayText } from '../utils/notificationText';
+
+const MAIN_COLUMN_WIDTH = 630;
+const RIGHT_RAIL_WIDTH = 320;
 
 const FILTERS = ['All', 'Piece', 'Scene'];
 
-/** Mock fallback — shown if the real feed can't be reached (no network, or this sandbox's
- * backend has no live database — see repeated notes elsewhere in this session) so the
- * screen never renders fully empty/broken. */
 const FALLBACK_ITEMS = [
-  { id: 1, title: 'Coastal Forms #3', medium: 'Oil', artistName: 'Jordan Lee', aspect: '3 / 4', status: 'available' },
-  { id: 2, title: 'Studio Notes — January', medium: 'Mixed Media', artistName: 'Alex Chen', aspect: '16 / 9', status: null },
-  { id: 3, title: 'Untitled (Series 12)', medium: 'Photography', artistName: 'Sam Rivera', aspect: '3 / 4', status: 'collected' },
+  { id: 1, title: 'Coastal Forms #3', medium: 'Oil', artistName: 'Jordan Lee', authorUsername: 'jordanlee', aspect: '3 / 4', status: 'available' },
+  { id: 2, title: 'Studio Notes — January', medium: 'Mixed Media', artistName: 'Alex Chen', authorUsername: 'alexchen', aspect: '16 / 9', status: null },
+  { id: 3, title: 'Untitled (Series 12)', medium: 'Photography', artistName: 'Sam Rivera', authorUsername: 'samrivera', aspect: '3 / 4', status: 'collected' },
 ];
 
 function statusFor(item) {
@@ -26,7 +35,9 @@ function mapFeedItem(item) {
     id: item.id,
     title: item.title || item.caption || 'Untitled',
     medium: item.medium || (item.type === 'post' ? 'Scene' : ''),
-    artistName: item.author?.name || 'Artist',
+    artistName: item.author?.name || item.authorName || 'Artist',
+    authorUsername: item.author?.username || item.authorUsername || '',
+    authorAvatarUrl: item.author?.profilePhotoUrl || item.authorAvatarUrl,
     aspect: item.mediaType === 'video' ? '16 / 9' : '3 / 4',
     status: statusFor(item),
     mediaUrl: item.mediaUrl,
@@ -35,9 +46,11 @@ function mapFeedItem(item) {
 
 export function HomeFeedPage() {
   const navigate = useNavigate();
+  const { railLabeled } = useBreakpoint();
   const [filter, setFilter] = useState('All');
   const [filterOpen, setFilterOpen] = useState(false);
   const [items, setItems] = useState(null);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -46,7 +59,6 @@ export function HomeFeedPage() {
         const page = await apiFetch('/api/feed/for-you', { auth: true });
         if (!cancelled) setItems(page.items.map(mapFeedItem));
       } catch {
-        // Not onboarded yet, or for-you failed for any reason — explore is public.
         try {
           const page = await apiFetch('/api/feed/explore', { auth: true });
           if (!cancelled) setItems(page.items.map(mapFeedItem));
@@ -60,150 +72,411 @@ export function HomeFeedPage() {
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([fetchUnreadNotificationCount(), fetchUnreadConversationCount()])
+      .then(([notifs, chats]) => !cancelled && setUnreadCount(notifs + chats))
+      .catch(() => {
+        /* fail silent */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const visibleItems = (items || []).filter((item) => {
-    if (filter === 'All') return true;
-    if (filter === 'Piece') return item.aspect !== '16 / 9';
-    return item.aspect === '16 / 9';
+    if (filter === 'Piece') return item.medium !== 'Scene';
+    if (filter === 'Scene') return item.medium === 'Scene';
+    return true;
   });
 
   return (
     <div style={{ background: 'var(--cream-bg)', minHeight: '100vh', paddingBottom: 96 }}>
-      <header
+      <div
         style={{
+          maxWidth: railLabeled ? MAIN_COLUMN_WIDTH + RIGHT_RAIL_WIDTH + 48 : MAIN_COLUMN_WIDTH,
+          margin: '0 auto',
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '14px 16px 16px',
+          gap: 48,
         }}
       >
-        <div style={{ position: 'relative' }}>
-          <button
-            onClick={() => setFilterOpen((open) => !open)}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <header
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: 4,
-              fontFamily: 'var(--font-geist)',
-              fontSize: 20,
-              fontWeight: 600,
-              color: 'var(--cream-text)',
+              justifyContent: 'space-between',
+              height: 52,
+              padding: '0 10px',
+              borderBottom: '1px solid var(--cream-divider)',
+              background: 'var(--cream-bg)',
+              position: 'sticky',
+              top: 0,
+              zIndex: 10,
             }}
           >
-            {filter}
-            <ChevronDown size={16} strokeWidth={2} />
-          </button>
-          {filterOpen && (
-            <>
-              <div style={{ position: 'absolute', inset: 0, zIndex: 20 }} onClick={() => setFilterOpen(false)} />
-              <div
-                className="glass-light"
-                style={{ position: 'absolute', top: '100%', left: 0, marginTop: 8, minWidth: 120, padding: 6, zIndex: 21 }}
+            <div style={{ position: 'relative' }}>
+              <button
+                type="button"
+                onClick={() => setFilterOpen((open) => !open)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  fontFamily: 'var(--font-geist)',
+                  fontSize: 16,
+                  fontWeight: 600,
+                  color: 'var(--cream-text)',
+                }}
               >
-                {FILTERS.map((f) => (
-                  <button
-                    key={f}
-                    onClick={() => {
-                      setFilter(f);
-                      setFilterOpen(false);
-                    }}
+                {filter} <ChevronDown size={16} strokeWidth={2.25} />
+              </button>
+              {filterOpen && (
+                <>
+                  <div style={{ position: 'fixed', inset: 0, zIndex: 20 }} onClick={() => setFilterOpen(false)} />
+                  <div
                     style={{
-                      display: 'block',
-                      width: '100%',
-                      textAlign: 'left',
-                      padding: '10px 12px',
-                      borderRadius: 10,
-                      fontFamily: 'var(--font-geist)',
-                      fontSize: 14,
-                      fontWeight: f === filter ? 600 : 400,
-                      color: 'var(--cream-text)',
+                      position: 'absolute',
+                      top: 36,
+                      left: 0,
+                      zIndex: 21,
+                      background: 'var(--cream-bg-detail)',
+                      border: '1px solid var(--cream-divider)',
+                      borderRadius: 12,
+                      padding: 6,
+                      boxShadow: 'var(--shadow-float)',
+                      minWidth: 140,
                     }}
                   >
-                    {f}
-                  </button>
-                ))}
-              </div>
-            </>
+                    {FILTERS.map((f) => (
+                      <button
+                        key={f}
+                        type="button"
+                        onClick={() => {
+                          setFilter(f);
+                          setFilterOpen(false);
+                        }}
+                        style={{
+                          display: 'block',
+                          width: '100%',
+                          textAlign: 'left',
+                          padding: '10px 12px',
+                          borderRadius: 10,
+                          fontFamily: 'var(--font-geist)',
+                          fontSize: 14,
+                          fontWeight: f === filter ? 600 : 400,
+                          color: 'var(--cream-text)',
+                        }}
+                      >
+                        {f}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
+            <img src="/logo/logo_text_black.png" alt="Studio 3" height={34} style={{ height: 34, width: 'auto' }} />
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+              <button aria-label="Saved" style={{ color: 'var(--cream-text)' }}>
+                <Bookmark size={22} strokeWidth={1.75} />
+              </button>
+              <button
+                aria-label="Inbox"
+                onClick={() => navigate('/inbox')}
+                style={{ position: 'relative', color: 'var(--cream-text)' }}
+              >
+                <NavIcon id="bell" size={22} />
+                {unreadCount > 0 && (
+                  <span
+                    style={{
+                      position: 'absolute',
+                      top: -4,
+                      right: -6,
+                      minWidth: 14,
+                      height: 14,
+                      padding: '0 3px',
+                      borderRadius: 7,
+                      background: '#E05252',
+                      color: '#fff',
+                      fontSize: 9,
+                      fontWeight: 600,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
+            </div>
+          </header>
+
+          {items === null ? (
+            <HomeFeedSkeleton />
+          ) : visibleItems.length === 0 ? (
+            <p style={{ textAlign: 'center', fontFamily: 'var(--font-inter)', fontSize: 14, color: 'var(--cream-text-secondary)', padding: 48 }}>
+              Nothing here yet.
+            </p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '10px 10px 0 10px' }}>
+              {visibleItems.map((item) => (
+                <FeedTile key={item.id} item={item} onOpen={() => navigate(`/piece/${item.id}`)} />
+              ))}
+            </div>
           )}
         </div>
-
-        <img src="/logo/logo_text_black.png" alt="Studio 3" height={22} style={{ height: 22, width: 'auto' }} />
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-          <button aria-label="Saved" style={{ color: 'var(--cream-text)' }}>
-            <Bookmark size={22} strokeWidth={1.75} />
-          </button>
-          <button
-            aria-label="Inbox"
-            onClick={() => navigate('/inbox')}
-            style={{ position: 'relative', color: 'var(--cream-text)' }}
-          >
-            <InboxIcon />
-            <span
-              style={{
-                position: 'absolute',
-                top: -4,
-                right: -6,
-                minWidth: 14,
-                height: 14,
-                padding: '0 3px',
-                borderRadius: 7,
-                background: '#E05252',
-                color: '#fff',
-                fontSize: 9,
-                fontWeight: 600,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              3
-            </span>
-          </button>
-        </div>
-      </header>
-
-      {items === null ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}>
-          <span
-            style={{
-              width: 20,
-              height: 20,
-              borderRadius: '50%',
-              border: '2px solid var(--cream-divider)',
-              borderTopColor: 'var(--cream-cta-fill)',
-              animation: 'app-spin 0.7s linear infinite',
-            }}
-          />
-        </div>
-      ) : visibleItems.length === 0 ? (
-        <p style={{ textAlign: 'center', fontFamily: 'var(--font-inter)', fontSize: 14, color: 'var(--cream-text-secondary)', padding: 48 }}>
-          Nothing here yet.
-        </p>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '0 10px' }}>
-          {visibleItems.map((item) => (
-            <FeedTile key={item.id} item={item} onOpen={() => navigate(`/piece/${item.id}`)} />
-          ))}
-        </div>
-      )}
+        {railLabeled && <HomeRightRail />}
+      </div>
     </div>
   );
 }
 
-function InboxIcon() {
+function HomeRightRail() {
+  const navigate = useNavigate();
+  const [notifications, setNotifications] = useState(null);
+  const [conversations, setConversations] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchNotifications({ limit: 8 })
+      .then((data) => !cancelled && setNotifications((data.items || []).filter((n) => !isChatLikeNotification(n)).slice(0, 4)))
+      .catch(() => !cancelled && setNotifications([]));
+    fetchConversations({ limit: 4 })
+      .then((data) => !cancelled && setConversations(data.items || []))
+      .catch(() => !cancelled && setConversations([]));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6Z"
-        stroke="currentColor"
-        strokeWidth="1.75"
+    <aside
+      style={{
+        flex: `0 0 ${RIGHT_RAIL_WIDTH}px`,
+        position: 'sticky',
+        top: 14,
+        height: 'calc(100vh - 28px)',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      <RailSection
+        title="Notifications"
+        onSeeAll={() => navigate('/inbox?tab=notifications')}
+        style={{ borderBottom: '1px solid var(--cream-divider)' }}
+      >
+        {notifications === null ? (
+          <RailSectionSkeleton count={4} />
+        ) : notifications.length === 0 ? (
+          <RailEmpty text="No notifications yet." />
+        ) : (
+          notifications.map((item) => (
+            <RailRow
+              key={item.id}
+              avatarSrc={item.actor?.profilePhotoUrl}
+              name={item.actor?.name || 'Someone'}
+              username={item.actor?.username}
+              text={notificationDisplayText(item)}
+            />
+          ))
+        )}
+      </RailSection>
+      <RailSection title="Messages" onSeeAll={() => navigate('/inbox?tab=chats')}>
+        {conversations === null ? (
+          <RailSectionSkeleton count={3} />
+        ) : conversations.length === 0 ? (
+          <RailEmpty text="No messages yet." />
+        ) : (
+          conversations.map((item) => (
+            <RailRow
+              key={item.id}
+              avatarSrc={item.otherParty?.profilePhotoUrl}
+              name={item.otherParty?.name || 'Someone'}
+              username={item.otherParty?.username}
+              text={item.preview}
+            />
+          ))
+        )}
+      </RailSection>
+    </aside>
+  );
+}
+
+function HomeFeedSkeleton() {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '10px 10px 0 10px' }}>
+      <FeedTileSkeleton aspect="3 / 4" />
+      <FeedTileSkeleton aspect="16 / 9" />
+      <FeedTileSkeleton aspect="3 / 4" />
+    </div>
+  );
+}
+
+function FeedTileSkeleton({ aspect = '3 / 4' }) {
+  return (
+    <div
+      className="feed-skeleton-block"
+      style={{
+        width: '100%',
+        borderRadius: 10,
+        position: 'relative',
+        aspectRatio: aspect,
+        overflow: 'hidden',
+      }}
+    >
+      <div
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: 56,
+          background: 'linear-gradient(to top, rgba(35,31,27,0.6), rgba(35,31,27,0))',
+        }}
       />
-      <path d="M4.5 6.5 12 12.5l7.5-6" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
-    </svg>
+      <div
+        style={{
+          position: 'absolute',
+          left: 16,
+          right: 16,
+          bottom: 8,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          height: 40,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div className="feed-skeleton-block" style={{ width: 28, height: 28, borderRadius: '50%' }} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <div className="feed-skeleton-block" style={{ width: 90, height: 12, borderRadius: 4 }} />
+            <div className="feed-skeleton-block" style={{ width: 60, height: 10, borderRadius: 4 }} />
+          </div>
+        </div>
+        <div className="feed-skeleton-block" style={{ width: 64, height: 20, borderRadius: 22 }} />
+      </div>
+    </div>
+  );
+}
+
+function RailSectionSkeleton({ count = 3 }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px' }}>
+          <div className="feed-skeleton-block" style={{ width: 32, height: 32, borderRadius: '50%', flexShrink: 0 }} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
+            <div className="feed-skeleton-block" style={{ width: '60%', height: 12, borderRadius: 4 }} />
+            <div className="feed-skeleton-block" style={{ width: '85%', height: 10, borderRadius: 4 }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function RailLoading() {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', padding: 20 }}>
+      <span
+        style={{
+          width: 16,
+          height: 16,
+          borderRadius: '50%',
+          border: '2px solid var(--cream-divider)',
+          borderTopColor: 'var(--cream-cta-fill)',
+          animation: 'app-spin 0.7s linear infinite',
+        }}
+      />
+    </div>
+  );
+}
+
+function RailEmpty({ text }) {
+  return (
+    <p style={{ fontFamily: 'var(--font-inter)', fontSize: 12, color: 'var(--cream-text-secondary)', padding: '4px 10px' }}>
+      {text}
+    </p>
+  );
+}
+
+function RailSection({ title, onSeeAll, style, children }) {
+  return (
+    <div style={{ flex: '1 1 50%', minHeight: 0, display: 'flex', flexDirection: 'column', paddingTop: 14, ...style }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <span style={{ fontFamily: 'var(--font-inter)', fontSize: 14, fontWeight: 600, color: 'var(--cream-text)' }}>
+          {title}
+        </span>
+        <button
+          onClick={onSeeAll}
+          style={{ fontFamily: 'var(--font-inter)', fontSize: 12, color: 'var(--cream-text-secondary)' }}
+        >
+          See all
+        </button>
+      </div>
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4, paddingBottom: 14 }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function RailRow({ avatarSrc, name, username, text }) {
+  const navigate = useNavigate();
+  const handleClick = () => {
+    if (username) {
+      navigate(`/profile?username=${username}`);
+    }
+  };
+
+  return (
+    <div
+      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 10, cursor: username ? 'pointer' : 'default' }}
+      onClick={handleClick}
+    >
+      {avatarSrc ? (
+        <img
+          src={avatarSrc}
+          alt=""
+          width={32}
+          height={32}
+          style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+        />
+      ) : (
+        <span style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--cream-cta-fill)', flexShrink: 0 }} />
+      )}
+      <span style={{ minWidth: 0, fontFamily: 'var(--font-inter)', fontSize: 13, color: 'var(--cream-text)', overflow: 'hidden' }}>
+        <strong style={{ fontWeight: 600 }}>{name}</strong>{' '}
+        <span
+          style={{
+            color: 'var(--cream-text-secondary)',
+            display: '-webkit-box',
+            WebkitLineClamp: 1,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+          }}
+        >
+          {text}
+        </span>
+      </span>
+    </div>
   );
 }
 
 function FeedTile({ item, onOpen }) {
+  const navigate = useNavigate();
+
+  const handleArtistClick = (e) => {
+    e.stopPropagation();
+    const uname = item.authorUsername || item.artistName;
+    if (uname) {
+      navigate(`/profile?username=${encodeURIComponent(uname)}`);
+    }
+  };
+
   return (
     <button
       type="button"
@@ -251,31 +524,43 @@ function FeedTile({ item, onOpen }) {
           height: 40,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-          <span
-            style={{
-              width: 28,
-              height: 28,
-              borderRadius: '50%',
-              flexShrink: 0,
-              background: 'var(--cream-cta-fill)',
-              color: 'var(--cream-text-inverse)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontFamily: 'var(--font-geist)',
-              fontSize: 12,
-              fontWeight: 600,
-            }}
-          >
-            {item.artistName[0]}
-          </span>
+        <div
+          style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, cursor: 'pointer' }}
+          onClick={handleArtistClick}
+        >
+          {item.authorAvatarUrl ? (
+            <img
+              src={item.authorAvatarUrl}
+              alt={item.artistName}
+              style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+            />
+          ) : (
+            <span
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: '50%',
+                flexShrink: 0,
+                background: 'var(--cream-cta-fill)',
+                color: 'var(--cream-text-inverse)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontFamily: 'var(--font-geist)',
+                fontSize: 12,
+                fontWeight: 600,
+              }}
+            >
+              {item.artistName ? item.artistName[0] : 'A'}
+            </span>
+          )}
           <span style={{ minWidth: 0, textAlign: 'left' }}>
             <div
               style={{
                 fontFamily: 'var(--font-geist)',
                 fontSize: 12,
                 color: 'var(--cream-text-inverse)',
+                fontWeight: 600,
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',

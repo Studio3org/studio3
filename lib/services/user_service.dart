@@ -61,6 +61,11 @@ class UserService {
     String? bio,
     String? location,
     String? pronouns,
+    String? website,
+    String? instagram,
+    String? twitter,
+    String? category,
+    List<String>? tags,
     String? profilePhotoUrl,
     String? coverPhotoUrl,
     double? latitude,
@@ -80,6 +85,11 @@ class UserService {
     if (bio != null) body['bio'] = bio;
     if (location != null) body['location'] = location;
     if (pronouns != null) body['pronouns'] = pronouns;
+    if (website != null) body['website'] = website;
+    if (instagram != null) body['instagram'] = instagram;
+    if (twitter != null) body['twitter'] = twitter;
+    if (category != null) body['category'] = category;
+    if (tags != null) body['tags'] = tags;
     if (profilePhotoUrl != null) body['profilePhotoUrl'] = profilePhotoUrl;
     if (coverPhotoUrl != null) body['coverPhotoUrl'] = coverPhotoUrl;
     if (latitude != null) body['latitude'] = latitude;
