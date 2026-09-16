@@ -32,7 +32,7 @@
   position: relative;
   width: 100%;
   aspect-ratio: 3 / 4;
-  background: var(--pd-skeleton);
+  background: #000;
   overflow: hidden;
   flex-shrink: 0;
 }
@@ -48,9 +48,13 @@
   flex: 0 0 100%;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  /* Always show the full piece at its own aspect ratio inside the fixed
+     3:4 frame — never crop it — so a wider-or-taller-than-3:4 image
+     letterboxes/pillarboxes against this element's own black background
+     rather than losing part of the art to a `cover` crop. */
+  object-fit: contain;
+  background: #000;
   display: block;
-  background: var(--pd-skeleton);
   user-select: none;
   -webkit-user-drag: none;
 }
@@ -707,19 +711,21 @@
   .piece-detail-card {
     flex-direction: row;
     height: min(860px, calc(100vh - 40px));
-    width: min(1195px, 100%);
+    width: fit-content;
     max-width: 100%;
     border: 1px solid var(--pd-hairline);
     border-radius: 16px;
     overflow: hidden;
   }
 
+  /* Same fixed 3:4 frame as mobile — width now derives from the card's
+     fixed height instead of stretching to fill whatever space is left
+     next to the side panel. */
   .piece-detail-media {
-    flex: 1 1 auto;
+    flex: 0 0 auto;
     width: auto;
     height: 100%;
-    aspect-ratio: auto;
-    min-width: 0;
+    aspect-ratio: 3 / 4;
   }
 
   .piece-detail-nav {

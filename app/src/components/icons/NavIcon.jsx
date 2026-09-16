@@ -4,6 +4,8 @@ import exploreSvg from '../../assets/nav/explore.svg?raw';
 import postSvg from '../../assets/nav/post.svg?raw';
 import eventSvg from '../../assets/nav/event.svg?raw';
 import bellSvg from '../../assets/nav/bell_icon.svg?raw';
+import availableDotSvg from '../../assets/nav/available_dot.svg?raw';
+import collectedMarkSvg from '../../assets/nav/collected_mark.svg?raw';
 
 const RAW = {
   home: homeSvg,
@@ -11,6 +13,8 @@ const RAW = {
   post: postSvg,
   event: eventSvg,
   bell: bellSvg,
+  availableDot: availableDotSvg,
+  collectedMark: collectedMarkSvg,
 };
 
 /** Strips the baked-in hex fill/stroke and fixed width/height from a Flutter

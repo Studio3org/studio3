@@ -24,6 +24,17 @@ function statusFor(item) {
   return null;
 }
 
+/** Mirrors home_feed_page.dart's `_resolveAspectRatio`: the baked-at-publish
+ * `mediaAspectRatio` ('16:9' or '3:4') is authoritative when present, so a
+ * piece/scene renders at the ratio it was actually uploaded/cropped at
+ * instead of a size guessed from its media type. Only videos (which skip
+ * the crop step, so never get a stored ratio) and legacy content published
+ * before this field existed fall back to a type-based guess. */
+function aspectFor(item) {
+  if (item.mediaAspectRatio) return item.mediaAspectRatio === '16:9' ? '16 / 9' : '3 / 4';
+  return item.mediaType === 'video' ? '16 / 9' : '3 / 4';
+}
+
 function mapFeedItem(item) {
   return {
     id: item.id,
@@ -32,7 +43,7 @@ function mapFeedItem(item) {
     artistName: item.author?.name || item.authorName || 'Artist',
     authorUsername: item.author?.username || item.authorUsername || '',
     authorAvatarUrl: item.author?.profilePhotoUrl || item.authorAvatarUrl,
-    aspect: item.mediaType === 'video' ? '16 / 9' : '3 / 4',
+    aspect: aspectFor(item),
     status: statusFor(item),
     mediaUrl: item.mediaUrl,
   };
@@ -405,6 +416,9 @@ function FeedTile({ item, onOpen }) {
           <span
             style={{
               flexShrink: 0,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
               padding: '4px 8px',
               borderRadius: 22,
               background: 'rgba(35,31,27,0.6)',
@@ -413,6 +427,11 @@ function FeedTile({ item, onOpen }) {
               fontFamily: 'var(--font-geist)',
             }}
           >
+            {/* Both statuses use the app's green — filled dot for Available,
+                hollow ring for Collected (assets/nav/available_dot.svg /
+                collected_mark.svg) — there's no yellow status color in the
+                real app. */}
+            <NavIcon id={item.status === 'available' ? 'availableDot' : 'collectedMark'} size={8} color="#00B46D" />
             {item.status === 'available' ? 'Available' : 'Collected'}
           </span>
         )}
