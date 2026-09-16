@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, SlidersHorizontal, X, Play } from 'lucide-react';
 import { apiFetch } from '../services/apiClient';
+import { useBreakpoint } from '../hooks/useBreakpoint';
+import { InboxRail } from '../components/layout/InboxRail';
 import './DiscoverPage.css';
 
 const CATEGORIES = [
@@ -409,9 +411,12 @@ export function DiscoverPage() {
     }
   };
 
+  const { railLabeled } = useBreakpoint();
+
   return (
     <div className="discover-page">
-      <div className="discover-container">
+      <div style={{ display: 'flex', gap: 48, maxWidth: railLabeled ? 935 + 320 + 48 : 935, margin: '0 auto' }}>
+      <div className="discover-container" style={{ margin: 0, flex: 1, minWidth: 0 }}>
         {/* Sticky Header with Search Input & Category Pills */}
         <div className="discover-sticky-header">
           <div className="discover-search-bar">
@@ -646,6 +651,8 @@ export function DiscoverPage() {
             )}
           </>
         )}
+      </div>
+      {railLabeled && <InboxRail />}
       </div>
     </div>
   );

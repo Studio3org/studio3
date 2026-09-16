@@ -18,7 +18,7 @@ const SCENE_ASPECT_OPTIONS = [
  * that working image's dimensions change. */
 export function ImageCropEditor({ type, item, onChange, cropperOnly = false, controlsOnly = false }) {
   const { transform } = item;
-  const [aspect, setAspect] = useState(type === 'piece' ? 3 / 4 : 9 / 16);
+  const [aspect, setAspect] = useState(type === 'piece' || type === 'event' ? 3 / 4 : 9 / 16);
   const [workingUrl, setWorkingUrl] = useState(item.previewUrl);
   const revokeRef = useRef(null);
 

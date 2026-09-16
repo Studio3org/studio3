@@ -1,8 +1,14 @@
 import React, { useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Settings } from 'lucide-react';
+import { Plus, Settings } from 'lucide-react';
 import { NavIcon } from '../icons/NavIcon';
 import { ARIA_LABEL, NAV_ICON_ID, NAV_ICON_USER, NAV_ICON_SAVED, NAV_LABEL, NAV_TAB_ORDER, activeTabFromPath, routeForTab } from './navConfig';
+
+// Create gets its own black-circle-plus treatment and sits above Home,
+// rather than in its usual NAV_TAB_ORDER slot — everything else keeps that
+// order. Mobile's FloatingPillBottomNav is unaffected (still reads
+// NAV_TAB_ORDER directly).
+const REST_OF_NAV = NAV_TAB_ORDER.filter((id) => id !== 'post');
 
 /**
  * Left rail chrome shown at >=768px in place of the bottom pill nav. Icon-only
@@ -63,7 +69,45 @@ export function SideNav({ railLabeled, avatarSrc, avatarAlt = 'Profile' }) {
         />
       </div>
 
-      {NAV_TAB_ORDER.map((id) => {
+      <button
+        type="button"
+        onClick={() => handleNav('post')}
+        aria-label={ARIA_LABEL.post}
+        aria-current={activeTab === 'post' ? 'page' : undefined}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 14,
+          width: railLabeled ? '100%' : 48,
+          height: 48,
+          padding: railLabeled ? '0 12px' : 0,
+          justifyContent: railLabeled ? 'flex-start' : 'center',
+          flexShrink: 0,
+          marginBottom: 8,
+        }}
+      >
+        <span
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 32,
+            height: 32,
+            borderRadius: '50%',
+            background: 'var(--cream-cta-fill)',
+            flexShrink: 0,
+          }}
+        >
+          <Plus size={18} color="var(--cream-text-inverse)" strokeWidth={2.25} />
+        </span>
+        {railLabeled && (
+          <span style={{ fontFamily: 'var(--font-inter)', fontSize: 15, fontWeight: 400, color: 'var(--cream-text)', whiteSpace: 'nowrap' }}>
+            {NAV_LABEL.post}
+          </span>
+        )}
+      </button>
+
+      {REST_OF_NAV.map((id) => {
         const isActive = activeTab === id;
         const isProfile = id === 'profile';
         const isSaved = id === 'saved';

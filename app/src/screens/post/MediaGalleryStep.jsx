@@ -62,10 +62,14 @@ export function MediaGalleryStep({ type, form }) {
       >
         <Upload size={28} color="var(--cream-text-secondary)" strokeWidth={1.5} style={{ marginBottom: 12 }} />
         <p style={{ fontFamily: 'var(--font-inter)', fontSize: 14, fontWeight: 500, color: 'var(--cream-text)', margin: '0 0 4px 0', textAlign: 'center' }}>
-          {type === 'piece' ? 'Drag images here, or click to browse' : 'Drag a photo or video here, or click to browse'}
+          {type === 'piece'
+            ? 'Drag images here, or click to browse'
+            : type === 'event'
+              ? 'Drag a cover photo here, or click to browse'
+              : 'Drag a photo or video here, or click to browse'}
         </p>
         <p style={{ fontFamily: 'var(--font-inter)', fontSize: 12, color: 'var(--cream-text-secondary)', margin: 0, textAlign: 'center' }}>
-          {type === 'piece' ? `Up to ${media.maxItems} images` : 'One photo or video'}
+          {type === 'piece' ? `Up to ${media.maxItems} images` : type === 'event' ? 'One photo' : 'One photo or video'}
         </p>
       </div>
 

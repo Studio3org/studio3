@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../services/apiClient';
 import { useBreakpoint } from '../hooks/useBreakpoint';
+import { InboxRail } from '../components/layout/InboxRail';
 import './ProfilePage.css';
 
 const FALLBACK_ASSETS = {
@@ -598,7 +599,8 @@ export function ProfilePage() {
 
   return (
     <div className="profile-page">
-      <div className="profile-inner">
+      <div style={{ display: 'flex', gap: 48, maxWidth: railLabeled ? 935 + 320 + 48 : 935, margin: '0 auto' }}>
+      <div className="profile-inner" style={{ margin: 0, flex: 1, minWidth: 0 }}>
         <div className="profile-hero">
           <img className="profile-banner" src={userDisplay.coverPhotoUrl || FALLBACK_ASSETS.banner} alt="" draggable={false} />
           <div className="profile-banner-scrim" />
@@ -783,6 +785,8 @@ export function ProfilePage() {
         {activeTab === 'collect' && (
           <MasonryGrid columns={collectColumns} onOpen={(id) => navigate(`/piece/${id}`)} />
         )}
+      </div>
+      {railLabeled && <InboxRail />}
       </div>
 
       <FollowListModal

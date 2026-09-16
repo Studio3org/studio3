@@ -81,3 +81,12 @@ export const LOCATION_OPTIONS = [
   { id: 'sf', name: 'San Francisco, CA, USA' },
   { id: 'milan', name: 'Milan, Italy' },
 ];
+
+/** lib/data/post_picker_options.dart's EventCategoryOptions. */
+export const EVENT_CATEGORY_OPTIONS = [
+  { id: 'workshop', name: 'Workshop' },
+  { id: 'gallery_walk', name: 'Gallery Walk' },
+  { id: 'exhibition', name: 'Exhibition' },
+  { id: 'talks_panels', name: 'Talks & Panels' },
+  { id: 'demos_performances', name: 'Demos & Performances' },
+];

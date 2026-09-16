@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../services/apiClient';
 import { Bookmark, Plus, Trash2, FolderPlus } from 'lucide-react';
+import { useBreakpoint } from '../hooks/useBreakpoint';
+import { InboxRail } from '../components/layout/InboxRail';
 import './SavedPage.css';
 
 const DEMO_SAVED_ITEMS = [
@@ -69,9 +71,12 @@ export function SavedPage() {
     return true;
   });
 
+  const { railLabeled } = useBreakpoint();
+
   return (
     <div className="saved-page">
-      <div className="saved-inner">
+      <div style={{ display: 'flex', gap: 48, maxWidth: railLabeled ? 935 + 320 + 48 : 935, margin: '0 auto' }}>
+      <div className="saved-inner" style={{ margin: 0, flex: 1, minWidth: 0 }}>
         <div className="saved-header">
           <h1 className="saved-title">Saved</h1>
           <button
@@ -155,6 +160,8 @@ export function SavedPage() {
             ))}
           </div>
         )}
+      </div>
+      {railLabeled && <InboxRail />}
       </div>
 
       {/* New Collection Modal */}

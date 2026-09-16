@@ -13,6 +13,7 @@ import { EditProfilePage } from './screens/EditProfilePage';
 import { ProfileSettingsPage } from './screens/ProfileSettingsPage';
 import { SavedPage } from './screens/SavedPage';
 import { PostPage } from './screens/PostPage';
+import { EventPostPage } from './screens/EventPostPage';
 import { InboxLayout } from './screens/InboxLayout';
 import { ChatThreadPage } from './screens/ChatThreadPage';
 import { PieceDetailPage } from './screens/PieceDetailPage';
@@ -20,6 +21,7 @@ import { SeriesDetailPage } from './screens/SeriesDetailPage';
 import { AppShell } from './components/layout/AppShell';
 import { StudioLogoLoader } from './components/common/StudioLogoLoader';
 import { PostModal } from './components/layout/PostModal';
+import { EventPostModal } from './components/layout/EventPostModal';
 
 const NAV_PREFIXES = ['/home', '/discover', '/event', '/saved', '/profile', '/profile-settings'];
 // Auth pages are a full-viewport, genuinely responsive experience on every screen size —
@@ -72,6 +74,10 @@ export default function App() {
       {/* Full-page fallback: reached directly (refresh/deep-link) or on mobile, where
           Post never uses the backgroundLocation modal treatment below. */}
       <Route path="/post" element={<RequireAuth><PostPage /></RequireAuth>} />
+      {/* Event creation — same full-page-fallback/background-location-modal
+          split as /post above. Deliberately not under /event so NAV_PREFIXES
+          hides the bottom nav during creation, matching /post's treatment. */}
+      <Route path="/event-create" element={<RequireAuth><EventPostPage /></RequireAuth>} />
 
       {/* Reached from the home header's inbox icon, not a bottom-nav slot. */}
       <Route path="/inbox" element={<RequireAuth><InboxLayout /></RequireAuth>}>
@@ -104,6 +110,14 @@ export default function App() {
             element={
               <RequireAuth>
                 <PostModal />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/event-create"
+            element={
+              <RequireAuth>
+                <EventPostModal />
               </RequireAuth>
             }
           />
