@@ -4,8 +4,11 @@ import { Play, Upload } from 'lucide-react';
 /** Web equivalent of the app's device-gallery grid (PostGalleryPicker) — a
  * native multi-file picker (dropzone + click-to-browse) since there's no
  * browser equivalent of in-app device gallery access, followed by a grid of
- * already-selected thumbnails with numbered badges. Tapping a thumbnail
- * deselects it (no separate delete button, same as the app). */
+ * already-selected thumbnails. Tapping a thumbnail deselects it (no separate
+ * delete button, same as the app). Piece posts allow multiple images, so
+ * each thumbnail gets a numbered badge showing its order; Scene posts cap
+ * at a single image (see useMediaEditor's `maxItems`), so there's nothing
+ * to number there. */
 export function MediaGalleryStep({ type, form }) {
   const { media } = form;
   const fileInput = useRef(null);
@@ -100,26 +103,28 @@ export function MediaGalleryStep({ type, form }) {
               ) : (
                 <img src={item.previewUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               )}
-              <span
-                style={{
-                  position: 'absolute',
-                  top: 4,
-                  left: 4,
-                  width: 18,
-                  height: 18,
-                  borderRadius: '50%',
-                  background: 'var(--cream-cta-fill)',
-                  color: 'var(--cream-text-inverse)',
-                  fontSize: 10,
-                  fontWeight: 600,
-                  fontFamily: 'var(--font-inter)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                {index + 1}
-              </span>
+              {type === 'piece' && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: 4,
+                    left: 4,
+                    width: 18,
+                    height: 18,
+                    borderRadius: '50%',
+                    background: 'var(--cream-cta-fill)',
+                    color: 'var(--cream-text-inverse)',
+                    fontSize: 10,
+                    fontWeight: 600,
+                    fontFamily: 'var(--font-inter)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  {index + 1}
+                </span>
+              )}
             </button>
           ))}
         </div>

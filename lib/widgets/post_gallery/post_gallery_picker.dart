@@ -243,14 +243,23 @@ class _PostGalleryPickerState extends State<PostGalleryPicker> {
             Container(
               color: const Color.fromRGBO(255, 255, 255, 0.68),
               alignment: Alignment.center,
-              child: Text(
-                '${selectedIndex + 1}',
-                style: GoogleFonts.geist(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w400,
-                  color: HomeFeedTokens.textPrimary,
-                ),
-              ),
+              // A selection-order number only means something when more than
+              // one photo can be picked (piece galleries) — Scene and Event
+              // posts cap `maxSelection` at 1, so there's nothing to order.
+              child: widget.maxSelection > 1
+                  ? Text(
+                      '${selectedIndex + 1}',
+                      style: GoogleFonts.geist(
+                        fontSize: 32,
+                        fontWeight: FontWeight.w400,
+                        color: HomeFeedTokens.textPrimary,
+                      ),
+                    )
+                  : Icon(
+                      Icons.check_circle,
+                      size: 32,
+                      color: HomeFeedTokens.textPrimary,
+                    ),
             ),
         ],
       ),

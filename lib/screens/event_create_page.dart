@@ -1,29 +1,22 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../data/post_location_options.dart';
-import '../data/post_material_options.dart';
 import '../data/post_media_assets.dart';
 import '../data/post_picker_options.dart';
 import '../models/post_image_transform.dart';
-import '../models/post_summary.dart';
-import '../services/auth_session.dart';
-import '../services/post_service.dart';
 import '../theme/home_feed_tokens.dart';
 import '../widgets/choose_location_sheet.dart';
-import '../widgets/create_flow/piece_details_form.dart';
-import '../widgets/create_flow/related_scenes_picker_page.dart';
-import '../widgets/create_flow/series_picker_sheet.dart';
+import '../widgets/create_flow/event_date_sheet.dart';
+import '../widgets/create_flow/event_ticket_edit_page.dart';
 import '../widgets/post_create_option_sheet.dart';
 import '../widgets/post_crop_preview.dart';
 import '../widgets/publish_result_overlays.dart';
-import 'add_materials_page.dart';
 
-const _kSteps = ['Tickets', 'Details', 'Itinerary', 'Lineup', 'Review'];
+const _kSteps = ['Details', 'Tickets', 'Lineup', 'Review'];
 
-/// Event details wizard — Figma `2862:15395` (Tickets) plus later steps.
+/// Event details wizard — Details → Tickets → Lineup → Review.
 class EventCreatePage extends StatefulWidget {
   const EventCreatePage({
     super.key,
@@ -44,29 +37,18 @@ class EventCreatePage extends StatefulWidget {
 
 class _EventCreatePageState extends State<EventCreatePage> {
   static const _hairline = Color(0xFFC8C5BC);
-  static const _modeFill = Color(0xFF2A2622);
-  static const _modeBorder = Color(0xFF352F2A);
+  static const _disabledFill = Color(0xFFC8C5BC);
 
   int _step = 0;
   bool? _paid;
-  String? _ticketMode;
+  final _tickets = <EventTicketTier>[];
   final _title = TextEditingController();
   final _description = TextEditingController();
-  final _venue = TextEditingController();
-  final _when = TextEditingController();
   final _lineup = TextEditingController();
-  final _included = TextEditingController();
-  final _ticketPrice = TextEditingController(text: '25');
-  final _capacity = TextEditingController();
-  final _pieceDetailsKey = GlobalKey<PieceDetailsFormState>();
   PostLocationOption? _selectedLocation;
-  String? _selectedMediumId;
-  final Set<String> _selectedStyleIds = {};
-  final List<PostMaterialOption> _selectedMaterials = [];
-  String? _selectedSeriesId;
-  String? _newSeriesName;
-  String? _seriesLabel;
-  final Set<String> _relatedSceneIds = {};
+  EventDateSelection? _eventDate;
+  String? _categoryId;
+  bool _isPublic = false;
   bool _publishing = false;
   bool _publishSuccess = false;
 
@@ -83,12 +65,7 @@ class _EventCreatePageState extends State<EventCreatePage> {
     _title.removeListener(_onTitleChanged);
     _title.dispose();
     _description.dispose();
-    _venue.dispose();
-    _when.dispose();
     _lineup.dispose();
-    _included.dispose();
-    _ticketPrice.dispose();
-    _capacity.dispose();
     super.dispose();
   }
 
@@ -104,11 +81,11 @@ class _EventCreatePageState extends State<EventCreatePage> {
     );
   }
 
+  bool get _hasCompleteTicket => _tickets.any((ticket) => ticket.isComplete);
+
   bool get _canContinue => switch (_step) {
-        0 => _paid == false || (_paid == true && _ticketMode != null),
-        1 => _title.text.trim().isNotEmpty,
-        2 => _when.text.trim().isNotEmpty || _venue.text.trim().isNotEmpty,
-        3 => true,
+        0 => _title.text.trim().isNotEmpty,
+        1 => _paid == false || (_paid == true && _hasCompleteTicket),
         _ => true,
       };
 
@@ -174,10 +151,9 @@ class _EventCreatePageState extends State<EventCreatePage> {
                       color: Color(0xFFC8C5BC),
                     ),
                     switch (_step) {
-                      0 => _ticketsBody(),
-                      1 => _detailsBody(),
-                      2 => _itineraryBody(),
-                      3 => _lineupBody(),
+                      0 => _detailsBody(),
+                      1 => _ticketsBody(),
+                      2 => _lineupBody(),
                       _ => _reviewBody(),
                     },
                   ],
@@ -187,30 +163,29 @@ class _EventCreatePageState extends State<EventCreatePage> {
                 top: false,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(10, 24, 10, 24),
-                  child: Opacity(
-                    opacity: _canContinue ? 1 : 0.4,
-                    child: SizedBox(
-                      width: double.infinity,
-                      height: 40,
-                      child: FilledButton(
-                        onPressed: _canContinue ? _saveAndContinue : null,
-                        style: FilledButton.styleFrom(
-                          disabledBackgroundColor: HomeFeedTokens.neutral800,
-                          disabledForegroundColor: HomeFeedTokens.textInverse,
-                          backgroundColor: HomeFeedTokens.neutral800,
-                          foregroundColor: HomeFeedTokens.textInverse,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: 40,
+                    child: FilledButton(
+                      onPressed: _canContinue ? _saveAndContinue : null,
+                      style: FilledButton.styleFrom(
+                        disabledBackgroundColor: _disabledFill,
+                        disabledForegroundColor: HomeFeedTokens.textPrimary,
+                        backgroundColor: HomeFeedTokens.neutral800,
+                        foregroundColor: HomeFeedTokens.textInverse,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Text(
-                          _step == _kSteps.length - 1
-                              ? 'Publish event'
-                              : 'Save and continue',
-                          style: _geist(
-                            size: 16,
-                            color: HomeFeedTokens.textInverse,
-                          ),
+                      ),
+                      child: Text(
+                        _step == _kSteps.length - 1
+                            ? 'Publish event'
+                            : 'Save and continue',
+                        style: _geist(
+                          size: 16,
+                          color: _canContinue
+                              ? HomeFeedTokens.textInverse
+                              : HomeFeedTokens.textPrimary,
                         ),
                       ),
                     ),
@@ -339,7 +314,11 @@ class _EventCreatePageState extends State<EventCreatePage> {
                       selected: _paid == true,
                       onTap: () => setState(() {
                         _paid = true;
-                        _ticketMode ??= 'fixed';
+                        if (_tickets.isEmpty) {
+                          _tickets.add(
+                            const EventTicketTier(name: 'General Admission'),
+                          );
+                        }
                       }),
                     ),
                   ),
@@ -348,10 +327,7 @@ class _EventCreatePageState extends State<EventCreatePage> {
                     child: _choiceButton(
                       label: 'Free/RSVP',
                       selected: _paid == false,
-                      onTap: () => setState(() {
-                        _paid = false;
-                        _ticketMode = null;
-                      }),
+                      onTap: () => setState(() => _paid = false),
                     ),
                   ),
                 ],
@@ -359,13 +335,13 @@ class _EventCreatePageState extends State<EventCreatePage> {
             ],
           ),
         ),
-        if (_paid == true) ...[
+        if (_paid == true)
           _ticketSection(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'General Admission',
+                  'Ticket Tiers',
                   style: _geist(
                     size: 13,
                     weight: FontWeight.w500,
@@ -373,50 +349,111 @@ class _EventCreatePageState extends State<EventCreatePage> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                _sellModeCard(
-                  title: 'Fixed price',
-                  subtitle: 'One price, first to buy',
-                  selected: _ticketMode == 'fixed',
-                  onTap: () => setState(() => _ticketMode = 'fixed'),
-                ),
+                for (var i = 0; i < _tickets.length; i++) ...[
+                  if (i > 0) const SizedBox(height: 12),
+                  _ticketTierCard(_tickets[i], i),
+                ],
                 const SizedBox(height: 16),
-                _sellModeCard(
-                  title: 'Auction',
-                  subtitle: '3 - 14 days, highest bid wins',
-                  selected: _ticketMode == 'auction',
-                  onTap: () => setState(() => _ticketMode = 'auction'),
-                ),
-              ],
-            ),
-          ),
-          _ticketSection(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'General Admission',
-                  style: _geist(
-                    size: 13,
-                    weight: FontWeight.w500,
-                    color: HomeFeedTokens.textSecondary,
+                GestureDetector(
+                  onTap: _addTicketType,
+                  behavior: HitTestBehavior.opaque,
+                  child: Text(
+                    '+ Add ticket type',
+                    style: _geist(
+                      size: 13,
+                      weight: FontWeight.w500,
+                      color: ticketAccent,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 16),
-                _includedField(),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    _priceChip(),
-                    const SizedBox(width: 10),
-                    Expanded(child: _capacityField()),
-                  ],
-                ),
               ],
             ),
           ),
-        ],
       ],
     );
+  }
+
+  Widget _ticketTierCard(EventTicketTier ticket, int index) {
+    final description = ticket.descriptionLine;
+    final perOrder = ticket.perOrderLine;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: HomeFeedTokens.textPrimary),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  ticket.name.trim().isEmpty ? 'Untitled ticket' : ticket.name,
+                  style: _geist(size: 13, weight: FontWeight.w500),
+                ),
+              ),
+              GestureDetector(
+                onTap: () => _editTicket(index),
+                behavior: HitTestBehavior.opaque,
+                child: Text(
+                  'Edit',
+                  style: _geist(
+                    size: 12,
+                    weight: FontWeight.w500,
+                    color: ticketAccent,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            description ?? 'No description yet',
+            style: _geist(size: 12, color: HomeFeedTokens.textSecondary),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            ticket.priceLine,
+            style: _geist(
+              size: 12,
+              color: ticket.priceLineIsHint
+                  ? ticketAccent
+                  : HomeFeedTokens.textPrimary,
+            ),
+          ),
+          if (perOrder != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              perOrder,
+              style: _geist(size: 12, color: HomeFeedTokens.textSecondary),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _addTicketType() async {
+    final result = await EventTicketEditPage.open(
+      context,
+      initial: EventTicketTier(
+        name: _tickets.isEmpty ? 'General Admission' : '',
+      ),
+    );
+    if (!mounted || result == null) return;
+    setState(() => _tickets.add(result));
+  }
+
+  Future<void> _editTicket(int index) async {
+    final result = await EventTicketEditPage.open(
+      context,
+      initial: _tickets[index],
+    );
+    if (!mounted || result == null) return;
+    setState(() => _tickets[index] = result);
   }
 
   Widget _ticketSection({required Widget child}) {
@@ -455,140 +492,6 @@ class _EventCreatePageState extends State<EventCreatePage> {
             color: selected
                 ? HomeFeedTokens.textInverse
                 : HomeFeedTokens.textPrimary,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _sellModeCard({
-    required String title,
-    required String subtitle,
-    required bool selected,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected ? _modeFill : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          border: selected ? null : Border.all(color: _modeBorder),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: _geist(
-                size: 14,
-                weight: FontWeight.w500,
-                color: selected
-                    ? HomeFeedTokens.textInverse
-                    : HomeFeedTokens.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              subtitle,
-              style: _geist(
-                size: 12,
-                color: selected
-                    ? HomeFeedTokens.textInverse
-                    : HomeFeedTokens.textSecondary,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _includedField() {
-    return Container(
-      height: 42,
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: _modeBorder),
-      ),
-      child: TextField(
-        controller: _included,
-        cursorColor: HomeFeedTokens.textPrimary,
-        style: _geist(size: 12, color: HomeFeedTokens.textPrimary),
-        decoration: InputDecoration(
-          isDense: true,
-          border: InputBorder.none,
-          contentPadding: EdgeInsets.zero,
-          hintText: 'What’s included',
-          hintStyle: _geist(size: 12, color: HomeFeedTokens.textSecondary),
-        ),
-      ),
-    );
-  }
-
-  Widget _priceChip() {
-    return Container(
-      width: 74,
-      height: 40,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: HomeFeedTokens.textPrimary),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Text(
-            '\$',
-            style: _geist(size: 10, color: HomeFeedTokens.textSecondary),
-          ),
-          const SizedBox(width: 4),
-          Expanded(
-            child: TextField(
-              controller: _ticketPrice,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-              ],
-              cursorColor: HomeFeedTokens.textPrimary,
-              style: _geist(size: 13),
-              decoration: const InputDecoration(
-                isDense: true,
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _capacityField() {
-    return Container(
-      height: 40,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: HomeFeedTokens.textPrimary),
-      ),
-      child: Center(
-        child: TextField(
-          controller: _capacity,
-          keyboardType: TextInputType.number,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          cursorColor: HomeFeedTokens.textPrimary,
-          style: _geist(size: 12),
-          decoration: InputDecoration(
-            isDense: true,
-            border: InputBorder.none,
-            contentPadding: EdgeInsets.zero,
-            hintText: 'Capacity',
-            hintStyle: _geist(size: 12, color: HomeFeedTokens.textSecondary),
           ),
         ),
       ),
@@ -642,38 +545,108 @@ class _EventCreatePageState extends State<EventCreatePage> {
   }
 
   Widget _detailsBody() {
-    return PieceDetailsForm(
-      key: _pieceDetailsKey,
-      titleController: _title,
-      descriptionController: _description,
-      locationTrailing: _selectedLocation?.displayName,
-      mediumTrailing: PostMediumOptions.byId(_selectedMediumId ?? '')?.name,
-      styleTrailing: _styleTrailing,
-      materialsTrailing: _selectedMaterials.isEmpty
-          ? null
-          : '${_selectedMaterials.length} added',
-      seriesTrailing: _seriesLabel,
-      relatedScenesTrailing: _relatedSceneIds.isEmpty
-          ? null
-          : '${_relatedSceneIds.length} linked',
-      onLocation: _openLocationPicker,
-      onMedium: _openMediumPicker,
-      onStyle: _openStylePicker,
-      onMaterials: _openMaterialsPage,
-      onSeries: _openSeriesPicker,
-      onRelatedScenes: _openRelatedScenesPicker,
-      onChanged: () => setState(() {}),
+    return Column(
+      children: [
+        _section(
+          child: _LabeledOutlineField(
+            label: 'Title',
+            labelGap: 8,
+            controller: _title,
+            hint: 'Give this event a name',
+            fontSize: 13,
+            onChanged: (_) => setState(() {}),
+          ),
+        ),
+        _section(
+          child: _LabeledOutlineField(
+            label: 'Description',
+            labelGap: 16,
+            controller: _description,
+            hint:
+                'Tell us what was happening in the studio. The more you share, the further it travels.',
+            fontSize: 12,
+            maxLines: 4,
+            minLines: 3,
+            height: null,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+          child: Column(
+            children: [
+              _NavRow(
+                label: 'Location',
+                trailing: _selectedLocation?.displayName,
+                onTap: _openLocationPicker,
+              ),
+              const SizedBox(height: 24),
+              _NavRow(
+                label: 'Date',
+                trailing: _eventDate?.summary,
+                onTap: _openDateSheet,
+              ),
+              const SizedBox(height: 24),
+              _NavRow(
+                label: 'Category',
+                trailing: EventCategoryOptions.byId(_categoryId ?? '')?.name,
+                onTap: _openCategoryPicker,
+              ),
+              const SizedBox(height: 24),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Public',
+                          style: _geist(
+                            size: 13,
+                            weight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Off shows this only to people you share it with',
+                          style: _geist(
+                            size: 12,
+                            color: HomeFeedTokens.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Switch(
+                    value: _isPublic,
+                    onChanged: (value) => setState(() => _isPublic = value),
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    activeThumbColor: Colors.white,
+                    activeTrackColor: HomeFeedTokens.neutral800,
+                    inactiveThumbColor: Colors.white,
+                    inactiveTrackColor: const Color(0xFFC8C5BC),
+                    trackOutlineColor: const WidgetStatePropertyAll(
+                      Colors.transparent,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
-  String? get _styleTrailing {
-    if (_selectedStyleIds.isEmpty) return null;
-    final names = _selectedStyleIds
-        .map((id) => PostStyleOptions.byId(id)?.name)
-        .whereType<String>()
-        .toList();
-    if (names.isEmpty) return null;
-    return names.join(', ');
+  Widget _section({required Widget child}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: _hairline, width: 0.5)),
+      ),
+      child: child,
+    );
   }
 
   void _openLocationPicker() {
@@ -685,118 +658,25 @@ class _EventCreatePageState extends State<EventCreatePage> {
     );
   }
 
-  void _openMediumPicker() {
+  Future<void> _openDateSheet() async {
+    final result = await EventDateSheet.show(context, initial: _eventDate);
+    if (result != null && mounted) {
+      setState(() => _eventDate = result);
+    }
+  }
+
+  void _openCategoryPicker() {
     PostCreateOptionSheet.show(
       context,
-      title: 'Medium',
+      title: 'Add Category',
       subtitle: 'Choose one',
-      searchHint: 'Search medium',
-      options: PostMediumOptions.all,
-      selectedIds: _selectedMediumId != null ? {_selectedMediumId!} : const {},
+      searchHint: 'Search category',
+      options: EventCategoryOptions.all,
+      selectedIds: _categoryId != null ? {_categoryId!} : const {},
       mode: PostPickerSelectionMode.singleRadio,
       onSelectionChanged: (ids) {
-        setState(() {
-          _selectedMediumId = ids.isEmpty ? null : ids.first;
-        });
+        setState(() => _categoryId = ids.isEmpty ? null : ids.first);
       },
-    );
-  }
-
-  void _openStylePicker() {
-    PostCreateOptionSheet.show(
-      context,
-      title: 'Style',
-      subtitle: 'Choose up to 3',
-      searchHint: 'Search style',
-      options: PostStyleOptions.all,
-      selectedIds: Set<String>.from(_selectedStyleIds),
-      mode: PostPickerSelectionMode.multiCheckbox,
-      maxSelections: PostStyleOptions.maxSelections,
-      onSelectionChanged: (ids) {
-        setState(() {
-          _selectedStyleIds
-            ..clear()
-            ..addAll(ids);
-        });
-      },
-    );
-  }
-
-  Future<void> _openMaterialsPage() async {
-    final result = await Navigator.push<List<PostMaterialOption>>(
-      context,
-      MaterialPageRoute<List<PostMaterialOption>>(
-        builder: (_) => AddMaterialsPage(
-          initialMaterials: List<PostMaterialOption>.from(_selectedMaterials),
-        ),
-      ),
-    );
-    if (result != null && mounted) {
-      setState(() {
-        _selectedMaterials
-          ..clear()
-          ..addAll(result);
-      });
-    }
-  }
-
-  Future<void> _openSeriesPicker() async {
-    final result = await SeriesPickerSheet.show(
-      context,
-      selectedSeriesId: _selectedSeriesId,
-      newSeriesName: _newSeriesName,
-    );
-    if (result == null || !mounted) return;
-    setState(() {
-      if (!result.hasSelection) {
-        _selectedSeriesId = null;
-        _newSeriesName = null;
-        _seriesLabel = null;
-      } else {
-        _selectedSeriesId = result.selectedSeriesId;
-        _newSeriesName = result.newSeriesName;
-        _seriesLabel = result.displayLabel;
-      }
-    });
-  }
-
-  Future<void> _openRelatedScenesPicker() async {
-    final username = AuthSession.instance.user?.username;
-    if (username == null || username.isEmpty) return;
-    List<PostSummary> scenes;
-    try {
-      scenes = await PostService.instance.getUserPosts(username);
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not load your scenes')),
-      );
-      return;
-    }
-    if (!mounted) return;
-    final selected = await RelatedScenesPickerPage.show(
-      context,
-      scenes: scenes,
-      selectedIds: Set<String>.from(_relatedSceneIds),
-    );
-    if (selected == null || !mounted) return;
-    setState(() {
-      _relatedSceneIds
-        ..clear()
-        ..addAll(selected);
-    });
-  }
-
-  Widget _itineraryBody() {
-    return Column(
-      children: [
-        _field(
-          label: 'Date & time',
-          controller: _when,
-          hint: 'Sat, July 25th · 8:00PM',
-        ),
-        const SizedBox(height: 16),
-      ],
     );
   }
 
@@ -828,15 +708,172 @@ class _EventCreatePageState extends State<EventCreatePage> {
             _paid == true ? 'Paid event' : 'Free / RSVP',
             style: _geist(size: 13, color: HomeFeedTokens.textSecondary),
           ),
-          if (_venue.text.trim().isNotEmpty) ...[
+          if (_paid == true)
+            for (final ticket in _tickets.where((t) => t.isComplete)) ...[
+              const SizedBox(height: 4),
+              Text(
+                '${ticket.name} · ${ticket.priceLine}',
+                style: _geist(size: 13),
+              ),
+            ],
+          if (_selectedLocation != null) ...[
             const SizedBox(height: 4),
-            Text(_venue.text.trim(), style: _geist(size: 13)),
+            Text(_selectedLocation!.displayName, style: _geist(size: 13)),
           ],
-          if (_when.text.trim().isNotEmpty) ...[
+          if (_eventDate != null) ...[
             const SizedBox(height: 4),
-            Text(_when.text.trim(), style: _geist(size: 13)),
+            Text(_eventDate!.summary, style: _geist(size: 13)),
           ],
+          if (_categoryId != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              EventCategoryOptions.byId(_categoryId!)?.name ?? '',
+              style: _geist(size: 13),
+            ),
+          ],
+          const SizedBox(height: 4),
+          Text(
+            _isPublic ? 'Public' : 'Not public',
+            style: _geist(size: 13, color: HomeFeedTokens.textSecondary),
+          ),
         ],
+      ),
+    );
+  }
+}
+
+class _LabeledOutlineField extends StatelessWidget {
+  const _LabeledOutlineField({
+    required this.label,
+    required this.labelGap,
+    required this.controller,
+    required this.hint,
+    required this.fontSize,
+    this.maxLines = 1,
+    this.minLines,
+    this.height = 40,
+    this.onChanged,
+  });
+
+  final String label;
+  final double labelGap;
+  final TextEditingController controller;
+  final String hint;
+  final double fontSize;
+  final int maxLines;
+  final int? minLines;
+  final double? height;
+  final ValueChanged<String>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.geist(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: HomeFeedTokens.textSecondary,
+          ),
+        ),
+        SizedBox(height: labelGap),
+        Container(
+          height: height,
+          width: double.infinity,
+          alignment: maxLines > 1 ? Alignment.topLeft : Alignment.centerLeft,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: HomeFeedTokens.textPrimary),
+          ),
+          child: TextField(
+            controller: controller,
+            maxLines: maxLines,
+            minLines: minLines,
+            onChanged: onChanged,
+            cursorColor: HomeFeedTokens.textPrimary,
+            style: GoogleFonts.geist(
+              fontSize: fontSize,
+              fontWeight: FontWeight.w400,
+              color: HomeFeedTokens.textPrimary,
+            ),
+            decoration: InputDecoration(
+              isDense: true,
+              hintText: hint,
+              hintStyle: GoogleFonts.geist(
+                fontSize: fontSize,
+                fontWeight: FontWeight.w400,
+                color: HomeFeedTokens.textSecondary,
+              ),
+              border: InputBorder.none,
+              contentPadding: maxLines > 1
+                  ? const EdgeInsets.all(12)
+                  : const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _NavRow extends StatelessWidget {
+  const _NavRow({
+    required this.label,
+    required this.onTap,
+    this.trailing,
+  });
+
+  final String label;
+  final VoidCallback onTap;
+  final String? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        FocusScope.of(context).unfocus();
+        onTap();
+      },
+      behavior: HitTestBehavior.opaque,
+      child: SizedBox(
+        height: 28,
+        child: Row(
+          children: [
+            Text(
+              label,
+              style: GoogleFonts.geist(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: HomeFeedTokens.textPrimary,
+              ),
+            ),
+            if (trailing != null && trailing!.isNotEmpty) ...[
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  trailing!,
+                  textAlign: TextAlign.right,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.geist(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                    color: HomeFeedTokens.textSecondary,
+                  ),
+                ),
+              ),
+            ] else
+              const Spacer(),
+            const SizedBox(width: 8),
+            SvgPicture.asset(
+              PostMediaAssets.createDetailsChevronSm,
+              width: 5,
+              height: 8,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -894,7 +931,7 @@ class _EventCoverPreview extends StatelessWidget {
                 borderRadius: BorderRadius.circular(22),
               ),
               child: Text(
-                '1/1',
+                'Event',
                 style: GoogleFonts.geist(
                   fontSize: 11,
                   fontWeight: FontWeight.w400,
