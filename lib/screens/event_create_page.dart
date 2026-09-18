@@ -9,6 +9,12 @@ import '../models/post_image_transform.dart';
 import '../theme/home_feed_tokens.dart';
 import '../widgets/choose_location_sheet.dart';
 import '../widgets/create_flow/event_date_sheet.dart';
+import '../widgets/create_flow/event_featured_pieces_picker_page.dart';
+import '../widgets/create_flow/event_lineup_body.dart';
+import '../widgets/create_flow/event_lineup_models.dart';
+import '../widgets/create_flow/event_people_picker_page.dart';
+import '../widgets/create_flow/event_publish_success.dart';
+import '../widgets/create_flow/event_review_body.dart';
 import '../widgets/create_flow/event_ticket_edit_page.dart';
 import '../widgets/post_create_option_sheet.dart';
 import '../widgets/post_crop_preview.dart';
@@ -44,13 +50,16 @@ class _EventCreatePageState extends State<EventCreatePage> {
   final _tickets = <EventTicketTier>[];
   final _title = TextEditingController();
   final _description = TextEditingController();
-  final _lineup = TextEditingController();
+  final _cohosts = <EventLineupPerson>[];
+  final _artists = <EventLineupPerson>[];
+  final _pieces = <EventTaggedPiece>[];
   PostLocationOption? _selectedLocation;
   EventDateSelection? _eventDate;
   String? _categoryId;
   bool _isPublic = false;
   bool _publishing = false;
   bool _publishSuccess = false;
+  final _pageScroll = ScrollController();
 
   void _onTitleChanged() => setState(() {});
 
@@ -65,7 +74,7 @@ class _EventCreatePageState extends State<EventCreatePage> {
     _title.removeListener(_onTitleChanged);
     _title.dispose();
     _description.dispose();
-    _lineup.dispose();
+    _pageScroll.dispose();
     super.dispose();
   }
 
@@ -89,10 +98,19 @@ class _EventCreatePageState extends State<EventCreatePage> {
         _ => true,
       };
 
+  void _goToStep(int step) {
+    if (step < 0 || step >= _kSteps.length || step == _step) return;
+    setState(() => _step = step);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_pageScroll.hasClients) return;
+      _pageScroll.jumpTo(0);
+    });
+  }
+
   Future<void> _saveAndContinue() async {
     if (!_canContinue) return;
     if (_step < _kSteps.length - 1) {
-      setState(() => _step += 1);
+      _goToStep(_step + 1);
       return;
     }
     setState(() => _publishing = true);
@@ -111,7 +129,7 @@ class _EventCreatePageState extends State<EventCreatePage> {
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
         if (_step > 0) {
-          setState(() => _step -= 1);
+          _goToStep(_step - 1);
         } else {
           widget.onClose();
         }
@@ -121,11 +139,22 @@ class _EventCreatePageState extends State<EventCreatePage> {
         success: _publishSuccess,
         failure: false,
         publishingMessage: 'Publishing event…',
-        successTitle: 'Event posted',
+        successTitle: 'Your event is live',
         onSuccessDismiss: widget.onClose,
         onRetry: _saveAndContinue,
         imagePath: widget.imagePath,
         transform: widget.transform,
+        successChild: EventPublishSuccessOverlay(
+          title: _title.text.trim().isEmpty
+              ? 'Untitled event'
+              : _title.text.trim(),
+          kicker: EventCategoryOptions.byId(_categoryId ?? '')?.name,
+          scheduleLine: _eventDate?.posterLine,
+          shareText: _shareText,
+          onViewEvent: widget.onClose,
+          imagePath: widget.imagePath,
+          transform: widget.transform,
+        ),
         child: Scaffold(
           backgroundColor: HomeFeedTokens.background,
           body: Column(
@@ -133,6 +162,8 @@ class _EventCreatePageState extends State<EventCreatePage> {
               _banner(),
               Expanded(
                 child: ListView(
+                  controller: _pageScroll,
+                  primary: false,
                   padding: EdgeInsets.zero,
                   children: [
                     const SizedBox(height: 11),
@@ -178,9 +209,9 @@ class _EventCreatePageState extends State<EventCreatePage> {
                         ),
                       ),
                       child: Text(
-                        _step == _kSteps.length - 1
-                            ? 'Publish event'
-                            : 'Save and continue',
+                          _step == _kSteps.length - 1
+                              ? 'Publish'
+                              : 'Save and continue',
                         style: _geist(
                           size: 16,
                           color: _canContinue
@@ -214,7 +245,7 @@ class _EventCreatePageState extends State<EventCreatePage> {
                 GestureDetector(
                   onTap: () {
                     if (_step > 0) {
-                      setState(() => _step -= 1);
+                      _goToStep(_step - 1);
                     } else {
                       widget.onClose();
                     }
@@ -254,7 +285,7 @@ class _EventCreatePageState extends State<EventCreatePage> {
           for (var i = 0; i < _kSteps.length; i++)
             GestureDetector(
               onTap: () {
-                if (i <= _step) setState(() => _step = i);
+                if (i <= _step) _goToStep(i);
               },
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -362,7 +393,6 @@ class _EventCreatePageState extends State<EventCreatePage> {
                     style: _geist(
                       size: 13,
                       weight: FontWeight.w500,
-                      color: ticketAccent,
                     ),
                   ),
                 ),
@@ -494,52 +524,6 @@ class _EventCreatePageState extends State<EventCreatePage> {
                 : HomeFeedTokens.textPrimary,
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _field({
-    required String label,
-    required TextEditingController controller,
-    String? hint,
-    int maxLines = 1,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: _geist(
-              size: 13,
-              weight: FontWeight.w500,
-              color: HomeFeedTokens.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: controller,
-            maxLines: maxLines,
-            onChanged: (_) => setState(() {}),
-            cursorColor: HomeFeedTokens.textPrimary,
-            style: _geist(size: 16),
-            decoration: InputDecoration(
-              hintText: hint,
-              hintStyle: _geist(size: 16, color: HomeFeedTokens.textSecondary),
-              isDense: true,
-              border: const UnderlineInputBorder(
-                borderSide: BorderSide(color: Color(0xFFC8C5BC)),
-              ),
-              enabledBorder: const UnderlineInputBorder(
-                borderSide: BorderSide(color: Color(0xFFC8C5BC)),
-              ),
-              focusedBorder: const UnderlineInputBorder(
-                borderSide: BorderSide(color: HomeFeedTokens.textPrimary),
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -681,64 +665,98 @@ class _EventCreatePageState extends State<EventCreatePage> {
   }
 
   Widget _lineupBody() {
-    return Column(
-      children: [
-        _field(
-          label: 'Featured artists',
-          controller: _lineup,
-          hint: 'Amara, Cedric, Daisy',
-        ),
-        const SizedBox(height: 16),
-      ],
+    return EventLineupBody(
+      cohosts: _cohosts,
+      artists: _artists,
+      pieces: _pieces,
+      onAddCohost: () => _addPerson(toCohosts: true),
+      onRemoveCohost: (person) => setState(() => _cohosts.remove(person)),
+      onAddArtist: () => _addPerson(toCohosts: false),
+      onRemoveArtist: (person) => setState(() => _artists.remove(person)),
+      onPieceChanged: (updated) {
+        setState(() {
+          final index =
+              _pieces.indexWhere((item) => item.piece.id == updated.piece.id);
+          if (index >= 0) _pieces[index] = updated;
+        });
+      },
+      onTagPiece: _tagPieces,
     );
   }
 
-  Widget _reviewBody() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            _title.text.trim().isEmpty ? 'Untitled event' : _title.text.trim(),
-            style: _geist(size: 16, weight: FontWeight.w500),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _paid == true ? 'Paid event' : 'Free / RSVP',
-            style: _geist(size: 13, color: HomeFeedTokens.textSecondary),
-          ),
-          if (_paid == true)
-            for (final ticket in _tickets.where((t) => t.isComplete)) ...[
-              const SizedBox(height: 4),
-              Text(
-                '${ticket.name} · ${ticket.priceLine}',
-                style: _geist(size: 13),
-              ),
-            ],
-          if (_selectedLocation != null) ...[
-            const SizedBox(height: 4),
-            Text(_selectedLocation!.displayName, style: _geist(size: 13)),
-          ],
-          if (_eventDate != null) ...[
-            const SizedBox(height: 4),
-            Text(_eventDate!.summary, style: _geist(size: 13)),
-          ],
-          if (_categoryId != null) ...[
-            const SizedBox(height: 4),
-            Text(
-              EventCategoryOptions.byId(_categoryId!)?.name ?? '',
-              style: _geist(size: 13),
-            ),
-          ],
-          const SizedBox(height: 4),
-          Text(
-            _isPublic ? 'Public' : 'Not public',
-            style: _geist(size: 13, color: HomeFeedTokens.textSecondary),
-          ),
-        ],
-      ),
+  Future<void> _addPerson({required bool toCohosts}) async {
+    final exclude = {
+      ..._cohosts.map((person) => person.username),
+      ..._artists.map((person) => person.username),
+    };
+    final person = await EventPeoplePickerPage.open(
+      context,
+      title: toCohosts ? 'Add co-host' : 'Add featured artist',
+      excludeUsernames: exclude,
     );
+    if (!mounted || person == null) return;
+    setState(() {
+      if (toCohosts) {
+        _cohosts.add(person);
+      } else {
+        _artists.add(person);
+      }
+    });
+  }
+
+  Future<void> _tagPieces() async {
+    final selected = await EventFeaturedPiecesPickerPage.open(
+      context,
+      people: [..._cohosts, ..._artists],
+      selectedIds: _pieces.map((item) => item.piece.id).toSet(),
+      knownPieces: _pieces.map((item) => item.piece).toList(),
+    );
+    if (!mounted || selected == null) return;
+    setState(() {
+      final existing = {
+        for (final item in _pieces) item.piece.id: item,
+      };
+      _pieces
+        ..clear()
+        ..addAll(
+          selected.map(
+            (piece) =>
+                existing[piece.id] ??
+                EventTaggedPiece(
+                  piece: piece,
+                  price: eventPiecePriceLabel(piece),
+                ),
+          ),
+        );
+    });
+  }
+
+  Widget _reviewBody() {
+    return EventReviewBody(
+      title: _title.text,
+      isPublic: _isPublic,
+      paid: _paid,
+      tickets: _tickets,
+      location: _selectedLocation,
+      eventDate: _eventDate,
+      categoryId: _categoryId,
+      cohosts: _cohosts,
+      artists: _artists,
+      pieces: _pieces,
+      onEditStep: _goToStep,
+    );
+  }
+
+  String get _shareText {
+    final title =
+        _title.text.trim().isEmpty ? 'Untitled event' : _title.text.trim();
+    final when = _eventDate?.posterLine;
+    final where = _selectedLocation?.displayName;
+    return [
+      title,
+      if (when != null && when.isNotEmpty) when,
+      if (where != null && where.isNotEmpty) where,
+    ].join('\n');
   }
 }
 

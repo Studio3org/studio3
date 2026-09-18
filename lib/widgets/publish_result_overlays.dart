@@ -25,6 +25,7 @@ class StudioPublishFlowGate extends StatelessWidget {
     this.imagePath,
     this.transform,
     this.videoThumbnailBytes,
+    this.successChild,
   });
 
   final Widget child;
@@ -38,6 +39,7 @@ class StudioPublishFlowGate extends StatelessWidget {
   final String? imagePath;
   final PostImageTransform? transform;
   final Uint8List? videoThumbnailBytes;
+  final Widget? successChild;
 
   @override
   Widget build(BuildContext context) {
@@ -50,13 +52,14 @@ class StudioPublishFlowGate extends StatelessWidget {
           ),
         if (success)
           Positioned.fill(
-            child: PublishSuccessOverlay(
-              title: successTitle,
-              onDismiss: onSuccessDismiss,
-              imagePath: imagePath,
-              transform: transform,
-              videoThumbnailBytes: videoThumbnailBytes,
-            ),
+            child: successChild ??
+                PublishSuccessOverlay(
+                  title: successTitle,
+                  onDismiss: onSuccessDismiss,
+                  imagePath: imagePath,
+                  transform: transform,
+                  videoThumbnailBytes: videoThumbnailBytes,
+                ),
           ),
         if (failure)
           Positioned.fill(child: PublishFailOverlay(onRetry: onRetry)),

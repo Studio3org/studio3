@@ -30,6 +30,66 @@ class EventDateSelection {
     if (start != null) return '$dateText · $start';
     return dateText;
   }
+
+  /// Review card: `Sat Jul 25 · 8:00 PM – 10:00 PM CST`
+  String get reviewLine {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    final dateText = multiDay && endDate != null
+        ? '${months[startDate.month - 1]} ${startDate.day} – ${months[endDate!.month - 1]} ${endDate!.day}'
+        : '${weekdays[startDate.weekday - 1]} ${months[startDate.month - 1]} ${startDate.day}';
+    return _withTimes(dateText, compactAmPm: false);
+  }
+
+  /// Success poster: `Sat, July 25th · 8:00PM – 10:00PM CST`
+  String get posterLine {
+    const months = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+    const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    final dateText =
+        '${weekdays[startDate.weekday - 1]}, ${months[startDate.month - 1]} ${startDate.day}${_dayOrdinal(startDate.day)}';
+    return _withTimes(dateText, compactAmPm: true);
+  }
+
+  String _withTimes(String dateText, {required bool compactAmPm}) {
+    String? fmt(TimeOfDay? time) {
+      if (time == null) return null;
+      final text = formatEventTime(time);
+      return compactAmPm ? text.replaceAll(' ', '') : text;
+    }
+
+    final start = fmt(startTime);
+    final end = fmt(endTime);
+    final tz = _shortTimeZone();
+    if (start != null && end != null) return '$dateText · $start – $end$tz';
+    if (start != null) return '$dateText · $start$tz';
+    return dateText;
+  }
 }
 
 String formatEventDate(DateTime date, {bool includeWeekday = true}) {
@@ -78,6 +138,22 @@ String formatEventTime(TimeOfDay time) {
   final minute = time.minute.toString().padLeft(2, '0');
   final period = time.period == DayPeriod.am ? 'AM' : 'PM';
   return '$hour:$minute $period';
+}
+
+String _dayOrdinal(int day) {
+  if (day >= 11 && day <= 13) return 'th';
+  return switch (day % 10) {
+    1 => 'st',
+    2 => 'nd',
+    3 => 'rd',
+    _ => 'th',
+  };
+}
+
+String _shortTimeZone() {
+  final name = DateTime.now().timeZoneName;
+  if (name.length <= 5) return ' $name';
+  return '';
 }
 
 /// Date / time sheet for event posting (Figma Event Posting — Details).

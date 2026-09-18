@@ -19,6 +19,7 @@ import 'services/saved_content_store.dart';
 import 'services/user_service.dart';
 import 'utils/app_routes.dart';
 import 'utils/app_state_store.dart';
+import 'utils/open_at_top_observer.dart';
 import 'utils/profile_navigation.dart';
 import 'theme/app_theme.dart';
 import 'widgets/bottom_nav.dart' show BottomNav, BottomNavIndex;
@@ -129,7 +130,7 @@ class Studio3App extends StatelessWidget {
       darkTheme: AppTheme.dark,
       themeMode: ThemeMode.light,
       initialRoute: resolveInitialRoute(),
-      navigatorObservers: [routeObserver],
+      navigatorObservers: [routeObserver, OpenAtTopObserver()],
       routes: {
         '/': (context) => const AuthGate(
               child: MainShell(),

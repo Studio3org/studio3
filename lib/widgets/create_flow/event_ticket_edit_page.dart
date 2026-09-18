@@ -62,6 +62,15 @@ class EventTicketTier {
     return '$price, unlimited capacity';
   }
 
+  String get reviewDetailLine {
+    final qty = limitQuantity && quantity != null
+        ? '$quantity available'
+        : 'unlimited';
+    if (isFree) return 'Free · $qty';
+    if (buyerPays == null || buyerPays! <= 0) return qty;
+    return '${_formatDollars(buyerPays!)} · $qty';
+  }
+
   bool get priceLineIsHint =>
       !isFree && (buyerPays == null || buyerPays! <= 0);
 
@@ -232,6 +241,7 @@ class _EventTicketEditPageState extends State<EventTicketEditPage> {
           ),
           Expanded(
             child: ListView(
+              primary: false,
               padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
               children: [
                 _LabeledField(
