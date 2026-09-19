@@ -73,6 +73,8 @@ class FeedPreviewItem {
     this.listingType,
     this.auctionEndsAt,
     this.highestBidCents,
+    this.startingBidCents,
+    this.bidIncrementCents,
     this.bidCount = 0,
     this.minNextBidCents,
     this.isHighestBidder = false,
@@ -88,6 +90,7 @@ class FeedPreviewItem {
     this.likeCount = 0,
     this.commentCount = 0,
     this.authorName,
+    this.authorUsername,
     this.authorAvatarUrl,
     this.authorIsFollowing = false,
     this.status,
@@ -116,6 +119,12 @@ class FeedPreviewItem {
   final String? listingType;
   final DateTime? auctionEndsAt;
   final int? highestBidCents;
+
+  /// The artist's stated minimum. The first bid may land exactly on it.
+  final int? startingBidCents;
+
+  /// Banded step above the current high bid, computed server-side.
+  final int? bidIncrementCents;
   final int bidCount;
   final int? minNextBidCents;
   /// Only meaningful once `status == 'auction_won'` — whether the viewer is the winner.
@@ -135,6 +144,10 @@ class FeedPreviewItem {
   final int likeCount;
   final int commentCount;
   final String? authorName;
+
+  /// The artist's handle without the '@'. [handle] is the display form; this is
+  /// the value APIs key on — messaging an artist needs the username, not a label.
+  final String? authorUsername;
   final String? authorAvatarUrl;
   final bool authorIsFollowing;
   final String? status;
@@ -196,6 +209,8 @@ class FeedPreviewItem {
     String? listingType,
     DateTime? auctionEndsAt,
     int? highestBidCents,
+    int? startingBidCents,
+    int? bidIncrementCents,
     int? bidCount,
     int? minNextBidCents,
     bool? isHighestBidder,
@@ -211,6 +226,7 @@ class FeedPreviewItem {
     int? likeCount,
     int? commentCount,
     String? authorName,
+    String? authorUsername,
     String? authorAvatarUrl,
     bool? authorIsFollowing,
     String? status,
@@ -238,6 +254,8 @@ class FeedPreviewItem {
       listingType: listingType ?? this.listingType,
       auctionEndsAt: auctionEndsAt ?? this.auctionEndsAt,
       highestBidCents: highestBidCents ?? this.highestBidCents,
+      startingBidCents: startingBidCents ?? this.startingBidCents,
+      bidIncrementCents: bidIncrementCents ?? this.bidIncrementCents,
       bidCount: bidCount ?? this.bidCount,
       minNextBidCents: minNextBidCents ?? this.minNextBidCents,
       isHighestBidder: isHighestBidder ?? this.isHighestBidder,
@@ -253,6 +271,7 @@ class FeedPreviewItem {
       likeCount: likeCount ?? this.likeCount,
       commentCount: commentCount ?? this.commentCount,
       authorName: authorName ?? this.authorName,
+      authorUsername: authorUsername ?? this.authorUsername,
       authorAvatarUrl: authorAvatarUrl ?? this.authorAvatarUrl,
       authorIsFollowing: authorIsFollowing ?? this.authorIsFollowing,
       status: status ?? this.status,
@@ -284,12 +303,15 @@ class FeedPreviewItem {
       dimensions: piece.dimensions ?? '',
       story: piece.caption ?? '',
       handle: username.startsWith('@') ? username : '@$username',
+      authorUsername: username,
       isAvailable: piece.isForSale,
       aspectRatio: aspectRatioFromDimensions(piece.dimensions),
       priceCents: piece.priceCents,
       listingType: piece.listingType,
       auctionEndsAt: piece.auctionEndsAt,
       highestBidCents: piece.highestBidCents,
+      startingBidCents: piece.startingBidCents,
+      bidIncrementCents: piece.bidIncrementCents,
       bidCount: piece.bidCount,
       minNextBidCents: piece.minNextBidCents,
       isHighestBidder: piece.isHighestBidder,
@@ -339,6 +361,7 @@ class FeedPreviewItem {
       dimensions: '',
       story: post.caption ?? '',
       handle: username.startsWith('@') ? username : '@$username',
+      authorUsername: username,
       isAvailable: false,
       aspectRatio: isVideo
           ? FeedAspectRatio.landscape16x9
@@ -381,6 +404,8 @@ class FeedPreviewItem {
         if (listingType != null) 'listingType': listingType,
         if (auctionEndsAt != null) 'auctionEndsAt': auctionEndsAt!.toIso8601String(),
         if (highestBidCents != null) 'highestBidCents': highestBidCents,
+        if (startingBidCents != null) 'startingBidCents': startingBidCents,
+        if (bidIncrementCents != null) 'bidIncrementCents': bidIncrementCents,
         'bidCount': bidCount,
         if (minNextBidCents != null) 'minNextBidCents': minNextBidCents,
         'isHighestBidder': isHighestBidder,
@@ -396,6 +421,7 @@ class FeedPreviewItem {
         'likeCount': likeCount,
         'commentCount': commentCount,
         if (authorName != null) 'authorName': authorName,
+        if (authorUsername != null) 'authorUsername': authorUsername,
         if (authorAvatarUrl != null) 'authorAvatarUrl': authorAvatarUrl,
         'authorIsFollowing': authorIsFollowing,
         if (status != null) 'status': status,
@@ -432,6 +458,8 @@ class FeedPreviewItem {
       listingType: json['listingType'] as String?,
       auctionEndsAt: DateTime.tryParse(json['auctionEndsAt'] as String? ?? ''),
       highestBidCents: json['highestBidCents'] as int?,
+      startingBidCents: json['startingBidCents'] as int?,
+      bidIncrementCents: json['bidIncrementCents'] as int?,
       bidCount: json['bidCount'] as int? ?? 0,
       minNextBidCents: json['minNextBidCents'] as int?,
       isHighestBidder: json['isHighestBidder'] as bool? ?? false,
@@ -449,6 +477,7 @@ class FeedPreviewItem {
       likeCount: json['likeCount'] as int? ?? 0,
       commentCount: json['commentCount'] as int? ?? 0,
       authorName: json['authorName'] as String?,
+      authorUsername: json['authorUsername'] as String?,
       authorAvatarUrl: json['authorAvatarUrl'] as String?,
       authorIsFollowing: json['authorIsFollowing'] as bool? ?? false,
       status: json['status'] as String?,

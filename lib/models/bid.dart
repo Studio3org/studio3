@@ -8,6 +8,8 @@ class Bid {
     required this.bidderId,
     this.createdAt,
     this.highestBidCents,
+    this.startingBidCents,
+    this.bidIncrementCents,
     this.bidCount = 0,
     this.minNextBidCents,
     this.auctionEndsAt,
@@ -19,6 +21,8 @@ class Bid {
   final String bidderId;
   final DateTime? createdAt;
   final int? highestBidCents;
+  final int? startingBidCents;
+  final int? bidIncrementCents;
   final int bidCount;
   final int? minNextBidCents;
   final DateTime? auctionEndsAt;
@@ -31,6 +35,8 @@ class Bid {
       bidderId: json['bidderId'] as String? ?? '',
       createdAt: DateTime.tryParse(json['createdAt'] as String? ?? ''),
       highestBidCents: (json['highestBidCents'] as num?)?.toInt(),
+      startingBidCents: (json['startingBidCents'] as num?)?.toInt(),
+      bidIncrementCents: (json['bidIncrementCents'] as num?)?.toInt(),
       bidCount: (json['bidCount'] as num?)?.toInt() ?? 0,
       minNextBidCents: (json['minNextBidCents'] as num?)?.toInt(),
       auctionEndsAt: DateTime.tryParse(json['auctionEndsAt'] as String? ?? ''),

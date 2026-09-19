@@ -91,7 +91,6 @@ class Order {
     this.createdAt,
     this.updatedAt,
     this.devMode,
-    this.clientSecret,
     this.received = false,
     this.receivedAt,
     this.shipment,
@@ -114,7 +113,6 @@ class Order {
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final bool? devMode;
-  final String? clientSecret;
   final bool received;
   final DateTime? receivedAt;
   final OrderShipment? shipment;
@@ -172,7 +170,6 @@ class Order {
       updatedAt:
           DateTime.tryParse(json['updatedAt'] as String? ?? ''),
       devMode: json['devMode'] as bool?,
-      clientSecret: json['clientSecret'] as String?,
       received: json['received'] as bool? ?? false,
       receivedAt: DateTime.tryParse(json['receivedAt'] as String? ?? ''),
       shipment: json['shipment'] is Map<String, dynamic>

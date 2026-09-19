@@ -480,6 +480,7 @@ class FeedApiCardOverlay extends StatelessWidget {
     this.medium,
     this.authorUsername,
     this.showAvailable = false,
+    this.showAuction = false,
     this.showCollected = false,
   });
 
@@ -488,6 +489,10 @@ class FeedApiCardOverlay extends StatelessWidget {
   final String? medium;
   final String? authorUsername;
   final bool showAvailable;
+
+  /// Bidding is open. Distinct from [showAvailable] because the price on an
+  /// auction card is a starting bid, not a purchase price.
+  final bool showAuction;
   final bool showCollected;
 
   @override
@@ -516,6 +521,11 @@ class FeedApiCardOverlay extends StatelessWidget {
                 if (showAvailable)
                   const _StatusPill(
                     label: 'Available',
+                    iconAsset: NavAssets.availableDot,
+                  )
+                else if (showAuction)
+                  const _StatusPill(
+                    label: 'Bidding open',
                     iconAsset: NavAssets.availableDot,
                   )
                 else if (showCollected)

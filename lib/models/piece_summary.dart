@@ -46,6 +46,8 @@ class PieceSummary {
     this.auctionDurationDays,
     this.auctionEndsAt,
     this.highestBidCents,
+    this.startingBidCents,
+    this.bidIncrementCents,
     this.bidCount = 0,
     this.minNextBidCents,
     this.isHighestBidder = false,
@@ -96,6 +98,14 @@ class PieceSummary {
   final int? auctionDurationDays;
   final DateTime? auctionEndsAt;
   final int? highestBidCents;
+
+  /// The artist's stated minimum — the first bid may land exactly on it.
+  /// Distinct from [highestBidCents], which is null until someone bids.
+  final int? startingBidCents;
+
+  /// Server-computed step above the current high bid. Banded by price, so the
+  /// client must never assume a fixed amount. Zero when there are no bids yet.
+  final int? bidIncrementCents;
   final int bidCount;
   final int? minNextBidCents;
   /// Only meaningful once `status == 'auction_won'` — whether the viewer is the winner.
@@ -138,21 +148,33 @@ class PieceSummary {
   /// The auction closed with a winning bid and is awaiting the winner's checkout.
   bool get isAuctionWon => status == 'auction_won';
 
-  /// Listed and currently purchasable.
-  bool get isAvailableListing {
-    final state = listingState ?? _derivedListingState;
-    return state == 'available';
-  }
+  /// Buyable right now at a fixed price.
+  ///
+  /// Deliberately false for a live auction: the price shown there is a starting bid, and
+  /// the only way to acquire the piece is to win it. The server reports those separately as
+  /// `auction_live` for that reason.
+  bool get isAvailableListing => _listingState == 'available';
 
   /// Sold, reserved, or otherwise no longer purchasable.
-  bool get isCollectedListing {
-    final state = listingState ?? _derivedListingState;
-    return state == 'collected';
-  }
+  bool get isCollectedListing => _listingState == 'collected';
 
+  /// Bidding is open.
+  bool get isAuctionLive => _listingState == 'auction_live';
+
+  /// The auction closed with a winner, who has yet to complete checkout.
+  bool get isAuctionEnded => _listingState == 'auction_ended';
+
+  /// True for anything that should carry a marketplace badge, auctions included.
+  bool get hasListingBadge => _listingState != 'none';
+
+  String get _listingState => listingState ?? _derivedListingState;
+
+  /// Fallback for cached payloads written before the server sent listingState.
   String get _derivedListingState {
     if (status == 'sold' || status == 'reserved') return 'collected';
+    if (status == 'auction_won') return 'auction_ended';
     if (status == 'delisted' && isForSale) return 'collected';
+    if (isForSale && isAuction && isLive) return 'auction_live';
     if (isForSale && isLive) return 'available';
     return 'none';
   }
@@ -180,6 +202,8 @@ class PieceSummary {
       auctionDurationDays: _intFrom(json['auctionDurationDays']),
       auctionEndsAt: DateTime.tryParse(json['auctionEndsAt'] as String? ?? ''),
       highestBidCents: _intFrom(json['highestBidCents']),
+      startingBidCents: _intFrom(json['startingBidCents']),
+      bidIncrementCents: _intFrom(json['bidIncrementCents']),
       bidCount: _intFrom(json['bidCount']) ?? 0,
       minNextBidCents: _intFrom(json['minNextBidCents']),
       isHighestBidder: json['isHighestBidder'] as bool? ?? false,
@@ -259,6 +283,8 @@ class PieceSummary {
         if (auctionDurationDays != null) 'auctionDurationDays': auctionDurationDays,
         if (auctionEndsAt != null) 'auctionEndsAt': auctionEndsAt!.toIso8601String(),
         if (highestBidCents != null) 'highestBidCents': highestBidCents,
+        if (startingBidCents != null) 'startingBidCents': startingBidCents,
+        if (bidIncrementCents != null) 'bidIncrementCents': bidIncrementCents,
         'bidCount': bidCount,
         if (minNextBidCents != null) 'minNextBidCents': minNextBidCents,
         'isHighestBidder': isHighestBidder,

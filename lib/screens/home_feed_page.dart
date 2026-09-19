@@ -439,6 +439,7 @@ class _ApiFeedTileState extends State<_ApiFeedTile> {
                   medium: item.title,
                   authorUsername: item.authorUsername,
                   showAvailable: item.isAvailableListing,
+                  showAuction: item.isAuctionLive,
                   showCollected: item.isCollected,
                 ),
             ],

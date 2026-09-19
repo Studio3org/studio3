@@ -46,6 +46,20 @@ abstract final class AppLinkConfig {
     return base;
   }
 
+  // UNRESOLVED: these links are built against the API origin
+  // (studio3-backend.onrender.com), but the app's associated domain — in
+  // ios/Runner/Runner.entitlements and the Android intent filters — is studio-3.co. Apple
+  // and Android only honour a Universal/App Link on a domain the app is associated with,
+  // so a shared link currently opens the web interstitial even on a device that has the
+  // app installed. The paths now match; the host does not.
+  //
+  // Two ways out, and it is a deployment decision, not a code one:
+  //   1. Serve the backend's /share/* routes from studio-3.co, so one domain covers both
+  //      the OG preview and the link association. Cleanest.
+  //   2. Add the API origin to the associated domains and serve
+  //      /.well-known/apple-app-site-association from the backend too.
+  //
+  // This blocks the event QR flow, which encodes exactly these URLs.
   static String pieceUrl(String id) => '$shareBaseUrl/share/piece/$id';
 
   static String seriesUrl(String id) => '$shareBaseUrl/share/series/$id';

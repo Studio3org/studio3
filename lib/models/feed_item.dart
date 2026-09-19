@@ -54,6 +54,9 @@ class FeedItem {
 
   bool get isAvailableListing => piece?.isAvailableListing ?? false;
 
+  /// Bidding is open on this piece.
+  bool get isAuctionLive => piece?.isAuctionLive ?? false;
+
   bool get isCollected => piece?.isCollectedListing ?? false;
 
   String? get priceDisplay =>

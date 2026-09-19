@@ -37,8 +37,38 @@ class _PlaceBidSheetState extends State<PlaceBidSheet> {
   late final TextEditingController _amountController;
   bool _submitting = false;
 
+  /// The server decides this. The increment is banded by price ($5 under $100 rising to
+  /// $500 over $10,000) and the first bid on a piece may land exactly on the artist's
+  /// starting bid, so there is no formula the client can safely reproduce. The fallback is
+  /// the starting bid itself — the lowest value that is ever valid — not a guessed step.
   int get _minNextBidCents =>
-      _item.minNextBidCents ?? ((_item.highestBidCents ?? _item.priceCents ?? 0) + 2500);
+      _item.minNextBidCents ??
+      _item.startingBidCents ??
+      _item.highestBidCents ??
+      _item.priceCents ??
+      0;
+
+  /// Explains the minimum in the bidder's own terms: on an untouched auction it is the
+  /// artist's asking minimum; once someone has bid it is a step above them.
+  String get _minimumHint {
+    final minimum = _formatDollars(_minNextBidCents);
+    if ((_item.bidCount) == 0) {
+      return 'The artist\'s minimum bid is $minimum';
+    }
+    final increment = _item.bidIncrementCents;
+    if (increment == null || increment <= 0) {
+      return 'Next bid must be at least $minimum';
+    }
+    return 'Bid at least $minimum — ${_formatDollars(increment)} above the current highest';
+  }
+
+  static String _formatDollars(int cents) {
+    final dollars = cents / 100;
+    final text = dollars == dollars.roundToDouble()
+        ? dollars.toStringAsFixed(0)
+        : dollars.toStringAsFixed(2);
+    return '\$$text';
+  }
 
   String get _imageUrl {
     final url = _item.heroImageUrl;
@@ -79,6 +109,8 @@ class _PlaceBidSheetState extends State<PlaceBidSheet> {
       setState(() {
         _item = _item.copyWith(
           highestBidCents: piece.highestBidCents,
+          startingBidCents: piece.startingBidCents,
+          bidIncrementCents: piece.bidIncrementCents,
           bidCount: piece.bidCount,
           minNextBidCents: piece.minNextBidCents,
           auctionEndsAt: piece.auctionEndsAt,
@@ -171,7 +203,7 @@ class _PlaceBidSheetState extends State<PlaceBidSheet> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Minimum bid is \$25 above the current highest',
+                      _minimumHint,
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         color: CollectDetailTokens.textSecondary,

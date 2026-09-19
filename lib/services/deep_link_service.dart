@@ -49,9 +49,16 @@ class DeepLinkService {
   }
 
   void _handle(BuildContext context, Uri uri) {
-    final segments = uri.scheme == 'studio3'
+    var segments = uri.scheme == 'studio3'
         ? [uri.host, ...uri.pathSegments]
         : uri.pathSegments;
+    // Shared links point at the backend's preview route, /share/piece/<id>, which renders
+    // the OG tags and an open-app interstitial. Drop that prefix so both that shape and the
+    // bare /piece/<id> route to the same place — otherwise a link the app itself generated
+    // would open the app and then do nothing.
+    if (segments.isNotEmpty && segments.first == 'share') {
+      segments = segments.sublist(1);
+    }
     if (segments.length >= 2 && segments[0] == 'connect') {
       final action = segments[1];
       if (action == 'return' || action == 'refresh') {

@@ -141,7 +141,18 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
   }
 
   Future<void> _onAskAboutPiece() async {
-    final sent = await AskAboutPieceSheet.show(context, pieceId: item.id);
+    final username = item.authorUsername;
+    if (username == null || username.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("We couldn't find this artist's profile.")),
+      );
+      return;
+    }
+    final sent = await AskAboutPieceSheet.show(
+      context,
+      artistUsername: username,
+      pieceTitle: item.title,
+    );
     if (sent == true && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Message sent to the artist')),

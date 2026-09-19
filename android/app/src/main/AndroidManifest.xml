@@ -55,6 +55,17 @@
                     android:scheme="https"
                     android:host="studio-3.co"
                     android:pathPrefix="/series"/>
+                <!-- The backend's OG-preview routes. AppLinkConfig.pieceUrl generates this
+                     shape, so without these every shared link opened the web page instead
+                     of the app even on a device that has it installed. -->
+                <data
+                    android:scheme="https"
+                    android:host="studio-3.co"
+                    android:pathPrefix="/share/piece"/>
+                <data
+                    android:scheme="https"
+                    android:host="studio-3.co"
+                    android:pathPrefix="/share/series"/>
             </intent-filter>
             <!-- Custom scheme for shared piece/series links (see src/modules/share in the
                  backend) — unlike App Links this needs no domain/fingerprint verification,

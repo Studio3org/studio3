@@ -40,10 +40,17 @@ class EventTaggedPiece {
   final String price;
   final EventFulfillment fulfillment;
 
+  /// Tagging this piece to an event ends its current fixed-price listing.
   bool get needsRelistForSale =>
       piece.isForSale && !piece.isAuction && piece.isAvailableListing;
 
-  bool get needsRelistForBid => piece.isAuction && piece.isAvailableListing;
+  /// Tagging this piece to an event ends the auction it is currently in — which releases
+  /// every bidder's hold and notifies them, so the confirmation has to say so.
+  ///
+  /// Keyed on isAuctionLive, not isAvailableListing: a live auction is deliberately not
+  /// "available", because the price on it is a starting bid rather than something anyone
+  /// can pay.
+  bool get needsRelistForBid => piece.isAuctionLive;
 
   EventTaggedPiece copyWith({
     PieceSummary? piece,

@@ -1,3 +1,10 @@
+// Models for the piece-scoped inquiries API — deferred to v2, kept so the feature does not
+// have to be rewritten when it returns.
+//
+// Nothing routes here today: the backend blueprint is unregistered (see the comment in
+// src/app.py), so every one of these endpoints 404s. Used only by InquiryService and the
+// dormant screens/chat_page.dart.
+
 /// Result of `POST /api/inquiries`.
 class InquiryCreateResult {
   const InquiryCreateResult({

@@ -3,6 +3,12 @@
 /// Launch messaging uses Conversations (`ChatService` + Socket.IO). Do not
 /// wire this service into live navigation until the backend inquiries
 /// blueprint is re-registered.
+///
+/// The one live entry point that used to call this — "Ask about this piece", in
+/// `widgets/piece_detail/ask_about_piece_sheet.dart` — now starts a Conversation instead,
+/// because `createInquiry` was 404ing against the unregistered blueprint. Reviving
+/// inquiries means pointing that sheet back here, and deciding whether a piece-scoped
+/// thread and a general DM should coexist or merge.
 import '../models/inquiry_summary.dart';
 import 'api_client.dart';
 
