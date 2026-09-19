@@ -13,6 +13,7 @@ import 'services/chat_socket_service.dart';
 import 'services/deep_link_service.dart';
 import 'services/device_service.dart';
 import 'services/permission_service.dart';
+import 'services/push_router_service.dart';
 import 'services/main_nav_service.dart';
 import 'services/reels_tab_service.dart';
 import 'services/saved_content_store.dart';
@@ -212,6 +213,7 @@ class _AuthGateState extends State<AuthGate> {
   void dispose() {
     AuthSession.instance.removeListener(_onSessionChanged);
     DeepLinkService.instance.dispose();
+    PushRouterService.instance.dispose();
     super.dispose();
   }
 
@@ -222,8 +224,14 @@ class _AuthGateState extends State<AuthGate> {
     final session = AuthSession.instance;
     if (session.isLoggedIn && !_deviceRegistered) {
       _deviceRegistered = true;
-      DeviceService.instance.registerCurrentDevice();
-      PermissionService.instance.requestNotifications();
+      // Permission first, registration second — and that order matters on iOS. Asking APNs
+      // for a token before the user has authorised notifications returns null, so
+      // registerCurrentDevice() silently did nothing on a first install and the device
+      // stayed unregistered until the app was launched a second time.
+      PermissionService.instance.requestNotifications().whenComplete(() {
+        DeviceService.instance.registerCurrentDevice();
+      });
+      PushRouterService.instance.start(context);
       ChatSocketService.instance.connect();
       ConnectivityService.instance.addReconnectHook(() async {
         ChatSocketService.instance.connect();

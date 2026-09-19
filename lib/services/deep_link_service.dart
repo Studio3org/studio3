@@ -3,11 +3,7 @@ import 'dart:async';
 import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
 
-import '../models/feed_preview_item.dart';
-import '../screens/series_view_page.dart';
-import '../utils/explore_detail_route.dart';
-import 'auth_session.dart';
-import 'piece_service.dart';
+import '../utils/app_destination.dart';
 
 /// Resolves incoming `https://<host>/piece/:id` and `https://<host>/series/:id`
 /// links, plus Stripe Connect return/refresh (`/connect/return`,
@@ -59,44 +55,9 @@ class DeepLinkService {
     if (segments.isNotEmpty && segments.first == 'share') {
       segments = segments.sublist(1);
     }
-    if (segments.length >= 2 && segments[0] == 'connect') {
-      final action = segments[1];
-      if (action == 'return' || action == 'refresh') {
-        _openPayoutSetup(context);
-        return;
-      }
-    }
-    if (segments.length < 2) return;
-    final id = segments[1];
-    if (id.isEmpty) return;
-    if (segments[0] == 'piece') {
-      _openPiece(context, id);
-    } else if (segments[0] == 'series') {
-      _openSeries(context, id);
-    }
-  }
-
-  void _openPayoutSetup(BuildContext context) {
-    if (!AuthSession.instance.sellerEnabled) return;
-    Navigator.pushNamed(context, '/payout-setup');
-  }
-
-  Future<void> _openPiece(BuildContext context, String id) async {
-    try {
-      final piece = await PieceService.instance.getById(id);
-      if (!context.mounted) return;
-      final preview = FeedPreviewItem.fromPieceSummary(piece);
-      await openPieceDetailPreview(context, preview);
-    } catch (_) {
-      // Piece not found/unreachable — ignore rather than crash navigation
-      // from a stale or invalid shared link.
-    }
-  }
-
-  void _openSeries(BuildContext context, String id) {
-    Navigator.push<void>(
-      context,
-      MaterialPageRoute<void>(builder: (_) => SeriesViewPage(seriesId: id)),
-    );
+    // Where the link goes is resolved in one shared place, so a destination reachable from a
+    // link is reachable from a notification tap too — and the QR codes in the event flow,
+    // which arrive here, land on exactly the same routing as everything else.
+    openDestination(context, AppDestination.fromSegments(segments));
   }
 }

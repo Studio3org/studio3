@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -5,6 +7,7 @@ import '../../models/notification_item.dart';
 import '../../services/chat_socket_service.dart';
 import '../../services/connectivity_service.dart';
 import '../../services/notification_service.dart';
+import '../../utils/app_destination.dart';
 import '../../theme/app_theme.dart';
 import '../feed_skeleton.dart';
 import '../glass_card.dart';
@@ -118,6 +121,18 @@ class NotificationsBodyState extends State<NotificationsBody> {
   }
 
   Future<void> _onTap(NotificationItem item) async {
+    // Navigate first, and regardless of read state. This used to return early for an
+    // already-read row, which meant the only way to reach the thing a notification was about
+    // was to get there before tapping it twice — and for an unread one it marked it read and
+    // went nowhere at all.
+    final destination = AppDestination.fromTarget(
+      item.targetType,
+      item.targetId,
+      actorUsername: item.actorUsername,
+    );
+    if (destination.isKnown) {
+      unawaited(openDestination(context, destination));
+    }
     if (item.read) return;
     setState(() {
       final index = _items.indexWhere((n) => n.id == item.id);
