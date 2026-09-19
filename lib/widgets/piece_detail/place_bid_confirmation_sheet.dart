@@ -39,14 +39,21 @@ class PlaceBidConfirmationSheet extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(
-                Icons.check_circle,
-                color: Color(0xFF2E8B57),
+              Icon(
+                bid.isLeading ? Icons.check_circle : Icons.info_outline,
+                color: bid.isLeading
+                    ? const Color(0xFF2E8B57)
+                    : CollectDetailTokens.statusError,
                 size: 40,
               ),
               const SizedBox(height: 16),
               Text(
-                "You're the highest bidder",
+                // Read from the response rather than assumed. A bid is validated against the
+                // minimum at the moment it commits, so it is normally in front — but someone
+                // can bid again in the time it takes this sheet to open, and telling them
+                // they lead when they do not is how a collector stops watching an auction
+                // they are losing.
+                bid.isLeading ? "You're the highest bidder" : "You've already been outbid",
                 style: GoogleFonts.inter(
                   fontSize: 20,
                   fontWeight: FontWeight.w600,
@@ -55,7 +62,12 @@ class PlaceBidConfirmationSheet extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                'Your bid of ${formatMoney(bid.amountCents)} is now leading',
+                bid.isLeading
+                    ? 'Your bid of ${formatMoney(bid.amountCents)} is now leading. '
+                        'Nothing is charged unless you win.'
+                    : 'Your bid of ${formatMoney(bid.amountCents)} was placed, but someone '
+                        'has since bid higher. Your hold still stands — raise your bid to '
+                        'get back in front.',
                 style: GoogleFonts.inter(
                   fontSize: 13,
                   color: CollectDetailTokens.textSecondary,

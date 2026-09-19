@@ -1,4 +1,5 @@
 import '../utils/media_type_utils.dart';
+import 'auction_summary.dart';
 import 'feed_item.dart';
 import 'piece_summary.dart';
 import 'post_summary.dart';
@@ -78,6 +79,7 @@ class FeedPreviewItem {
     this.bidCount = 0,
     this.minNextBidCents,
     this.isHighestBidder = false,
+    this.auction,
     this.shippingRegion,
     this.location,
     this.framingNote,
@@ -127,8 +129,14 @@ class FeedPreviewItem {
   final int? bidIncrementCents;
   final int bidCount;
   final int? minNextBidCents;
-  /// Only meaningful once `status == 'auction_won'` — whether the viewer is the winner.
+  /// Whether the viewer leads the *live* bidding. Necessarily false once the auction closes,
+  /// since there is no highest active bid any more — ask [auction] who won instead.
   final bool isHighestBidder;
+
+  /// Everything about the auction that only exists after it closes: who won, whether their
+  /// card was declined, and how long they have before the piece passes on. Null for
+  /// fixed-price work.
+  final AuctionSummary? auction;
   final String? shippingRegion;
   final String? location;
   final String? framingNote;
@@ -214,6 +222,7 @@ class FeedPreviewItem {
     int? bidCount,
     int? minNextBidCents,
     bool? isHighestBidder,
+    AuctionSummary? auction,
     String? shippingRegion,
     String? location,
     String? framingNote,
@@ -259,6 +268,7 @@ class FeedPreviewItem {
       bidCount: bidCount ?? this.bidCount,
       minNextBidCents: minNextBidCents ?? this.minNextBidCents,
       isHighestBidder: isHighestBidder ?? this.isHighestBidder,
+      auction: auction ?? this.auction,
       shippingRegion: shippingRegion ?? this.shippingRegion,
       location: location ?? this.location,
       framingNote: framingNote ?? this.framingNote,
@@ -315,6 +325,7 @@ class FeedPreviewItem {
       bidCount: piece.bidCount,
       minNextBidCents: piece.minNextBidCents,
       isHighestBidder: piece.isHighestBidder,
+      auction: piece.auction,
       shippingRegion: piece.shippingRegion,
       location: piece.location,
       framingNote: piece.framingMounting,
@@ -409,6 +420,22 @@ class FeedPreviewItem {
         'bidCount': bidCount,
         if (minNextBidCents != null) 'minNextBidCents': minNextBidCents,
         'isHighestBidder': isHighestBidder,
+        // Round-tripped explicitly. These are flattened alongside the other auction fields
+        // by the server, and a cached item that dropped them would forget, between launches,
+        // that the viewer had won a piece or that their card needed fixing.
+        if (auction != null) ...{
+          'auctionId': auction!.auctionId,
+          'auctionStatus': auction!.status,
+          'isWinner': auction!.isWinner,
+          'awaitingPayment': auction!.awaitingPayment,
+          if (auction!.winnerDeadlineAt != null)
+            'winnerDeadlineAt': auction!.winnerDeadlineAt!.toIso8601String(),
+          if (auction!.winningBidCents != null)
+            'winningBidCents': auction!.winningBidCents,
+          'hasReserve': auction!.hasReserve,
+          'reserveMet': auction!.reserveMet,
+          if (auction!.deliveryMode != null) 'deliveryMode': auction!.deliveryMode,
+        },
         if (shippingRegion != null) 'shippingRegion': shippingRegion,
         if (location != null) 'location': location,
         if (framingNote != null) 'framingNote': framingNote,
@@ -463,6 +490,7 @@ class FeedPreviewItem {
       bidCount: json['bidCount'] as int? ?? 0,
       minNextBidCents: json['minNextBidCents'] as int?,
       isHighestBidder: json['isHighestBidder'] as bool? ?? false,
+      auction: AuctionSummary.maybeFrom(json),
       shippingRegion: json['shippingRegion'] as String?,
       location: json['location'] as String?,
       framingNote: json['framingNote'] as String?,

@@ -3,12 +3,15 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/feed_preview_item.dart';
+import '../../models/saved_card.dart';
 import '../../services/api_exception.dart';
 import '../../services/bid_service.dart';
 import '../../services/piece_service.dart';
+import '../../services/saved_card_service.dart';
 import '../../theme/collect_detail_tokens.dart';
 import '../../utils/auction_time.dart';
 import '../home_feed/home_feed_widgets.dart';
+import 'bid_card_picker_sheet.dart';
 import 'place_bid_confirmation_sheet.dart';
 
 /// Bid-amount sheet — Figma "Piece detail - bid" (2707:3664) flow, screens 1-2.
@@ -36,6 +39,15 @@ class _PlaceBidSheetState extends State<PlaceBidSheet> {
   late FeedPreviewItem _item;
   late final TextEditingController _amountController;
   bool _submitting = false;
+
+  /// The card this bid will be authorised against.
+  ///
+  /// Required before the first bid on a piece, because a bid places a hold immediately and
+  /// the same card is re-authorised weeks later with nobody present — there is no later
+  /// point at which one could be collected. Loaded on open so a returning bidder sees their
+  /// card already chosen rather than being asked again.
+  SavedCard? _card;
+  bool _loadingCards = true;
 
   /// The server decides this. The increment is banded by price ($5 under $100 rising to
   /// $500 over $10,000) and the first bid on a piece may land exactly on the artist's
@@ -83,6 +95,30 @@ class _PlaceBidSheetState extends State<PlaceBidSheet> {
     _amountController = TextEditingController(
       text: (_minNextBidCents / 100).toStringAsFixed(0),
     );
+    _loadCards();
+  }
+
+  Future<void> _loadCards() async {
+    try {
+      final cards = await SavedCardService.instance.list();
+      if (!mounted) return;
+      setState(() {
+        // First usable card wins. An expired one would only produce a decline the bidder
+        // cannot act on from here.
+        _card = cards.where((c) => !c.isExpired).firstOrNull;
+        _loadingCards = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      // Not fatal: they can still open the picker and add one.
+      setState(() => _loadingCards = false);
+    }
+  }
+
+  Future<void> _chooseCard() async {
+    final picked = await BidCardPickerSheet.show(context, selectedId: _card?.id);
+    if (!mounted || picked == null) return;
+    setState(() => _card = picked);
   }
 
   @override
@@ -99,7 +135,11 @@ class _PlaceBidSheetState extends State<PlaceBidSheet> {
 
   bool get _canSubmit {
     final amount = _enteredAmountCents;
-    return !_submitting && amount != null && amount >= _minNextBidCents;
+    return !_submitting &&
+        !_loadingCards &&
+        _card != null &&
+        amount != null &&
+        amount >= _minNextBidCents;
   }
 
   Future<void> _refreshMinimum() async {
@@ -127,7 +167,11 @@ class _PlaceBidSheetState extends State<PlaceBidSheet> {
     if (amount == null || _submitting) return;
     setState(() => _submitting = true);
     try {
-      final bid = await BidService.instance.placeBid(_item.id, amount);
+      final bid = await BidService.instance.placeBid(
+        _item.id,
+        amount,
+        paymentMethodId: _card?.id,
+      );
       if (!mounted) return;
       Navigator.pop(context);
       await PlaceBidConfirmationSheet.show(context, bid: bid);
@@ -206,6 +250,28 @@ class _PlaceBidSheetState extends State<PlaceBidSheet> {
                       _minimumHint,
                       style: GoogleFonts.inter(
                         fontSize: 12,
+                        color: CollectDetailTokens.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    _CardRow(
+                      label: _loadingCards
+                          ? 'Checking your cards…'
+                          : (_card?.label ?? 'Add a card to bid'),
+                      hasCard: _card != null,
+                      loading: _loadingCards,
+                      onTap: _loadingCards ? null : _chooseCard,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      // Said plainly, because it is the single most misunderstood thing
+                      // about bidding: the money is reserved, not taken, and it is only
+                      // taken if they win.
+                      'We place a hold for your bid amount. Nothing is charged unless you '
+                      'win — shipping and tax are added afterwards.',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        height: 1.4,
                         color: CollectDetailTokens.textSecondary,
                       ),
                     ),
@@ -431,6 +497,72 @@ class _PlaceBidCta extends StatelessWidget {
                       color: CollectDetailTokens.textInverse,
                     ),
                   ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+class _CardRow extends StatelessWidget {
+  const _CardRow({
+    required this.label,
+    required this.hasCard,
+    required this.loading,
+    this.onTap,
+  });
+
+  final String label;
+  final bool hasCard;
+  final bool loading;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: CollectDetailTokens.sheetCardFill,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.credit_card,
+                size: 20,
+                color: CollectDetailTokens.textPrimary,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  label,
+                  style: GoogleFonts.inter(
+                    fontSize: 15,
+                    color: hasCard
+                        ? CollectDetailTokens.textPrimary
+                        : CollectDetailTokens.textSecondary,
+                  ),
+                ),
+              ),
+              if (loading)
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                Text(
+                  hasCard ? 'Change' : 'Add',
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: CollectDetailTokens.textPrimary,
+                  ),
+                ),
+            ],
           ),
         ),
       ),

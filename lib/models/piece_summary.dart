@@ -1,3 +1,4 @@
+import 'auction_summary.dart';
 import 'post_summary.dart';
 import 'series_summary.dart';
 
@@ -51,6 +52,7 @@ class PieceSummary {
     this.bidCount = 0,
     this.minNextBidCents,
     this.isHighestBidder = false,
+    this.auction,
     this.dimensions,
     this.shippingRegion,
     this.weightKg,
@@ -108,8 +110,15 @@ class PieceSummary {
   final int? bidIncrementCents;
   final int bidCount;
   final int? minNextBidCents;
-  /// Only meaningful once `status == 'auction_won'` — whether the viewer is the winner.
+  /// Whether the viewer currently leads the *live* bidding. Goes false the moment the
+  /// auction closes, because there is no longer a highest active bid — use
+  /// [AuctionSummary.isWinner] on [auction] to ask who won.
   final bool isHighestBidder;
+
+  /// The full auction state, including everything that only exists after the close: who won,
+  /// whether their payment failed, and how long they have to fix it. Null for a fixed-price
+  /// piece.
+  final AuctionSummary? auction;
   final String? dimensions;
   final String? shippingRegion;
   final double? weightKg;
@@ -207,6 +216,7 @@ class PieceSummary {
       bidCount: _intFrom(json['bidCount']) ?? 0,
       minNextBidCents: _intFrom(json['minNextBidCents']),
       isHighestBidder: json['isHighestBidder'] as bool? ?? false,
+      auction: AuctionSummary.maybeFrom(json),
       dimensions: json['dimensions'] as String?,
       shippingRegion: json['shippingRegion'] as String?,
       weightKg: _doubleFrom(json['weightKg']),

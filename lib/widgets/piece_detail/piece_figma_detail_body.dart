@@ -22,6 +22,8 @@ class PieceFigmaDetailBody extends StatelessWidget {
     this.showCollect = false,
     this.collectPrice,
     this.onCollect,
+    this.onCompletePurchase,
+    this.onFixPayment,
     this.collectStatusLabel,
     this.onPlaceBid,
     this.onMessage,
@@ -35,6 +37,12 @@ class PieceFigmaDetailBody extends StatelessWidget {
   final bool showCollect;
   final String? collectPrice;
   final VoidCallback? onCollect;
+  /// The auction winner settling shipping and tax after their payment cleared.
+  final VoidCallback? onCompletePurchase;
+
+  /// The auction winner replacing a card that was declined at close.
+  final VoidCallback? onFixPayment;
+
   final String? collectStatusLabel;
   final VoidCallback? onPlaceBid;
   final VoidCallback? onMessage;
@@ -160,10 +168,20 @@ class PieceFigmaDetailBody extends StatelessWidget {
           ),
         if (showCollect && item.isAuction)
           AuctionBidBar(
-            bidDisplay: formatCollectPrice(item.highestBidCents ?? item.priceCents),
+            // The winning bid once there is one: after a close the highest *active* bid is
+            // gone, so falling back to it would show the starting price on a piece that
+            // just sold for far more.
+            bidDisplay: formatCollectPrice(
+              item.auction?.winningBidCents ??
+                  item.highestBidCents ??
+                  item.priceCents,
+            ),
             bidCount: item.bidCount,
+            auction: item.auction,
             auctionEndsAt: item.auctionEndsAt,
             onPlaceBid: onPlaceBid,
+            onCompletePurchase: onCompletePurchase,
+            onFixPayment: onFixPayment,
             statusLabel: collectStatusLabel,
             onMessage: onMessage,
           )

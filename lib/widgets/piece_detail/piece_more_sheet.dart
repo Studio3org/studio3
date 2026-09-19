@@ -16,12 +16,17 @@ class PieceMoreSheet extends StatelessWidget {
     required this.item,
     this.isOwner = false,
     this.onEdit,
+    this.onManageAuction,
     this.imageIndex = 0,
   });
 
   final FeedPreviewItem item;
   final bool isOwner;
   final VoidCallback? onEdit;
+
+  /// Extend, cancel or relist. Only offered to the owner of a piece that actually has an
+  /// auction — there is nothing to manage on fixed-price work.
+  final VoidCallback? onManageAuction;
   final int imageIndex;
 
   static Future<void> show(
@@ -29,6 +34,7 @@ class PieceMoreSheet extends StatelessWidget {
     required FeedPreviewItem item,
     bool isOwner = false,
     VoidCallback? onEdit,
+    VoidCallback? onManageAuction,
     int imageIndex = 0,
   }) {
     return showModalBottomSheet<void>(
@@ -43,6 +49,7 @@ class PieceMoreSheet extends StatelessWidget {
           item: item,
           isOwner: isOwner,
           onEdit: onEdit,
+          onManageAuction: onManageAuction,
           imageIndex: imageIndex,
         ),
       ),
@@ -78,6 +85,14 @@ class PieceMoreSheet extends StatelessWidget {
               onTap: () {
                 Navigator.pop(context);
                 onEdit!();
+              },
+            ),
+          if (isOwner && onManageAuction != null)
+            _MoreRow(
+              label: 'Manage auction',
+              onTap: () {
+                Navigator.pop(context);
+                onManageAuction!();
               },
             ),
           _MoreRow(

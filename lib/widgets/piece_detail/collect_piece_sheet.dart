@@ -22,15 +22,24 @@ class CollectPieceSheet extends StatefulWidget {
     super.key,
     required this.item,
     this.winningBidCents,
+    this.prepaidCents,
   });
 
   final FeedPreviewItem item;
   final int? winningBidCents;
 
+  /// What the auction already collected when it closed and captured the winner's hold.
+  ///
+  /// The hammer price is taken at close, not here, so this checkout settles shipping and tax
+  /// only. Showing the full total as due would read as a second charge for the artwork — and
+  /// pricing the payment intent that way would have *been* one.
+  final int? prepaidCents;
+
   static Future<void> show(
     BuildContext context, {
     required FeedPreviewItem item,
     int? winningBidCents,
+    int? prepaidCents,
   }) {
     return showModalBottomSheet<void>(
       context: context,
@@ -41,6 +50,7 @@ class CollectPieceSheet extends StatefulWidget {
       builder: (context) => CollectPieceSheet(
         item: item,
         winningBidCents: winningBidCents,
+        prepaidCents: prepaidCents,
       ),
     );
   }
@@ -75,6 +85,12 @@ class _CollectPieceSheetState extends State<CollectPieceSheet> {
   int get _shippingCents => _shipping?.method.priceCents ?? 0;
   int get _taxCents => (_artworkCents * 0.0825).round();
   int get _totalCents => _artworkCents + _shippingCents + _taxCents;
+
+  /// Already paid by the hold captured when the auction closed. Zero for fixed-price work.
+  int get _prepaidCents => widget.prepaidCents ?? 0;
+
+  /// What this checkout actually collects.
+  int get _balanceDueCents => _totalCents - _prepaidCents;
 
   Future<void> _openShipping() async {
     final address = await CollectShippingSheet.show(
@@ -265,6 +281,12 @@ class _CollectPieceSheetState extends State<CollectPieceSheet> {
                           : formatMoney(_shippingCents),
                       taxDisplay: formatMoney(_taxCents),
                       totalDisplay: formatCollectPrice(_totalCents),
+                      // Only ever set for an auction win, where the hammer price was taken
+                      // when the auction closed.
+                      alreadyPaidDisplay: _prepaidCents > 0
+                          ? formatMoney(_prepaidCents)
+                          : null,
+                      dueDisplay: formatCollectPrice(_balanceDueCents),
                     ),
                     const SizedBox(height: 28),
                     _CollectCta(
@@ -576,12 +598,21 @@ class _OrderSummaryCard extends StatelessWidget {
     required this.shippingDisplay,
     required this.taxDisplay,
     required this.totalDisplay,
+    required this.dueDisplay,
+    this.alreadyPaidDisplay,
   });
 
   final String artworkDisplay;
   final String shippingDisplay;
   final String taxDisplay;
   final String totalDisplay;
+
+  /// What the auction already collected. Null for fixed-price work, where the total and the
+  /// amount due are the same number and a second line would just be noise.
+  final String? alreadyPaidDisplay;
+
+  /// What this checkout actually charges. Equals the total unless something was prepaid.
+  final String dueDisplay;
 
   @override
   Widget build(BuildContext context) {
@@ -613,7 +644,7 @@ class _OrderSummaryCard extends StatelessWidget {
             Row(
               children: [
                 Text(
-                  'Total',
+                  alreadyPaidDisplay == null ? 'Total' : 'Order total',
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
@@ -631,6 +662,38 @@ class _OrderSummaryCard extends StatelessWidget {
                 ),
               ],
             ),
+            // The two lines that stop an auction winner thinking they are being charged for
+            // the artwork twice. Their bid was captured when the auction closed; all that is
+            // left here is shipping and tax.
+            if (alreadyPaidDisplay != null) ...[
+              const SizedBox(height: 8),
+              _SummaryLine(
+                label: 'Paid when you won',
+                value: '−$alreadyPaidDisplay',
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Text(
+                    'Due now',
+                    style: GoogleFonts.inter(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: CollectDetailTokens.textPrimary,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    dueDisplay,
+                    style: GoogleFonts.inter(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: CollectDetailTokens.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),
