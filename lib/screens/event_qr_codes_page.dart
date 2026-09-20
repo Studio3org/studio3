@@ -9,6 +9,7 @@ import '../services/api_exception.dart';
 import '../services/event_service.dart';
 import '../theme/home_feed_tokens.dart';
 import '../utils/event_qr_pdf.dart';
+import '../utils/qr_image_share.dart';
 import '../widgets/share/share_sheet.dart';
 
 /// The codes a host puts beside each work in the room.
@@ -261,13 +262,31 @@ class _QrCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 12),
                     _SmallAction(
-                      label: 'Share',
+                      label: 'Share link',
                       onTap: () => ShareSheet.show(
                         context,
                         shareText: '$title\n$url',
                         copyLabel: 'Copy',
                         copiedMessage: 'Copied',
                       ),
+                    ),
+                    const SizedBox(width: 12),
+                    // The other half of the job the PDF does not cover: sending one artist
+                    // the code for their own piece, or dropping a single code into a poster.
+                    _SmallAction(
+                      label: 'Share code',
+                      onTap: () async {
+                        final messenger = ScaffoldMessenger.of(context);
+                        try {
+                          await QrImageShare.share(title: title, url: url);
+                        } catch (_) {
+                          messenger.showSnackBar(
+                            const SnackBar(
+                              content: Text('Could not share that code.'),
+                            ),
+                          );
+                        }
+                      },
                     ),
                   ],
                 ),
