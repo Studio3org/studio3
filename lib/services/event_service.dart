@@ -64,6 +64,32 @@ class EventService {
     return (data['saveCount'] as num?)?.toInt() ?? 0;
   }
 
+  /// Say you're coming, or take it back.
+  ///
+  /// Free, and not a ticket — it admits nobody and charges nothing. What it buys is that the
+  /// host knows how many to expect and that there is somebody to tell if the event is called
+  /// off.
+  ///
+  /// Throws [ApiException] with 409 when a capped event is full.
+  Future<EventRsvpResult> setRsvp(String eventId, {required bool going}) async {
+    final json = await _api.post(
+      '/api/events/$eventId/rsvp',
+      body: {'going': going},
+      auth: true,
+    );
+    return EventRsvpResult.fromJson(_api.extractData(json) as Map<String, dynamic>);
+  }
+
+  /// Who is coming. Host-only — an attendee list is not public.
+  Future<List<EventPerson>> attendees(String eventId) async {
+    final json = await _api.get('/api/events/$eventId/attendees', auth: true);
+    final data = _api.extractData(json) as Map<String, dynamic>;
+    return (data['attendees'] as List? ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map(EventPerson.fromJson)
+        .toList();
+  }
+
   // --- hosting --------------------------------------------------------------------------
 
   /// Create the draft. Nothing is public and nothing is listed until [publish].
@@ -83,6 +109,7 @@ class EventService {
     String? address,
     double? latitude,
     double? longitude,
+    int? capacity,
   }) async {
     final json = await _api.post(
       '/api/events',
@@ -98,6 +125,7 @@ class EventService {
         if (address != null) 'address': address,
         if (latitude != null) 'latitude': latitude,
         if (longitude != null) 'longitude': longitude,
+        if (capacity != null) 'capacity': capacity,
       },
       auth: true,
     );

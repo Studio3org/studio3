@@ -43,6 +43,44 @@ class _EventDetailPageState extends State<EventDetailPage> {
 
   StudioEvent get _event => _detail ?? widget.event;
 
+  bool _rsvping = false;
+
+  /// Say you're coming, or take it back.
+  ///
+  /// The response carries the fresh counts, so the button and the "12 going" line update
+  /// from what the server actually recorded rather than from an optimistic guess that a
+  /// full event would get wrong.
+  Future<void> _toggleRsvp() async {
+    final going = !_event.viewerIsGoing;
+    setState(() => _rsvping = true);
+    try {
+      final result = await EventService.instance.setRsvp(_event.id, going: going);
+      if (!mounted) return;
+      setState(() {
+        _rsvping = false;
+        _detail = _event.copyWith(
+          viewerIsGoing: result.going,
+          rsvpCount: result.rsvpCount,
+          spotsLeft: result.spotsLeft,
+          isFull: result.isFull,
+        );
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _rsvping = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      // A 409 means somebody took the last place while this screen was open, so the counts
+      // on it are already wrong.
+      await _loadDetail();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _rsvping = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not update your RSVP.')),
+      );
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -462,41 +500,71 @@ class _EventDetailPageState extends State<EventDetailPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'From',
+                    'Entry',
                     style: _geist(
                       size: 13,
                       color: HomeFeedTokens.textSecondary,
                     ),
                   ),
                   Text(_event.priceLabel, style: _geist(size: 20)),
+                  const SizedBox(height: 2),
+                  Text(
+                    _event.rsvpSummary,
+                    style: _geist(size: 13, color: HomeFeedTokens.textSecondary),
+                  ),
                   const SizedBox(height: 16),
                   SizedBox(
                     width: double.infinity,
                     height: 40,
                     child: FilledButton(
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Ticketing coming soon'),
-                          ),
-                        );
-                      },
+                      // A full event the viewer is not already on keeps its button, disabled
+                      // — so "full" reads as a fact about the event rather than as a missing
+                      // control.
+                      onPressed:
+                          _event.canRsvp && !_rsvping ? _toggleRsvp : null,
                       style: FilledButton.styleFrom(
-                        backgroundColor: HomeFeedTokens.neutral800,
-                        foregroundColor: HomeFeedTokens.textInverse,
+                        backgroundColor: _event.viewerIsGoing
+                            ? HomeFeedTokens.skeletonBase
+                            : HomeFeedTokens.neutral800,
+                        foregroundColor: _event.viewerIsGoing
+                            ? HomeFeedTokens.textPrimary
+                            : HomeFeedTokens.textInverse,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      child: Text(
-                        'Get tickets',
-                        style: _geist(
-                          size: 16,
-                          color: HomeFeedTokens.textInverse,
+                      child: _rsvping
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Text(
+                              _event.rsvpCtaLabel,
+                              style: _geist(
+                                size: 16,
+                                color: _event.viewerIsGoing
+                                    ? HomeFeedTokens.textPrimary
+                                    : HomeFeedTokens.textInverse,
+                              ),
+                            ),
+                    ),
+                  ),
+                  if (_event.viewerIsGoing) ...[
+                    const SizedBox(height: 6),
+                    Center(
+                      child: TextButton(
+                        onPressed: _rsvping ? null : _toggleRsvp,
+                        child: Text(
+                          "Can't make it",
+                          style: _geist(
+                            size: 13,
+                            color: HomeFeedTokens.textSecondary,
+                          ),
                         ),
                       ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),

@@ -29,6 +29,11 @@ class StudioEvent {
     this.saved = false,
     this.saveCount = 0,
     this.isHost = false,
+    this.capacity,
+    this.rsvpCount = 0,
+    this.spotsLeft,
+    this.isFull = false,
+    this.viewerIsGoing = false,
     this.description,
     this.cancellationReason,
     this.cohosts = const [],
@@ -63,6 +68,21 @@ class StudioEvent {
   final bool saved;
   final int saveCount;
   final bool isHost;
+
+  /// Null means unlimited, which is the default — entry is free and open.
+  final int? capacity;
+
+  /// How many people have said they are coming. A headcount, not ticket sales.
+  final int rsvpCount;
+
+  /// Places remaining, or null when the event is uncapped. Null is not zero: an uncapped
+  /// event has no number to show, a full one has exactly zero.
+  final int? spotsLeft;
+
+  final bool isFull;
+
+  /// Whether the viewer has RSVP'd. Viewer-relative, like [saved].
+  final bool viewerIsGoing;
 
   // --- detail only -------------------------------------------------------------------------
   final String? description;
@@ -158,6 +178,28 @@ class StudioEvent {
   /// Whether there is a place to point a map at.
   bool get hasLocation => latitude != null && longitude != null;
 
+  /// What the RSVP button should say.
+  ///
+  /// An RSVP is not a ticket and the copy should never imply one — entry is free and open,
+  /// and this only tells the host how many to expect.
+  String get rsvpCtaLabel {
+    if (viewerIsGoing) return "You're going";
+    if (isFull) return 'Event is full';
+    return "I'm going";
+  }
+
+  /// Whether the RSVP button does anything. A full event that the viewer is not already on
+  /// stays visible but inert, so "full" reads as a fact rather than a missing button.
+  bool get canRsvp => isPublished && !isOver && !isHost && (viewerIsGoing || !isFull);
+
+  /// The line under the button: `12 going · 8 places left`.
+  String get rsvpSummary {
+    final going = rsvpCount == 1 ? '1 going' : '$rsvpCount going';
+    final left = spotsLeft;
+    if (left == null) return going;
+    return left == 0 ? '$going · full' : '$going · $left ${left == 1 ? "place" : "places"} left';
+  }
+
   static const _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   static const _months = [
     'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -183,7 +225,16 @@ class StudioEvent {
     return '$hour:${d.minute.toString().padLeft(2, '0')} $suffix';
   }
 
-  StudioEvent copyWith({bool? saved, int? saveCount, String? status}) => StudioEvent(
+  StudioEvent copyWith({
+    bool? saved,
+    int? saveCount,
+    String? status,
+    int? rsvpCount,
+    int? spotsLeft,
+    bool? isFull,
+    bool? viewerIsGoing,
+  }) =>
+      StudioEvent(
         id: id,
         title: title,
         startsAt: startsAt,
@@ -203,6 +254,11 @@ class StudioEvent {
         saved: saved ?? this.saved,
         saveCount: saveCount ?? this.saveCount,
         isHost: isHost,
+        capacity: capacity,
+        rsvpCount: rsvpCount ?? this.rsvpCount,
+        spotsLeft: spotsLeft ?? this.spotsLeft,
+        isFull: isFull ?? this.isFull,
+        viewerIsGoing: viewerIsGoing ?? this.viewerIsGoing,
         description: description,
         cancellationReason: cancellationReason,
         cohosts: cohosts,
@@ -257,6 +313,11 @@ class StudioEvent {
       saved: json['saved'] as bool? ?? false,
       saveCount: (json['saveCount'] as num?)?.toInt() ?? 0,
       isHost: json['isHost'] as bool? ?? false,
+      capacity: (json['capacity'] as num?)?.toInt(),
+      rsvpCount: (json['rsvpCount'] as num?)?.toInt() ?? 0,
+      spotsLeft: (json['spotsLeft'] as num?)?.toInt(),
+      isFull: json['isFull'] as bool? ?? false,
+      viewerIsGoing: json['viewerIsGoing'] as bool? ?? false,
       description: json['description'] as String?,
       cancellationReason: json['cancellationReason'] as String?,
       cohosts: _people(json['cohosts']),
@@ -453,5 +514,30 @@ class EventCategoryCount {
         id: json['id'] as String? ?? '',
         upcomingCount: (json['upcomingCount'] as num?)?.toInt() ?? 0,
         coverMediaUrl: json['coverMediaUrl'] as String?,
+      );
+}
+
+
+/// The counts that come back from an RSVP, so a screen can update without re-fetching.
+class EventRsvpResult {
+  const EventRsvpResult({
+    required this.going,
+    required this.rsvpCount,
+    this.spotsLeft,
+    this.isFull = false,
+  });
+
+  final bool going;
+  final int rsvpCount;
+
+  /// Null when the event is uncapped.
+  final int? spotsLeft;
+  final bool isFull;
+
+  factory EventRsvpResult.fromJson(Map<String, dynamic> json) => EventRsvpResult(
+        going: json['going'] as bool? ?? false,
+        rsvpCount: (json['rsvpCount'] as num?)?.toInt() ?? 0,
+        spotsLeft: (json['spotsLeft'] as num?)?.toInt(),
+        isFull: json['isFull'] as bool? ?? false,
       );
 }
