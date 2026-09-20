@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../data/event_dummy_data.dart';
+import '../../models/studio_event.dart';
 import '../../theme/home_feed_tokens.dart';
 import '../home_feed/home_feed_widgets.dart';
 
@@ -204,7 +204,7 @@ class EventTimeFilters extends StatelessWidget {
 class EventHeroCard extends StatelessWidget {
   const EventHeroCard({super.key, required this.event, this.onTap});
 
-  final DummyEvent event;
+  final StudioEvent event;
   final VoidCallback? onTap;
 
   @override
@@ -377,7 +377,7 @@ class EventCompactCard extends StatelessWidget {
     this.onTap,
   });
 
-  final DummyEvent event;
+  final StudioEvent event;
   final bool saved;
   final VoidCallback onBookmark;
   final VoidCallback? onTap;
@@ -442,7 +442,7 @@ class EventPortraitCard extends StatelessWidget {
     this.onTap,
   });
 
-  final DummyEvent event;
+  final StudioEvent event;
   final bool saved;
   final VoidCallback onBookmark;
   final VoidCallback? onTap;
@@ -494,7 +494,7 @@ class EventPortraitCard extends StatelessWidget {
 class EventCategoryTile extends StatelessWidget {
   const EventCategoryTile({super.key, required this.category});
 
-  final DummyEventCategory category;
+  final EventCategoryCount category;
 
   @override
   Widget build(BuildContext context) {

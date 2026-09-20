@@ -5,13 +5,13 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../models/feed_item.dart';
 import '../models/feed_preview_item.dart';
-import '../data/event_dummy_data.dart';
 import '../screens/event_detail_page.dart';
 import '../services/post_service.dart';
 import '../services/social_service.dart';
 import '../services/user_service.dart';
 import '../screens/available_piece_detail_page.dart';
 import '../screens/piece_detail_page.dart';
+import '../services/event_service.dart';
 import '../services/saved_content_store.dart';
 import '../theme/home_feed_tokens.dart';
 import '../utils/reels_route.dart';
@@ -360,10 +360,27 @@ class _SavedItemsViewState extends State<_SavedItemsView> {
         : _store.entriesForCollection(collectionId, filter: _filter);
   }
 
-  void _openEntry(SavedEntry entry) {
+  Future<void> _openEntry(SavedEntry entry) async {
     if (entry.kind == SavedContentKind.event) {
-      final event = entry.event ?? EventDummyData.byId(entry.id);
-      openEventDetail(context, event);
+      // Cached from when it was saved. Entries written before events had a payload have
+      // none, so those are fetched rather than substituted — the old fallback returned the
+      // *featured* event for any id it did not recognise, which opened somebody else's
+      // event from your own saved list.
+      final cached = entry.event;
+      if (cached != null) {
+        openEventDetail(context, cached);
+        return;
+      }
+      try {
+        final event = await EventService.instance.getById(entry.id);
+        if (!mounted) return;
+        openEventDetail(context, event);
+      } catch (_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('That event is no longer available.')),
+        );
+      }
       return;
     }
 

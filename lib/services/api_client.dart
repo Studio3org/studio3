@@ -166,6 +166,33 @@ class ApiClient {
     }
   }
 
+  /// Replace a resource wholesale, as opposed to [patch]'s partial update.
+  ///
+  /// Used where a partial update cannot express the intent — replacing an event's artist
+  /// list, for instance, where sending only additions would make removing somebody
+  /// impossible.
+  Future<Map<String, dynamic>> put(
+    String path, {
+    Map<String, dynamic>? body,
+    bool auth = true,
+  }) async {
+    try {
+      final dio = await _client;
+      final response = await dio.put<Map<String, dynamic>>(
+        path,
+        data: body,
+        options: Options(headers: _authHeaders(auth: auth)),
+      );
+      return _parseResponse(response);
+    } on DioException catch (e) {
+      throw _toApiException(e);
+    } catch (e) {
+      throw ApiException(
+        'Cannot reach server at ${ApiConfig.baseUrl}. Is the API running?',
+      );
+    }
+  }
+
   Future<Map<String, dynamic>> delete(
     String path, {
     Map<String, dynamic>? body,

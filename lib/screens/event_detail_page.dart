@@ -2,15 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../data/event_dummy_data.dart';
+import '../models/studio_event.dart';
+import '../services/api_exception.dart';
+import '../services/event_service.dart';
 import '../services/saved_content_store.dart';
 import '../theme/home_feed_tokens.dart';
-import '../widgets/events/event_feed_widgets.dart';
 import '../widgets/home_feed/home_feed_widgets.dart';
 import '../widgets/profile_avatar.dart';
 import '../widgets/share/share_sheet.dart';
 
-void openEventDetail(BuildContext context, DummyEvent event) {
+void openEventDetail(BuildContext context, StudioEvent event) {
   Navigator.of(context).push<void>(
     MaterialPageRoute<void>(
       builder: (_) => EventDetailPage(event: event),
@@ -22,7 +23,7 @@ void openEventDetail(BuildContext context, DummyEvent event) {
 class EventDetailPage extends StatefulWidget {
   const EventDetailPage({super.key, required this.event});
 
-  final DummyEvent event;
+  final StudioEvent event;
 
   @override
   State<EventDetailPage> createState() => _EventDetailPageState();
@@ -32,14 +33,50 @@ class _EventDetailPageState extends State<EventDetailPage> {
   final _store = SavedContentStore.instance;
   bool _detailsExpanded = false;
   bool _followingHost = false;
-  int? _openFaq;
 
-  DummyEvent get _event => widget.event;
+  /// The full event, once fetched.
+  ///
+  /// The card that opened this page carries no bill, no cohosts and no description — those
+  /// only come with the detail payload. Rendering the card first and filling in behind it
+  /// means the header, title and time are on screen immediately instead of behind a spinner.
+  StudioEvent? _detail;
+
+  StudioEvent get _event => _detail ?? widget.event;
 
   @override
   void initState() {
     super.initState();
     _store.addListener(_onStore);
+    _loadDetail();
+  }
+
+  Future<void> _loadDetail() async {
+    try {
+      final full = await EventService.instance.getById(widget.event.id);
+      if (!mounted) return;
+      setState(() => _detail = full);
+    } catch (_) {
+      // The card's own fields still render. A failed refresh is not worth an error screen
+      // over content that is already on the page.
+    }
+  }
+
+  /// Save on the server, then mirror locally so the Saved tab updates without a round trip.
+  Future<void> _toggleSaved() async {
+    final wasSaved = _store.isSaved(_event.id);
+    try {
+      await EventService.instance.setSaved(_event.id, saved: !wasSaved);
+      if (!mounted) return;
+      _store.toggleEvent(_event);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not save that event.')),
+      );
+    }
   }
 
   @override
@@ -65,12 +102,13 @@ class _EventDetailPageState extends State<EventDetailPage> {
   }
 
   Future<void> _share() {
-    // Events aren't backed by the API yet (see event_dummy_data.dart), so there's no
-    // resolvable link to share yet — just the event details as text, same channels
-    // (WhatsApp/SMS/native share/copy) pieces and series get.
+    // The custom-scheme link works today and needs no domain verification, which the
+    // https:// one still does — see AppLinkConfig. Someone without the app installed gets
+    // the details as text, which is the useful half of the message anyway.
     return ShareSheet.show(
       context,
-      shareText: '${_event.title} · ${_event.venue}\n${_event.scheduleLine}',
+      shareText: '${_event.title} · ${_event.venue}\n${_event.scheduleLine}\n'
+          'studio3://event/${_event.id}',
       copyLabel: 'Copy',
       copiedMessage: 'Copied',
     );
@@ -142,7 +180,7 @@ class _EventDetailPageState extends State<EventDetailPage> {
                                 ),
                                 const Spacer(),
                                 GestureDetector(
-                                  onTap: () => _store.toggleEvent(_event),
+                                  onTap: _toggleSaved,
                                   behavior: HitTestBehavior.opaque,
                                   child: Padding(
                                     padding: const EdgeInsets.all(8),
@@ -338,13 +376,13 @@ class _EventDetailPageState extends State<EventDetailPage> {
                                   width: 79,
                                   height: 79,
                                   child: FeedPicsumImage(
-                                    url: _event.artists[i].avatarUrl,
+                                    url: _event.artists[i].avatarUrl ?? '',
                                   ),
                                 ),
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                _event.artists[i].name,
+                                _event.artists[i].displayName,
                                 textAlign: TextAlign.center,
                                 style: _geist(size: 12),
                               ),
@@ -402,38 +440,13 @@ class _EventDetailPageState extends State<EventDetailPage> {
                         ),
                       ),
                       const SizedBox(height: 10),
-                      Text(_event.address, style: _geist(size: 16)),
-                      const SizedBox(height: 10),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: SizedBox(
-                            width: double.infinity,
-                            height: 228,
-                            child: FeedPicsumImage(url: _event.mapImageUrl),
-                          ),
-                        ),
-                      ),
+                      Text(_event.address ?? 'Location to be announced', style: _geist(size: 16)),
+                      // The map image and the FAQ list are deliberately absent rather than
+                      // faked. Neither has a backend field yet: a map needs a tile provider
+                      // nobody has chosen, and FAQs need a column and an editor in the
+                      // create flow. Showing a stock map of the wrong place, or somebody
+                      // else's answers, would be worse than showing the address alone.
                       const SizedBox(height: 32),
-                      Text(
-                        'FAQs',
-                        style: _geist(
-                          size: 13,
-                          weight: FontWeight.w500,
-                          color: HomeFeedTokens.textSecondary,
-                        ),
-                      ),
-                      const SizedBox(height: 13),
-                      for (var i = 0; i < _event.faqs.length; i++)
-                        _FaqRow(
-                          faq: _event.faqs[i],
-                          expanded: _openFaq == i,
-                          showDivider: i != _event.faqs.length - 1,
-                          onTap: () => setState(
-                            () => _openFaq = _openFaq == i ? null : i,
-                          ),
-                        ),
                     ],
                   ),
                 ),
@@ -494,77 +507,3 @@ class _EventDetailPageState extends State<EventDetailPage> {
   }
 }
 
-class _FaqRow extends StatelessWidget {
-  const _FaqRow({
-    required this.faq,
-    required this.expanded,
-    required this.showDivider,
-    required this.onTap,
-  });
-
-  final DummyEventFaq faq;
-  final bool expanded;
-  final bool showDivider;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          border: showDivider
-              ? const Border(
-                  bottom: BorderSide(color: EventTokens.hairline),
-                )
-              : null,
-        ),
-        child: Padding(
-          padding: const EdgeInsets.only(bottom: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                height: 28,
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        faq.question,
-                        style: GoogleFonts.geist(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: HomeFeedTokens.textPrimary,
-                        ),
-                      ),
-                    ),
-                    Transform.rotate(
-                      angle: expanded ? 3.14159 : 0,
-                      child: SvgPicture.asset(
-                        'assets/piece/details_chevron.svg',
-                        width: 8,
-                        height: 4,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (expanded) ...[
-                const SizedBox(height: 8),
-                Text(
-                  faq.answer,
-                  style: GoogleFonts.geist(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w400,
-                    color: HomeFeedTokens.textSecondary,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}

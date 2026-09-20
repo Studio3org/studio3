@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../models/feed_preview_item.dart';
+import '../screens/event_detail_page.dart';
 import '../screens/order_detail_page.dart';
 import '../screens/series_view_page.dart';
 import '../services/auth_session.dart';
+import '../services/event_service.dart';
 import '../services/piece_service.dart';
 import 'explore_detail_route.dart';
 import 'profile_navigation.dart';
@@ -20,7 +22,7 @@ import 'profile_navigation.dart';
 /// They share a resolver so a destination added for one is reachable from all three. The QR
 /// codes in the event flow arrive as deep links and land here too, which is the reason this
 /// is keyed on a type and an id rather than on a URL: a notification has no URL to give.
-enum AppDestinationType { piece, series, order, profile, payoutSetup, unknown }
+enum AppDestinationType { piece, series, order, event, profile, payoutSetup, unknown }
 
 class AppDestination {
   const AppDestination(this.type, [this.id]);
@@ -65,6 +67,8 @@ class AppDestination {
         return AppDestination(AppDestinationType.series, targetId);
       case 'order':
         return AppDestination(AppDestinationType.order, targetId);
+      case 'event':
+        return AppDestination(AppDestinationType.event, targetId);
       default:
         return const AppDestination(AppDestinationType.unknown);
     }
@@ -117,6 +121,8 @@ Future<void> openDestination(BuildContext context, AppDestination destination) a
           builder: (_) => OrderDetailPage(orderId: destination.id!),
         ),
       );
+    case AppDestinationType.event:
+      await _openEvent(context, destination.id!);
     case AppDestinationType.profile:
       openUserProfile(context, destination.id!);
     case AppDestinationType.payoutSetup:
@@ -136,5 +142,16 @@ Future<void> _openPiece(BuildContext context, String id) async {
   } catch (_) {
     // Deleted, delisted, or unreachable. Ignore rather than crash navigation from a stale
     // link or a notification about a piece that has since gone.
+  }
+}
+
+Future<void> _openEvent(BuildContext context, String id) async {
+  try {
+    final event = await EventService.instance.getById(id);
+    if (!context.mounted) return;
+    openEventDetail(context, event);
+  } catch (_) {
+    // Cancelled, still a draft, or gone. Better to stay put than to open an error screen
+    // from a link somebody shared weeks ago.
   }
 }

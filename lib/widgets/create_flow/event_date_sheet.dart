@@ -20,6 +20,36 @@ class EventDateSelection {
   final TimeOfDay? startTime;
   final TimeOfDay? endTime;
 
+  /// When the event actually starts, as a single timestamp.
+  ///
+  /// Null until a start time has been chosen. The sheet lets someone pick a date alone,
+  /// which is fine while drafting, but an event cannot be published without one: its whole
+  /// clock — and, for an event auction, when bidding opens and closes — is derived from it.
+  DateTime? get startsAt {
+    final time = startTime;
+    if (time == null) return null;
+    return DateTime(
+      startDate.year, startDate.month, startDate.day, time.hour, time.minute,
+    );
+  }
+
+  /// When it ends.
+  ///
+  /// Falls back to two hours after the start when no end time was given. A default is used
+  /// rather than leaving it null because the server requires an end — an event auction
+  /// closes thirty minutes before it, so there is no such thing as an open-ended one — and
+  /// two hours is both the common case and long enough for that window to exist.
+  DateTime? get endsAt {
+    final start = startsAt;
+    if (start == null) return null;
+    final date = multiDay && endDate != null ? endDate! : startDate;
+    final time = endTime;
+    if (time == null) return start.add(const Duration(hours: 2));
+    final end = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    // A finish time earlier than the start means it runs past midnight.
+    return end.isAfter(start) ? end : end.add(const Duration(days: 1));
+  }
+
   String get summary {
     final dateText = multiDay && endDate != null
         ? '${formatEventDate(startDate, includeWeekday: false)} – ${formatEventDate(endDate!, includeWeekday: false)}'

@@ -3,7 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
-import '../data/event_dummy_data.dart';
+import '../models/studio_event.dart';
 import '../models/feed_item.dart';
 import '../models/feed_preview_item.dart';
 import '../models/piece_summary.dart';
@@ -30,7 +30,7 @@ class SavedEntry {
   final SavedContentKind kind;
   final FeedPreviewItem? preview;
   final FeedItem? feedItem;
-  final DummyEvent? event;
+  final StudioEvent? event;
 
   /// Epoch ms when this item was saved — used to pick a "most recent" cover
   /// for the "Saved" folder tile. Defaults to 0 for cache entries written
@@ -67,12 +67,13 @@ class SavedEntry {
       'event' => SavedContentKind.event,
       _ => SavedContentKind.scene,
     };
-    DummyEvent? event;
+    StudioEvent? event;
     if (eventJson != null) {
-      event = DummyEvent.fromJson(eventJson);
-    } else if (kind == SavedContentKind.event) {
-      event = EventDummyData.byId(json['id'] as String? ?? '');
+      event = StudioEvent.fromJson(eventJson);
     }
+    // A cache entry written before events had a payload simply has no event attached; the
+    // saved list re-fetches it. Substituting a stand-in here is how a saved event used to
+    // come back as somebody else's.
     return SavedEntry(
       id: json['id'] as String? ?? '',
       kind: kind,
@@ -521,7 +522,7 @@ class SavedContentStore extends ChangeNotifier {
     unawaited(_persistEntries());
   }
 
-  void saveEvent(DummyEvent event) {
+  void saveEvent(StudioEvent event) {
     _entries[event.id] = SavedEntry(
       id: event.id,
       kind: SavedContentKind.event,
@@ -532,7 +533,7 @@ class SavedContentStore extends ChangeNotifier {
     unawaited(_persistEntries());
   }
 
-  void toggleEvent(DummyEvent event) {
+  void toggleEvent(StudioEvent event) {
     if (isSaved(event.id)) {
       unsave(event.id);
     } else {

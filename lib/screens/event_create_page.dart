@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -6,6 +8,9 @@ import '../data/post_location_options.dart';
 import '../data/post_media_assets.dart';
 import '../data/post_picker_options.dart';
 import '../models/post_image_transform.dart';
+import '../services/api_exception.dart';
+import '../services/event_service.dart';
+import '../services/media_service.dart';
 import '../theme/home_feed_tokens.dart';
 import '../widgets/choose_location_sheet.dart';
 import '../widgets/create_flow/event_date_sheet.dart';
@@ -113,13 +118,108 @@ class _EventCreatePageState extends State<EventCreatePage> {
       _goToStep(_step + 1);
       return;
     }
+    await _publish();
+  }
+
+  /// Create the event, build its bill, then publish.
+  ///
+  /// Three calls rather than one, because that is the shape of the thing: the draft has to
+  /// exist before pieces can be attached to it, and publishing is the step that turns the
+  /// bill into real listings. Publishing last also means a failure part-way leaves a draft
+  /// the host can finish rather than a half-published event with some work on sale.
+  Future<void> _publish() async {
+    final startsAt = _eventDate?.startsAt;
+    final endsAt = _eventDate?.endsAt;
+    if (startsAt == null || endsAt == null) {
+      _showError('Add a start time for your event.');
+      return;
+    }
+
     setState(() => _publishing = true);
-    await Future<void>.delayed(const Duration(milliseconds: 900));
-    if (!mounted) return;
-    setState(() {
-      _publishing = false;
-      _publishSuccess = true;
-    });
+    try {
+      final coverUrl = await _uploadCover();
+      final event = await EventService.instance.create(
+        title: _title.text.trim(),
+        startsAt: startsAt,
+        endsAt: endsAt,
+        description: _description.text.trim().isEmpty ? null : _description.text.trim(),
+        coverMediaUrl: coverUrl,
+        category: _categoryId,
+        // The zone the device is in, which for a local event is the zone it happens in.
+        // Sent so the time reads the same to everyone rather than shifting per reader.
+        timezoneName: DateTime.now().timeZoneName,
+        venueName: _selectedLocation?.name,
+        address: _selectedLocation?.displayName,
+        latitude: _selectedLocation?.lat,
+        longitude: _selectedLocation?.lng,
+      );
+
+      if (_cohosts.isNotEmpty || _artists.isNotEmpty) {
+        await EventService.instance.setPeople(
+          event.id,
+          cohostUsernames: _cohosts.map((p) => p.username).toList(),
+          artistUsernames: _artists.map((p) => p.username).toList(),
+        );
+      }
+
+      for (final (index, tagged) in _pieces.indexed) {
+        await EventService.instance.addPiece(
+          event.id,
+          pieceId: tagged.piece.id,
+          mode: _modeFor(tagged.mode),
+          priceCents: tagged.mode == EventPieceMode.featured
+              ? null
+              : _centsFrom(tagged.price),
+          deliveryMode: tagged.fulfillment == EventFulfillment.pickup ? 'pickup' : 'ship',
+          sortOrder: index,
+        );
+      }
+
+      await EventService.instance.publish(event.id);
+      if (!mounted) return;
+      setState(() {
+        _publishing = false;
+        _publishSuccess = true;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _publishing = false);
+      _showError(e.message);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _publishing = false);
+      _showError('Could not publish your event. Please try again.');
+    }
+  }
+
+  Future<String?> _uploadCover() async {
+    if (widget.imagePath.isEmpty) return null;
+    try {
+      return await MediaService.instance.uploadFile(
+        purpose: 'event_cover',
+        file: File(widget.imagePath),
+      );
+    } catch (_) {
+      // A missing cover is not worth losing the whole event over — the host can add one
+      // later, and every other field is already filled in.
+      return null;
+    }
+  }
+
+  static String _modeFor(EventPieceMode mode) => switch (mode) {
+        EventPieceMode.featured => 'featured',
+        EventPieceMode.sale => 'sale',
+        EventPieceMode.bid => 'bid',
+      };
+
+  static int? _centsFrom(String price) {
+    final value = double.tryParse(price.replaceAll(',', '').trim());
+    if (value == null) return null;
+    return (value * 100).round();
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override

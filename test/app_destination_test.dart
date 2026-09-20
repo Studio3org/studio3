@@ -13,6 +13,13 @@ void main() {
       expect(d.isKnown, isTrue);
     });
 
+    test('an event target routes to the event', () {
+      final d = AppDestination.fromTarget('event', 'e1');
+
+      expect(d.type, AppDestinationType.event);
+      expect(d.id, 'e1');
+    });
+
     test('an order target routes to the order', () {
       expect(
         AppDestination.fromTarget('order', 'o1').type,
@@ -56,6 +63,13 @@ void main() {
 
       expect(d.type, AppDestinationType.piece);
       expect(d.id, 'abc');
+    });
+
+    test('an event link resolves, which is what a shared event uses', () {
+      expect(
+        AppDestination.fromSegments(['event', 'e1']).type,
+        AppDestinationType.event,
+      );
     });
 
     test('a connect return opens payout setup', () {
