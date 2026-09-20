@@ -1,3 +1,5 @@
+import 'auction_summary.dart';
+
 /// An event as the server describes it.
 ///
 /// One class for both the card and the detail payload rather than two: a list hands its card
@@ -371,6 +373,8 @@ class EventLineupItem {
     this.mediaUrl,
     this.artistUsername,
     this.artistName,
+    this.pieceStatus,
+    this.auction,
   });
 
   final String id;
@@ -390,6 +394,14 @@ class EventLineupItem {
   final String? mediaUrl;
   final String? artistUsername;
   final String? artistName;
+  final String? pieceStatus;
+
+  /// Live auction state, on `bid` entries only.
+  ///
+  /// Present so the room's own screen can show what each work is actually at. Without it a
+  /// lineup could only show the starting price, which stops being true the moment somebody
+  /// bids — and the screen in the room would be the least current thing in it.
+  final AuctionSummary? auction;
 
   bool get isSelling => mode == 'sale' || mode == 'bid';
   bool get isAuction => mode == 'bid';
@@ -405,6 +417,30 @@ class EventLineupItem {
     return '\$$text';
   }
 
+  /// What to show as this work's headline figure right now.
+  ///
+  /// The live high bid once there is one, otherwise the asking price. Falling back the other
+  /// way would show a starting bid on a piece that has already been bid past.
+  int? get currentCents => auction?.highestBidCents ?? priceCents;
+
+  /// Bidding is open on this work at this moment.
+  bool get isBiddingOpen => auction?.isOpenForBidding ?? false;
+
+  /// The label under the work in the room: `12 bids` / `Starting bid` / `Sold`.
+  String get statusLine {
+    if (mode != 'bid') {
+      return mode == 'sale' ? 'For sale' : 'On show';
+    }
+    final live = auction;
+    if (live == null) return 'Auction';
+    if (live.isClosed) {
+      return live.winningBidCents != null ? 'Sold' : 'Auction ended';
+    }
+    final count = live.bidCount;
+    if (count == 0) return 'Starting bid';
+    return count == 1 ? '1 bid' : '$count bids';
+  }
+
   factory EventLineupItem.fromJson(Map<String, dynamic> json) => EventLineupItem(
         id: json['id'] as String? ?? '',
         pieceId: json['pieceId'] as String? ?? '',
@@ -415,6 +451,10 @@ class EventLineupItem {
         mediaUrl: json['mediaUrl'] as String?,
         artistUsername: json['artistUsername'] as String?,
         artistName: json['artistName'] as String?,
+        pieceStatus: json['pieceStatus'] as String?,
+        auction: json['auction'] is Map<String, dynamic>
+            ? AuctionSummary.maybeFrom(json['auction'] as Map<String, dynamic>)
+            : null,
       );
 }
 

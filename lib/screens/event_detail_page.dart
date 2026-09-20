@@ -5,6 +5,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/studio_event.dart';
 import '../services/api_exception.dart';
 import '../services/event_service.dart';
+import '../utils/app_destination.dart';
+import '../widgets/events/event_lineup_section.dart';
 import 'event_qr_codes_page.dart';
 import '../services/saved_content_store.dart';
 import '../theme/home_feed_tokens.dart';
@@ -450,6 +452,20 @@ class _EventDetailPageState extends State<EventDetailPage> {
                     ],
                   ),
                 ),
+                // The live board, shown only when something on the bill is actually being
+                // auctioned. An ordinary event keeps the designed image strip below and
+                // gains nothing from a list of prices that are not moving.
+                if (_event.lineup.any((i) => i.mode == 'bid')) ...[
+                  const SizedBox(height: 32),
+                  EventLineupSection(
+                    event: _event,
+                    onRefresh: _loadDetail,
+                    onTapPiece: (item) => openDestination(
+                      context,
+                      AppDestination(AppDestinationType.piece, item.pieceId),
+                    ),
+                  ),
+                ],
                 Padding(
                   padding: const EdgeInsets.fromLTRB(10, 32, 10, 0),
                   child: Text(
