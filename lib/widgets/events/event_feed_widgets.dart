@@ -46,12 +46,17 @@ class EventHeaderBar extends StatelessWidget {
     required this.onLocationTap,
     this.onLeadingTap,
     this.onSavedTap,
+    this.onScanTap,
   });
 
   final String locationLabel;
   final VoidCallback onLocationTap;
   final VoidCallback? onLeadingTap;
   final VoidCallback? onSavedTap;
+
+  /// Opens the QR scanner. Lives on the events tab because that is where somebody standing
+  /// in a room with a code in front of them is most likely to look for it.
+  final VoidCallback? onScanTap;
 
   @override
   Widget build(BuildContext context) {
@@ -95,6 +100,18 @@ class EventHeaderBar extends StatelessWidget {
                 ),
               ),
             ),
+            if (onScanTap != null) ...[
+              GestureDetector(
+                onTap: onScanTap,
+                behavior: HitTestBehavior.opaque,
+                child: const Icon(
+                  Icons.qr_code_scanner,
+                  size: 20,
+                  color: EventTokens.primary,
+                ),
+              ),
+              const SizedBox(width: 16),
+            ],
             GestureDetector(
               onTap: onSavedTap,
               behavior: HitTestBehavior.opaque,

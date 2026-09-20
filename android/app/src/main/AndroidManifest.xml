@@ -53,8 +53,35 @@
                     android:pathPrefix="/piece"/>
                 <data
                     android:scheme="https"
+                    android:host="studio3-backend.onrender.com"
+                    android:pathPrefix="/piece"/>
+                <data
+                    android:scheme="https"
                     android:host="studio-3.co"
                     android:pathPrefix="/series"/>
+                <data
+                    android:scheme="https"
+                    android:host="studio3-backend.onrender.com"
+                    android:pathPrefix="/series"/>
+                <!-- Events are shareable, and a scanned QR lands on /share/... — the path the
+                     app's own links use. Matching only /piece would mean a link this app
+                     generated opens the app and then does nothing. -->
+                <data
+                    android:scheme="https"
+                    android:host="studio-3.co"
+                    android:pathPrefix="/event"/>
+                <data
+                    android:scheme="https"
+                    android:host="studio3-backend.onrender.com"
+                    android:pathPrefix="/event"/>
+                <data
+                    android:scheme="https"
+                    android:host="studio-3.co"
+                    android:pathPrefix="/share"/>
+                <data
+                    android:scheme="https"
+                    android:host="studio3-backend.onrender.com"
+                    android:pathPrefix="/share"/>
                 <!-- The backend's OG-preview routes. AppLinkConfig.pieceUrl generates this
                      shape, so without these every shared link opened the web page instead
                      of the app even on a device that has it installed. -->

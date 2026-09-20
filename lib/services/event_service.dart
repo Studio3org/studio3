@@ -1,3 +1,4 @@
+import '../models/event_qr_code.dart';
 import '../models/studio_event.dart';
 import 'api_client.dart';
 
@@ -205,6 +206,15 @@ class EventService {
 
   Future<void> removePiece(String eventId, String pieceId) async {
     await _api.delete('/api/events/$eventId/pieces/$pieceId', auth: true);
+  }
+
+  /// The printable codes for the room. Host-only.
+  ///
+  /// The links come from the server so the code on the wall and the link the app resolves
+  /// are the same string by construction.
+  Future<EventQrCodes> qrCodes(String eventId) async {
+    final json = await _api.get('/api/events/$eventId/qr-codes', auth: true);
+    return EventQrCodes.fromJson(_api.extractData(json) as Map<String, dynamic>);
   }
 
   // --- going live -----------------------------------------------------------------------

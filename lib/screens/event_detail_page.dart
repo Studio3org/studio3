@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/studio_event.dart';
 import '../services/api_exception.dart';
 import '../services/event_service.dart';
+import 'event_qr_codes_page.dart';
 import '../services/saved_content_store.dart';
 import '../theme/home_feed_tokens.dart';
 import '../widgets/home_feed/home_feed_widgets.dart';
@@ -243,6 +244,24 @@ class _EventDetailPageState extends State<EventDetailPage> {
                                     ),
                                   ),
                                 ),
+                                // Host-only: the codes that go beside each work in the room.
+                                if (_event.isHost)
+                                  GestureDetector(
+                                    onTap: () => EventQrCodesPage.open(
+                                      context,
+                                      eventId: _event.id,
+                                      eventTitle: _event.title,
+                                    ),
+                                    behavior: HitTestBehavior.opaque,
+                                    child: const Padding(
+                                      padding: EdgeInsets.all(8),
+                                      child: Icon(
+                                        Icons.qr_code_2,
+                                        size: 22,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
                                 const SizedBox(width: 10),
                               ],
                             ),

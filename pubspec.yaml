@@ -73,6 +73,8 @@ dependencies:
     git:
       url: https://github.com/iawtk2302/easy_video_editor.git
       ref: 17989b573f88442e49243820d7dbb7889e9cb15e
+  mobile_scanner: ^7.4.2
+  qr_flutter: ^4.1.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -41,7 +41,7 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>Studio3 needs camera access so you can take a photo to post.</string>
+	<string>Studio3 needs camera access so you can take a photo to post, and scan the code beside a piece at an event.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Studio3 uses your location to show shipping addresses and nearby sellers.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/studio_event.dart';
 import '../screens/event_detail_page.dart';
+import '../screens/scan_qr_page.dart';
 import '../services/api_exception.dart';
 import '../services/event_service.dart';
 import '../screens/event_post_page.dart';
@@ -178,6 +179,7 @@ class _EventPageState extends State<EventPage>
                 ),
               ),
               onSavedTap: () => Navigator.pushNamed(context, '/saved'),
+              onScanTap: () => ScanQrPage.open(context),
             ),
             EventSearchField(
               controller: _search,
