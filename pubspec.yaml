@@ -75,6 +75,8 @@ dependencies:
       ref: 17989b573f88442e49243820d7dbb7889e9cb15e
   mobile_scanner: ^7.4.2
   qr_flutter: ^4.1.0
+  pdf: ^3.13.1
+  printing: ^5.15.1
 dev_dependencies:
   flutter_test:
     sdk: flutter

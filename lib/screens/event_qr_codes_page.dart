@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:printing/printing.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../models/event_qr_code.dart';
 import '../services/api_exception.dart';
 import '../services/event_service.dart';
 import '../theme/home_feed_tokens.dart';
+import '../utils/event_qr_pdf.dart';
 import '../widgets/share/share_sheet.dart';
 
-/// The codes a host prints and puts beside each work in the room.
+/// The codes a host puts beside each work in the room.
 ///
 /// The link inside each code comes from the server, not from string-building here, so the
 /// code on the wall and the link the app resolves can never become two different opinions
@@ -44,7 +46,46 @@ class EventQrCodesPage extends StatefulWidget {
 class _EventQrCodesPageState extends State<EventQrCodesPage> {
   EventQrCodes? _codes;
   bool _loading = true;
+  bool _buildingPdf = false;
   String? _error;
+
+  /// Hand the host a finished sheet of cards.
+  ///
+  /// The whole reason this exists: without it a host has to screenshot each code off this
+  /// screen, or paste links into somebody else's QR generator — leaving the app to do the
+  /// one thing the feature is for.
+  ///
+  /// `sharePdf` opens the system sheet, which is where "save to Files", "print" and "send
+  /// to the print shop" all live, so one action covers every way a host might want it.
+  Future<void> _downloadPdf() async {
+    final codes = _codes;
+    if (codes == null || _buildingPdf) return;
+    setState(() => _buildingPdf = true);
+    try {
+      final bytes = await EventQrPdf.build(
+        eventTitle: widget.eventTitle,
+        codes: codes,
+      );
+      if (!mounted) return;
+      await Printing.sharePdf(bytes: bytes, filename: _filename());
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not build the PDF. Please try again.')),
+      );
+    } finally {
+      if (mounted) setState(() => _buildingPdf = false);
+    }
+  }
+
+  /// A filename a host can find again on a laptop an hour later.
+  String _filename() {
+    final slug = widget.eventTitle
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+        .replaceAll(RegExp(r'^-+|-+$'), '');
+    return '${slug.isEmpty ? 'event' : slug}-codes.pdf';
+  }
 
   @override
   void initState() {
@@ -88,6 +129,20 @@ class _EventQrCodesPageState extends State<EventQrCodesPage> {
           'Codes for the room',
           style: GoogleFonts.inter(fontSize: 17, fontWeight: FontWeight.w500),
         ),
+        actions: [
+          if (_codes != null)
+            IconButton(
+              tooltip: 'Download as PDF',
+              onPressed: _buildingPdf ? null : _downloadPdf,
+              icon: _buildingPdf
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.picture_as_pdf_outlined),
+            ),
+        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
@@ -102,13 +157,19 @@ class _EventQrCodesPageState extends State<EventQrCodesPage> {
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
                       children: [
                         Text(
-                          'Print one and put it beside each piece. Anyone can scan it to see '
-                          'the work and bid — no account needed to look.',
+                          'Put one beside each piece. Anyone can scan it to see the work and '
+                          'bid — no account needed to look.',
                           style: GoogleFonts.inter(
                             fontSize: 13,
                             height: 1.4,
                             color: HomeFeedTokens.textSecondary,
                           ),
+                        ),
+                        const SizedBox(height: 12),
+                        _DownloadButton(
+                          loading: _buildingPdf,
+                          onTap: _downloadPdf,
+                          count: codes.pieces.length + 1,
                         ),
                         const SizedBox(height: 20),
                         _QrCard(
@@ -120,7 +181,10 @@ class _EventQrCodesPageState extends State<EventQrCodesPage> {
                         for (final piece in codes.pieces) ...[
                           _QrCard(
                             title: piece.title ?? 'Untitled',
-                            subtitle: piece.modeLabel,
+                            subtitle: [
+                              if (piece.artistName != null) piece.artistName!,
+                              piece.modeLabel,
+                            ].join(' · '),
                             url: piece.url,
                           ),
                           const SizedBox(height: 12),
@@ -263,6 +327,47 @@ class _Message extends StatelessWidget {
               TextButton(onPressed: onRetry, child: const Text('Try again')),
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+
+/// The primary action on this screen: a finished sheet, ready to print and cut.
+class _DownloadButton extends StatelessWidget {
+  const _DownloadButton({
+    required this.loading,
+    required this.onTap,
+    required this.count,
+  });
+
+  final bool loading;
+  final VoidCallback onTap;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 44,
+      child: FilledButton.icon(
+        onPressed: loading ? null : onTap,
+        style: FilledButton.styleFrom(
+          backgroundColor: HomeFeedTokens.neutral800,
+          foregroundColor: HomeFeedTokens.textInverse,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+        icon: loading
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.download_outlined, size: 18),
+        label: Text(
+          loading ? 'Building…' : 'Download $count cards as PDF',
+          style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w500),
         ),
       ),
     );

@@ -34,6 +34,8 @@ class EventQrCode {
     this.mode = 'featured',
     this.priceCents,
     this.mediaUrl,
+    this.artistName,
+    this.artistUsername,
   });
 
   final String pieceId;
@@ -45,6 +47,10 @@ class EventQrCode {
   final String mode;
   final int? priceCents;
   final String? mediaUrl;
+
+  /// Printed on the card. A gallery label without the artist's name is missing the point.
+  final String? artistName;
+  final String? artistUsername;
 
   /// What to print under the title, so whoever is placing the cards knows which is which.
   String get modeLabel {
@@ -63,5 +69,7 @@ class EventQrCode {
         mode: json['mode'] as String? ?? 'featured',
         priceCents: (json['priceCents'] as num?)?.toInt(),
         mediaUrl: json['mediaUrl'] as String?,
+        artistName: json['artistName'] as String?,
+        artistUsername: json['artistUsername'] as String?,
       );
 }
