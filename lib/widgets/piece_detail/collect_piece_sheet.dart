@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
@@ -142,7 +144,16 @@ class _CollectPieceSheetState extends State<CollectPieceSheet> {
               shippingMethod: shipping.method.id,
             );
 
-      final paid = await _payForOrder(order.id);
+      final bool paid;
+      if (_balanceDueCents <= 0) {
+        // Nothing owed — skip Stripe entirely. Routing a free/fully-prepaid
+        // collect through the payment sheet was the actual cause of this
+        // getting stuck: the sheet has no defined behavior for a $0 charge.
+        await OrderService.instance.confirm(order.id);
+        paid = true;
+      } else {
+        paid = await _payForOrder(order.id);
+      }
       if (!paid) return;
 
       final confirmed = await OrderService.instance.getOrder(order.id);
@@ -187,23 +198,39 @@ class _CollectPieceSheetState extends State<CollectPieceSheet> {
     }
 
     final intent = await OrderService.instance.createPaymentIntent(orderId);
-    await Stripe.instance.initPaymentSheet(
-      paymentSheetParameters: SetupPaymentSheetParameters(
-        paymentIntentClientSecret: intent.clientSecret,
-        merchantDisplayName: 'Studiothree',
-        style: ThemeMode.light,
-        // Where Stripe sends the buyer back to. Redirect-based methods (Klarna,
-        // Cash App, Amazon Pay, Affirm) hand off to another app or the browser,
-        // and the SDK refuses to open the sheet at all unless it knows the way
-        // back — which presented as the button spinning and nothing happening.
-        // Not a web address: this is the app's own scheme, registered in
-        // AndroidManifest.xml and Info.plist.
-        returnURL: 'studio3://stripe-redirect',
-      ),
-    );
+    await Stripe.instance
+        .initPaymentSheet(
+          paymentSheetParameters: SetupPaymentSheetParameters(
+            paymentIntentClientSecret: intent.clientSecret,
+            merchantDisplayName: 'Studiothree',
+            style: ThemeMode.light,
+            // Where Stripe sends the buyer back to. Redirect-based methods
+            // (Klarna, Cash App, Amazon Pay, Affirm) hand off to another app or
+            // the browser, and the SDK refuses to open the sheet at all unless it
+            // knows the way back — which presented as the button spinning and
+            // nothing happening. Not a web address: this is the app's own scheme,
+            // registered in AndroidManifest.xml and Info.plist.
+            returnURL: 'studio3://stripe-redirect',
+          ),
+        )
+        // Pure setup call to Stripe's own servers, no user interaction —
+        // if this hangs, fail visibly instead of leaving the collector
+        // stuck on a spinner forever.
+        .timeout(const Duration(seconds: 20));
 
     try {
-      await Stripe.instance.presentPaymentSheet();
+      // Long backstop, not a short one: this call legitimately blocks on
+      // the collector entering a card / confirming biometrics, so it must
+      // not cut off someone who's just taking their time — it only matters
+      // when the call is truly wedged (the bug this guards against).
+      await Stripe.instance.presentPaymentSheet().timeout(const Duration(minutes: 5));
+    } on TimeoutException {
+      if (!mounted) return false;
+      setState(() {
+        _collecting = false;
+        _error = 'Payment is taking longer than expected. Please try again.';
+      });
+      return false;
     } on StripeException catch (e) {
       if (!mounted) return false;
       setState(() {

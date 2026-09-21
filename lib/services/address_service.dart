@@ -16,6 +16,11 @@ class AddressService {
     return _api.extractList(json).map(Address.fromJson).toList();
   }
 
+  /// Lets a caller drop the cached list after learning (e.g. via
+  /// reconciliation) that a write succeeded through a path that didn't
+  /// itself run the usual invalidation — see [createAddress].
+  Future<void> invalidateCache() => CacheService.instance.invalidate(_cacheKey);
+
   /// Cache-first address list — small, rarely-changing dataset, so a long
   /// TTL is safe. Mutations below invalidate this key on success.
   Future<List<Address>> getAddressesCached({bool forceRefresh = false}) {
