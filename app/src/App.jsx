@@ -39,12 +39,22 @@ function RequireAuth({ children }) {
   return children;
 }
 
-/** Login/signup only — bounce an already-signed-in user straight to the app. */
+/** Login/signup only — bounce an already-signed-in user straight to the app.
+ *  Show the form while the session check is in flight so /login is never a
+ *  loader that then hops to /home. */
 function RequireGuest({ children }) {
+  const { status } = useAuth();
+  if (status === 'authenticated') return <Navigate to="/home" replace />;
+  return children;
+}
+
+/** `/` and unknown paths: guests go to login, members to home. Never send a
+ *  guest through /home first (that was the loader → /login bounce). */
+function RootRedirect() {
   const { status } = useAuth();
   if (status === 'loading') return <LoadingScreen />;
   if (status === 'authenticated') return <Navigate to="/home" replace />;
-  return children;
+  return <Navigate to="/login" replace />;
 }
 
 function LoadingScreen() {
@@ -91,8 +101,8 @@ export default function App() {
       <Route path="/piece/:id" element={<PieceDetailPage />} />
       <Route path="/series/:id" element={<SeriesDetailPage />} />
 
-      <Route path="/" element={<Navigate to="/home" replace />} />
-      <Route path="*" element={<Navigate to="/home" replace />} />
+      <Route path="/" element={<RootRedirect />} />
+      <Route path="*" element={<RootRedirect />} />
     </Routes>
   );
 

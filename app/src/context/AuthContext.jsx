@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { apiFetch, refreshAccessToken, setAccessToken, setAuthFailureHandler } from '../services/apiClient';
+import { apiFetch, getAccessToken, refreshAccessToken, setAccessToken, setAuthFailureHandler } from '../services/apiClient';
 
 const AuthContext = createContext(null);
 
@@ -37,17 +37,29 @@ export function AuthProvider({ children }) {
   }, [clearSession]);
 
   useEffect(() => {
+    let cancelled = false;
     (async () => {
       try {
-        // No manual refresh fallback needed here — apiFetch already retries once
-        // via the refresh cookie on a 401 before giving up.
+        if (!getAccessToken()) {
+          try {
+            await refreshAccessToken();
+          } catch {
+            if (!cancelled) clearSession();
+            return;
+          }
+        }
         const me = await apiFetch('/api/user/me', { auth: true });
-        setUser(me);
-        setStatus('authenticated');
+        if (!cancelled) {
+          setUser(me);
+          setStatus('authenticated');
+        }
       } catch {
-        clearSession();
+        if (!cancelled) clearSession();
       }
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [clearSession]);
 
   // Silent refresh while a session is open — keeps an idle tab's token from
