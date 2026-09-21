@@ -26,6 +26,7 @@ class StudioPublishFlowGate extends StatelessWidget {
     this.transform,
     this.videoThumbnailBytes,
     this.successChild,
+    this.failureMessage,
   });
 
   final Widget child;
@@ -40,30 +41,45 @@ class StudioPublishFlowGate extends StatelessWidget {
   final PostImageTransform? transform;
   final Uint8List? videoThumbnailBytes;
   final Widget? successChild;
+  /// What actually went wrong, in plain language — shown on the failure
+  /// screen instead of its generic default when the caller has one.
+  final String? failureMessage;
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        child,
-        if (publishing)
-          Positioned.fill(
-            child: StudioPublishingOverlay(message: publishingMessage),
-          ),
-        if (success)
-          Positioned.fill(
-            child: successChild ??
-                PublishSuccessOverlay(
-                  title: successTitle,
-                  onDismiss: onSuccessDismiss,
-                  imagePath: imagePath,
-                  transform: transform,
-                  videoThumbnailBytes: videoThumbnailBytes,
-                ),
-          ),
-        if (failure)
-          Positioned.fill(child: PublishFailOverlay(onRetry: onRetry)),
-      ],
+    // The overlays below are stacked as siblings of `child`, not descendants
+    // of its own Scaffold/Material — without a Material ancestor of their
+    // own, Flutter's debug-mode Text fallback paints them with a warning
+    // (yellow underline). `transparency` keeps this purely structural, with
+    // no visual box/elevation of its own.
+    return Material(
+      type: MaterialType.transparency,
+      child: Stack(
+        children: [
+          child,
+          if (publishing)
+            Positioned.fill(
+              child: StudioPublishingOverlay(message: publishingMessage),
+            ),
+          if (success)
+            Positioned.fill(
+              child: successChild ??
+                  PublishSuccessOverlay(
+                    title: successTitle,
+                    onDismiss: onSuccessDismiss,
+                    imagePath: imagePath,
+                    transform: transform,
+                    videoThumbnailBytes: videoThumbnailBytes,
+                  ),
+            ),
+          if (failure)
+            Positioned.fill(
+              child: failureMessage != null
+                  ? PublishFailOverlay(onRetry: onRetry, message: failureMessage!)
+                  : PublishFailOverlay(onRetry: onRetry),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -172,9 +188,14 @@ class PublishSuccessOverlay extends StatelessWidget {
 
 /// Centered failure state with retry (Figma 2761:12029).
 class PublishFailOverlay extends StatelessWidget {
-  const PublishFailOverlay({super.key, required this.onRetry});
+  const PublishFailOverlay({
+    super.key,
+    required this.onRetry,
+    this.message = 'Check your connection and try again.',
+  });
 
   final VoidCallback onRetry;
+  final String message;
 
   @override
   Widget build(BuildContext context) {
@@ -203,7 +224,7 @@ class PublishFailOverlay extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'Check your connection and try again.',
+                message,
                 textAlign: TextAlign.center,
                 style: GoogleFonts.geist(
                   fontSize: 14,

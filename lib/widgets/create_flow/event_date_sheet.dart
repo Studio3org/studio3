@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../screens/profile/profile_constants.dart';
 import '../../theme/home_feed_tokens.dart';
+import '../studio_message.dart';
 import 'create_flow_widgets.dart';
 
 class EventDateSelection {
@@ -237,12 +238,24 @@ class _EventDateSheetState extends State<EventDateSheet> {
     return true;
   }
 
-  Future<DateTime?> _pickDate(DateTime? current) {
+  /// [minDate] floors how far back the calendar allows picking — an event
+  /// can't be scheduled in the past. Defaults to today; the end-date field
+  /// passes the chosen start date instead, so it can't land before it.
+  Future<DateTime?> _pickDate(DateTime? current, {DateTime? minDate}) {
     final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final floor = minDate ?? today;
+    // A value already set earlier than the floor (e.g. the start date moved
+    // forward after an end date was picked) must not trip showDatePicker's
+    // firstDate <= initialDate assertion.
+    final first = (current != null && current.isBefore(floor))
+        ? current
+        : floor;
+    final initial = current ?? today;
     return showDatePicker(
       context: context,
-      initialDate: current ?? now,
-      firstDate: DateTime(now.year - 1),
+      initialDate: initial.isBefore(first) ? first : initial,
+      firstDate: first,
       lastDate: DateTime(now.year + 5),
       builder: (context, child) {
         return Theme(
@@ -260,10 +273,30 @@ class _EventDateSheetState extends State<EventDateSheet> {
     );
   }
 
-  Future<TimeOfDay?> _pickTime(TimeOfDay? current) {
-    return showTimePicker(
+  bool _isToday(DateTime date) {
+    final now = DateTime.now();
+    return date.year == now.year &&
+        date.month == now.month &&
+        date.day == now.day;
+  }
+
+  bool _isPastTimeOfDay(TimeOfDay time) {
+    final now = TimeOfDay.now();
+    return time.hour < now.hour ||
+        (time.hour == now.hour && time.minute < now.minute);
+  }
+
+  /// [forDate] is the date this time belongs to (start or end) — when it's
+  /// today, a time earlier than right now is rejected rather than silently
+  /// accepted, since that date/time combination would already be in the past.
+  Future<TimeOfDay?> _pickTime(TimeOfDay? current, {DateTime? forDate}) async {
+    final picked = await showTimePicker(
       context: context,
       initialTime: current ?? TimeOfDay.now(),
+      // The default round-clock dial is fussy to tap precisely on a phone —
+      // a plain hour/minute text entry is faster and matches the rest of
+      // this sheet's simple field-based UI.
+      initialEntryMode: TimePickerEntryMode.inputOnly,
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -278,6 +311,14 @@ class _EventDateSheetState extends State<EventDateSheet> {
         );
       },
     );
+    if (picked == null) return null;
+    if (forDate != null && _isToday(forDate) && _isPastTimeOfDay(picked)) {
+      if (mounted) {
+        StudioMessage.show(context, "Pick a time later than now for today's date.");
+      }
+      return null;
+    }
+    return picked;
   }
 
   void _onDone() {
@@ -373,7 +414,10 @@ class _EventDateSheetState extends State<EventDateSheet> {
                   hint: 'Select a date',
                   value: _endDate == null ? null : formatEventDate(_endDate!),
                   onTap: () async {
-                    final picked = await _pickDate(_endDate ?? _startDate);
+                    final picked = await _pickDate(
+                      _endDate ?? _startDate,
+                      minDate: _startDate,
+                    );
                     if (picked != null) setState(() => _endDate = picked);
                   },
                 ),
@@ -389,7 +433,10 @@ class _EventDateSheetState extends State<EventDateSheet> {
                           ? null
                           : formatEventTime(_startTime!),
                       onTap: () async {
-                        final picked = await _pickTime(_startTime);
+                        final picked = await _pickTime(
+                          _startTime,
+                          forDate: _startDate,
+                        );
                         if (picked != null) {
                           setState(() => _startTime = picked);
                         }
@@ -405,7 +452,10 @@ class _EventDateSheetState extends State<EventDateSheet> {
                           ? null
                           : formatEventTime(_endTime!),
                       onTap: () async {
-                        final picked = await _pickTime(_endTime);
+                        final picked = await _pickTime(
+                          _endTime,
+                          forDate: _multiDay ? (_endDate ?? _startDate) : _startDate,
+                        );
                         if (picked != null) setState(() => _endTime = picked);
                       },
                     ),

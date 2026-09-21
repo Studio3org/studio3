@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../config/app_link_config.dart';
 import '../models/studio_event.dart';
 import '../services/api_exception.dart';
 import '../services/event_service.dart';
@@ -13,6 +14,7 @@ import '../theme/home_feed_tokens.dart';
 import '../widgets/home_feed/home_feed_widgets.dart';
 import '../widgets/profile_avatar.dart';
 import '../widgets/share/share_sheet.dart';
+import '../widgets/studio_message.dart';
 
 void openEventDetail(BuildContext context, StudioEvent event) {
   Navigator.of(context).push<void>(
@@ -71,16 +73,14 @@ class _EventDetailPageState extends State<EventDetailPage> {
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _rsvping = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      StudioMessage.show(context, e.message);
       // A 409 means somebody took the last place while this screen was open, so the counts
       // on it are already wrong.
       await _loadDetail();
     } catch (_) {
       if (!mounted) return;
       setState(() => _rsvping = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not update your RSVP.')),
-      );
+      StudioMessage.show(context, 'Could not update your RSVP.');
     }
   }
 
@@ -111,12 +111,10 @@ class _EventDetailPageState extends State<EventDetailPage> {
       _store.toggleEvent(_event);
     } on ApiException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      StudioMessage.show(context, e.message);
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not save that event.')),
-      );
+      StudioMessage.show(context, 'Could not save that event.');
     }
   }
 
@@ -143,13 +141,16 @@ class _EventDetailPageState extends State<EventDetailPage> {
   }
 
   Future<void> _share() {
-    // The custom-scheme link works today and needs no domain verification, which the
-    // https:// one still does — see AppLinkConfig. Someone without the app installed gets
-    // the details as text, which is the useful half of the message anyway.
+    // A real https:// link, same as pieces/series — a bare studio3:// custom
+    // scheme isn't recognized as a link by most share targets (WhatsApp,
+    // SMS, etc.), so it renders as inert text instead of something tappable,
+    // and it's dead on arrival for anyone without the app installed. The
+    // backend's /share/event page (see AppLinkConfig) redirects an install
+    // into the app and otherwise shows the event on the web.
     return ShareSheet.show(
       context,
       shareText: '${_event.title} · ${_event.venue}\n${_event.scheduleLine}\n'
-          'studio3://event/${_event.id}',
+          '${AppLinkConfig.eventUrl(_event.id)}',
       copyLabel: 'Copy',
       copiedMessage: 'Copied',
     );

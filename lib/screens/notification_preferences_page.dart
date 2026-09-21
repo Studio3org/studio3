@@ -97,7 +97,13 @@ class _NotificationPreferencesPageState
       hour: int.tryParse(parts.isNotEmpty ? parts[0] : '9') ?? 9,
       minute: int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0,
     );
-    final picked = await showTimePicker(context: context, initialTime: initial);
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: initial,
+      // Simple hour/minute entry instead of the round-clock dial, to match
+      // the rest of the app's time inputs.
+      initialEntryMode: TimePickerEntryMode.inputOnly,
+    );
     if (picked == null) return;
     final time =
         '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';

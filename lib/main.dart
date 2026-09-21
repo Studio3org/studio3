@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -59,16 +60,32 @@ import 'utils/scrolls_to_top_on_double_tap.dart';
 import 'utils/snappy_page_physics.dart';
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  final widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+  // Keeps the native/web launch splash on screen through the async setup
+  // below — without this, the generated splash (see web/index.html's
+  // #splash element) never gets its removal signal on web, and just
+  // sits there forever even once the app underneath is fully interactive.
+  FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
   await dotenv.load(fileName: '.env');
 
   // Publishable key only — it is safe to ship, and it is what lets the Stripe
   // SDK talk to Stripe directly so card data never reaches our backend. Absent
   // key just means checkout is unavailable, not a crash on launch.
+  //
+  // flutter_stripe only ships platform channel implementations for
+  // android/ios/web — on desktop (Windows/macOS/Linux) applySettings() throws
+  // MissingPluginException. Uncaught, that exception happens before runApp(),
+  // so the app never gets past the launch splash. Caught here the same way
+  // Firebase's init is below: checkout just becomes unavailable on desktop
+  // instead of hanging the whole app on launch.
   final stripeKey = dotenv.env['STRIPE_PUBLISHABLE_KEY']?.trim() ?? '';
   if (stripeKey.isNotEmpty) {
-    Stripe.publishableKey = stripeKey;
-    await Stripe.instance.applySettings();
+    try {
+      Stripe.publishableKey = stripeKey;
+      await Stripe.instance.applySettings();
+    } catch (e) {
+      debugPrint('Stripe unavailable on this platform: $e');
+    }
   }
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
@@ -91,6 +108,7 @@ Future<void> main() async {
   }
   await _preloadInterFont();
   runApp(const Studio3App());
+  FlutterNativeSplash.remove();
 }
 
 /// Requests every Inter weight the app uses and waits for them to finish

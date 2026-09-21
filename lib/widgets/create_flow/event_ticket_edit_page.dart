@@ -183,10 +183,19 @@ class _EventTicketEditPageState extends State<EventTicketEditPage> {
 
   Future<DateTime?> _pickDate(DateTime? current) {
     final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    // Ticket sales can't be scheduled to start/stop in the past. A value
+    // already set earlier than today (e.g. editing an existing tier whose
+    // sale window already opened) must not trip showDatePicker's
+    // firstDate <= initialDate assertion, so it stays as its own floor.
+    final first = (current != null && current.isBefore(today))
+        ? current
+        : today;
+    final initial = current ?? today;
     return showDatePicker(
       context: context,
-      initialDate: current ?? now,
-      firstDate: DateTime(now.year - 1),
+      initialDate: initial.isBefore(first) ? first : initial,
+      firstDate: first,
       lastDate: DateTime(now.year + 5),
       builder: (context, child) {
         return Theme(

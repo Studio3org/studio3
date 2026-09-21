@@ -1,4 +1,7 @@
-/* StudioLogoLoader.css — Studio 3 blinking logo loading animation */
+/* StudioLogoLoader.css — Studio 3 loading mark, matching Flutter's
+   StudioBubbleLoader (lib/widgets/studio_loading.dart): three circles in
+   the logo's own cluster layout, pulsing largest -> medium -> smallest ->
+   repeat, one bubble active at a time. */
 
 .studio-loader-container {
   display: flex;
@@ -24,46 +27,48 @@
   animation: studio-fade-in 0.3s ease;
 }
 
-/* Studio 3 Logo Pulsing/Blinking Animation */
-.studio-loader-logo {
-  height: 38px;
-  width: auto;
-  object-fit: contain;
-  animation: studio-logo-blink 1.4s ease-in-out infinite alternate;
-}
-
-/* 3 Pulsing Bubbles matching Flutter StudioBubbleLoader */
+/* Same 1088x854 design box as StudioBubbleGeometry, at a fixed on-screen
+   size — bubbles below are positioned as percentages of this box, so they
+   keep the mark's actual cluster shape instead of a plain row of dots. */
 .studio-loader-bubbles {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
+  position: relative;
+  width: 100px;
+  height: 78.5px;
 }
 
 .studio-bubble {
+  position: absolute;
   border-radius: 50%;
   background: var(--cream-text, #231f1b);
+  animation-duration: 1200ms;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
 }
 
+/* left/top/diameter as % of the 1088x854 design box, from
+   StudioBubbleGeometry.bubbles (largest -> medium -> smallest). */
 .studio-bubble.bubble-1 {
-  width: 16px;
-  height: 16px;
-  animation: studio-bubble-pulse 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  animation-delay: 0s;
+  left: 0%;
+  top: 27.0492%;
+  width: 57.2610%;
+  height: 57.2610%;
+  animation-name: studio-bubble-1-pulse;
 }
 
 .studio-bubble.bubble-2 {
-  width: 12px;
-  height: 12px;
-  animation: studio-bubble-pulse 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  animation-delay: 0.25s;
+  left: 53.8603%;
+  top: 0%;
+  width: 36.5809%;
+  height: 36.5809%;
+  animation-name: studio-bubble-2-pulse;
 }
 
 .studio-bubble.bubble-3 {
-  width: 8px;
-  height: 8px;
-  animation: studio-bubble-pulse 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  animation-delay: 0.5s;
+  left: 77.7574%;
+  top: 51.7564%;
+  width: 22.2426%;
+  height: 22.2426%;
+  animation-name: studio-bubble-3-pulse;
 }
 
 .studio-loader-message {
@@ -73,26 +78,26 @@
   margin-top: 4px;
 }
 
-@keyframes studio-logo-blink {
-  0% {
-    opacity: 0.35;
-    transform: scale(0.97);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1.03);
-  }
+/* One 1200ms cycle split into three 400ms phases — each bubble pulses
+   only during its own third, resting at the inactive style the rest of
+   the cycle, so exactly one bubble is ever mid-pulse (opacity 0.38->1.0,
+   scale 1.0->1.075, matching StudioBubbleGeometry's inactive/active/peak
+   constants), cycling largest -> medium -> smallest -> repeat. */
+@keyframes studio-bubble-1-pulse {
+  0%, 100% { opacity: 0.38; transform: scale(1); }
+  16.665% { opacity: 1; transform: scale(1.075); }
+  33.33% { opacity: 0.38; transform: scale(1); }
 }
 
-@keyframes studio-bubble-pulse {
-  0%, 100% {
-    opacity: 0.3;
-    transform: scale(0.85);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.15);
-  }
+@keyframes studio-bubble-2-pulse {
+  0%, 33.33%, 100% { opacity: 0.38; transform: scale(1); }
+  49.995% { opacity: 1; transform: scale(1.075); }
+  66.66% { opacity: 0.38; transform: scale(1); }
+}
+
+@keyframes studio-bubble-3-pulse {
+  0%, 66.66%, 100% { opacity: 0.38; transform: scale(1); }
+  83.325% { opacity: 1; transform: scale(1.075); }
 }
 
 @keyframes studio-fade-in {
@@ -101,5 +106,12 @@
   }
   to {
     opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .studio-bubble {
+    animation: none;
+    opacity: 0.38;
   }
 }

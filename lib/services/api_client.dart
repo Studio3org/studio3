@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:path_provider/path_provider.dart';
 
 import '../config/api_config.dart';
@@ -116,8 +117,9 @@ class ApiClient {
     } on DioException catch (e) {
       throw _toApiException(e);
     } catch (e) {
+      debugPrint('API error (non-Dio, GET $path): $e');
       throw ApiException(
-        'Cannot reach server at ${ApiConfig.baseUrl}. Is the API running?',
+        "Can't reach the server. Check your connection and try again.",
       );
     }
   }
@@ -138,8 +140,9 @@ class ApiClient {
     } on DioException catch (e) {
       throw _toApiException(e);
     } catch (e) {
+      debugPrint('API error (non-Dio, POST $path): $e');
       throw ApiException(
-        'Cannot reach server at ${ApiConfig.baseUrl}. Is the API running?',
+        "Can't reach the server. Check your connection and try again.",
       );
     }
   }
@@ -160,8 +163,9 @@ class ApiClient {
     } on DioException catch (e) {
       throw _toApiException(e);
     } catch (e) {
+      debugPrint('API error (non-Dio, PATCH $path): $e');
       throw ApiException(
-        'Cannot reach server at ${ApiConfig.baseUrl}. Is the API running?',
+        "Can't reach the server. Check your connection and try again.",
       );
     }
   }
@@ -187,8 +191,9 @@ class ApiClient {
     } on DioException catch (e) {
       throw _toApiException(e);
     } catch (e) {
+      debugPrint('API error (non-Dio, PUT $path): $e');
       throw ApiException(
-        'Cannot reach server at ${ApiConfig.baseUrl}. Is the API running?',
+        "Can't reach the server. Check your connection and try again.",
       );
     }
   }
@@ -209,8 +214,9 @@ class ApiClient {
     } on DioException catch (e) {
       throw _toApiException(e);
     } catch (e) {
+      debugPrint('API error (non-Dio, DELETE $path): $e');
       throw ApiException(
-        'Cannot reach server at ${ApiConfig.baseUrl}. Is the API running?',
+        "Can't reach the server. Check your connection and try again.",
       );
     }
   }
@@ -278,18 +284,52 @@ class ApiClient {
     return response.data ?? {'success': true};
   }
 
+  /// Always plain, non-technical copy — nothing here should ever read like a
+  /// stack trace or a Dio/HTTP internals dump (status codes, exception class
+  /// names, "RequestOptions.validateStatus", the API's own base URL, etc.).
+  /// The one exception is a message the *backend* sent, which is assumed to
+  /// already be written for a user. Anything Dio generated on its own gets
+  /// mapped to friendly copy here instead, with the real detail only going
+  /// to the debug log for developers.
   ApiException _toApiException(DioException e) {
     final response = e.response;
+    final statusCode = response?.statusCode;
+
     if (response?.data is Map<String, dynamic>) {
       final json = response!.data as Map<String, dynamic>;
-      final message = json['message'] as String? ??
-          json['error'] as String? ??
-          'Request failed (${response.statusCode})';
-      return ApiException(message, statusCode: response.statusCode);
+      final serverMessage = json['message'] as String? ?? json['error'] as String?;
+      if (serverMessage != null && serverMessage.trim().isNotEmpty) {
+        return ApiException(serverMessage, statusCode: statusCode);
+      }
+    }
+
+    if (statusCode == 429) {
+      return ApiException(
+        "You're doing that a little too fast — please wait a moment and try again.",
+        statusCode: statusCode,
+      );
+    }
+    if (statusCode == 401 || statusCode == 403) {
+      return ApiException(
+        "You don't have permission to do that.",
+        statusCode: statusCode,
+      );
+    }
+    if (statusCode == 404) {
+      return ApiException(
+        "We couldn't find that — it may have been removed.",
+        statusCode: statusCode,
+      );
+    }
+    if (statusCode != null && statusCode >= 500) {
+      return ApiException(
+        "Something went wrong on our end. Please try again in a moment.",
+        statusCode: statusCode,
+      );
     }
     if (e.type == DioExceptionType.connectionError) {
       return ApiException(
-        'Cannot reach server at ${ApiConfig.baseUrl}. Is the API running?',
+        "Can't reach the server. Check your connection and try again.",
       );
     }
     if (e.type == DioExceptionType.connectionTimeout ||
@@ -300,10 +340,9 @@ class ApiClient {
         'up from inactivity. Please try again in a moment.',
       );
     }
-    return ApiException(
-      e.message ?? 'Request failed',
-      statusCode: response?.statusCode,
-    );
+
+    debugPrint('API error (unmapped): ${e.type} ${e.message}');
+    return ApiException('Something went wrong. Please try again.', statusCode: statusCode);
   }
 
   dynamic extractData(Map<String, dynamic> json) {

@@ -10,6 +10,7 @@ import '../services/saved_content_store.dart';
 import '../theme/home_feed_tokens.dart';
 import '../utils/scrolls_to_top_on_double_tap.dart';
 import '../widgets/events/event_feed_widgets.dart';
+import '../widgets/studio_message.dart';
 
 /// Events tab — Figma `2783:12462`.
 class EventPage extends StatefulWidget {
@@ -76,12 +77,10 @@ class _EventPageState extends State<EventPage>
       _store.toggleEvent(event);
     } on ApiException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      StudioMessage.show(context, e.message);
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not save that event.')),
-      );
+      StudioMessage.show(context, 'Could not save that event.');
     }
   }
 
@@ -156,6 +155,9 @@ class _EventPageState extends State<EventPage>
     // server returns one upcoming list and the tab groups it.
     final workshops = upcoming.where((e) => e.category == 'workshop').toList();
     final exhibitions = upcoming.where((e) => e.category == 'exhibition').toList();
+    final categories = (browse?.categories ?? const <EventCategoryCount>[])
+        .where((c) => c.upcomingCount > 0)
+        .toList();
     // Whatever is soonest leads the page. Today first, because an event happening in hours
     // is a better headline than one three weeks out.
     final featured = today.isNotEmpty
@@ -206,69 +208,81 @@ class _EventPageState extends State<EventPage>
                 event: featured,
                 onTap: () => openEventDetail(context, featured),
               ),
-            const SizedBox(height: 24),
-            const EventSectionHeader(title: 'Today'),
-            EventHScroll(
-              children: [
-                for (final e in today)
-                  EventCompactCard(
-                    event: e,
-                    saved: _store.isSaved(e.id),
-                    onBookmark: () => _toggleSaved(e),
-                    onTap: () => openEventDetail(context, e),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            const EventSectionHeader(title: 'From artists you follow'),
-            EventHScroll(
-              children: [
-                for (final e in following)
-                  EventPortraitCard(
-                    event: e,
-                    saved: _store.isSaved(e.id),
-                    onBookmark: () => _toggleSaved(e),
-                    onTap: () => openEventDetail(context, e),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            const EventSectionHeader(title: 'Workshops & Classes'),
-            EventHScroll(
-              children: [
-                for (final e in workshops)
-                  EventPortraitCard(
-                    event: e,
-                    saved: _store.isSaved(e.id),
-                    onBookmark: () => _toggleSaved(e),
-                    onTap: () => openEventDetail(context, e),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            const EventSectionHeader(title: 'Exhibitions'),
-            EventHScroll(
-              children: [
-                for (final e in exhibitions)
-                  EventPortraitCard(
-                    event: e,
-                    saved: _store.isSaved(e.id),
-                    onBookmark: () => _toggleSaved(e),
-                    onTap: () => openEventDetail(context, e),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            const EventSectionHeader(
-              title: 'Browse by category',
-              showSeeAll: false,
-            ),
-            EventHScroll(
-              children: [
-                for (final c in browse?.categories ?? const <EventCategoryCount>[])
-                  EventCategoryTile(category: c),
-              ],
-            ),
+            // Each section below is hidden outright — header included — when
+            // it has nothing to show, rather than leaving an empty row under
+            // a heading with nothing under it.
+            if (today.isNotEmpty) ...[
+              const SizedBox(height: 24),
+              const EventSectionHeader(title: 'Today'),
+              EventHScroll(
+                children: [
+                  for (final e in today)
+                    EventCompactCard(
+                      event: e,
+                      saved: _store.isSaved(e.id),
+                      onBookmark: () => _toggleSaved(e),
+                      onTap: () => openEventDetail(context, e),
+                    ),
+                ],
+              ),
+            ],
+            if (following.isNotEmpty) ...[
+              const SizedBox(height: 24),
+              const EventSectionHeader(title: 'From artists you follow'),
+              EventHScroll(
+                children: [
+                  for (final e in following)
+                    EventPortraitCard(
+                      event: e,
+                      saved: _store.isSaved(e.id),
+                      onBookmark: () => _toggleSaved(e),
+                      onTap: () => openEventDetail(context, e),
+                    ),
+                ],
+              ),
+            ],
+            if (workshops.isNotEmpty) ...[
+              const SizedBox(height: 24),
+              const EventSectionHeader(title: 'Workshops & Classes'),
+              EventHScroll(
+                children: [
+                  for (final e in workshops)
+                    EventPortraitCard(
+                      event: e,
+                      saved: _store.isSaved(e.id),
+                      onBookmark: () => _toggleSaved(e),
+                      onTap: () => openEventDetail(context, e),
+                    ),
+                ],
+              ),
+            ],
+            if (exhibitions.isNotEmpty) ...[
+              const SizedBox(height: 24),
+              const EventSectionHeader(title: 'Exhibitions'),
+              EventHScroll(
+                children: [
+                  for (final e in exhibitions)
+                    EventPortraitCard(
+                      event: e,
+                      saved: _store.isSaved(e.id),
+                      onBookmark: () => _toggleSaved(e),
+                      onTap: () => openEventDetail(context, e),
+                    ),
+                ],
+              ),
+            ],
+            if (categories.isNotEmpty) ...[
+              const SizedBox(height: 24),
+              const EventSectionHeader(
+                title: 'Browse by category',
+                showSeeAll: false,
+              ),
+              EventHScroll(
+                children: [
+                  for (final c in categories) EventCategoryTile(category: c),
+                ],
+              ),
+            ],
           ],
         ),
       ),

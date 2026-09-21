@@ -7,6 +7,7 @@ import '../../models/post_image_transform.dart';
 import '../../theme/home_feed_tokens.dart';
 import '../post_crop_preview.dart';
 import '../share/share_sheet.dart';
+import 'event_ticket_edit_page.dart' show ticketAccent;
 
 /// Full-bleed cover + confirmation after publishing an event.
 class EventPublishSuccessOverlay extends StatelessWidget {
@@ -19,6 +20,7 @@ class EventPublishSuccessOverlay extends StatelessWidget {
     this.transform,
     this.kicker,
     this.scheduleLine,
+    this.coverUploadFailed = false,
   });
 
   final String title;
@@ -28,6 +30,10 @@ class EventPublishSuccessOverlay extends StatelessWidget {
   final PostImageTransform? transform;
   final String? kicker;
   final String? scheduleLine;
+  /// The event published, but its cover photo upload didn't make it —
+  /// flagged here rather than left for the host to discover as an
+  /// unexplained blank banner on their own listing.
+  final bool coverUploadFailed;
 
   @override
   Widget build(BuildContext context) {
@@ -78,6 +84,19 @@ class EventPublishSuccessOverlay extends StatelessWidget {
                         color: HomeFeedTokens.textSecondary,
                       ),
                     ),
+                    if (coverUploadFailed) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        "Your cover photo didn't upload — add one from "
+                        'event settings.',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.geist(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: ticketAccent,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 24),
                     Row(
                       children: [

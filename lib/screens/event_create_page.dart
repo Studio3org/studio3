@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../config/app_link_config.dart';
 import '../data/post_location_options.dart';
 import '../data/post_media_assets.dart';
 import '../data/post_picker_options.dart';
@@ -24,6 +25,7 @@ import '../widgets/create_flow/event_ticket_edit_page.dart';
 import '../widgets/post_create_option_sheet.dart';
 import '../widgets/post_crop_preview.dart';
 import '../widgets/publish_result_overlays.dart';
+import '../widgets/studio_message.dart';
 
 const _kSteps = ['Details', 'Tickets', 'Lineup', 'Review'];
 
@@ -64,6 +66,10 @@ class _EventCreatePageState extends State<EventCreatePage> {
   bool _isPublic = false;
   bool _publishing = false;
   bool _publishSuccess = false;
+  bool _publishFailed = false;
+  String? _publishFailedMessage;
+  bool _coverUploadFailed = false;
+  String? _publishedEventId;
   final _pageScroll = ScrollController();
 
   void _onTitleChanged() => setState(() {});
@@ -131,11 +137,14 @@ class _EventCreatePageState extends State<EventCreatePage> {
     final startsAt = _eventDate?.startsAt;
     final endsAt = _eventDate?.endsAt;
     if (startsAt == null || endsAt == null) {
-      _showError('Add a start time for your event.');
+      StudioMessage.show(context, 'Add a start time for your event.');
       return;
     }
 
-    setState(() => _publishing = true);
+    setState(() {
+      _publishing = true;
+      _publishFailed = false;
+    });
     try {
       final coverUrl = await _uploadCover();
       final event = await EventService.instance.create(
@@ -180,30 +189,48 @@ class _EventCreatePageState extends State<EventCreatePage> {
       setState(() {
         _publishing = false;
         _publishSuccess = true;
+        _publishedEventId = event.id;
       });
     } on ApiException catch (e) {
       if (!mounted) return;
-      setState(() => _publishing = false);
-      _showError(e.message);
+      setState(() {
+        _publishing = false;
+        _publishFailed = true;
+        _publishFailedMessage = e.message;
+      });
     } catch (_) {
       if (!mounted) return;
-      setState(() => _publishing = false);
-      _showError('Could not publish your event. Please try again.');
+      setState(() {
+        _publishing = false;
+        _publishFailed = true;
+        _publishFailedMessage = 'Could not publish your event. Please try again.';
+      });
     }
   }
 
   Future<String?> _uploadCover() async {
     if (widget.imagePath.isEmpty) return null;
-    try {
-      return await MediaService.instance.uploadFile(
-        purpose: 'event_cover',
-        file: File(widget.imagePath),
-      );
-    } catch (_) {
-      // A missing cover is not worth losing the whole event over — the host can add one
-      // later, and every other field is already filled in.
-      return null;
+    // One retry after a short backoff — a transient hiccup (e.g. a rate
+    // limit) on the first attempt shouldn't cost the event its cover when a
+    // second attempt a moment later would likely succeed.
+    for (var attempt = 0; attempt < 2; attempt++) {
+      try {
+        return await MediaService.instance.uploadFile(
+          purpose: 'event_cover',
+          file: File(widget.imagePath),
+        );
+      } catch (_) {
+        if (attempt == 0) {
+          await Future<void>.delayed(const Duration(seconds: 2));
+        }
+      }
     }
+    // A missing cover is not worth losing the whole event over — the host can add one
+    // later, and every other field is already filled in. But it must not fail silently:
+    // the host picked a cover and has to know it didn't make it, or the blank banner on
+    // their published event looks like a bug rather than a known, fixable gap.
+    _coverUploadFailed = true;
+    return null;
   }
 
   static String _modeFor(EventPieceMode mode) => switch (mode) {
@@ -216,10 +243,6 @@ class _EventCreatePageState extends State<EventCreatePage> {
     final value = double.tryParse(price.replaceAll(',', '').trim());
     if (value == null) return null;
     return (value * 100).round();
-  }
-
-  void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -237,7 +260,8 @@ class _EventCreatePageState extends State<EventCreatePage> {
       child: StudioPublishFlowGate(
         publishing: _publishing,
         success: _publishSuccess,
-        failure: false,
+        failure: _publishFailed,
+        failureMessage: _publishFailedMessage,
         publishingMessage: 'Publishing event…',
         successTitle: 'Your event is live',
         onSuccessDismiss: widget.onClose,
@@ -254,6 +278,7 @@ class _EventCreatePageState extends State<EventCreatePage> {
           onViewEvent: widget.onClose,
           imagePath: widget.imagePath,
           transform: widget.transform,
+          coverUploadFailed: _coverUploadFailed,
         ),
         child: Scaffold(
           backgroundColor: HomeFeedTokens.background,
@@ -852,10 +877,12 @@ class _EventCreatePageState extends State<EventCreatePage> {
         _title.text.trim().isEmpty ? 'Untitled event' : _title.text.trim();
     final when = _eventDate?.posterLine;
     final where = _selectedLocation?.displayName;
+    final eventId = _publishedEventId;
     return [
       title,
       if (when != null && when.isNotEmpty) when,
       if (where != null && where.isNotEmpty) where,
+      if (eventId != null) AppLinkConfig.eventUrl(eventId),
     ].join('\n');
   }
 }

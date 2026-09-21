@@ -63,4 +63,6 @@ abstract final class AppLinkConfig {
   static String pieceUrl(String id) => '$shareBaseUrl/share/piece/$id';
 
   static String seriesUrl(String id) => '$shareBaseUrl/share/series/$id';
+
+  static String eventUrl(String id) => '$shareBaseUrl/share/event/$id';
 }
