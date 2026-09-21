@@ -111,6 +111,13 @@ class _EventCreatePageState extends State<EventCreatePage> {
 
   void _goToStep(int step) {
     if (step < 0 || step >= _kSteps.length || step == _step) return;
+    // Details' Title/Description fields can still hold focus when
+    // "Continue" is tapped straight out of typing — without dismissing it
+    // here, the keyboard stays open into Tickets. The first tap there (e.g.
+    // "Yes", which also brings a whole new Ticket Tiers section into view)
+    // then has to fight the keyboard's own close animation and the layout
+    // resize together, which reads as that tap being slow to register.
+    FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _step = step);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_pageScroll.hasClients) return;

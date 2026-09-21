@@ -142,16 +142,26 @@ class _EventFeaturedPiecesPickerPageState
                         width: 72,
                         child: Align(
                           alignment: Alignment.centerLeft,
+                          // 44x44 minimum touch target around the (much
+                          // smaller) icon — the tap area used to be exactly
+                          // the icon's own 7x14 size, which was easy to
+                          // miss and read as the back button not working.
                           child: GestureDetector(
                             onTap: () => Navigator.pop(context),
                             behavior: HitTestBehavior.opaque,
-                            child: SvgPicture.asset(
-                              PostMediaAssets.createBannerBack,
-                              width: 7,
-                              height: 14,
-                              colorFilter: const ColorFilter.mode(
-                                HomeFeedTokens.textPrimary,
-                                BlendMode.srcIn,
+                            child: SizedBox(
+                              width: 44,
+                              height: 44,
+                              child: Center(
+                                child: SvgPicture.asset(
+                                  PostMediaAssets.createBannerBack,
+                                  width: 7,
+                                  height: 14,
+                                  colorFilter: const ColorFilter.mode(
+                                    HomeFeedTokens.textPrimary,
+                                    BlendMode.srcIn,
+                                  ),
+                                ),
                               ),
                             ),
                           ),

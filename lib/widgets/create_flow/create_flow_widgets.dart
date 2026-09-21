@@ -42,28 +42,39 @@ class CreateFlowBanner extends StatelessWidget {
               children: [
                 Align(
                   alignment: Alignment.centerLeft,
+                  // The icon itself is tiny (7x14 / 14x14) — sizing the tap
+                  // target to just that was easy to miss on a real touch
+                  // screen, which read as "the back button doesn't work"
+                  // rather than "it's hard to hit". 44x44 is the standard
+                  // minimum touch target, centered on the same icon.
                   child: GestureDetector(
                     onTap: onClose,
                     behavior: HitTestBehavior.opaque,
-                    child: useBackChevron
-                        ? SvgPicture.asset(
-                            PostMediaAssets.createBannerBack,
-                            width: 7,
-                            height: 14,
-                            colorFilter: const ColorFilter.mode(
-                              HomeFeedTokens.textPrimary,
-                              BlendMode.srcIn,
-                            ),
-                          )
-                        : SvgPicture.asset(
-                            PostMediaAssets.createCloseIcon,
-                            width: 14,
-                            height: 14,
-                            colorFilter: const ColorFilter.mode(
-                              HomeFeedTokens.textPrimary,
-                              BlendMode.srcIn,
-                            ),
-                          ),
+                    child: SizedBox(
+                      width: 44,
+                      height: 44,
+                      child: Center(
+                        child: useBackChevron
+                            ? SvgPicture.asset(
+                                PostMediaAssets.createBannerBack,
+                                width: 7,
+                                height: 14,
+                                colorFilter: const ColorFilter.mode(
+                                  HomeFeedTokens.textPrimary,
+                                  BlendMode.srcIn,
+                                ),
+                              )
+                            : SvgPicture.asset(
+                                PostMediaAssets.createCloseIcon,
+                                width: 14,
+                                height: 14,
+                                colorFilter: const ColorFilter.mode(
+                                  HomeFeedTokens.textPrimary,
+                                  BlendMode.srcIn,
+                                ),
+                              ),
+                      ),
+                    ),
                   ),
                 ),
                 Text(
