@@ -8,8 +8,8 @@ export default defineConfig({
   base: '/',
   envPrefix: ['VITE_', 'NEXT_PUBLIC_'],
   build: {
-    // Match the Vercel Output Directory (`app/.dist`).
-    outDir: '.dist',
+    // Production is serving `app/dist` (https://studio3-eta.vercel.app).
+    outDir: 'dist',
     emptyOutDir: true,
   },
 });

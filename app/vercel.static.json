@@ -1,37 +1,31 @@
 {
-  "cleanUrls": false,
-  "trailingSlash": false,
-  "framework": null,
   "installCommand": "echo skip",
   "buildCommand": "echo skip",
   "outputDirectory": ".",
+  "cleanUrls": false,
+  "trailingSlash": false,
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
-  ],
-  "headers": [
-    {
-      "source": "/index.html",
-      "headers": [
-        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
-      ]
-    },
-    {
-      "source": "/404.html",
-      "headers": [
-        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
-      ]
-    },
-    {
-      "source": "/",
-      "headers": [
-        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
-      ]
-    },
-    {
-      "source": "/assets/(.*)",
-      "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
-      ]
-    }
+    { "source": "/login", "destination": "/index.html" },
+    { "source": "/signup", "destination": "/index.html" },
+    { "source": "/welcome", "destination": "/index.html" },
+    { "source": "/onboarding", "destination": "/index.html" },
+    { "source": "/home", "destination": "/index.html" },
+    { "source": "/discover", "destination": "/index.html" },
+    { "source": "/event", "destination": "/index.html" },
+    { "source": "/event/:path*", "destination": "/index.html" },
+    { "source": "/event-create", "destination": "/index.html" },
+    { "source": "/saved", "destination": "/index.html" },
+    { "source": "/profile", "destination": "/index.html" },
+    { "source": "/profile/:path*", "destination": "/index.html" },
+    { "source": "/profile-settings", "destination": "/index.html" },
+    { "source": "/post", "destination": "/index.html" },
+    { "source": "/inbox", "destination": "/index.html" },
+    { "source": "/inbox/:path*", "destination": "/index.html" },
+    { "source": "/chat", "destination": "/index.html" },
+    { "source": "/notifications", "destination": "/index.html" },
+    { "source": "/piece/:path*", "destination": "/index.html" },
+    { "source": "/series/:path*", "destination": "/index.html" },
+    { "source": "/auth/:path*", "destination": "/index.html" },
+    { "source": "/:path*", "destination": "/index.html" }
   ]
 }
