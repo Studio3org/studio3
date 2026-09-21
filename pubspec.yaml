@@ -66,7 +66,7 @@ dependencies:
   # never touch our servers, which is what keeps PCI scope minimal.
   # NOTE: requires FlutterFragmentActivity + an AppCompat/MaterialComponents
   # theme on Android (see MainActivity.kt and res/values*/styles.xml).
-  flutter_stripe: ^11.5.0
+  flutter_stripe: ^14.1.0
   # Pub.dev 0.1.6 is missing `import Foundation` in OperationManager.swift,
   # which breaks iOS compilation. Pin the upstream commit containing the fix.
   easy_video_editor:

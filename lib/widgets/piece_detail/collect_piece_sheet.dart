@@ -179,6 +179,15 @@ class _CollectPieceSheetState extends State<CollectPieceSheet> {
   ///
   /// Returns false (having already shown a message and reset state) if the
   /// collector cancels or payment doesn't go through.
+  /// A message that identifies the failure rather than just reporting one.
+  static String _stripeErrorText(StripeException e) {
+    final detail = e.error.localizedMessage ?? e.error.message;
+    final code = e.error.code.name;
+    return detail == null || detail.isEmpty
+        ? 'Payment was not completed ($code).'
+        : '$detail ($code)';
+  }
+
   Future<bool> _payForOrder(String orderId) async {
     // No publishable key configured — fall back to the server's dev auto-pay so
     // the flow stays testable, but never in a release build.
@@ -197,34 +206,42 @@ class _CollectPieceSheetState extends State<CollectPieceSheet> {
       return true;
     }
 
+    debugPrint('[checkout] requesting payment intent for $orderId');
     final intent = await OrderService.instance.createPaymentIntent(orderId);
-    await Stripe.instance
-        .initPaymentSheet(
-          paymentSheetParameters: SetupPaymentSheetParameters(
-            paymentIntentClientSecret: intent.clientSecret,
-            merchantDisplayName: 'Studiothree',
-            style: ThemeMode.light,
-            // Where Stripe sends the buyer back to. Redirect-based methods
-            // (Klarna, Cash App, Amazon Pay, Affirm) hand off to another app or
-            // the browser, and the SDK refuses to open the sheet at all unless it
-            // knows the way back — which presented as the button spinning and
-            // nothing happening. Not a web address: this is the app's own scheme,
-            // registered in AndroidManifest.xml and Info.plist.
-            returnURL: 'studio3://stripe-redirect',
-          ),
-        )
-        // Pure setup call to Stripe's own servers, no user interaction —
-        // if this hangs, fail visibly instead of leaving the collector
-        // stuck on a spinner forever.
-        .timeout(const Duration(seconds: 20));
-
+    debugPrint('[checkout] got client secret, calling initPaymentSheet');
+    // Inside the try below, deliberately. This call was outside it, so a Stripe
+    // setup failure here bypassed the StripeException handler entirely and landed
+    // in the generic catch as "Could not complete checkout" — hiding the one
+    // message that says what is actually wrong.
     try {
+      await Stripe.instance
+          .initPaymentSheet(
+            paymentSheetParameters: SetupPaymentSheetParameters(
+              paymentIntentClientSecret: intent.clientSecret,
+              merchantDisplayName: 'Studiothree',
+              style: ThemeMode.light,
+              // Where Stripe sends the buyer back to. Redirect-based methods
+              // (Klarna, Cash App, Amazon Pay, Affirm) hand off to another app
+              // or the browser, and the SDK refuses to open the sheet at all
+              // unless it knows the way back. Not a web address: this is the
+              // app's own scheme, in AndroidManifest.xml and Info.plist.
+              returnURL: 'studio3://stripe-redirect',
+            ),
+          )
+          // Pure setup call to Stripe's own servers, no user interaction —
+          // if this hangs, fail visibly instead of leaving the collector
+          // stuck on a spinner forever.
+          .timeout(const Duration(seconds: 20));
+      debugPrint('[checkout] initPaymentSheet returned, presenting sheet');
+
       // Long backstop, not a short one: this call legitimately blocks on
       // the collector entering a card / confirming biometrics, so it must
       // not cut off someone who's just taking their time — it only matters
       // when the call is truly wedged (the bug this guards against).
       await Stripe.instance.presentPaymentSheet().timeout(const Duration(minutes: 5));
+      debugPrint('[checkout] payment sheet completed');
     } on TimeoutException {
+      debugPrint('[checkout] TIMED OUT waiting on the Stripe SDK');
       if (!mounted) return false;
       setState(() {
         _collecting = false;
@@ -233,12 +250,19 @@ class _CollectPieceSheetState extends State<CollectPieceSheet> {
       return false;
     } on StripeException catch (e) {
       if (!mounted) return false;
+      // Stripe's localizedMessage is often null for setup failures (a missing
+      // returnURL, an unconfigured payment method), which left the banner saying
+      // only "Payment was not completed" — true, and useless for working out why.
+      // Carry the code and raw message through so a failure names itself.
+      debugPrint('PaymentSheet failed: code=${e.error.code} '
+          'message=${e.error.message} localized=${e.error.localizedMessage} '
+          'declineCode=${e.error.declineCode} type=${e.error.type}');
       setState(() {
         _collecting = false;
         // Cancelling isn't an error worth shouting about.
         _error = e.error.code == FailureCode.Canceled
             ? null
-            : e.error.localizedMessage ?? 'Payment was not completed.';
+            : _stripeErrorText(e);
       });
       return false;
     }
