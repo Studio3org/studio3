@@ -103,6 +103,15 @@ class _NotificationPreferencesPageState
       // Simple hour/minute entry instead of the round-clock dial, to match
       // the rest of the app's time inputs.
       initialEntryMode: TimePickerEntryMode.inputOnly,
+      // TimePickerEntryMode.input(Only)'s dialog has a fixed minimum
+      // content height that a larger system text-scale setting can push
+      // past, throwing "BoxConstraints has non-normalized height
+      // constraints" — clamping text scale here is Flutter's own
+      // documented workaround (see event_date_sheet.dart's _pickTime).
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling),
+        child: child!,
+      ),
     );
     if (picked == null) return;
     final time =

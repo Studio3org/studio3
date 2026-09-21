@@ -216,7 +216,11 @@ class _EventCreatePageState extends State<EventCreatePage> {
     for (var attempt = 0; attempt < 2; attempt++) {
       try {
         return await MediaService.instance.uploadFile(
-          purpose: 'event_cover',
+          // 'event_cover' isn't a purpose the backend recognizes — see
+          // docs/api/flows/media.md, which only lists profile/cover/
+          // piece/post. That mismatch is why the flyer never actually
+          // made it to the server despite the upload call "succeeding".
+          purpose: MediaPurpose.cover,
           file: File(widget.imagePath),
         );
       } catch (_) {

@@ -298,16 +298,25 @@ class _EventDateSheetState extends State<EventDateSheet> {
       // this sheet's simple field-based UI.
       initialEntryMode: TimePickerEntryMode.inputOnly,
       builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: HomeFeedTokens.neutral800,
-              onPrimary: HomeFeedTokens.textInverse,
-              surface: HomeFeedTokens.background,
-              onSurface: HomeFeedTokens.textPrimary,
+        // TimePickerEntryMode.input(Only)'s dialog has a fixed minimum
+        // content height. On a device with a larger system text-scale
+        // setting, the hour/minute fields render tall enough to exceed
+        // that fixed height by a couple of pixels, which throws
+        // "BoxConstraints has non-normalized height constraints" — clamping
+        // text scale here is Flutter's own documented workaround.
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling),
+          child: Theme(
+            data: Theme.of(context).copyWith(
+              colorScheme: const ColorScheme.light(
+                primary: HomeFeedTokens.neutral800,
+                onPrimary: HomeFeedTokens.textInverse,
+                surface: HomeFeedTokens.background,
+                onSurface: HomeFeedTokens.textPrimary,
+              ),
             ),
+            child: child!,
           ),
-          child: child!,
         );
       },
     );
