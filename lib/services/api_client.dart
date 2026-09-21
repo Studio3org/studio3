@@ -294,12 +294,18 @@ class ApiClient {
   ApiException _toApiException(DioException e) {
     final response = e.response;
     final statusCode = response?.statusCode;
+    // A real HTTP response (any status code) means the server received and
+    // processed the request — a definitive answer, even if it's an error.
+    // No response at all (a connection error, a timeout, or anything else
+    // that falls through unmapped below) means we genuinely don't know
+    // whether the write went through — see ApiException.ambiguous.
+    final ambiguous = statusCode == null;
 
     if (response?.data is Map<String, dynamic>) {
       final json = response!.data as Map<String, dynamic>;
       final serverMessage = json['message'] as String? ?? json['error'] as String?;
       if (serverMessage != null && serverMessage.trim().isNotEmpty) {
-        return ApiException(serverMessage, statusCode: statusCode);
+        return ApiException(serverMessage, statusCode: statusCode, ambiguous: ambiguous);
       }
     }
 
@@ -307,29 +313,34 @@ class ApiClient {
       return ApiException(
         "You're doing that a little too fast — please wait a moment and try again.",
         statusCode: statusCode,
+        ambiguous: ambiguous,
       );
     }
     if (statusCode == 401 || statusCode == 403) {
       return ApiException(
         "You don't have permission to do that.",
         statusCode: statusCode,
+        ambiguous: ambiguous,
       );
     }
     if (statusCode == 404) {
       return ApiException(
         "We couldn't find that — it may have been removed.",
         statusCode: statusCode,
+        ambiguous: ambiguous,
       );
     }
     if (statusCode != null && statusCode >= 500) {
       return ApiException(
         "Something went wrong on our end. Please try again in a moment.",
         statusCode: statusCode,
+        ambiguous: ambiguous,
       );
     }
     if (e.type == DioExceptionType.connectionError) {
       return ApiException(
         "Can't reach the server. Check your connection and try again.",
+        ambiguous: ambiguous,
       );
     }
     if (e.type == DioExceptionType.connectionTimeout ||
@@ -338,11 +349,16 @@ class ApiClient {
       return ApiException(
         'Server is taking longer than usual to respond — it may be waking '
         'up from inactivity. Please try again in a moment.',
+        ambiguous: ambiguous,
       );
     }
 
     debugPrint('API error (unmapped): ${e.type} ${e.message}');
-    return ApiException('Something went wrong. Please try again.', statusCode: statusCode);
+    return ApiException(
+      'Something went wrong. Please try again.',
+      statusCode: statusCode,
+      ambiguous: ambiguous,
+    );
   }
 
   dynamic extractData(Map<String, dynamic> json) {

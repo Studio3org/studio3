@@ -4,11 +4,14 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../models/address.dart';
-import '../models/collect_shipping_address.dart' show kUsStates;
+import '../models/collect_shipping_address.dart' show kUsStateNames, kUsStates;
 import '../services/address_service.dart';
 import '../services/api_exception.dart';
 import '../theme/app_theme.dart';
 import '../theme/home_feed_tokens.dart';
+import '../utils/address_validators.dart';
+import '../utils/auth_validators.dart';
+import '../utils/save_reconciliation.dart';
 
 class AddressFormPage extends StatefulWidget {
   const AddressFormPage({super.key, this.existing});
@@ -72,12 +75,24 @@ class _AddressFormPageState extends State<AddressFormPage> {
   bool get _canSave =>
       _firstName.text.trim().isNotEmpty &&
       _lastName.text.trim().isNotEmpty &&
-      _phone.text.trim().isNotEmpty &&
+      AuthValidators.phone(_phone.text) == null &&
       _line1.text.trim().isNotEmpty &&
       _city.text.trim().isNotEmpty &&
       _state != null &&
       _state!.isNotEmpty &&
-      _zip.text.trim().isNotEmpty;
+      AddressValidators.zip(_zip.text) == null;
+
+  // Only shown once the field has content — an empty required field is
+  // already communicated by the disabled Save button, not a red error.
+  String? get _phoneErrorText {
+    final v = _phone.text.trim();
+    return v.isEmpty ? null : AuthValidators.phone(v);
+  }
+
+  String? get _zipErrorText {
+    final v = _zip.text.trim();
+    return v.isEmpty ? null : AddressValidators.zip(v);
+  }
 
   Future<void> _useCurrentLocation() async {
     setState(() => _locating = true);
@@ -147,11 +162,44 @@ class _AddressFormPageState extends State<AddressFormPage> {
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
+      // Creating (not editing) and the failure was ambiguous — the server
+      // may have actually received and committed this address before the
+      // client saw a timeout. Check before showing an error that would
+      // just prompt a retry and a duplicate row.
+      if (!_isEdit) {
+        final matched = await reconcileAmbiguousWrite<Address>(
+          error: e,
+          fetchCurrent: AddressService.instance.getAddresses,
+          matches: (a) => _matchesSubmitted(a, address),
+        );
+        if (matched) {
+          await AddressService.instance.invalidateCache();
+          if (!mounted) return;
+          Navigator.pop(context, true);
+          return;
+        }
+      }
+      if (!mounted) return;
       setState(() {
         _error = e is ApiException ? e.message : 'Could not save address';
         _saving = false;
       });
     }
+  }
+
+  /// Trimmed + lowercased so minor server-side normalization (whitespace,
+  /// casing) can't produce a false "no match" that lets a duplicate slip
+  /// through anyway.
+  static bool _matchesSubmitted(Address candidate, Address submitted) {
+    String norm(String? s) => (s ?? '').trim().toLowerCase();
+    return norm(candidate.firstName) == norm(submitted.firstName) &&
+        norm(candidate.lastName) == norm(submitted.lastName) &&
+        norm(candidate.phone) == norm(submitted.phone) &&
+        norm(candidate.line1) == norm(submitted.line1) &&
+        norm(candidate.line2) == norm(submitted.line2) &&
+        norm(candidate.city) == norm(submitted.city) &&
+        norm(candidate.state) == norm(submitted.state) &&
+        norm(candidate.zip) == norm(submitted.zip);
   }
 
   @override
@@ -207,7 +255,10 @@ class _AddressFormPageState extends State<AddressFormPage> {
           TextField(
             controller: _phone,
             keyboardType: TextInputType.phone,
-            decoration: const InputDecoration(labelText: 'Phone *'),
+            decoration: InputDecoration(
+              labelText: 'Phone *',
+              errorText: _phoneErrorText,
+            ),
             onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: 12),
@@ -233,10 +284,17 @@ class _AddressFormPageState extends State<AddressFormPage> {
               Expanded(
                 child: DropdownButtonFormField<String>(
                   initialValue: _state,
+                  isExpanded: true,
                   decoration: const InputDecoration(labelText: 'State *'),
                   items: [
-                    for (final s in kUsStates)
-                      DropdownMenuItem(value: s, child: Text(s)),
+                    for (final code in kUsStates)
+                      DropdownMenuItem(
+                        value: code,
+                        child: Text(
+                          kUsStateNames[code] ?? code,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                   ],
                   onChanged: (v) => setState(() => _state = v),
                 ),
@@ -250,7 +308,10 @@ class _AddressFormPageState extends State<AddressFormPage> {
                     FilteringTextInputFormatter.digitsOnly,
                     LengthLimitingTextInputFormatter(10),
                   ],
-                  decoration: const InputDecoration(labelText: 'Zip *'),
+                  decoration: InputDecoration(
+                    labelText: 'Zip *',
+                    errorText: _zipErrorText,
+                  ),
                   onChanged: (_) => setState(() {}),
                 ),
               ),
