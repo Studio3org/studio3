@@ -1,7 +1,8 @@
 {
-  "installCommand": "npm install --prefix app",
-  "buildCommand": "npm run build --prefix app",
-  "outputDirectory": "app/.dist",
+  "framework": null,
+  "installCommand": "echo skip",
+  "buildCommand": "echo skip",
+  "outputDirectory": ".",
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ],
