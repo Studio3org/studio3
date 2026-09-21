@@ -11,6 +11,11 @@ abstract final class MediaPurpose {
   static const piece = 'piece';
   static const post = 'post';
   static const chat = 'chat';
+
+  /// Event cover flyers. Distinct from [cover], which is the *profile* banner and
+  /// resolves to one fixed object per user — an event using it overwrote the host's
+  /// banner and then displayed that banner as the event's own image.
+  static const event = 'event';
 }
 
 class PresignResult {
