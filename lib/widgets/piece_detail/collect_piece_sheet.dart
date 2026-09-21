@@ -61,6 +61,10 @@ class CollectPieceSheet extends StatefulWidget {
 
 class _CollectPieceSheetState extends State<CollectPieceSheet> {
   CollectShippingSelection? _shipping;
+  /// Shown inside the sheet. A SnackBar would render behind it: the sheet is anchored
+  /// to the bottom and takes 96% of the height, which is why a failing checkout looked
+  /// like the button simply doing nothing.
+  String? _error;
   CollectPaymentMethod? _payment;
   bool _collecting = false;
 
@@ -121,7 +125,10 @@ class _CollectPieceSheetState extends State<CollectPieceSheet> {
   Future<void> _onCollect() async {
     final shipping = _shipping;
     if (shipping == null || _collecting) return;
-    setState(() => _collecting = true);
+    setState(() {
+      _collecting = true;
+      _error = null;
+    });
     try {
       final order = _isAuctionCheckout
           ? await OrderService.instance.auctionCheckout(
@@ -144,14 +151,16 @@ class _CollectPieceSheetState extends State<CollectPieceSheet> {
       await CollectOrderConfirmationSheet.show(context, order: confirmed);
     } on ApiException catch (e) {
       if (!mounted) return;
-      setState(() => _collecting = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      setState(() {
+        _collecting = false;
+        _error = e.message;
+      });
     } catch (_) {
       if (!mounted) return;
-      setState(() => _collecting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not complete checkout. Please try again.')),
-      );
+      setState(() {
+        _collecting = false;
+        _error = 'Could not complete checkout. Please try again.';
+      });
     }
   }
 
@@ -167,10 +176,10 @@ class _CollectPieceSheetState extends State<CollectPieceSheet> {
           bool.fromEnvironment('ALLOW_DEV_CHECKOUT', defaultValue: false);
       if (!(kDebugMode || allowDevCheckout)) {
         if (!mounted) return false;
-        setState(() => _collecting = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Payments are not available in this build.')),
-        );
+        setState(() {
+          _collecting = false;
+          _error = 'Payments are not available in this build.';
+        });
         return false;
       }
       await OrderService.instance.confirm(orderId);
@@ -183,6 +192,13 @@ class _CollectPieceSheetState extends State<CollectPieceSheet> {
         paymentIntentClientSecret: intent.clientSecret,
         merchantDisplayName: 'Studiothree',
         style: ThemeMode.light,
+        // Where Stripe sends the buyer back to. Redirect-based methods (Klarna,
+        // Cash App, Amazon Pay, Affirm) hand off to another app or the browser,
+        // and the SDK refuses to open the sheet at all unless it knows the way
+        // back — which presented as the button spinning and nothing happening.
+        // Not a web address: this is the app's own scheme, registered in
+        // AndroidManifest.xml and Info.plist.
+        returnURL: 'studio3://stripe-redirect',
       ),
     );
 
@@ -190,13 +206,13 @@ class _CollectPieceSheetState extends State<CollectPieceSheet> {
       await Stripe.instance.presentPaymentSheet();
     } on StripeException catch (e) {
       if (!mounted) return false;
-      setState(() => _collecting = false);
-      // Cancelling isn't an error worth shouting about.
-      if (e.error.code != FailureCode.Canceled) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.error.localizedMessage ?? 'Payment was not completed.')),
-        );
-      }
+      setState(() {
+        _collecting = false;
+        // Cancelling isn't an error worth shouting about.
+        _error = e.error.code == FailureCode.Canceled
+            ? null
+            : e.error.localizedMessage ?? 'Payment was not completed.';
+      });
       return false;
     }
 
@@ -206,14 +222,8 @@ class _CollectPieceSheetState extends State<CollectPieceSheet> {
     if (!paid) {
       if (!mounted) return false;
       setState(() => _collecting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            "Payment went through but we're still confirming it. "
-            "Check your orders in a moment.",
-          ),
-        ),
-      );
+      setState(() => _error = "Payment went through but we're still confirming it. "
+          'Check your orders in a moment.');
       return false;
     }
     return true;
@@ -288,6 +298,10 @@ class _CollectPieceSheetState extends State<CollectPieceSheet> {
                           : null,
                       dueDisplay: formatCollectPrice(_balanceDueCents),
                     ),
+                    if (_error != null) ...[
+                      const SizedBox(height: 20),
+                      _ErrorBanner(message: _error!),
+                    ],
                     const SizedBox(height: 28),
                     _CollectCta(
                       label: _isAuctionCheckout
@@ -732,6 +746,44 @@ class _SummaryLine extends StatelessWidget {
     );
   }
 }
+
+class _ErrorBanner extends StatelessWidget {
+  const _ErrorBanner({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFDECEC),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE5B4B4)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.error_outline, size: 18, color: Color(0xFF9B2C2C)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                height: 1.4,
+                fontWeight: FontWeight.w400,
+                color: const Color(0xFF9B2C2C),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 
 class _CollectCta extends StatelessWidget {
   const _CollectCta({
