@@ -1,0 +1,29 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": [
+          "REPLACE_WITH_TEAM_ID.com.studio3.discover"
+        ],
+        "components": [
+          {
+            "/": "/piece/*",
+            "comment": "Shared piece link, e.g. /piece/abc123"
+          },
+          {
+            "/": "/series/*",
+            "comment": "Shared series link, e.g. /series/abc123"
+          },
+          {
+            "/": "/share/piece/*",
+            "comment": "Backend share/preview route for a piece"
+          },
+          {
+            "/": "/share/series/*",
+            "comment": "Backend share/preview route for a series"
+          }
+        ]
+      }
+    ]
+  }
+}
