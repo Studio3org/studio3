@@ -19,7 +19,9 @@ class PayoutStatus {
   final String? stripeAccountId;
 
   /// Work can only be listed for sale once we can actually pay the artist.
-  /// Backend: payouts_enabled AND charges_enabled.
+  /// Backend: payouts_enabled AND the transfers capability being active. Not
+  /// chargesEnabled — artists are recipient-only accounts and never accept a
+  /// charge, so that stays false even when everything is in order.
   final bool canListForSale;
 
   /// What Stripe still needs from the artist (ID document, bank details, …).
