@@ -40,6 +40,11 @@ class _EditPiecePageState extends State<EditPiecePage> {
 
   bool _isForSale = false;
   bool _aiDisclosed = false;
+  // Only meaningful when the piece is an ended auction (see _canSwitchToFixedPrice).
+  // Auction -> fixed is one-directional here on purpose: switching the other way is
+  // already a dedicated flow — Manage auction -> Run it again — which asks for a
+  // duration and a starting bid properly instead of overloading this price field.
+  bool _sellAsFixedPrice = false;
   String? _shippingRegion;
   String _packageUnit = 'in';
   static const _cmPerInch = 2.54;
@@ -149,6 +154,32 @@ class _EditPiecePageState extends State<EditPiecePage> {
     if (allowed) setState(() => _isForSale = true);
   }
 
+  /// An auction that ended without a sale is delisted with no buyer and no bids
+  /// outstanding — the one shape assert_terms_editable (server side) allows switching.
+  /// A *live* auction is deliberately excluded even with zero bids: the guard's own
+  /// message says to cancel it first, and doing that here would silently skip the
+  /// refund-and-notify step every bidder is owed if one exists by the time this saves.
+  bool get _canSwitchToFixedPrice =>
+      widget.piece.isAuction && widget.piece.status != 'live';
+
+  Future<void> _onSellAsFixedPriceChanged(bool value) async {
+    if (!value) {
+      setState(() => _sellAsFixedPrice = false);
+      return;
+    }
+    // Same payout gate as any other for-sale toggle — this makes the piece purchasable.
+    final allowed = await ensureCanListForSale(context);
+    if (!mounted || !allowed) return;
+    setState(() {
+      _sellAsFixedPrice = true;
+      _isForSale = true;
+      // The point of switching is to put it back on sale, not just relabel it — an
+      // ended auction is delisted, and leaving it there would save a listingType nobody
+      // can buy.
+      if (_status == 'delisted' || _status == 'draft') _status = 'live';
+    });
+  }
+
   bool get _statusIsEditable => _editableStatuses.contains(widget.piece.status ?? 'live');
 
   void _openShippingRegionPicker() {
@@ -193,6 +224,7 @@ class _EditPiecePageState extends State<EditPiecePage> {
       'aiDisclosed': _aiDisclosed,
       if (_altText.text.trim().isNotEmpty) 'altText': _altText.text.trim(),
       'isForSale': _isForSale,
+      if (_sellAsFixedPrice) 'listingType': 'fixed',
       if (_isForSale) ...{
         if (_priceUsd.text.trim().isNotEmpty)
           'priceCents': ((double.tryParse(_priceUsd.text.trim()) ?? 0) * 100).round(),
@@ -291,6 +323,21 @@ class _EditPiecePageState extends State<EditPiecePage> {
               value: _aiDisclosed,
               onChanged: (v) => setState(() => _aiDisclosed = v),
             ),
+            if (_canSwitchToFixedPrice) ...[
+              SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Sell at a fixed price instead'),
+                subtitle: Text(
+                  'This auction ended without a sale. Switch it to a fixed price and '
+                  'it goes back on sale immediately — or close this and use "Manage '
+                  'auction" on the piece to run the auction again instead.',
+                  style: GoogleFonts.inter(fontSize: 12, height: 1.4),
+                ),
+                value: _sellAsFixedPrice,
+                onChanged: _onSellAsFixedPriceChanged,
+              ),
+              const SizedBox(height: 8),
+            ],
             SwitchListTile.adaptive(
               contentPadding: EdgeInsets.zero,
               title: const Text('List for sale'),
