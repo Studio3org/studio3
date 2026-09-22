@@ -39,5 +39,11 @@ end
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
+    # flutter_additional_ios_build_settings doesn't touch this — each pod otherwise keeps
+    # whatever deployment target its own podspec declares (libwebp defaults to 9.0), lower
+    # than the 15.0 the project and stripe_ios require. Force every pod target to match.
+    target.build_configurations.each do |config|
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+    end
   end
 end
