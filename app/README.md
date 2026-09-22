@@ -23,7 +23,7 @@ API and app URLs live in `app/.env` (see `.env.example`). Uncomment the local or
 
 | | Local | Deployed |
 |---|---|---|
-| API | `http://localhost:9000` | `https://studio3-backend.onrender.com` |
+| API | `http://localhost:9000` | `https://api.studio-3.co` |
 | Web app | `http://localhost:5173` | `https://studio-3.co` |
 
 ## Routes

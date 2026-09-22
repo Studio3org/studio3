@@ -3,12 +3,15 @@
 <plist version="1.0">
 <dict>
 	<!-- Every host that may ever serve a link this app should open. Compile-time, so both
-	     belong here in one build: the staging backend we test against today, and the
-	     production domain once it is pointed at the service. Adding the second one later
-	     would mean rebuilding and re-distributing. -->
+	     belong here in one build: api.studio-3.co (the deployed backend, which serves
+	     /share/... and answers /.well-known/apple-app-site-association for itself — see
+	     src/modules/share/well_known_routes.py) and studio-3.co (the web app's own
+	     domain, once it is pointed at the service). Adding a host later would mean
+	     rebuilding and re-distributing. The Render staging host this app used before the
+	     AWS move is retired and no longer listed. -->
 	<key>com.apple.developer.associated-domains</key>
 	<array>
-		<string>applinks:studio3-backend.onrender.com</string>
+		<string>applinks:api.studio-3.co</string>
 		<string>applinks:studio-3.co</string>
 	</array>
 </dict>

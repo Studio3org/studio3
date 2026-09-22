@@ -1,4 +1,4 @@
-const DEPLOYED_API_URL = 'https://studio3-backend.onrender.com';
+const DEPLOYED_API_URL = 'https://api.studio-3.co';
 const DEPLOYED_APP_URL = 'https://studio-3.co';
 const LOCAL_APP_URL = 'http://localhost:5173';
 
