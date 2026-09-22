@@ -5,6 +5,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../services/api_exception.dart';
 import '../services/payout_service.dart';
 import '../theme/home_feed_tokens.dart';
+import '../widgets/loading/app_skeletons.dart';
+import '../widgets/loading/section_loader.dart';
 import '../widgets/studio_loading.dart';
 
 /// Stripe Connect Express setup — identity and bank details stay on Stripe.
@@ -128,9 +130,14 @@ class _PayoutSetupPageState extends State<PayoutSetupPage>
             onPressed: () => Navigator.pop(context, _status?.canListForSale),
           ),
         ),
-        body: _loading
-            ? const Center(child: CircularProgressIndicator())
-            : ListView(
+        body: SectionLoader(
+          hasData: _status != null || _error != null,
+          loading: _loading,
+          skeleton: (_) => const FormSkeleton(
+            fieldCount: 3,
+            padding: EdgeInsets.fromLTRB(20, 8, 20, 32),
+          ),
+          content: (_) => ListView(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
                 children: [
                   if (_error != null) ...[
@@ -150,6 +157,7 @@ class _PayoutSetupPageState extends State<PayoutSetupPage>
                     _NeedsActionBody(onContinue: _continueSetup),
                 ],
               ),
+        ),
       ),
     );
   }

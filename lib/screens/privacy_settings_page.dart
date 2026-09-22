@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../models/user_profile.dart';
 import '../services/api_exception.dart';
 import '../services/user_service.dart';
 import '../theme/home_feed_tokens.dart';
 import '../widgets/labeled_dropdown.dart';
-import '../widgets/studio_loading.dart';
+import '../widgets/loading/app_skeletons.dart';
+import '../widgets/loading/section_loader.dart';
 
 const _visibilityOptions = [('public', 'Public'), ('private', 'Private')];
 const _messagePermissionOptions = [
@@ -27,19 +29,36 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
   bool _loading = true;
   bool _saving = false;
 
+  /// Whether the dropdowns are showing the user's real settings rather
+  /// than the placeholder defaults above.
+  bool _hasSettings = false;
+
   @override
   void initState() {
     super.initState();
+    // Already-cached profile → real values on the first frame, no skeleton.
+    _applyProfile(UserService.instance.peekMeCached());
     _load();
+  }
+
+  void _applyProfile(UserProfile? profile) {
+    if (profile == null) return;
+    _profileVisibility = profile.profileVisibility;
+    _messagePermission = profile.messagePermission;
+    _hasSettings = true;
   }
 
   Future<void> _load() async {
     try {
-      final profile = await UserService.instance.getMe();
+      final profile = await UserService.instance.getMeCached(
+        onBackgroundUpdate: (fresh) {
+          if (!mounted) return;
+          setState(() => _applyProfile(fresh));
+        },
+      );
       if (!mounted) return;
       setState(() {
-        _profileVisibility = profile.profileVisibility;
-        _messagePermission = profile.messagePermission;
+        _applyProfile(profile);
         _loading = false;
       });
     } catch (_) {
@@ -85,23 +104,30 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return StudioLoadingGate(
-      loading: _loading,
-      child: Scaffold(
+    // Title bar and field labels are static; only the selected values come
+    // from the backend, so only they are placeheld.
+    return Scaffold(
+      backgroundColor: HomeFeedTokens.background,
+      appBar: AppBar(
         backgroundColor: HomeFeedTokens.background,
-        appBar: AppBar(
-          backgroundColor: HomeFeedTokens.background,
-          elevation: 0,
-          title: Text(
-            'Privacy',
-            style: GoogleFonts.inter(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: HomeFeedTokens.textPrimary,
-            ),
+        elevation: 0,
+        title: Text(
+          'Privacy',
+          style: GoogleFonts.inter(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: HomeFeedTokens.textPrimary,
           ),
         ),
-        body: ListView(
+      ),
+      body: SectionLoader(
+        hasData: _hasSettings,
+        loading: _loading,
+        skeleton: (_) => const FormSkeleton(
+          fieldCount: 2,
+          padding: EdgeInsets.all(20),
+        ),
+        content: (_) => ListView(
           padding: const EdgeInsets.all(20),
           children: [
             LabeledDropdown(

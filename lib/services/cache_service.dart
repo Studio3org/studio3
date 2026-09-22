@@ -162,6 +162,14 @@ class CacheService {
     await _box?.put(key, jsonEncode(envelope));
   }
 
+  /// Write-through for a caller that fetched fresh data *outside*
+  /// [fetchWithCache] — typically because it had to await the network and
+  /// must not fall back to cache on failure. Its result is still the
+  /// freshest anyone has, so storing it here stops other screens from
+  /// going on to serve an older one.
+  Future<void> write(String key, Map<String, dynamic> data) =>
+      _write(key, data);
+
   Future<void> invalidate(String key) async => _box?.delete(key);
 
   Future<void> clearAll() async => _box?.clear();

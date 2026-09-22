@@ -175,6 +175,39 @@ class OrderService {
     );
   }
 
+  /// Synchronous cache read for seeding the Orders screen before its
+  /// first frame — a revisit shows the last known list immediately and the
+  /// forced refresh above then updates it in place.
+  OrderPage? peekMyOrdersCached() {
+    return CacheService.instance.peekCache<OrderPage>(
+      key: 'orders.mine',
+      parse: _parseOrderPage,
+    );
+  }
+
+  /// Cache-first sales list (page 1 only) — mirrors [getMyOrdersCached].
+  Future<OrderPage> getMySalesCached({bool forceRefresh = false}) {
+    return CacheService.instance.fetchWithCache<OrderPage>(
+      key: 'sales.mine',
+      ttl: const Duration(minutes: 2),
+      forceRefresh: forceRefresh,
+      fetchRaw: () {
+        if (!ConnectivityService.instance.isOnline) {
+          throw const CacheMiss('sales.mine');
+        }
+        return _api.get('/api/user/me/sales', auth: true);
+      },
+      parse: _parseOrderPage,
+    );
+  }
+
+  OrderPage? peekMySalesCached() {
+    return CacheService.instance.peekCache<OrderPage>(
+      key: 'sales.mine',
+      parse: _parseOrderPage,
+    );
+  }
+
   OrderPage _parseOrderPage(Map<String, dynamic> json) {
     final data = _api.extractData(json);
     final items = _api.extractList(json).map(Order.fromJson).toList(growable: false);

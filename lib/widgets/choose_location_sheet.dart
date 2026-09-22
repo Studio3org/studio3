@@ -10,6 +10,7 @@ import '../screens/profile/profile_constants.dart';
 import '../theme/home_feed_tokens.dart';
 import 'create_flow/create_flow_widgets.dart';
 import 'post_picker_search_field.dart';
+import 'loading/app_skeletons.dart';
 
 /// Draggable location picker — live search via `LocationSearchService`
 /// (Nominatim), plus a "Use current location" option.
@@ -185,15 +186,9 @@ class _ChooseLocationSheetState extends State<ChooseLocationSheet> {
                           onTap: _locating ? null : _useCurrentLocation,
                         ),
                       if (_searching)
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 24),
-                          child: Center(
-                            child: SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                          ),
+                        const OptionListSkeleton(
+                          itemCount: 4,
+                          padding: EdgeInsets.symmetric(vertical: 8),
                         )
                       else
                         for (final location in _results)

@@ -9,6 +9,7 @@ import '../theme/home_feed_tokens.dart';
 import '../utils/profile_navigation.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/home_feed/home_feed_widgets.dart';
+import '../widgets/loading/app_skeletons.dart';
 import '../widgets/offline_state.dart';
 import 'profile/widgets/profile_locked_placeholder.dart';
 
@@ -171,7 +172,7 @@ class _FollowListTabViewState extends State<_FollowListTabView> {
     if (_locked) return const ProfileLockedPlaceholder();
     if (_showOfflineState) return OfflineState(onRetry: _load);
     if (_loading && _items.isEmpty) {
-      return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+      return const UserListSkeleton(trailingAction: true);
     }
     if (_items.isEmpty) {
       return Center(

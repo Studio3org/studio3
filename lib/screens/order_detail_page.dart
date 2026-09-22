@@ -7,6 +7,7 @@ import '../services/order_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/home_feed_tokens.dart';
 import '../widgets/glass_card.dart';
+import '../widgets/loading/app_skeletons.dart';
 
 class OrderDetailPage extends StatefulWidget {
   const OrderDetailPage({
@@ -102,8 +103,10 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   }
 
   Widget _buildBody() {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+    // Only placehold while there is genuinely no order to show; a
+    // refresh over an already-loaded order leaves it on screen.
+    if (_loading && _order == null) {
+      return const DetailSkeleton();
     }
     final order = _order;
     if (order == null) {

@@ -7,6 +7,7 @@ import 'package:photo_manager/photo_manager.dart';
 import '../../services/permission_service.dart';
 import '../../services/photo_library_service.dart';
 import '../../theme/home_feed_tokens.dart';
+import '../loading/app_skeletons.dart';
 
 enum _LoadState { loading, denied, ready }
 
@@ -176,10 +177,13 @@ class _PostGalleryPickerState extends State<PostGalleryPicker> {
   Widget _buildBody() {
     switch (_state) {
       case _LoadState.loading:
-        return const Center(
-          child: CircularProgressIndicator(
-            color: HomeFeedTokens.textSecondary,
-          ),
+        // Same grid the library resolves into, so the sheet does not jump
+        // when the thumbnails land.
+        return const TileGridSkeleton(
+          padding: EdgeInsets.zero,
+          spacing: 2,
+          radius: 0,
+          itemCount: 12,
         );
       case _LoadState.denied:
         return _PermissionFallback(onRetry: _retry);

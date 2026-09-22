@@ -9,6 +9,7 @@ import '../../services/social_service.dart';
 import '../../theme/home_feed_tokens.dart';
 import '../../utils/profile_navigation.dart';
 import '../profile_avatar.dart';
+import '../loading/app_skeletons.dart';
 
 /// Instagram-style comment list + add-comment bottom sheet for a piece or
 /// scene. List/create only — no like/reply (backend has no API for those).
@@ -246,8 +247,10 @@ class _PieceCommentSheetState extends State<PieceCommentSheet> {
   }
 
   Widget _buildList() {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+    // Sheet header and composer are static; only the thread placeholds,
+    // and only until there are comments to show.
+    if (_loading && _comments.isEmpty) {
+      return const CommentListSkeleton();
     }
     if (_error != null) {
       return Center(

@@ -6,6 +6,7 @@ import '../../services/address_service.dart';
 import '../../services/api_exception.dart';
 import '../../screens/address_form_page.dart';
 import '../../theme/collect_detail_tokens.dart';
+import '../loading/app_skeletons.dart';
 
 /// Saved-address picker for checkout — Figma 2371-1692.
 class CollectShippingSheet extends StatefulWidget {
@@ -111,8 +112,8 @@ class _CollectShippingSheetState extends State<CollectShippingSheet> {
   }
 
   Widget _buildBody(double bottomInset) {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+    if (_loading && _addresses.isEmpty) {
+      return const OptionListSkeleton();
     }
     if (_error != null && _addresses.isEmpty) {
       return Center(

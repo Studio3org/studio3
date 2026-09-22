@@ -6,6 +6,7 @@ import '../../models/saved_card.dart';
 import '../../services/api_exception.dart';
 import '../../services/saved_card_service.dart';
 import '../../theme/collect_detail_tokens.dart';
+import '../loading/app_skeletons.dart';
 
 /// Choosing which card a bid is authorised against.
 ///
@@ -139,10 +140,10 @@ class _BidCardPickerSheetState extends State<BidCardPickerSheet> {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    if (_loading)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 32),
-                        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                    if (_loading && _cards.isEmpty)
+                      const OptionListSkeleton(
+                        itemCount: 3,
+                        padding: EdgeInsets.zero,
                       )
                     else ...[
                       for (final card in _cards)

@@ -1,6 +1,10 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+
+import '../../../data/nav_assets.dart';
+import '../../../theme/home_feed_tokens.dart';
 
 import '../../../models/feed_item.dart';
 import '../../../models/feed_preview_item.dart';
@@ -12,9 +16,62 @@ import '../../available_piece_detail_page.dart';
 import '../../piece_detail_page.dart';
 import '../profile_constants.dart';
 
+/// What a tile says about a piece's place in the marketplace, shown as a
+/// dot + label under the image. Scenes and unlisted pieces carry none.
+enum ProfileTileListing {
+  none,
+  available,
+  biddingOpen,
+  sold;
+
+  static ProfileTileListing forPiece(PieceSummary piece) {
+    if (piece.isAvailableListing) return ProfileTileListing.available;
+    if (piece.isAuctionLive) return ProfileTileListing.biddingOpen;
+    if (piece.isCollectedListing || piece.isAuctionEnded) {
+      return ProfileTileListing.sold;
+    }
+    return ProfileTileListing.none;
+  }
+
+  String get label => switch (this) {
+        ProfileTileListing.available => 'Available',
+        ProfileTileListing.biddingOpen => 'Bidding open',
+        ProfileTileListing.sold => 'Sold',
+        ProfileTileListing.none => '',
+      };
+
+  String get iconAsset => this == ProfileTileListing.sold
+      ? NavAssets.collectedMark
+      : NavAssets.availableDot;
+}
+
+/// One cell of the profile grid.
+class _ProfileTileData {
+  const _ProfileTileData({
+    required this.url,
+    required this.ratio,
+    required this.isVideo,
+    required this.isDraft,
+    this.listing = ProfileTileListing.none,
+    this.post,
+    this.piece,
+  });
+
+  /// Image to draw. For a video this is the poster frame, not the video.
+  final String? url;
+
+  /// Tile height as a multiple of column width.
+  final double ratio;
+  final bool isVideo;
+  final bool isDraft;
+  final ProfileTileListing listing;
+  final PostSummary? post;
+  final PieceSummary? piece;
+}
+
 class ProfileContentGrid extends StatelessWidget {
   const ProfileContentGrid._({
-    required this.items,
+    required List<_ProfileTileData> items,
     this.onPostTap,
     this.onPieceTap,
     this.onDeletePost,
@@ -22,21 +79,9 @@ class ProfileContentGrid extends StatelessWidget {
     this.onPublishPost,
     this.onPublishPiece,
     this.showOwnerActions = false,
-  });
+  }) : _items = items;
 
-  final List<
-    ({
-      String? url,
-      double ratio,
-      bool forSale,
-      String? price,
-      bool isVideo,
-      bool isDraft,
-      PostSummary? post,
-      PieceSummary? piece,
-    })
-  >
-  items;
+  final List<_ProfileTileData> _items;
   final void Function(PostSummary post)? onPostTap;
   final void Function(PieceSummary piece)? onPieceTap;
   final void Function(PostSummary post)? onDeletePost;
@@ -45,43 +90,31 @@ class ProfileContentGrid extends StatelessWidget {
   final void Function(PieceSummary piece)? onPublishPiece;
   final bool showOwnerActions;
 
+  /// Pieces are captured and cropped at 3:4, so every tile is drawn at that
+  /// ratio — the grid shows the work at the shape it was actually posted in
+  /// rather than cropping it into the old rotating masonry rhythm, which
+  /// squared some pieces off and letterboxed others.
+  static const _pieceRatio = 4 / 3;
+
   factory ProfileContentGrid.fromPieces(
     List<PieceSummary> pieces, {
     void Function(PieceSummary piece)? onPieceTap,
     void Function(PieceSummary piece)? onDeletePiece,
     void Function(PieceSummary piece)? onPublishPiece,
     bool showOwnerActions = false,
-    bool forSaleListing = false,
   }) {
-    final mapped =
-        <
-          ({
-            String? url,
-            double ratio,
-            bool forSale,
-            String? price,
-            bool isVideo,
-            bool isDraft,
-            PostSummary? post,
-            PieceSummary? piece,
-          })
-        >[];
-    for (var i = 0; i < pieces.length; i++) {
-      final p = pieces[i];
-      mapped.add((
-        url: p.mediaUrl,
-        ratio:
-            kProfileMasonryHeightRatios[i % kProfileMasonryHeightRatios.length],
-        forSale: forSaleListing || p.isForSale,
-        price: p.priceDisplay,
-        isVideo: false,
-        isDraft: p.status == 'draft',
-        post: null,
-        piece: p,
-      ));
-    }
     return ProfileContentGrid._(
-      items: mapped,
+      items: [
+        for (final p in pieces)
+          _ProfileTileData(
+            url: p.mediaUrl,
+            ratio: _pieceRatio,
+            isVideo: false,
+            isDraft: p.status == 'draft',
+            listing: ProfileTileListing.forPiece(p),
+            piece: p,
+          ),
+      ],
       onPieceTap: onPieceTap,
       onDeletePiece: onDeletePiece,
       onPublishPiece: onPublishPiece,
@@ -96,35 +129,24 @@ class ProfileContentGrid extends StatelessWidget {
     void Function(PostSummary post)? onPublishPost,
     bool showOwnerActions = false,
   }) {
-    final mapped =
-        <
-          ({
-            String? url,
-            double ratio,
-            bool forSale,
-            String? price,
-            bool isVideo,
-            bool isDraft,
-            PostSummary? post,
-            PieceSummary? piece,
-          })
-        >[];
-    for (var i = 0; i < posts.length; i++) {
-      final p = posts[i];
-      mapped.add((
-        url: p.mediaUrl,
-        ratio:
-            kProfileMasonryHeightRatios[i % kProfileMasonryHeightRatios.length],
-        forSale: false,
-        price: null,
-        isVideo: p.isVideo,
-        isDraft: p.status == 'draft',
-        post: p,
-        piece: null,
-      ));
-    }
     return ProfileContentGrid._(
-      items: mapped,
+      items: [
+        for (var i = 0; i < posts.length; i++)
+          _ProfileTileData(
+            // A video's own URL is an .mp4 and can't be drawn as an image —
+            // passing it here painted every video tile black. The server
+            // sends a poster frame for exactly this, which is what Explore
+            // has always used.
+            url: posts[i].isVideo
+                ? (posts[i].thumbnailUrl ?? posts[i].mediaUrl)
+                : posts[i].mediaUrl,
+            ratio: kProfileMasonryHeightRatios[
+                i % kProfileMasonryHeightRatios.length],
+            isVideo: posts[i].isVideo,
+            isDraft: posts[i].status == 'draft',
+            post: posts[i],
+          ),
+      ],
       onPostTap: onPostTap,
       onDeletePost: onDeletePost,
       onPublishPost: onPublishPost,
@@ -140,7 +162,7 @@ class ProfileContentGrid extends StatelessWidget {
   /// position, this scales to large collections without the up-front cost.
   @override
   Widget build(BuildContext context) {
-    if (items.isEmpty) {
+    if (_items.isEmpty) {
       return const SliverToBoxAdapter(child: SizedBox.shrink());
     }
 
@@ -148,19 +170,13 @@ class ProfileContentGrid extends StatelessWidget {
       crossAxisCount: 2,
       mainAxisSpacing: kProfileGutter,
       crossAxisSpacing: kProfileGutter,
-      childCount: items.length,
+      childCount: _items.length,
       itemBuilder: (context, index) {
-        final item = items[index];
-        final colW =
-            (MediaQuery.sizeOf(context).width -
-                kProfileHorizontalPad * 2 -
-                kProfileGutter) /
-            2;
+        final item = _items[index];
         return _MasonryTile(
           url: item.url,
-          height: colW * item.ratio,
-          forSale: item.forSale,
-          price: item.price,
+          ratio: item.ratio,
+          listing: item.listing,
           isVideo: item.isVideo,
           isDraft: item.isDraft,
           onTap: item.post != null
@@ -191,9 +207,8 @@ class ProfileContentGrid extends StatelessWidget {
 class _MasonryTile extends StatelessWidget {
   const _MasonryTile({
     required this.url,
-    required this.height,
-    this.forSale = false,
-    this.price,
+    required this.ratio,
+    this.listing = ProfileTileListing.none,
     this.isVideo = false,
     this.isDraft = false,
     this.onTap,
@@ -202,9 +217,15 @@ class _MasonryTile extends StatelessWidget {
   });
 
   final String? url;
-  final double height;
-  final bool forSale;
-  final String? price;
+
+  /// Tile height as a multiple of its own column width. Applied with
+  /// [AspectRatio] so the tile sizes off the constraint it is actually
+  /// given — it used to derive a pixel height from
+  /// `MediaQuery.sizeOf(context).width` minus the padding the profile
+  /// screen happens to apply, which silently produced the wrong shape
+  /// anywhere that padding differed.
+  final double ratio;
+  final ProfileTileListing listing;
   final bool isVideo;
   final bool isDraft;
   final VoidCallback? onTap;
@@ -274,15 +295,24 @@ class _MasonryTile extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       onLongPress: _hasActions ? () => _showActions(context) : null,
-      child: ClipRRect(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ClipRRect(
         borderRadius: BorderRadius.circular(kProfileCardRadius),
-        child: SizedBox(
-          height: height,
-          width: double.infinity,
+        child: AspectRatio(
+          aspectRatio: 1 / ratio,
           child: Stack(
             fit: StackFit.expand,
             children: [
-              if (url != null && url!.isNotEmpty && !isVideo)
+              // `!isVideo` used to be part of this condition, so a video
+              // tile skipped the image entirely and fell through to the
+              // black box below — every scene video rendered as a black
+              // rectangle with a play button. [url] is the poster frame for
+              // a video, so it draws like any other tile; the black box is
+              // now only the genuine no-image fallback.
+              if (url != null && url!.isNotEmpty)
                 CachedNetworkImage(
                   imageUrl: url!,
                   fit: BoxFit.cover,
@@ -291,11 +321,13 @@ class _MasonryTile extends StatelessWidget {
                               MediaQuery.devicePixelRatioOf(context))
                           .round(),
                   errorWidget: (context, error, stackTrace) => ColoredBox(
-                    color: Colors.grey.shade300,
-                    child: Icon(
-                      Icons.broken_image_outlined,
-                      color: Colors.grey.shade500,
-                    ),
+                    color: isVideo ? Colors.black : Colors.grey.shade300,
+                    child: isVideo
+                        ? null
+                        : Icon(
+                            Icons.broken_image_outlined,
+                            color: Colors.grey.shade500,
+                          ),
                   ),
                 )
               else
@@ -317,29 +349,6 @@ class _MasonryTile extends StatelessWidget {
                       Icons.play_arrow_rounded,
                       color: Colors.white,
                       size: 24,
-                    ),
-                  ),
-                ),
-              if (forSale && price != null)
-                Positioned(
-                  left: 8,
-                  bottom: 8,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.65),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      price!,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
                     ),
                   ),
                 ),
@@ -392,6 +401,47 @@ class _MasonryTile extends StatelessWidget {
             ],
           ),
         ),
+          ),
+          if (listing != ProfileTileListing.none) _ListingLabel(listing: listing),
+        ],
+      ),
+    );
+  }
+}
+
+/// Dot + word under a piece's tile — "Available", "Bidding open", "Sold".
+///
+/// Replaces the price chip that used to sit inside the image. A grid of
+/// prices reads as a shop listing; what matters at a glance on a profile is
+/// simply whether the work can still be had.
+class _ListingLabel extends StatelessWidget {
+  const _ListingLabel({required this.listing});
+
+  final ProfileTileListing listing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, left: 2, bottom: 2),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SvgPicture.asset(listing.iconAsset, width: 8, height: 8),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              listing.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: kProfileGeist(
+                fontSize: 13,
+                color: listing == ProfileTileListing.sold
+                    ? kProfileTextMuted
+                    : HomeFeedTokens.textPrimary,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

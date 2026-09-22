@@ -10,6 +10,8 @@ import '../services/piece_service.dart';
 import '../services/series_service.dart';
 import '../theme/home_feed_tokens.dart';
 import '../widgets/create_flow/create_series_dialog.dart';
+import '../widgets/loading/app_skeletons.dart';
+import '../widgets/loading/section_loader.dart';
 import '../widgets/studio_loading.dart';
 
 class SeriesEditorPage extends StatefulWidget {
@@ -248,8 +250,11 @@ class _SeriesEditorPageState extends State<SeriesEditorPage> {
   Widget build(BuildContext context) {
     final series = _series;
 
+    // The gate covers `_busy` only — a mutation in flight. The initial
+    // fetch leaves the chrome (title bar, back, rename) on screen and
+    // placeholds just the series body.
     return StudioLoadingGate(
-      loading: _loading || _busy,
+      loading: _busy,
       child: Scaffold(
         backgroundColor: HomeFeedTokens.background,
         appBar: AppBar(
@@ -276,9 +281,15 @@ class _SeriesEditorPageState extends State<SeriesEditorPage> {
             ),
           ],
         ),
-        body: series == null
-            ? const SizedBox.shrink()
-            : ListView(
+        body: SectionLoader(
+          hasData: series != null,
+          loading: _loading,
+          skeleton: (_) => const FormSkeleton(
+            fieldCount: 4,
+            padding: EdgeInsets.all(16),
+          ),
+          empty: (_) => const SizedBox.shrink(),
+          content: (_) => ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
                   Text(
@@ -323,6 +334,7 @@ class _SeriesEditorPageState extends State<SeriesEditorPage> {
                     ),
                 ],
               ),
+        ),
       ),
     );
   }

@@ -5,12 +5,16 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../models/user_profile.dart';
 import '../services/api_exception.dart';
 import '../services/auth_service.dart';
 import '../services/auth_session.dart';
 import '../services/user_service.dart';
 import '../theme/home_feed_tokens.dart';
 import '../utils/profile_photo_upload.dart';
+import '../widgets/loading/app_skeletons.dart';
+import '../widgets/loading/section_loader.dart';
+import '../widgets/loading/skeleton_primitives.dart';
 import '../widgets/studio_loading.dart';
 import 'profile_banner_picker_sheet.dart';
 import 'profile_settings_page.dart';
@@ -55,6 +59,30 @@ class _EditProfilePageState extends State<EditProfilePage> {
   int _activeTab = 0; // 0: Identity, 1: Bio & Socials, 2: Hero & Banner
   bool _loading = true;
   bool _saving = false;
+
+  /// Whether the form is populated with the user's real values (from cache
+  /// or from the network) rather than empty placeholders.
+  bool _hasProfile = false;
+
+  /// Set once the user types into any field. A background cache
+  /// revalidation must never overwrite work in progress, so fresh server
+  /// values are only adopted while this is false.
+  bool _userEdited = false;
+
+  /// Guards [_userEdited] against the controller writes [_applyProfile]
+  /// makes itself.
+  bool _applyingProfile = false;
+
+  late final List<TextEditingController> _profileControllers = [
+    _nameController,
+    _bioController,
+    _locationController,
+    _usernameController,
+    _pronounsController,
+    _websiteController,
+    _instagramController,
+    _twitterController,
+  ];
   bool _canChangeUsername = true;
   String? _usernameError;
   String? _profilePhotoUrl;
@@ -76,11 +104,26 @@ class _EditProfilePageState extends State<EditProfilePage> {
   @override
   void initState() {
     super.initState();
+    // Populate from cache first so a revisit opens straight onto the real
+    // form instead of flashing placeholder fields; `_loadProfile` still
+    // runs and reconciles silently.
+    _applyProfile(UserService.instance.peekMeCached());
+    for (final controller in _profileControllers) {
+      controller.addListener(_markEdited);
+    }
     _loadProfile();
+  }
+
+  void _markEdited() {
+    if (_applyingProfile || _userEdited) return;
+    _userEdited = true;
   }
 
   @override
   void dispose() {
+    for (final controller in _profileControllers) {
+      controller.removeListener(_markEdited);
+    }
     _nameController.dispose();
     _bioController.dispose();
     _locationController.dispose();
@@ -107,31 +150,48 @@ class _EditProfilePageState extends State<EditProfilePage> {
     return ((score / total) * 100).round();
   }
 
+  /// Copies [profile] into the form's controllers and local fields.
+  ///
+  /// Not a `setState` itself — callers decide whether they're seeding
+  /// before the first frame or reacting to a later response.
+  void _applyProfile(UserProfile? profile) {
+    if (profile == null) return;
+    _applyingProfile = true;
+    _nameController.text = profile.name;
+    _bioController.text = profile.bio ?? '';
+    _locationController.text = profile.location ?? '';
+    _usernameController.text = profile.username;
+    _pronounsController.text = profile.pronouns ?? '';
+    _websiteController.text = profile.website ?? '';
+    _instagramController.text = profile.instagram ?? '';
+    _twitterController.text = profile.twitter ?? '';
+    _category = profile.category ?? _category;
+    _tags = List<String>.from(profile.tags);
+    _profilePhotoUrl = profile.profilePhotoUrl;
+    _coverPhotoUrl = profile.coverPhotoUrl;
+    _latitude = profile.latitude;
+    _longitude = profile.longitude;
+    _canChangeUsername = profile.canChangeUsername;
+    _username = profile.username;
+    _bannerAutoRule = profile.bannerAutoRule;
+    _bannerTargetType = profile.bannerTargetType;
+    _bannerTargetId = profile.bannerTargetId;
+    _bannerMediaUrl = profile.banner?.mediaUrl;
+    _hasProfile = true;
+    _applyingProfile = false;
+  }
+
   Future<void> _loadProfile() async {
     try {
-      final profile = await UserService.instance.getMe();
+      final profile = await UserService.instance.getMeCached(
+        onBackgroundUpdate: (fresh) {
+          if (!mounted || _userEdited) return;
+          setState(() => _applyProfile(fresh));
+        },
+      );
       if (!mounted) return;
       setState(() {
-        _nameController.text = profile.name;
-        _bioController.text = profile.bio ?? '';
-        _locationController.text = profile.location ?? '';
-        _usernameController.text = profile.username;
-        _pronounsController.text = profile.pronouns ?? '';
-        _websiteController.text = profile.website ?? '';
-        _instagramController.text = profile.instagram ?? '';
-        _twitterController.text = profile.twitter ?? '';
-        _category = profile.category ?? _category;
-        _tags = List<String>.from(profile.tags);
-        _profilePhotoUrl = profile.profilePhotoUrl;
-        _coverPhotoUrl = profile.coverPhotoUrl;
-        _latitude = profile.latitude;
-        _longitude = profile.longitude;
-        _canChangeUsername = profile.canChangeUsername;
-        _username = profile.username;
-        _bannerAutoRule = profile.bannerAutoRule;
-        _bannerTargetType = profile.bannerTargetType;
-        _bannerTargetId = profile.bannerTargetId;
-        _bannerMediaUrl = profile.banner?.mediaUrl;
+        if (!_userEdited) _applyProfile(profile);
         _loading = false;
       });
     } catch (_) {
@@ -271,8 +331,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    // The gate blocks only while a save is in flight (a mutation the user
+    // must not interrupt). The initial GET does not block the page: chrome,
+    // tab nav and the settings footer are static and paint immediately,
+    // while the profile-backed sections placehold individually.
     return StudioLoadingGate(
-      loading: _loading || _saving,
+      loading: _saving,
       child: Scaffold(
         backgroundColor: HomeFeedTokens.detailBackground,
         appBar: AppBar(
@@ -346,14 +410,37 @@ class _EditProfilePageState extends State<EditProfilePage> {
         body: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
           children: [
-            _buildHeroCard(),
+            SectionLoader(
+              hasData: _hasProfile,
+              loading: _loading,
+              skeleton: (_) => const SkeletonShimmer(
+                child: SkeletonBox(height: 216, radius: 18),
+              ),
+              content: (_) => _buildHeroCard(),
+            ),
             const SizedBox(height: 20),
+            // Static: the tabs work — and remember the user's choice —
+            // before any profile data has arrived.
             _buildSegmentedTabNav(),
             const SizedBox(height: 16),
-            if (_activeTab == 0) _buildIdentityTab(),
-            if (_activeTab == 1) _buildBioTab(),
-            if (_activeTab == 2) _buildBannerTab(),
+            SectionLoader(
+              hasData: _hasProfile,
+              loading: _loading,
+              skeleton: (_) => const FormSkeleton(
+                fieldCount: 4,
+                padding: EdgeInsets.zero,
+              ),
+              content: (_) => Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (_activeTab == 0) _buildIdentityTab(),
+                  if (_activeTab == 1) _buildBioTab(),
+                  if (_activeTab == 2) _buildBannerTab(),
+                ],
+              ),
+            ),
             const SizedBox(height: 20),
+            // Static: pure navigation, no backend dependency.
             _buildSettingsFooterCard(),
           ],
         ),

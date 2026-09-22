@@ -1,6 +1,8 @@
 import '../models/event_qr_code.dart';
 import '../models/studio_event.dart';
 import 'api_client.dart';
+import 'cache_service.dart';
+import 'connectivity_service.dart';
 
 /// Events: browsing them, and hosting one.
 ///
@@ -19,9 +21,41 @@ class EventService {
   // --- browsing -------------------------------------------------------------------------
 
   /// The whole events tab in one request. Works signed out — entry is free and open.
+  static const _browseKey = 'events.browse';
+
   Future<EventBrowse> browse() async {
     final json = await _api.get('/api/events/browse', auth: true);
     return EventBrowse.fromJson(_api.extractData(json) as Map<String, dynamic>);
+  }
+
+  /// Cache-first browse payload, so returning to the Events tab paints the
+  /// last known line-up immediately and revalidates behind it.
+  Future<EventBrowse> browseCached({
+    bool forceRefresh = false,
+    void Function(EventBrowse fresh)? onBackgroundUpdate,
+  }) {
+    return CacheService.instance.fetchWithCache<EventBrowse>(
+      key: _browseKey,
+      ttl: const Duration(minutes: 3),
+      forceRefresh: forceRefresh,
+      fetchRaw: () {
+        if (!ConnectivityService.instance.isOnline) {
+          throw const CacheMiss(_browseKey);
+        }
+        return _api.get('/api/events/browse', auth: true);
+      },
+      parse: (json) =>
+          EventBrowse.fromJson(_api.extractData(json) as Map<String, dynamic>),
+      onBackgroundUpdate: onBackgroundUpdate,
+    );
+  }
+
+  EventBrowse? peekBrowseCached() {
+    return CacheService.instance.peekCache<EventBrowse>(
+      key: _browseKey,
+      parse: (json) =>
+          EventBrowse.fromJson(_api.extractData(json) as Map<String, dynamic>),
+    );
   }
 
   /// One slice of the list. [scope] is `upcoming` (the default), `today`, `following` or

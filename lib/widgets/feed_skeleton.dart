@@ -1,29 +1,28 @@
 import 'package:flutter/material.dart';
-import 'package:shimmer/shimmer.dart';
 
 import '../theme/explore_tokens.dart';
 import '../theme/home_feed_tokens.dart';
 import '../utils/image_aspect_ratio_resolver.dart';
+import 'loading/skeleton_primitives.dart';
 
-/// Wraps a skeleton's placeholder blocks in an animated shimmer sweep —
-/// shared by every skeleton below so first-load placeholders read as
-/// "loading" rather than a static gray blob.
+/// Feed-shaped skeletons. These are section placeholders under the app's
+/// loading rule (see `loading/skeleton_primitives.dart`) — they stand in
+/// for a feed that has no cached or loaded items yet, never for a feed
+/// that is merely refreshing.
 ///
-/// [highlightColor] must be visibly lighter than [baseColor] — the sweep
-/// reads as a bright highlight crossing the placeholder shape, not a dimmer
-/// version of the same faint tint (which just fades toward the page
-/// background and stops looking like a shimmer at all).
+/// The shimmer sweep itself lives in [SkeletonShimmer] so every
+/// placeholder in the app animates identically; this thin wrapper keeps
+/// the existing call sites below unchanged.
 Widget _shimmer(
   Widget child, {
   required Color baseColor,
   required Color highlightColor,
   Duration period = const Duration(milliseconds: 1400),
 }) {
-  return Shimmer.fromColors(
-    baseColor: baseColor,
-    highlightColor: highlightColor,
+  return SkeletonShimmer(
+    base: baseColor,
+    highlight: highlightColor,
     period: period,
-    direction: ShimmerDirection.ltr,
     child: child,
   );
 }

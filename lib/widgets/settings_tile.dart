@@ -11,14 +11,18 @@ class SettingsTile extends StatelessWidget {
     super.key,
     required this.icon,
     required this.label,
-    required this.onTap,
+    this.onTap,
     this.destructive = false,
     this.trailing,
   });
 
   final IconData icon;
   final String label;
-  final VoidCallback onTap;
+
+  /// Null makes the row inert — no ripple, no navigation. Used while a
+  /// row's destination depends on state that hasn't loaded yet, so the
+  /// tile can render without committing to an answer.
+  final VoidCallback? onTap;
   final bool destructive;
 
   /// Overrides the trailing chevron (e.g. a pending-count badge).

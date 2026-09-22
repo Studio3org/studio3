@@ -7,8 +7,8 @@ import '../services/social_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/home_feed_tokens.dart';
 import '../widgets/glass_card.dart';
+import '../widgets/loading/app_skeletons.dart';
 import '../widgets/offline_state.dart';
-import '../widgets/studio_loading.dart';
 
 class MyReportsPage extends StatefulWidget {
   const MyReportsPage({super.key});
@@ -91,7 +91,7 @@ class _MyReportsPageState extends State<MyReportsPage> {
       return OfflineState(onRetry: _load);
     }
     if (_loading && _reports.isEmpty) {
-      return const StudioLoadingBody();
+      return const CardListSkeleton(height: 108);
     }
     if (_reports.isEmpty) {
       return Center(
