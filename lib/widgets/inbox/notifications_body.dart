@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/notification_item.dart';
 import '../../services/chat_socket_service.dart';
@@ -13,6 +12,7 @@ import '../feed_skeleton.dart';
 import '../glass_card.dart';
 import '../home_feed/home_feed_widgets.dart';
 import '../offline_state.dart';
+import '../../theme/app_fonts.dart';
 
 /// Notifications list content for the Inbox page's "Notifications" tab —
 /// extracted from the former standalone NotificationsPage, minus its own
@@ -182,7 +182,7 @@ class NotificationsBodyState extends State<NotificationsBody> {
       return Center(
         child: Text(
           'No activity yet',
-          style: GoogleFonts.inter(fontSize: 14, color: AppColors.slate400),
+          style: AppFonts.inter(fontSize: 14, color: AppColors.slate400),
         ),
       );
     }
@@ -241,7 +241,7 @@ class _SectionLabel extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
       child: Text(
         label,
-        style: GoogleFonts.inter(
+        style: AppFonts.inter(
           fontSize: 12,
           fontWeight: FontWeight.w500,
           color: AppColors.slate400,
@@ -287,7 +287,7 @@ class _ActivityCard extends StatelessWidget {
                 children: [
                   Text(
                     '${item.actorDisplayName} ',
-                    style: GoogleFonts.inter(
+                    style: AppFonts.inter(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: AppColors.slate900,
@@ -295,7 +295,7 @@ class _ActivityCard extends StatelessWidget {
                   ),
                   Text(
                     item.displayText,
-                    style: GoogleFonts.inter(
+                    style: AppFonts.inter(
                       fontSize: 14,
                       color: AppColors.slate700,
                     ),
@@ -334,7 +334,7 @@ class _ActivityCard extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               _timeAgo(item.createdAt),
-              style: GoogleFonts.inter(fontSize: 11, color: AppColors.slate400),
+              style: AppFonts.inter(fontSize: 11, color: AppColors.slate400),
             ),
           ],
         ),
@@ -366,7 +366,7 @@ class _Pill extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: GoogleFonts.inter(
+        style: AppFonts.inter(
           fontSize: 11,
           fontWeight: bold ? FontWeight.w600 : FontWeight.w400,
           color: textColor,

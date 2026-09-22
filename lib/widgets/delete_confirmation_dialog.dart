@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/home_feed_tokens.dart';
+import '../theme/app_fonts.dart';
 
 /// Returns `true` if the user confirmed deletion, `false`/`null` otherwise.
 Future<bool?> showDeleteConfirmationDialog(
@@ -14,7 +14,7 @@ Future<bool?> showDeleteConfirmationDialog(
       backgroundColor: const Color(0xFF1A1A1A),
       title: Text(
         'Delete $itemLabel?',
-        style: GoogleFonts.inter(
+        style: AppFonts.inter(
           fontSize: 18,
           fontWeight: FontWeight.w600,
           color: HomeFeedTokens.textInverse,
@@ -22,7 +22,7 @@ Future<bool?> showDeleteConfirmationDialog(
       ),
       content: Text(
         'This can\'t be undone. Your $itemLabel will be permanently removed.',
-        style: GoogleFonts.inter(
+        style: AppFonts.inter(
           fontSize: 14,
           color: HomeFeedTokens.textInverse.withValues(alpha: 0.75),
           height: 1.4,
@@ -33,14 +33,14 @@ Future<bool?> showDeleteConfirmationDialog(
           onPressed: () => Navigator.pop(context, false),
           child: Text(
             'Cancel',
-            style: GoogleFonts.inter(color: HomeFeedTokens.textInverse.withValues(alpha: 0.6)),
+            style: AppFonts.inter(color: HomeFeedTokens.textInverse.withValues(alpha: 0.6)),
           ),
         ),
         TextButton(
           onPressed: () => Navigator.pop(context, true),
           child: Text(
             'Delete',
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontWeight: FontWeight.w600,
               color: const Color(0xFFE05252),
             ),

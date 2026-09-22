@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/report_reason.dart';
 import '../../theme/collect_detail_tokens.dart';
 import '../../theme/home_feed_tokens.dart';
+import '../../theme/app_fonts.dart';
 
 /// Result of [ReportReasonSheet.show]: the chosen reason value, plus optional
 /// free-text details (only ever set for [ReportReason.other]).
@@ -83,7 +83,7 @@ class _ReportReasonSheetState extends State<ReportReasonSheet> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Text(
               widget.title,
-              style: GoogleFonts.geist(
+              style: AppFonts.geist(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
                 color: CollectDetailTokens.textPrimary,
@@ -102,7 +102,7 @@ class _ReportReasonSheetState extends State<ReportReasonSheet> {
               },
               title: Text(
                 reason.label,
-                style: GoogleFonts.geist(
+                style: AppFonts.geist(
                   fontSize: 16,
                   fontWeight: FontWeight.w400,
                   color: CollectDetailTokens.textPrimary,
@@ -134,7 +134,7 @@ class _ReportReasonSheetState extends State<ReportReasonSheet> {
           const SizedBox(height: 12),
           Text(
             'Tell us more',
-            style: GoogleFonts.geist(
+            style: AppFonts.geist(
               fontSize: 16,
               fontWeight: FontWeight.w500,
               color: CollectDetailTokens.textPrimary,
@@ -146,7 +146,7 @@ class _ReportReasonSheetState extends State<ReportReasonSheet> {
             autofocus: true,
             maxLength: 1000,
             maxLines: 4,
-            style: GoogleFonts.geist(fontSize: 14),
+            style: AppFonts.geist(fontSize: 14),
             decoration: const InputDecoration(
               hintText: 'What\'s going on? (optional)',
               border: OutlineInputBorder(),
@@ -173,7 +173,7 @@ class _ReportReasonSheetState extends State<ReportReasonSheet> {
                 ),
                 child: Text(
                   'Submit report',
-                  style: GoogleFonts.geist(color: const Color(0xFFC45C4A)),
+                  style: AppFonts.geist(color: const Color(0xFFC45C4A)),
                 ),
               ),
             ],

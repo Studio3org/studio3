@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../models/auth_user.dart';
 import '../widgets/auth_ui.dart';
+import '../theme/app_fonts.dart';
 
 class WelcomePage extends StatelessWidget {
   const WelcomePage({super.key, required this.user});
@@ -27,7 +27,7 @@ class WelcomePage extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               'Start discovering art, collecting stories, and sharing your creative journey.',
-              style: GoogleFonts.inter(fontSize: 14, color: AuthColors.textDim, height: 1.5),
+              style: AppFonts.inter(fontSize: 14, color: AuthColors.textDim, height: 1.5),
             ),
             const SizedBox(height: 32),
             AuthPrimaryButton(

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/bid.dart';
 import '../../theme/collect_detail_tokens.dart';
+import '../../theme/app_fonts.dart';
 
 /// "You're the highest bidder" confirmation — Figma "Piece detail - bid" flow, screen 3.
 class PlaceBidConfirmationSheet extends StatelessWidget {
@@ -54,7 +54,7 @@ class PlaceBidConfirmationSheet extends StatelessWidget {
                 // they lead when they do not is how a collector stops watching an auction
                 // they are losing.
                 bid.isLeading ? "You're the highest bidder" : "You've already been outbid",
-                style: GoogleFonts.inter(
+                style: AppFonts.inter(
                   fontSize: 20,
                   fontWeight: FontWeight.w600,
                   color: CollectDetailTokens.textPrimary,
@@ -68,7 +68,7 @@ class PlaceBidConfirmationSheet extends StatelessWidget {
                     : 'Your bid of ${formatMoney(bid.amountCents)} was placed, but someone '
                         'has since bid higher. Your hold still stands — raise your bid to '
                         'get back in front.',
-                style: GoogleFonts.inter(
+                style: AppFonts.inter(
                   fontSize: 13,
                   color: CollectDetailTokens.textSecondary,
                 ),
@@ -90,7 +90,7 @@ class PlaceBidConfirmationSheet extends StatelessWidget {
                     child: Center(
                       child: Text(
                         'Back to piece',
-                        style: GoogleFonts.inter(
+                        style: AppFonts.inter(
                           fontSize: 16,
                           fontWeight: FontWeight.w400,
                           color: CollectDetailTokens.textInverse,

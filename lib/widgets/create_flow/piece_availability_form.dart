@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../screens/profile/profile_constants.dart';
 import '../../theme/home_feed_tokens.dart';
+import '../../theme/app_fonts.dart';
 
 /// Figma 2716:6338 — piece posting Availability tab (not used for scenes).
 class PieceAvailabilityForm extends StatelessWidget {
@@ -287,7 +287,7 @@ class _PriceField extends StatelessWidget {
           FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
         ],
         cursorColor: HomeFeedTokens.neutral800,
-        style: GoogleFonts.geist(
+        style: AppFonts.geist(
           fontSize: 13,
           fontWeight: FontWeight.w300,
           color: HomeFeedTokens.neutral800,
@@ -297,13 +297,13 @@ class _PriceField extends StatelessWidget {
           border: InputBorder.none,
           contentPadding: EdgeInsets.zero,
           prefixText: '\$ ',
-          prefixStyle: GoogleFonts.geist(
+          prefixStyle: AppFonts.geist(
             fontSize: 13,
             fontWeight: FontWeight.w300,
             color: HomeFeedTokens.neutral800,
           ),
           hintText: '0',
-          hintStyle: GoogleFonts.geist(
+          hintStyle: AppFonts.geist(
             fontSize: 13,
             fontWeight: FontWeight.w300,
             color: HomeFeedTokens.neutral800.withValues(alpha: 0.45),

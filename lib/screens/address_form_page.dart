@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../models/address.dart';
 import '../models/collect_shipping_address.dart' show kUsStateNames, kUsStates;
@@ -12,6 +11,7 @@ import '../theme/home_feed_tokens.dart';
 import '../utils/address_validators.dart';
 import '../utils/auth_validators.dart';
 import '../utils/save_reconciliation.dart';
+import '../theme/app_fonts.dart';
 
 class AddressFormPage extends StatefulWidget {
   const AddressFormPage({super.key, this.existing});
@@ -212,7 +212,7 @@ class _AddressFormPageState extends State<AddressFormPage> {
         centerTitle: true,
         title: Text(
           _isEdit ? 'Edit address' : 'Add address',
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 18,
             fontWeight: FontWeight.w600,
             color: HomeFeedTokens.textPrimary,
@@ -342,7 +342,7 @@ class _AddressFormPageState extends State<AddressFormPage> {
             const SizedBox(height: 8),
             Text(
               _error!,
-              style: GoogleFonts.inter(fontSize: 12, color: Colors.red.shade700),
+              style: AppFonts.inter(fontSize: 12, color: Colors.red.shade700),
             ),
           ],
           const SizedBox(height: 24),

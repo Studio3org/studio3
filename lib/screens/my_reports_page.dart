@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../models/report_reason.dart';
 import '../models/user_report.dart';
@@ -9,6 +8,7 @@ import '../theme/home_feed_tokens.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/loading/app_skeletons.dart';
 import '../widgets/offline_state.dart';
+import '../theme/app_fonts.dart';
 
 class MyReportsPage extends StatefulWidget {
   const MyReportsPage({super.key});
@@ -75,7 +75,7 @@ class _MyReportsPageState extends State<MyReportsPage> {
         elevation: 0,
         title: Text(
           'My reports',
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 18,
             fontWeight: FontWeight.w600,
             color: HomeFeedTokens.textPrimary,
@@ -97,7 +97,7 @@ class _MyReportsPageState extends State<MyReportsPage> {
       return Center(
         child: Text(
           'No reports submitted',
-          style: GoogleFonts.inter(fontSize: 14, color: AppColors.slate400),
+          style: AppFonts.inter(fontSize: 14, color: AppColors.slate400),
         ),
       );
     }
@@ -120,7 +120,7 @@ class _MyReportsPageState extends State<MyReportsPage> {
                       children: [
                         Text(
                           report.targetLabel,
-                          style: GoogleFonts.inter(
+                          style: AppFonts.inter(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                           ),
@@ -128,7 +128,7 @@ class _MyReportsPageState extends State<MyReportsPage> {
                         const SizedBox(height: 2),
                         Text(
                           _reasonLabel(report.reason),
-                          style: GoogleFonts.inter(
+                          style: AppFonts.inter(
                             fontSize: 12,
                             color: AppColors.slate500,
                           ),
@@ -147,7 +147,7 @@ class _MyReportsPageState extends State<MyReportsPage> {
                     ),
                     child: Text(
                       report.status[0].toUpperCase() + report.status.substring(1),
-                      style: GoogleFonts.inter(
+                      style: AppFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
                         color: _statusColor(report.status),

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../data/post_media_assets.dart';
 import '../../models/listing_details.dart';
 import '../../theme/home_feed_tokens.dart';
 import '../choose_location_sheet.dart';
 import 'create_flow_widgets.dart';
+import '../../theme/app_fonts.dart';
 
 /// Inline listing + general artwork-detail fields for piece creation.
 ///
@@ -188,7 +188,7 @@ class ListingDetailsFormState extends State<ListingDetailsForm> {
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                       child: Text(
                         'Enter a valid price greater than 0',
-                        style: GoogleFonts.inter(
+                        style: AppFonts.inter(
                           fontSize: 11,
                           color: _textSecondary,
                         ),
@@ -200,7 +200,7 @@ class ListingDetailsFormState extends State<ListingDetailsForm> {
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                       child: Text(
                         'Required to list for sale',
-                        style: GoogleFonts.inter(
+                        style: AppFonts.inter(
                           fontSize: 11,
                           color: _textSecondary,
                         ),
@@ -232,7 +232,7 @@ class ListingDetailsFormState extends State<ListingDetailsForm> {
                   padding: const EdgeInsets.symmetric(horizontal: 6),
                   child: Text(
                     '×',
-                    style: GoogleFonts.inter(fontSize: 14, color: _textSecondary),
+                    style: AppFonts.inter(fontSize: 14, color: _textSecondary),
                   ),
                 ),
                 Expanded(
@@ -246,7 +246,7 @@ class ListingDetailsFormState extends State<ListingDetailsForm> {
                   padding: const EdgeInsets.symmetric(horizontal: 6),
                   child: Text(
                     '×',
-                    style: GoogleFonts.inter(fontSize: 14, color: _textSecondary),
+                    style: AppFonts.inter(fontSize: 14, color: _textSecondary),
                   ),
                 ),
                 Expanded(
@@ -313,7 +313,7 @@ class ListingDetailsFormState extends State<ListingDetailsForm> {
               children: [
                 Text(
                   'Shipping details',
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                     color: HomeFeedTokens.textPrimary,
@@ -323,7 +323,7 @@ class ListingDetailsFormState extends State<ListingDetailsForm> {
                 Text(
                   'Measure the packed crate or box, not the artwork — couriers '
                   'quote on what actually ships.',
-                  style: GoogleFonts.inter(fontSize: 11, color: _textSecondary),
+                  style: AppFonts.inter(fontSize: 11, color: _textSecondary),
                 ),
               ],
             ),
@@ -353,7 +353,7 @@ class ListingDetailsFormState extends State<ListingDetailsForm> {
                   padding: const EdgeInsets.symmetric(horizontal: 6),
                   child: Text(
                     '×',
-                    style: GoogleFonts.inter(fontSize: 14, color: _textSecondary),
+                    style: AppFonts.inter(fontSize: 14, color: _textSecondary),
                   ),
                 ),
                 Expanded(
@@ -368,7 +368,7 @@ class ListingDetailsFormState extends State<ListingDetailsForm> {
                   padding: const EdgeInsets.symmetric(horizontal: 6),
                   child: Text(
                     '×',
-                    style: GoogleFonts.inter(fontSize: 14, color: _textSecondary),
+                    style: AppFonts.inter(fontSize: 14, color: _textSecondary),
                   ),
                 ),
                 Expanded(
@@ -421,7 +421,7 @@ class ListingDetailsFormState extends State<ListingDetailsForm> {
             padding: const EdgeInsets.fromLTRB(24, 6, 16, 0),
             child: Text(
               'Used for customs and insurance if the work is damaged in transit.',
-              style: GoogleFonts.inter(fontSize: 11, color: _textSecondary),
+              style: AppFonts.inter(fontSize: 11, color: _textSecondary),
             ),
           ),
         ],
@@ -517,7 +517,7 @@ class _UnitChip extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 13,
             fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
             color: selected ? HomeFeedTokens.textPrimary : _textSecondary,

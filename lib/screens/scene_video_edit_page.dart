@@ -3,12 +3,12 @@ import 'dart:typed_data';
 
 import 'package:easy_video_editor/easy_video_editor.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:video_player/video_player.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
 
 import '../theme/home_feed_tokens.dart';
 import '../widgets/create_flow/scene_video_tracks.dart';
+import '../theme/app_fonts.dart';
 
 /// Scene video Edit (Figma 2761:12111) — trim + mute, then Next.
 class SceneVideoEditPage extends StatefulWidget {
@@ -208,7 +208,7 @@ class _SceneVideoEditPageState extends State<SceneVideoEditPage> {
                                   ),
                                   child: Text(
                                     '${_format(pos)}/${_format(total)}',
-                                    style: GoogleFonts.geist(
+                                    style: AppFonts.geist(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w400,
                                       color: HomeFeedTokens.textInverse,
@@ -229,7 +229,7 @@ class _SceneVideoEditPageState extends State<SceneVideoEditPage> {
                       children: [
                         Text(
                           'Drag the edges to trim',
-                          style: GoogleFonts.geist(
+                          style: AppFonts.geist(
                             fontSize: 12,
                             fontWeight: FontWeight.w400,
                             color: HomeFeedTokens.textSecondary,
@@ -264,7 +264,7 @@ class _SceneVideoEditPageState extends State<SceneVideoEditPage> {
                       children: [
                         Text(
                           'Mute audio',
-                          style: GoogleFonts.geist(
+                          style: AppFonts.geist(
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
                             color: HomeFeedTokens.textPrimary,

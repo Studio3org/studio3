@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../services/chat_service.dart';
 import '../services/notification_service.dart';
@@ -10,6 +9,7 @@ import '../widgets/home_feed/home_feed_widgets.dart';
 import '../widgets/inbox/chats_body.dart';
 import '../widgets/inbox/follow_requests_body.dart';
 import '../widgets/inbox/notifications_body.dart';
+import '../theme/app_fonts.dart';
 
 enum InboxTab { notifications, chats, requests }
 
@@ -230,7 +230,7 @@ class _CountBadge extends StatelessWidget {
       alignment: Alignment.center,
       child: Text(
         count > 9 ? '9+' : '$count',
-        style: GoogleFonts.inter(
+        style: AppFonts.inter(
           fontSize: 9,
           fontWeight: FontWeight.w600,
           color: Colors.white,

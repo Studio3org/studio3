@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/home_feed_tokens.dart';
+import '../theme/app_fonts.dart';
 
 /// Follow relationship from the viewer to a profile/artist — a private
 /// account yields [pending] instead of jumping straight to [following].
@@ -92,12 +92,12 @@ class FollowButton extends StatelessWidget {
                   : Text(
                       label,
                       style: figmaDetail
-                          ? GoogleFonts.geist(
+                          ? AppFonts.geist(
                               fontSize: 12,
                               fontWeight: FontWeight.w400,
                               color: labelColor,
                             )
-                          : GoogleFonts.inter(
+                          : AppFonts.inter(
                               fontSize: dense ? 12 : 15,
                               fontWeight:
                                   dense ? FontWeight.w500 : FontWeight.w600,

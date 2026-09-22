@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../services/api_exception.dart';
 import '../../services/chat_service.dart';
 import '../../theme/collect_detail_tokens.dart';
+import '../../theme/app_fonts.dart';
 
 /// Compose sheet for messaging an artist about one of their pieces.
 ///
@@ -102,7 +102,7 @@ class _AskAboutPieceSheetState extends State<AskAboutPieceSheet> {
               children: [
                 Text(
                   'Ask about this piece',
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
                     color: CollectDetailTokens.textPrimary,
@@ -114,13 +114,13 @@ class _AskAboutPieceSheetState extends State<AskAboutPieceSheet> {
                   autofocus: true,
                   maxLines: 4,
                   minLines: 3,
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 14,
                     color: CollectDetailTokens.textPrimary,
                   ),
                   decoration: InputDecoration(
                     hintText: 'Ask the artist a question…',
-                    hintStyle: GoogleFonts.inter(
+                    hintStyle: AppFonts.inter(
                       fontSize: 14,
                       color: CollectDetailTokens.textSecondary,
                     ),
@@ -136,7 +136,7 @@ class _AskAboutPieceSheetState extends State<AskAboutPieceSheet> {
                   const SizedBox(height: 8),
                   Text(
                     _error!,
-                    style: GoogleFonts.inter(fontSize: 12, color: Colors.red.shade300),
+                    style: AppFonts.inter(fontSize: 12, color: Colors.red.shade300),
                   ),
                 ],
                 const SizedBox(height: 16),
@@ -167,7 +167,7 @@ class _AskAboutPieceSheetState extends State<AskAboutPieceSheet> {
                               )
                             : Text(
                                 'Send',
-                                style: GoogleFonts.inter(
+                                style: AppFonts.inter(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w400,
                                   color: CollectDetailTokens.textInverse,

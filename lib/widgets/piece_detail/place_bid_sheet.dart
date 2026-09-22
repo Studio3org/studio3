@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/feed_preview_item.dart';
 import '../../models/saved_card.dart';
@@ -13,6 +12,7 @@ import '../../utils/auction_time.dart';
 import '../home_feed/home_feed_widgets.dart';
 import 'bid_card_picker_sheet.dart';
 import 'place_bid_confirmation_sheet.dart';
+import '../../theme/app_fonts.dart';
 
 /// Bid-amount sheet — Figma "Piece detail - bid" (2707:3664) flow, screens 1-2.
 class PlaceBidSheet extends StatefulWidget {
@@ -244,7 +244,7 @@ class _PlaceBidSheetState extends State<PlaceBidSheet> {
                     const SizedBox(height: 24),
                     Text(
                       'Bid amount',
-                      style: GoogleFonts.inter(
+                      style: AppFonts.inter(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
                         color: CollectDetailTokens.textSecondary,
@@ -256,7 +256,7 @@ class _PlaceBidSheetState extends State<PlaceBidSheet> {
                       keyboardType: TextInputType.number,
                       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                       onChanged: (_) => setState(() => _error = null),
-                      style: GoogleFonts.inter(
+                      style: AppFonts.inter(
                         fontSize: 32,
                         fontWeight: FontWeight.w400,
                         color: CollectDetailTokens.textPrimary,
@@ -269,7 +269,7 @@ class _PlaceBidSheetState extends State<PlaceBidSheet> {
                     const SizedBox(height: 8),
                     Text(
                       _minimumHint,
-                      style: GoogleFonts.inter(
+                      style: AppFonts.inter(
                         fontSize: 12,
                         color: CollectDetailTokens.textSecondary,
                       ),
@@ -290,7 +290,7 @@ class _PlaceBidSheetState extends State<PlaceBidSheet> {
                       // taken if they win.
                       'We place a hold for your bid amount. Nothing is charged unless you '
                       'win — shipping and tax are added afterwards.',
-                      style: GoogleFonts.inter(
+                      style: AppFonts.inter(
                         fontSize: 12,
                         height: 1.4,
                         color: CollectDetailTokens.textSecondary,
@@ -347,7 +347,7 @@ class _Header extends StatelessWidget {
             ),
             Text(
               'Place a bid',
-              style: GoogleFonts.inter(
+              style: AppFonts.inter(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
                 color: CollectDetailTokens.textPrimary,
@@ -409,7 +409,7 @@ class _PieceSummaryCard extends StatelessWidget {
                         title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.inter(
+                        style: AppFonts.inter(
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
                           color: CollectDetailTokens.textPrimary,
@@ -418,7 +418,7 @@ class _PieceSummaryCard extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         artistName,
-                        style: GoogleFonts.inter(
+                        style: AppFonts.inter(
                           fontSize: 13,
                           color: CollectDetailTokens.textSecondary,
                         ),
@@ -439,7 +439,7 @@ class _PieceSummaryCard extends StatelessWidget {
                     children: [
                       Text(
                         bidCount > 0 ? 'Current bid · $bidCount bids' : 'Starting bid',
-                        style: GoogleFonts.inter(
+                        style: AppFonts.inter(
                           fontSize: 12,
                           color: CollectDetailTokens.textSecondary,
                         ),
@@ -447,7 +447,7 @@ class _PieceSummaryCard extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         bidDisplay,
-                        style: GoogleFonts.inter(
+                        style: AppFonts.inter(
                           fontSize: 16,
                           color: CollectDetailTokens.textPrimary,
                         ),
@@ -461,7 +461,7 @@ class _PieceSummaryCard extends StatelessWidget {
                     children: [
                       Text(
                         'Time remaining',
-                        style: GoogleFonts.inter(
+                        style: AppFonts.inter(
                           fontSize: 12,
                           color: CollectDetailTokens.textSecondary,
                         ),
@@ -469,7 +469,7 @@ class _PieceSummaryCard extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         timeRemaining!,
-                        style: GoogleFonts.inter(
+                        style: AppFonts.inter(
                           fontSize: 16,
                           color: CollectDetailTokens.statusError,
                         ),
@@ -516,7 +516,7 @@ class _PlaceBidCta extends StatelessWidget {
                   )
                 : Text(
                     'Place bid',
-                    style: GoogleFonts.inter(
+                    style: AppFonts.inter(
                       fontSize: 16,
                       fontWeight: FontWeight.w400,
                       color: CollectDetailTokens.textInverse,
@@ -564,7 +564,7 @@ class _CardRow extends StatelessWidget {
               Expanded(
                 child: Text(
                   label,
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 15,
                     color: hasCard
                         ? CollectDetailTokens.textPrimary
@@ -581,7 +581,7 @@ class _CardRow extends StatelessWidget {
               else
                 Text(
                   hasCard ? 'Change' : 'Add',
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                     color: CollectDetailTokens.textPrimary,
@@ -625,7 +625,7 @@ class _ErrorBanner extends StatelessWidget {
           Expanded(
             child: Text(
               message,
-              style: GoogleFonts.inter(
+              style: AppFonts.inter(
                 fontSize: 13,
                 height: 1.4,
                 color: CollectDetailTokens.textPrimary,

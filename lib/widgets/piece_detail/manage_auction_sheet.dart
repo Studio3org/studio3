@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/auction_summary.dart';
 import '../../services/api_exception.dart';
 import '../../services/bid_service.dart';
 import '../../theme/collect_detail_tokens.dart';
+import '../../theme/app_fonts.dart';
 
 /// What a seller can do to their own running or finished auction.
 ///
@@ -91,14 +91,14 @@ class _ManageAuctionSheetState extends State<ManageAuctionSheet> {
     return showDialog<int>(
       context: context,
       builder: (context) => SimpleDialog(
-        title: Text('Extend by', style: GoogleFonts.inter(fontSize: 16)),
+        title: Text('Extend by', style: AppFonts.inter(fontSize: 16)),
         children: [
           for (final days in [1, 2, 3])
             SimpleDialogOption(
               onPressed: () => Navigator.pop(context, days),
               child: Text(
                 days == 1 ? '1 day' : '$days days',
-                style: GoogleFonts.inter(fontSize: 15),
+                style: AppFonts.inter(fontSize: 15),
               ),
             ),
         ],
@@ -110,13 +110,13 @@ class _ManageAuctionSheetState extends State<ManageAuctionSheet> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Cancel this auction?', style: GoogleFonts.inter(fontSize: 17)),
+        title: Text('Cancel this auction?', style: AppFonts.inter(fontSize: 17)),
         content: Text(
           auction.bidCount == 0
               ? 'The piece will be delisted. You can list it again at any time.'
               : 'Every one of the ${auction.bidCount} bids will be cancelled and those '
                   'bidders refunded. They will be told you withdrew the piece.',
-          style: GoogleFonts.inter(fontSize: 14, height: 1.4),
+          style: AppFonts.inter(fontSize: 14, height: 1.4),
         ),
         actions: [
           TextButton(
@@ -164,7 +164,7 @@ class _ManageAuctionSheetState extends State<ManageAuctionSheet> {
             children: [
               Text(
                 'Manage auction',
-                style: GoogleFonts.inter(
+                style: AppFonts.inter(
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
                   color: CollectDetailTokens.textPrimary,
@@ -173,7 +173,7 @@ class _ManageAuctionSheetState extends State<ManageAuctionSheet> {
               const SizedBox(height: 4),
               Text(
                 _statusLine(),
-                style: GoogleFonts.inter(
+                style: AppFonts.inter(
                   fontSize: 13,
                   height: 1.4,
                   color: CollectDetailTokens.textSecondary,
@@ -210,7 +210,7 @@ class _ManageAuctionSheetState extends State<ManageAuctionSheet> {
               if (!canExtend && !canCancel && !canRelist)
                 Text(
                   'There is nothing to change on this auction.',
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 14,
                     color: CollectDetailTokens.textSecondary,
                   ),
@@ -219,7 +219,7 @@ class _ManageAuctionSheetState extends State<ManageAuctionSheet> {
                 const SizedBox(height: 12),
                 Text(
                   _error!,
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 13,
                     color: CollectDetailTokens.statusError,
                   ),
@@ -290,7 +290,7 @@ class _ActionRow extends StatelessWidget {
               children: [
                 Text(
                   label,
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
                     color: enabled ? color : color.withValues(alpha: 0.4),
@@ -299,7 +299,7 @@ class _ActionRow extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   detail,
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 12,
                     height: 1.4,
                     color: CollectDetailTokens.textSecondary,

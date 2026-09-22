@@ -4,13 +4,13 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../data/post_media_assets.dart';
 import '../models/post_image_transform.dart';
 import '../theme/home_feed_tokens.dart';
 import '../utils/crop_cover_math.dart';
 import '../widgets/post_crop_preview.dart';
+import '../theme/app_fonts.dart';
 
 enum _SceneEditTool { size, crop, adjust }
 
@@ -237,7 +237,7 @@ class _SceneEditPageState extends State<SceneEditPage> {
     });
   }
 
-  TextStyle get _bannerStyle => GoogleFonts.geist(
+  TextStyle get _bannerStyle => AppFonts.geist(
     fontSize: 16,
     fontWeight: FontWeight.w500,
     color: HomeFeedTokens.textPrimary,
@@ -671,7 +671,7 @@ class _LabeledIcon extends StatelessWidget {
           SvgPicture.asset(asset, width: 32, height: 32),
           Text(
             label,
-            style: GoogleFonts.geist(
+            style: AppFonts.geist(
               fontSize: 10,
               fontWeight: FontWeight.w500,
               color: HomeFeedTokens.textPrimary,
@@ -734,7 +734,7 @@ class _AspectChip extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: GoogleFonts.geist(
+          style: AppFonts.geist(
             fontSize: 13,
             fontWeight: FontWeight.w500,
             color: selected
@@ -790,7 +790,7 @@ class _AdjustValueOverlay extends StatelessWidget {
         ),
         child: Text(
           text,
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 28,
             fontWeight: FontWeight.w500,
             color: HomeFeedTokens.textInverse,

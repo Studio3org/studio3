@@ -5,7 +5,6 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:photo_manager/photo_manager.dart';
 
 import '../data/post_media_assets.dart';
@@ -16,6 +15,7 @@ import '../utils/crop_cover_math.dart'
 import '../utils/image_adjust_math.dart';
 import '../widgets/post_crop_preview.dart';
 import 'piece_scene_style_editor.dart';
+import '../theme/app_fonts.dart';
 
 part 'post_image_editor_page.dart';
 
@@ -712,7 +712,7 @@ class _PostEditPageState extends State<PostEditPage> {
                   const SizedBox(height: 8),
                   Text(
                     'Drag to reorder',
-                    style: GoogleFonts.inter(
+                    style: AppFonts.inter(
                       fontSize: 12,
                       fontWeight: FontWeight.w400,
                       color: HomeFeedTokens.textSecondary,
@@ -854,7 +854,7 @@ class _EditResetDoneRow extends StatelessWidget {
           behavior: HitTestBehavior.opaque,
           child: Text(
             'RESET',
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 11,
               fontWeight: FontWeight.w500,
               color: _errorRed,
@@ -867,7 +867,7 @@ class _EditResetDoneRow extends StatelessWidget {
           behavior: HitTestBehavior.opaque,
           child: Text(
             'DONE',
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 11,
               fontWeight: FontWeight.w500,
               color: HomeFeedTokens.textInverse,
@@ -962,7 +962,7 @@ class _PreviewValueOverlay extends StatelessWidget {
         ),
         child: Text(
           text,
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 28,
             fontWeight: FontWeight.w500,
             color: HomeFeedTokens.textInverse,
@@ -1157,7 +1157,7 @@ class _CropAspectChip extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 15,
             fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
             color: selected ? HomeFeedTokens.textInverse : _textSecondary,
@@ -1432,7 +1432,7 @@ class _EditBanner extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(horizontal: 8),
                           child: Text(
                             nextLabel,
-                            style: GoogleFonts.inter(
+                            style: AppFonts.inter(
                               fontSize: 16,
                               fontWeight: FontWeight.w500,
                               color: HomeFeedTokens.textPrimary,
@@ -1445,7 +1445,7 @@ class _EditBanner extends StatelessWidget {
                 ),
                 Text(
                   'Edit',
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
                     color: HomeFeedTokens.textPrimary,
@@ -1518,7 +1518,7 @@ class _EditToolTab extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       child: Text(
         label,
-        style: GoogleFonts.inter(
+        style: AppFonts.inter(
           fontSize: 15,
           fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
           color: selected ? HomeFeedTokens.textInverse : _textSecondary,
@@ -1578,7 +1578,7 @@ class _SetCoverBanner extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(horizontal: 8),
                           child: Text(
                             'Next',
-                            style: GoogleFonts.inter(
+                            style: AppFonts.inter(
                               fontSize: 16,
                               fontWeight: FontWeight.w500,
                               color: HomeFeedTokens.textPrimary,
@@ -1591,7 +1591,7 @@ class _SetCoverBanner extends StatelessWidget {
                 ),
                 Text(
                   'Set your cover',
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
                     color: HomeFeedTokens.textPrimary,
@@ -1622,7 +1622,7 @@ class _CoverPillBadge extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: GoogleFonts.inter(
+        style: AppFonts.inter(
           fontSize: 11,
           fontWeight: FontWeight.w400,
           color: HomeFeedTokens.textInverse,

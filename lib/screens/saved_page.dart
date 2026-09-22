@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../models/feed_item.dart';
 import '../models/feed_preview_item.dart';
@@ -20,6 +19,7 @@ import '../widgets/collection_name_sheet.dart';
 import '../widgets/delete_confirmation_dialog.dart';
 import '../widgets/home_feed/home_feed_widgets.dart';
 import '../utils/scrolls_to_top_on_double_tap.dart';
+import '../theme/app_fonts.dart';
 
 class SavedPage extends StatefulWidget {
   const SavedPage({super.key});
@@ -138,7 +138,7 @@ class _SavedPageState extends State<SavedPage>
                 leading: const Icon(Icons.edit_outlined),
                 title: Text(
                   'Rename',
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 16,
                     color: HomeFeedTokens.textPrimary,
                   ),
@@ -149,7 +149,7 @@ class _SavedPageState extends State<SavedPage>
                 leading: const Icon(Icons.delete_outline, color: Colors.red),
                 title: Text(
                   'Delete',
-                  style: GoogleFonts.inter(fontSize: 16, color: Colors.red),
+                  style: AppFonts.inter(fontSize: 16, color: Colors.red),
                 ),
                 onTap: () => Navigator.pop(context, 'delete'),
               ),
@@ -177,7 +177,7 @@ class _SavedPageState extends State<SavedPage>
           backgroundColor: HomeFeedTokens.background,
           title: Text(
             'Delete "${collection.name}"?',
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 17,
               fontWeight: FontWeight.w600,
               color: HomeFeedTokens.textPrimary,
@@ -185,7 +185,7 @@ class _SavedPageState extends State<SavedPage>
           ),
           content: Text(
             'Saved items inside will stay in Saved — only this folder is removed.',
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 14,
               color: HomeFeedTokens.textSecondary,
             ),
@@ -195,14 +195,14 @@ class _SavedPageState extends State<SavedPage>
               onPressed: () => Navigator.pop(context, false),
               child: Text(
                 'Cancel',
-                style: GoogleFonts.inter(color: HomeFeedTokens.textSecondary),
+                style: AppFonts.inter(color: HomeFeedTokens.textSecondary),
               ),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context, true),
               child: Text(
                 'Delete',
-                style: GoogleFonts.inter(
+                style: AppFonts.inter(
                   fontWeight: FontWeight.w600,
                   color: Colors.red,
                 ),
@@ -228,7 +228,7 @@ class _SavedPageState extends State<SavedPage>
             iconTheme: const IconThemeData(color: HomeFeedTokens.textPrimary),
             title: Text(
               title,
-              style: GoogleFonts.inter(
+              style: AppFonts.inter(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
                 color: HomeFeedTokens.textPrimary,
@@ -275,7 +275,7 @@ class _SavedPageState extends State<SavedPage>
                   Expanded(
                     child: Text(
                       'Saved',
-                      style: GoogleFonts.inter(
+                      style: AppFonts.inter(
                         fontSize: 22,
                         fontWeight: FontWeight.w700,
                         color: HomeFeedTokens.textPrimary,
@@ -438,7 +438,7 @@ class _SavedItemsViewState extends State<_SavedItemsView> {
                 leading: const Icon(Icons.bookmark_remove_outlined),
                 title: Text(
                   'Remove from saved',
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 16,
                     color: HomeFeedTokens.textPrimary,
                   ),
@@ -554,7 +554,7 @@ class _SavedItemsViewState extends State<_SavedItemsView> {
                       Center(
                         child: Text(
                           _emptyMessage(),
-                          style: GoogleFonts.inter(
+                          style: AppFonts.inter(
                             fontSize: 14,
                             color: HomeFeedTokens.textSecondary,
                           ),
@@ -847,7 +847,7 @@ class _SavedFolderTile extends StatelessWidget {
                         title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.inter(
+                        style: AppFonts.inter(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: HomeFeedTokens.textPrimary,
@@ -858,7 +858,7 @@ class _SavedFolderTile extends StatelessWidget {
                       const SizedBox(width: 6),
                       Text(
                         '$count',
-                        style: GoogleFonts.inter(
+                        style: AppFonts.inter(
                           fontSize: 12,
                           color: HomeFeedTokens.textSecondary,
                         ),

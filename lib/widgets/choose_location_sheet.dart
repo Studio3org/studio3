@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../data/post_location_options.dart';
 import '../services/location_search_service.dart';
@@ -11,6 +10,7 @@ import '../theme/home_feed_tokens.dart';
 import 'create_flow/create_flow_widgets.dart';
 import 'post_picker_search_field.dart';
 import 'loading/app_skeletons.dart';
+import '../theme/app_fonts.dart';
 
 /// Draggable location picker — live search via `LocationSearchService`
 /// (Nominatim), plus a "Use current location" option.
@@ -214,7 +214,7 @@ class _ChooseLocationSheetState extends State<ChooseLocationSheet> {
                     onTap: canSubmit ? _onDone : null,
                     child: Text(
                       'Done',
-                      style: GoogleFonts.geist(
+                      style: AppFonts.geist(
                         fontSize: 16,
                         fontWeight: FontWeight.w400,
                         color: canSubmit

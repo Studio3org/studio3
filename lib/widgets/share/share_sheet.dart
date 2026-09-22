@@ -2,11 +2,11 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../theme/home_feed_tokens.dart';
+import '../../theme/app_fonts.dart';
 
 /// Instagram-style share menu: WhatsApp / SMS / native "more" share / copy.
 /// Generic over the text being shared, so the same sheet works for a piece,
@@ -110,7 +110,7 @@ class ShareSheet extends StatelessWidget {
           const SizedBox(height: 16),
           Text(
             'Share',
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 15,
               fontWeight: FontWeight.w600,
               color: HomeFeedTokens.textPrimary,
@@ -199,7 +199,7 @@ class _ShareOption extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             label,
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 11,
               fontWeight: FontWeight.w400,
               color: HomeFeedTokens.textSecondary,

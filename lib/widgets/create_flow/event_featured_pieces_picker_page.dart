@@ -1,7 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../data/post_media_assets.dart';
 import '../../models/piece_summary.dart';
@@ -12,6 +11,7 @@ import '../profile_avatar.dart';
 import 'create_flow_widgets.dart';
 import 'event_lineup_models.dart';
 import '../loading/app_skeletons.dart';
+import '../../theme/app_fonts.dart';
 
 class EventPieceGroup {
   const EventPieceGroup({required this.person, required this.pieces});
@@ -174,7 +174,7 @@ class _EventFeaturedPiecesPickerPageState
                           children: [
                             Text(
                               'Featured Pieces',
-                              style: GoogleFonts.geist(
+                              style: AppFonts.geist(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w500,
                                 height: 1.2,
@@ -184,7 +184,7 @@ class _EventFeaturedPiecesPickerPageState
                             Text(
                               'From your featured artists and co-hosts',
                               textAlign: TextAlign.center,
-                              style: GoogleFonts.geist(
+                              style: AppFonts.geist(
                                 fontSize: 11,
                                 height: 1.2,
                                 color: HomeFeedTokens.textSecondary,
@@ -199,7 +199,7 @@ class _EventFeaturedPiecesPickerPageState
                           alignment: Alignment.centerRight,
                           child: Text(
                             '$count selected',
-                            style: GoogleFonts.geist(
+                            style: AppFonts.geist(
                               fontSize: 12,
                               color: HomeFeedTokens.textSecondary,
                             ),
@@ -222,7 +222,7 @@ class _EventFeaturedPiecesPickerPageState
                           child: Text(
                             'Add co-hosts or featured artists to tag their pieces.',
                             textAlign: TextAlign.center,
-                            style: GoogleFonts.geist(
+                            style: AppFonts.geist(
                               fontSize: 13,
                               color: HomeFeedTokens.textSecondary,
                             ),
@@ -260,7 +260,7 @@ class _EventFeaturedPiecesPickerPageState
               ),
               child: Text(
                 'Save',
-                style: GoogleFonts.geist(
+                style: AppFonts.geist(
                   fontSize: 16,
                   fontWeight: FontWeight.w400,
                   color: HomeFeedTokens.textInverse,
@@ -299,7 +299,7 @@ class _ArtistGroup extends StatelessWidget {
               children: [
                 Text(
                   group.person.displayName,
-                  style: GoogleFonts.geist(
+                  style: AppFonts.geist(
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                     height: 1.15,
@@ -309,7 +309,7 @@ class _ArtistGroup extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   group.person.handle,
-                  style: GoogleFonts.geist(
+                  style: AppFonts.geist(
                     fontSize: 10,
                     height: 1.15,
                     color: HomeFeedTokens.textSecondary,

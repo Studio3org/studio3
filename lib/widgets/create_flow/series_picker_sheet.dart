@@ -1,7 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../data/post_media_assets.dart';
 import '../../models/series_summary.dart';
@@ -13,6 +12,7 @@ import '../../theme/home_feed_tokens.dart';
 import 'create_flow_widgets.dart';
 import 'create_series_dialog.dart';
 import '../loading/app_skeletons.dart';
+import '../../theme/app_fonts.dart';
 
 class SeriesPickerResult {
   const SeriesPickerResult({
@@ -239,7 +239,7 @@ class _SeriesPickerSheetState extends State<SeriesPickerSheet> {
               onTap: _canSubmit ? _submit : null,
               child: Text(
                 'Done',
-                style: GoogleFonts.geist(
+                style: AppFonts.geist(
                   fontSize: 16,
                   fontWeight: FontWeight.w400,
                   color: HomeFeedTokens.textInverse,

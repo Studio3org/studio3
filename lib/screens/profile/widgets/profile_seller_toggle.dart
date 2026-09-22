@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../theme/home_feed_tokens.dart';
+import '../../../theme/app_fonts.dart';
 
 /// Artist ↔ Seller mode switch — Figma 1070-709.
 class ProfileSellerToggle extends StatelessWidget {
@@ -107,7 +107,7 @@ class _Segment extends StatelessWidget {
         child: Center(
           child: Text(
             label,
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 13,
               fontWeight: FontWeight.w500,
               color: selected

@@ -2,11 +2,11 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../services/api_exception.dart';
 import '../theme/app_theme.dart';
 import '../widgets/studio_logo.dart';
+import '../theme/app_fonts.dart';
 
 /// Dark premium palette — black & grey glass auth.
 abstract final class AuthColors {
@@ -195,7 +195,7 @@ class AuthScaffold extends StatelessWidget {
                           Text(
                             'Discover Art. Collect Stories.',
                             textAlign: TextAlign.center,
-                            style: GoogleFonts.inter(fontSize: 13, color: AuthColors.textDim),
+                            style: AppFonts.inter(fontSize: 13, color: AuthColors.textDim),
                           ),
                           const SizedBox(height: 28),
                         ] else
@@ -275,13 +275,13 @@ class AuthPageTitle extends StatelessWidget {
       children: [
         Text(
           title,
-          style: GoogleFonts.inter(fontSize: 28, fontWeight: FontWeight.w600, color: AuthColors.textPrimary),
+          style: AppFonts.inter(fontSize: 28, fontWeight: FontWeight.w600, color: AuthColors.textPrimary),
         ),
         if (subtitle != null) ...[
           const SizedBox(height: 6),
           Text(
             subtitle!,
-            style: GoogleFonts.inter(fontSize: 14, color: AuthColors.textDim),
+            style: AppFonts.inter(fontSize: 14, color: AuthColors.textDim),
           ),
         ],
       ],
@@ -335,11 +335,11 @@ class AuthIconInput extends StatelessWidget {
             obscureText: obscureText,
             keyboardType: keyboardType,
             textInputAction: textInputAction,
-            style: GoogleFonts.inter(fontSize: 15, color: AuthColors.textPrimary),
+            style: AppFonts.inter(fontSize: 15, color: AuthColors.textPrimary),
             cursorColor: AuthColors.textPrimary,
             decoration: InputDecoration(
               hintText: placeholder,
-              hintStyle: GoogleFonts.inter(color: AuthColors.textDim),
+              hintStyle: AppFonts.inter(color: AuthColors.textDim),
               filled: true,
               fillColor: Colors.black.withValues(alpha: 0.35),
               contentPadding: const EdgeInsets.symmetric(horizontal: 16),
@@ -376,7 +376,7 @@ class AuthIconInput extends StatelessWidget {
         ),
         if (errorText != null) ...[
           const SizedBox(height: 6),
-          Text(errorText!, style: GoogleFonts.inter(fontSize: 12, color: AuthColors.error)),
+          Text(errorText!, style: AppFonts.inter(fontSize: 12, color: AuthColors.error)),
         ],
       ],
     );
@@ -416,7 +416,7 @@ class AuthPrimaryButton extends StatelessWidget {
           disabledForegroundColor: useAccentStyle ? AuthColors.backgroundDeep : AuthColors.textDim,
           overlayColor: AuthColors.backgroundDeep.withValues(alpha: 0.08),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          textStyle: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600),
+          textStyle: AppFonts.inter(fontSize: 15, fontWeight: FontWeight.w600),
         ),
         child: loading
             ? const SizedBox(
@@ -447,7 +447,7 @@ class AuthGhostButton extends StatelessWidget {
           foregroundColor: AuthColors.textPrimary,
           side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          textStyle: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500),
+          textStyle: AppFonts.inter(fontSize: 14, fontWeight: FontWeight.w500),
         ),
         child: Text(label),
       ),
@@ -487,7 +487,7 @@ class AuthRememberRow extends StatelessWidget {
         const SizedBox(width: 8),
         GestureDetector(
           onTap: () => onChanged(!value),
-          child: Text('Remember me', style: GoogleFonts.inter(fontSize: 12, color: AuthColors.textMuted)),
+          child: Text('Remember me', style: AppFonts.inter(fontSize: 12, color: AuthColors.textMuted)),
         ),
         const Spacer(),
         if (onForgot != null)
@@ -499,7 +499,7 @@ class AuthRememberRow extends StatelessWidget {
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
-            child: Text('Forgot login?', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500)),
+            child: Text('Forgot login?', style: AppFonts.inter(fontSize: 12, fontWeight: FontWeight.w500)),
           ),
       ],
     );
@@ -518,7 +518,7 @@ class AuthDivider extends StatelessWidget {
         Expanded(child: Divider(color: AuthColors.border)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text(label, style: GoogleFonts.inter(fontSize: 12, color: AuthColors.textDim)),
+          child: Text(label, style: AppFonts.inter(fontSize: 12, color: AuthColors.textDim)),
         ),
         Expanded(child: Divider(color: AuthColors.border)),
       ],
@@ -545,12 +545,12 @@ class AuthLinkFooter extends StatelessWidget {
       child: RichText(
         textAlign: TextAlign.center,
         text: TextSpan(
-          style: GoogleFonts.inter(fontSize: 14, color: AuthColors.textMuted),
+          style: AppFonts.inter(fontSize: 14, color: AuthColors.textMuted),
           children: [
             TextSpan(text: prompt),
             TextSpan(
               text: actionLabel,
-              style: GoogleFonts.inter(
+              style: AppFonts.inter(
                 fontWeight: FontWeight.w600,
                 color: AuthColors.textPrimary,
                 decoration: TextDecoration.underline,
@@ -592,7 +592,7 @@ class AuthStepProgress extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           'Step $current of $total',
-          style: GoogleFonts.inter(fontSize: 11, color: AuthColors.textDim),
+          style: AppFonts.inter(fontSize: 11, color: AuthColors.textDim),
         ),
       ],
     );
@@ -670,7 +670,7 @@ class _AuthOtpInputState extends State<AuthOtpInput> {
                 ),
                 child: Text(
                   char,
-                  style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w600, color: AuthColors.textPrimary),
+                  style: AppFonts.inter(fontSize: 20, fontWeight: FontWeight.w600, color: AuthColors.textPrimary),
                 ),
               );
             }),
@@ -697,7 +697,7 @@ class _AuthOtpInputState extends State<AuthOtpInput> {
         ),
         if (widget.errorText != null) ...[
           const SizedBox(height: 8),
-          Text(widget.errorText!, style: GoogleFonts.inter(fontSize: 12, color: AuthColors.error)),
+          Text(widget.errorText!, style: AppFonts.inter(fontSize: 12, color: AuthColors.error)),
         ],
       ],
     );
@@ -707,7 +707,7 @@ class _AuthOtpInputState extends State<AuthOtpInput> {
 void showAuthSnackBar(BuildContext context, String message, {bool isError = false}) {
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
-      content: Text(message, style: GoogleFonts.inter(color: AuthColors.textPrimary)),
+      content: Text(message, style: AppFonts.inter(color: AuthColors.textPrimary)),
       backgroundColor: isError ? const Color(0xFF3D2020) : AuthColors.surfaceElevated,
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

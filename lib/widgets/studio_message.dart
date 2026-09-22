@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/home_feed_tokens.dart';
+import '../theme/app_fonts.dart';
 
 /// A floating, rounded, icon-led toast — the app-styled replacement for the
 /// plain default `SnackBar(content: Text(...))` used for transient errors
@@ -40,7 +40,7 @@ abstract final class StudioMessage {
               Expanded(
                 child: Text(
                   message,
-                  style: GoogleFonts.geist(
+                  style: AppFonts.geist(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                     color: HomeFeedTokens.textInverse,

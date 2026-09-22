@@ -1,13 +1,13 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:photo_manager/photo_manager.dart';
 
 import '../../services/permission_service.dart';
 import '../../services/photo_library_service.dart';
 import '../../theme/home_feed_tokens.dart';
 import '../loading/app_skeletons.dart';
+import '../../theme/app_fonts.dart';
 
 enum _LoadState { loading, denied, ready }
 
@@ -236,7 +236,7 @@ class _PostGalleryPickerState extends State<PostGalleryPicker> {
               bottom: 6,
               child: Text(
                 _formatDuration(asset.videoDuration),
-                style: GoogleFonts.inter(
+                style: AppFonts.inter(
                   fontSize: 13,
                   fontWeight: FontWeight.w400,
                   color: Colors.white,
@@ -253,7 +253,7 @@ class _PostGalleryPickerState extends State<PostGalleryPicker> {
               child: widget.maxSelection > 1
                   ? Text(
                       '${selectedIndex + 1}',
-                      style: GoogleFonts.geist(
+                      style: AppFonts.geist(
                         fontSize: 32,
                         fontWeight: FontWeight.w400,
                         color: HomeFeedTokens.textPrimary,
@@ -297,7 +297,7 @@ class _PostGalleryPickerState extends State<PostGalleryPicker> {
             ),
             title: Text(
               entry.path.name,
-              style: GoogleFonts.inter(
+              style: AppFonts.inter(
                 color: HomeFeedTokens.textPrimary,
                 fontSize: 15,
                 fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
@@ -305,7 +305,7 @@ class _PostGalleryPickerState extends State<PostGalleryPicker> {
             ),
             subtitle: Text(
               '${entry.count}',
-              style: GoogleFonts.inter(
+              style: AppFonts.inter(
                 color: HomeFeedTokens.textSecondary,
                 fontSize: 13,
               ),
@@ -380,7 +380,7 @@ class _PermissionFallback extends StatelessWidget {
           const SizedBox(height: 16),
           Text(
             'Please give access to your gallery',
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 15,
               fontWeight: FontWeight.w500,
               color: HomeFeedTokens.textPrimary,
@@ -397,7 +397,7 @@ class _PermissionFallback extends StatelessWidget {
                 borderRadius: BorderRadius.circular(100),
               ),
             ),
-            child: Text('Allow access', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+            child: Text('Allow access', style: AppFonts.inter(fontWeight: FontWeight.w600)),
           ),
         ],
       ),

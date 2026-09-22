@@ -1,8 +1,8 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/home_feed_tokens.dart';
+import '../theme/app_fonts.dart';
 
 /// Instagram-style bottom toast shown after saving/unsaving a piece or scene
 /// to the collection, with the item's thumbnail alongside the message.
@@ -45,7 +45,7 @@ void showCollectionSavedToast(
           Expanded(
             child: Text(
               saved ? 'Added to Collection' : 'Removed from Collection',
-              style: GoogleFonts.inter(
+              style: AppFonts.inter(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
                 color: HomeFeedTokens.textInverse,

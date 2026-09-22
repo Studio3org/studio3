@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../config/app_link_config.dart';
 import '../data/post_location_options.dart';
@@ -26,6 +25,7 @@ import '../widgets/post_create_option_sheet.dart';
 import '../widgets/post_crop_preview.dart';
 import '../widgets/publish_result_overlays.dart';
 import '../widgets/studio_message.dart';
+import '../theme/app_fonts.dart';
 
 const _kSteps = ['Details', 'Tickets', 'Lineup', 'Review'];
 
@@ -94,7 +94,7 @@ class _EventCreatePageState extends State<EventCreatePage> {
     FontWeight weight = FontWeight.w400,
     Color color = HomeFeedTokens.textPrimary,
   }) {
-    return GoogleFonts.geist(
+    return AppFonts.geist(
       fontSize: size,
       fontWeight: weight,
       color: color,
@@ -927,7 +927,7 @@ class _LabeledOutlineField extends StatelessWidget {
       children: [
         Text(
           label,
-          style: GoogleFonts.geist(
+          style: AppFonts.geist(
             fontSize: 13,
             fontWeight: FontWeight.w500,
             color: HomeFeedTokens.textSecondary,
@@ -948,7 +948,7 @@ class _LabeledOutlineField extends StatelessWidget {
             minLines: minLines,
             onChanged: onChanged,
             cursorColor: HomeFeedTokens.textPrimary,
-            style: GoogleFonts.geist(
+            style: AppFonts.geist(
               fontSize: fontSize,
               fontWeight: FontWeight.w400,
               color: HomeFeedTokens.textPrimary,
@@ -956,7 +956,7 @@ class _LabeledOutlineField extends StatelessWidget {
             decoration: InputDecoration(
               isDense: true,
               hintText: hint,
-              hintStyle: GoogleFonts.geist(
+              hintStyle: AppFonts.geist(
                 fontSize: fontSize,
                 fontWeight: FontWeight.w400,
                 color: HomeFeedTokens.textSecondary,
@@ -998,7 +998,7 @@ class _NavRow extends StatelessWidget {
           children: [
             Text(
               label,
-              style: GoogleFonts.geist(
+              style: AppFonts.geist(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
                 color: HomeFeedTokens.textPrimary,
@@ -1012,7 +1012,7 @@ class _NavRow extends StatelessWidget {
                   textAlign: TextAlign.right,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.geist(
+                  style: AppFonts.geist(
                     fontSize: 12,
                     fontWeight: FontWeight.w400,
                     color: HomeFeedTokens.textSecondary,
@@ -1087,7 +1087,7 @@ class _EventCoverPreview extends StatelessWidget {
               ),
               child: Text(
                 'Event',
-                style: GoogleFonts.geist(
+                style: AppFonts.geist(
                   fontSize: 11,
                   fontWeight: FontWeight.w400,
                   color: HomeFeedTokens.textInverse,

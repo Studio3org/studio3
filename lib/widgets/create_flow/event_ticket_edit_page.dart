@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../theme/home_feed_tokens.dart';
 import 'create_flow_widgets.dart';
 import 'event_date_sheet.dart';
+import '../../theme/app_fonts.dart';
 
 const ticketAccent = Color(0xFFC45C4A);
 const _platformFee = 0.13;
@@ -416,7 +416,7 @@ class _EventTicketEditPageState extends State<EventTicketEditPage> {
               onTap: _canSave ? _save : null,
               child: Text(
                 'Save and continue',
-                style: GoogleFonts.geist(
+                style: AppFonts.geist(
                   fontSize: 16,
                   fontWeight: FontWeight.w400,
                   color: _canSave
@@ -432,7 +432,7 @@ class _EventTicketEditPageState extends State<EventTicketEditPage> {
   }
 }
 
-TextStyle get _fieldStyle => GoogleFonts.geist(
+TextStyle get _fieldStyle => AppFonts.geist(
       fontSize: 13,
       fontWeight: FontWeight.w400,
       color: HomeFeedTokens.textPrimary,
@@ -444,7 +444,7 @@ InputDecoration _hint(String text) {
     border: InputBorder.none,
     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
     hintText: text,
-    hintStyle: GoogleFonts.geist(
+    hintStyle: AppFonts.geist(
       fontSize: 13,
       fontWeight: FontWeight.w400,
       color: HomeFeedTokens.textSecondary,
@@ -465,7 +465,7 @@ class _LabeledField extends StatelessWidget {
       children: [
         Text(
           label,
-          style: GoogleFonts.geist(
+          style: AppFonts.geist(
             fontSize: 13,
             fontWeight: FontWeight.w500,
             color: HomeFeedTokens.textSecondary,
@@ -522,7 +522,7 @@ class _PriceBox extends StatelessWidget {
             padding: const EdgeInsets.only(left: 12),
             child: Text(
               '\$',
-              style: GoogleFonts.geist(
+              style: AppFonts.geist(
                 fontSize: 10,
                 color: HomeFeedTokens.textSecondary,
               ),
@@ -580,7 +580,7 @@ class _TapBox extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Text(
             filled ? value! : hint,
-            style: GoogleFonts.geist(
+            style: AppFonts.geist(
               fontSize: 13,
               color: filled
                   ? HomeFeedTokens.textPrimary
@@ -611,7 +611,7 @@ class _ToggleRow extends StatelessWidget {
         Expanded(
           child: Text(
             label,
-            style: GoogleFonts.geist(
+            style: AppFonts.geist(
               fontSize: 13,
               fontWeight: FontWeight.w500,
               color: HomeFeedTokens.textPrimary,

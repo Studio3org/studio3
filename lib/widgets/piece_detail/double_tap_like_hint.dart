@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../theme/app_fonts.dart';
 
 /// Centered heart + “Double tap to like”; slides up and dismisses.
 class DoubleTapLikeHint extends StatelessWidget {
@@ -45,7 +45,7 @@ class DoubleTapLikeHint extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   'Double tap to like',
-                  style: GoogleFonts.geist(
+                  style: AppFonts.geist(
                     fontSize: 13,
                     fontWeight: FontWeight.w400,
                     color: const Color(0xFFFAFAF7),

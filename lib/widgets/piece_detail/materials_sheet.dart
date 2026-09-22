@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../theme/home_feed_tokens.dart';
+import '../../theme/app_fonts.dart';
 
 /// Read-only bottom sheet listing a piece's materials.
 Future<void> showMaterialsSheet(BuildContext context, List<String> materials) {
@@ -46,7 +46,7 @@ class _MaterialsSheet extends StatelessWidget {
             ),
             Text(
               'Materials used',
-              style: GoogleFonts.inter(
+              style: AppFonts.inter(
                 fontSize: 17,
                 fontWeight: FontWeight.w600,
                 color: HomeFeedTokens.textPrimary,
@@ -58,7 +58,7 @@ class _MaterialsSheet extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 6),
                 child: Text(
                   material,
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 15,
                     fontWeight: FontWeight.w400,
                     color: HomeFeedTokens.textPrimary,

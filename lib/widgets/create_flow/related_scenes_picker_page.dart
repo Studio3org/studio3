@@ -2,13 +2,13 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../data/post_media_assets.dart';
 import '../../models/post_summary.dart';
 import '../../screens/profile/profile_constants.dart';
 import '../../theme/home_feed_tokens.dart';
 import 'create_flow_widgets.dart';
+import '../../theme/app_fonts.dart';
 
 /// Full-screen related-scenes picker for the piece Details tab.
 class RelatedScenesPickerPage extends StatefulWidget {
@@ -175,7 +175,7 @@ class _RelatedScenesPickerPageState extends State<RelatedScenesPickerPage> {
                   : null,
               child: Text(
                 'Save',
-                style: GoogleFonts.geist(
+                style: AppFonts.geist(
                   fontSize: 16,
                   fontWeight: FontWeight.w400,
                   color: HomeFeedTokens.textInverse,

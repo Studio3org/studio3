@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/collect_checkout.dart';
 import '../../models/feed_preview_item.dart';
@@ -15,6 +14,7 @@ import 'collect_order_confirmation_sheet.dart';
 import 'collect_payment_sheet.dart';
 import 'collect_shipping_method_sheet.dart';
 import 'collect_shipping_sheet.dart';
+import '../../theme/app_fonts.dart';
 
 /// Collect checkout sheet — Figma 2340-2049. Also doubles as the auction winner's
 /// checkout (pass [winningBidCents]) — same shipping/payment steps, just priced from
@@ -414,7 +414,7 @@ class _Header extends StatelessWidget {
             ),
             Text(
               title,
-              style: GoogleFonts.inter(
+              style: AppFonts.inter(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
                 color: CollectDetailTokens.textPrimary,
@@ -484,7 +484,7 @@ class _PieceCard extends StatelessWidget {
                         title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.inter(
+                        style: AppFonts.inter(
                           fontSize: 20,
                           fontWeight: FontWeight.w400,
                           color: CollectDetailTokens.textPrimary,
@@ -493,7 +493,7 @@ class _PieceCard extends StatelessWidget {
                       const SizedBox(height: 8),
                       Text(
                         artistName,
-                        style: GoogleFonts.inter(
+                        style: AppFonts.inter(
                           fontSize: 14,
                           fontWeight: FontWeight.w400,
                           color: CollectDetailTokens.textPrimary,
@@ -502,7 +502,7 @@ class _PieceCard extends StatelessWidget {
                       const SizedBox(height: 8),
                       Text(
                         priceDisplay,
-                        style: GoogleFonts.inter(
+                        style: AppFonts.inter(
                           fontSize: 16,
                           fontWeight: FontWeight.w400,
                           color: CollectDetailTokens.textPrimary,
@@ -518,7 +518,7 @@ class _PieceCard extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               'Piece Details',
-              style: GoogleFonts.inter(
+              style: AppFonts.inter(
                 fontSize: 12,
                 fontWeight: FontWeight.w400,
                 color: CollectDetailTokens.textSecondary,
@@ -536,7 +536,7 @@ class _PieceCard extends StatelessWidget {
                 children: [
                   Text(
                     'Provenance',
-                    style: GoogleFonts.inter(
+                    style: AppFonts.inter(
                       fontSize: 12,
                       fontWeight: FontWeight.w400,
                       color: CollectDetailTokens.textPrimary,
@@ -547,7 +547,7 @@ class _PieceCard extends StatelessWidget {
                     onTap: onViewHistory,
                     child: Text(
                       'View History →',
-                      style: GoogleFonts.inter(
+                      style: AppFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w400,
                         color: CollectDetailTokens.brand,
@@ -578,7 +578,7 @@ class _DetailRow extends StatelessWidget {
         children: [
           Text(
             label,
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 12,
               fontWeight: FontWeight.w400,
               color: CollectDetailTokens.textPrimary,
@@ -589,7 +589,7 @@ class _DetailRow extends StatelessWidget {
             child: Text(
               value,
               textAlign: TextAlign.right,
-              style: GoogleFonts.inter(
+              style: AppFonts.inter(
                 fontSize: 12,
                 fontWeight: FontWeight.w400,
                 color: CollectDetailTokens.textPrimary,
@@ -631,7 +631,7 @@ class _NavRow extends StatelessWidget {
                 width: 60,
                 child: Text(
                   label,
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 12,
                     fontWeight: FontWeight.w400,
                     color: CollectDetailTokens.textSecondary,
@@ -643,7 +643,7 @@ class _NavRow extends StatelessWidget {
                   placeholder,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 11,
                     fontWeight: FontWeight.w400,
                     color: filled
@@ -701,7 +701,7 @@ class _OrderSummaryCard extends StatelessWidget {
           children: [
             Text(
               'Order Summary',
-              style: GoogleFonts.inter(
+              style: AppFonts.inter(
                 fontSize: 12,
                 fontWeight: FontWeight.w400,
                 color: CollectDetailTokens.textSecondary,
@@ -718,7 +718,7 @@ class _OrderSummaryCard extends StatelessWidget {
               children: [
                 Text(
                   alreadyPaidDisplay == null ? 'Total' : 'Order total',
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                     color: CollectDetailTokens.textPrimary,
@@ -727,7 +727,7 @@ class _OrderSummaryCard extends StatelessWidget {
                 const Spacer(),
                 Text(
                   totalDisplay,
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                     color: CollectDetailTokens.textPrimary,
@@ -749,7 +749,7 @@ class _OrderSummaryCard extends StatelessWidget {
                 children: [
                   Text(
                     'Due now',
-                    style: GoogleFonts.inter(
+                    style: AppFonts.inter(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
                       color: CollectDetailTokens.textPrimary,
@@ -758,7 +758,7 @@ class _OrderSummaryCard extends StatelessWidget {
                   const Spacer(),
                   Text(
                     dueDisplay,
-                    style: GoogleFonts.inter(
+                    style: AppFonts.inter(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
                       color: CollectDetailTokens.textPrimary,
@@ -786,7 +786,7 @@ class _SummaryLine extends StatelessWidget {
       children: [
         Text(
           label,
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 12,
             fontWeight: FontWeight.w400,
             color: CollectDetailTokens.textPrimary,
@@ -795,7 +795,7 @@ class _SummaryLine extends StatelessWidget {
         const Spacer(),
         Text(
           value,
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 12,
             fontWeight: FontWeight.w400,
             color: CollectDetailTokens.textPrimary,
@@ -829,7 +829,7 @@ class _ErrorBanner extends StatelessWidget {
           Expanded(
             child: Text(
               message,
-              style: GoogleFonts.inter(
+              style: AppFonts.inter(
                 fontSize: 13,
                 height: 1.4,
                 fontWeight: FontWeight.w400,
@@ -884,7 +884,7 @@ class _CollectCta extends StatelessWidget {
                   )
                 : Text(
                     label,
-                    style: GoogleFonts.inter(
+                    style: AppFonts.inter(
                       fontSize: 16,
                       fontWeight: FontWeight.w400,
                       color: CollectDetailTokens.textInverse,

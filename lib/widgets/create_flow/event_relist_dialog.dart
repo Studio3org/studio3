@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../theme/home_feed_tokens.dart';
+import '../../theme/app_fonts.dart';
 
 Future<bool> showEventRelistDialog(
   BuildContext context, {
@@ -24,7 +24,7 @@ Future<bool> showEventRelistDialog(
               Text(
                 title,
                 textAlign: TextAlign.center,
-                style: GoogleFonts.geist(
+                style: AppFonts.geist(
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
                   color: HomeFeedTokens.textPrimary,
@@ -34,7 +34,7 @@ Future<bool> showEventRelistDialog(
               Text(
                 body,
                 textAlign: TextAlign.center,
-                style: GoogleFonts.geist(
+                style: AppFonts.geist(
                   fontSize: 13,
                   fontWeight: FontWeight.w400,
                   color: HomeFeedTokens.textSecondary,
@@ -90,7 +90,7 @@ class _DialogButton extends StatelessWidget {
               ),
               child: Text(
                 label,
-                style: GoogleFonts.geist(
+                style: AppFonts.geist(
                   fontSize: 16,
                   fontWeight: FontWeight.w400,
                   color: HomeFeedTokens.textInverse,
@@ -108,7 +108,7 @@ class _DialogButton extends StatelessWidget {
               ),
               child: Text(
                 label,
-                style: GoogleFonts.geist(
+                style: AppFonts.geist(
                   fontSize: 16,
                   fontWeight: FontWeight.w400,
                   color: HomeFeedTokens.textPrimary,

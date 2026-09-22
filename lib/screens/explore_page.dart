@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../models/chat_message.dart';
 import '../models/explore_feed_block.dart';
@@ -28,6 +27,7 @@ import '../widgets/feed_skeleton.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/home_feed/home_feed_widgets.dart';
 import '../utils/scrolls_to_top_on_double_tap.dart';
+import '../theme/app_fonts.dart';
 
 class ExplorePage extends StatefulWidget {
   const ExplorePage({super.key});
@@ -396,7 +396,7 @@ class _ExplorePageState extends State<ExplorePage>
           child: Text(
             'Search failed: $_userSearchError',
             textAlign: TextAlign.center,
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 14,
               color: ExploreTokens.textSecondary,
             ),
@@ -410,7 +410,7 @@ class _ExplorePageState extends State<ExplorePage>
         child: Center(
           child: Text(
             'No users found for "$_searchQuery"',
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 14,
               color: ExploreTokens.textSecondary,
             ),
@@ -449,7 +449,7 @@ class _ExplorePageState extends State<ExplorePage>
                             children: [
                               Text(
                                 user.displayName,
-                                style: GoogleFonts.inter(
+                                style: AppFonts.inter(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
                                   color: AppColors.slate900,
@@ -457,7 +457,7 @@ class _ExplorePageState extends State<ExplorePage>
                               ),
                               Text(
                                 '@${user.username}',
-                                style: GoogleFonts.inter(
+                                style: AppFonts.inter(
                                   fontSize: 13,
                                   color: AppColors.slate500,
                                 ),
@@ -498,7 +498,7 @@ class _ExploreLoadFailed extends StatelessWidget {
           Text(
             "Couldn't load Explore",
             textAlign: TextAlign.center,
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 15,
               fontWeight: FontWeight.w600,
               color: ExploreTokens.textPrimary,
@@ -508,7 +508,7 @@ class _ExploreLoadFailed extends StatelessWidget {
           Text(
             'Check your connection and try again.',
             textAlign: TextAlign.center,
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 13,
               color: ExploreTokens.textSecondary,
             ),
@@ -518,7 +518,7 @@ class _ExploreLoadFailed extends StatelessWidget {
             onPressed: onRetry,
             child: Text(
               'Try again',
-              style: GoogleFonts.inter(
+              style: AppFonts.inter(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
                 color: ExploreTokens.textPrimary,

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../services/api_exception.dart';
 import '../services/user_service.dart';
@@ -10,6 +9,7 @@ import '../widgets/light_otp_input.dart';
 import '../widgets/pill_input.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/studio_loading.dart';
+import '../theme/app_fonts.dart';
 
 enum _Step { request, confirm }
 
@@ -100,7 +100,7 @@ class _ChangeEmailPageState extends State<ChangeEmailPage> {
           elevation: 0,
           title: Text(
             'Change email',
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 18,
               fontWeight: FontWeight.w600,
               color: HomeFeedTokens.textPrimary,
@@ -142,7 +142,7 @@ class _ChangeEmailPageState extends State<ChangeEmailPage> {
       children: [
         Text(
           'Enter the 6-digit code we sent to ${_emailController.text.trim()}.',
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 14,
             color: HomeFeedTokens.textPrimary.withValues(alpha: 0.7),
           ),
@@ -153,7 +153,7 @@ class _ChangeEmailPageState extends State<ChangeEmailPage> {
           const SizedBox(height: 8),
           Text(
             _serverError!,
-            style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFFE05252)),
+            style: AppFonts.inter(fontSize: 12, color: const Color(0xFFE05252)),
           ),
         ],
         const SizedBox(height: 20),
@@ -166,7 +166,7 @@ class _ChangeEmailPageState extends State<ChangeEmailPage> {
 
   Widget _label(String text) => Text(
         text,
-        style: GoogleFonts.inter(
+        style: AppFonts.inter(
           fontSize: 13,
           fontWeight: FontWeight.w500,
           color: HomeFeedTokens.textPrimary.withValues(alpha: 0.6),

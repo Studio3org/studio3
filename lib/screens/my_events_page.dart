@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../models/studio_event.dart';
 import '../services/api_exception.dart';
@@ -9,6 +8,7 @@ import '../widgets/delete_confirmation_dialog.dart';
 import '../widgets/home_feed/home_feed_widgets.dart';
 import 'event_detail_page.dart';
 import 'event_post_page.dart';
+import '../theme/app_fonts.dart';
 
 /// The viewer's own relationship to events — what they host, and what they've registered
 /// for — as opposed to the Events tab's browse, or Saved's bookmarks of other people's.
@@ -72,7 +72,7 @@ class _MyEventsPageState extends State<MyEventsPage>
                   Expanded(
                     child: Text(
                       'My events',
-                      style: GoogleFonts.inter(
+                      style: AppFonts.inter(
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
                         color: HomeFeedTokens.textPrimary,
@@ -92,8 +92,8 @@ class _MyEventsPageState extends State<MyEventsPage>
               labelColor: HomeFeedTokens.textPrimary,
               unselectedLabelColor: HomeFeedTokens.textSecondary,
               indicatorColor: HomeFeedTokens.textPrimary,
-              labelStyle: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600),
-              unselectedLabelStyle: GoogleFonts.inter(fontSize: 14),
+              labelStyle: AppFonts.inter(fontSize: 14, fontWeight: FontWeight.w600),
+              unselectedLabelStyle: AppFonts.inter(fontSize: 14),
               tabs: const [
                 Tab(text: 'My events'),
                 Tab(text: 'Registered'),
@@ -324,7 +324,7 @@ class _EventRow extends StatelessWidget {
                             event.title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.inter(
+                            style: AppFonts.inter(
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
                               color: HomeFeedTokens.textPrimary,
@@ -340,7 +340,7 @@ class _EventRow extends StatelessWidget {
                           : '${event.venue} · ${event.whenLabel}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.inter(
+                      style: AppFonts.inter(
                         fontSize: 12,
                         color: HomeFeedTokens.textSecondary,
                       ),
@@ -359,7 +359,7 @@ class _EventRow extends StatelessWidget {
                             event.rsvpCount == 1
                                 ? '1 registered'
                                 : '${event.rsvpCount} registered',
-                            style: GoogleFonts.inter(
+                            style: AppFonts.inter(
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
                               color: HomeFeedTokens.textPrimary,
@@ -378,7 +378,7 @@ class _EventRow extends StatelessWidget {
                           const SizedBox(width: 4),
                           Text(
                             "You're going",
-                            style: GoogleFonts.inter(
+                            style: AppFonts.inter(
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
                               color: const Color(0xFF2E8B57),
@@ -428,7 +428,7 @@ class _Tag extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: color),
+        style: AppFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: color),
       ),
     );
   }
@@ -457,7 +457,7 @@ class _EmptyState extends StatelessWidget {
                   Text(
                     message,
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.inter(
+                    style: AppFonts.inter(
                       fontSize: 14,
                       color: HomeFeedTokens.textSecondary,
                     ),

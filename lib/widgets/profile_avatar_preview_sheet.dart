@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/home_feed_tokens.dart';
 import '../utils/profile_photo_upload.dart';
 import 'profile_avatar.dart';
+import '../theme/app_fonts.dart';
 
 /// Shows an enlarged profile avatar. When [allowChange] is true, a Change button
 /// lets the user pick and upload a new profile photo.
@@ -97,7 +97,7 @@ class _ProfileAvatarPreviewSheetState extends State<_ProfileAvatarPreviewSheet> 
                   ),
                   child: Text(
                     'Change',
-                    style: GoogleFonts.inter(
+                    style: AppFonts.inter(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
                     ),

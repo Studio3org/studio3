@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../services/api_exception.dart';
@@ -8,6 +7,7 @@ import '../theme/home_feed_tokens.dart';
 import '../widgets/loading/app_skeletons.dart';
 import '../widgets/loading/section_loader.dart';
 import '../widgets/studio_loading.dart';
+import '../theme/app_fonts.dart';
 
 /// Stripe Connect Express setup — identity and bank details stay on Stripe.
 class PayoutSetupPage extends StatefulWidget {
@@ -118,7 +118,7 @@ class _PayoutSetupPageState extends State<PayoutSetupPage>
           centerTitle: true,
           title: Text(
             ready ? 'Payouts' : 'Payout details required',
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 18,
               fontWeight: FontWeight.w600,
               color: HomeFeedTokens.textPrimary,
@@ -143,7 +143,7 @@ class _PayoutSetupPageState extends State<PayoutSetupPage>
                   if (_error != null) ...[
                     Text(
                       _error!,
-                      style: GoogleFonts.inter(
+                      style: AppFonts.inter(
                         fontSize: 14,
                         color: const Color(0xFFE05252),
                         height: 1.4,
@@ -175,7 +175,7 @@ class _NeedsActionBody extends StatelessWidget {
       children: [
         Text(
           'Finish payout setup',
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 22,
             fontWeight: FontWeight.w700,
             color: HomeFeedTokens.textPrimary,
@@ -185,7 +185,7 @@ class _NeedsActionBody extends StatelessWidget {
         Text(
           'We need your identity and bank details so we can pay you when '
           'your work sells. Stripe collects this — we never see those details.',
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 14,
             color: HomeFeedTokens.textPrimary.withValues(alpha: 0.55),
             height: 1.45,
@@ -194,7 +194,7 @@ class _NeedsActionBody extends StatelessWidget {
         const SizedBox(height: 12),
         Text(
           'Stripe still needs a few details.',
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 13,
             color: HomeFeedTokens.textPrimary.withValues(alpha: 0.45),
             height: 1.4,
@@ -207,7 +207,7 @@ class _NeedsActionBody extends StatelessWidget {
           onPressed: () => Navigator.pop(context, false),
           child: Text(
             'Do this later',
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 15,
               fontWeight: FontWeight.w500,
               color: HomeFeedTokens.textPrimary.withValues(alpha: 0.55),
@@ -231,7 +231,7 @@ class _ReadyBody extends StatelessWidget {
       children: [
         Text(
           "You're ready to list",
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 22,
             fontWeight: FontWeight.w700,
             color: HomeFeedTokens.textPrimary,
@@ -241,7 +241,7 @@ class _ReadyBody extends StatelessWidget {
         Text(
           'Payouts are set up. When a collector confirms they received a piece, '
           'payment is released to you.',
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 14,
             color: HomeFeedTokens.textPrimary.withValues(alpha: 0.55),
             height: 1.45,
@@ -276,7 +276,7 @@ class _PrimaryButton extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 16,
             fontWeight: FontWeight.w600,
           ),

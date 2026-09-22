@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../data/post_picker_options.dart';
 import '../screens/profile/profile_constants.dart';
 import '../theme/home_feed_tokens.dart';
 import 'create_flow/create_flow_widgets.dart';
 import 'post_picker_search_field.dart';
+import '../theme/app_fonts.dart';
 
 enum PostPickerSelectionMode { singleRadio, multiCheckbox }
 
@@ -279,7 +279,7 @@ class _PostCreateOptionSheetState extends State<PostCreateOptionSheet> {
                     onTap: _canSubmit ? _onDone : null,
                     child: Text(
                       'Done',
-                      style: GoogleFonts.geist(
+                      style: AppFonts.geist(
                         fontSize: 16,
                         fontWeight: FontWeight.w400,
                         color: _canSubmit

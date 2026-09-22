@@ -2,13 +2,13 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../data/post_media_assets.dart';
 import '../models/post_image_transform.dart';
 import '../theme/home_feed_tokens.dart';
 import 'post_crop_preview.dart';
 import 'studio_loading.dart';
+import '../theme/app_fonts.dart';
 
 /// Stacks the publishing spinner, success, or fail screens over [child].
 class StudioPublishFlowGate extends StatelessWidget {
@@ -137,7 +137,7 @@ class PublishSuccessOverlay extends StatelessWidget {
                       Text(
                         title,
                         textAlign: TextAlign.center,
-                        style: GoogleFonts.geist(
+                        style: AppFonts.geist(
                           fontSize: 18,
                           fontWeight: FontWeight.w500,
                           color: HomeFeedTokens.textPrimary,
@@ -147,7 +147,7 @@ class PublishSuccessOverlay extends StatelessWidget {
                       Text(
                         'Visible on your profile now',
                         textAlign: TextAlign.center,
-                        style: GoogleFonts.geist(
+                        style: AppFonts.geist(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                           color: HomeFeedTokens.textSecondary,
@@ -216,7 +216,7 @@ class PublishFailOverlay extends StatelessWidget {
               Text(
                 'Couldn’t publish',
                 textAlign: TextAlign.center,
-                style: GoogleFonts.geist(
+                style: AppFonts.geist(
                   fontSize: 18,
                   fontWeight: FontWeight.w500,
                   color: HomeFeedTokens.textPrimary,
@@ -226,7 +226,7 @@ class PublishFailOverlay extends StatelessWidget {
               Text(
                 message,
                 textAlign: TextAlign.center,
-                style: GoogleFonts.geist(
+                style: AppFonts.geist(
                   fontSize: 14,
                   fontWeight: FontWeight.w400,
                   color: HomeFeedTokens.textSecondary,
@@ -249,7 +249,7 @@ class PublishFailOverlay extends StatelessWidget {
                       child: Center(
                         child: Text(
                           'Try again',
-                          style: GoogleFonts.geist(
+                          style: AppFonts.geist(
                             fontSize: 16,
                             fontWeight: FontWeight.w400,
                             color: HomeFeedTokens.textInverse,

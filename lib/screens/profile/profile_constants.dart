@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../theme/home_feed_tokens.dart';
+import '../../theme/app_fonts.dart';
 
 /// Figma 2650:1892 — Artist Profile (viewer, non-seller).
 const Color kProfilePageBackground = HomeFeedTokens.detailBackground; // #F5F2EE
@@ -45,7 +45,7 @@ TextStyle kProfileGeist({
   Color color = HomeFeedTokens.textPrimary,
   double? height,
 }) {
-  return GoogleFonts.geist(
+  return AppFonts.geist(
     fontSize: fontSize,
     fontWeight: fontWeight,
     color: color,

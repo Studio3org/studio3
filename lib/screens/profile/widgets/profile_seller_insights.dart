@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../services/api_exception.dart';
 import '../../../services/payout_service.dart';
 import '../../../services/user_service.dart';
 import '../../../theme/home_feed_tokens.dart';
+import '../../../theme/app_fonts.dart';
 
 /// Enables/disables seller mode without interrupting the profile flow.
 Future<bool?> toggleSellerMode({
@@ -144,7 +144,7 @@ class _InsightCell extends StatelessWidget {
         children: [
           Text(
             value,
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 16,
               fontWeight: FontWeight.w700,
               color: HomeFeedTokens.textPrimary,
@@ -153,7 +153,7 @@ class _InsightCell extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             label,
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 11,
               fontWeight: FontWeight.w400,
               color: HomeFeedTokens.textPrimary.withValues(alpha: 0.5),
