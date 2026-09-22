@@ -1,6 +1,12 @@
 import React from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
+import { AdminLayout } from './screens/admin/AdminLayout';
+import { AdminOrdersPage } from './screens/admin/AdminOrdersPage';
+import { AdminOrderDetailPage } from './screens/admin/AdminOrderDetailPage';
+import {
+  AdminAuctionsPage, AdminAuditPage, AdminDisputesPage, AdminEventsPage, AdminReportsPage,
+} from './screens/admin/AdminQueues';
 import { LoginPage } from './screens/LoginPage';
 import { SignUpPage } from './screens/SignUpPage';
 import { WelcomePage } from './screens/WelcomePage';
@@ -65,6 +71,10 @@ export default function App() {
   const location = useLocation();
   const backgroundLocation = location.state?.backgroundLocation;
   const isAuthRoute = AUTH_PREFIXES.some((p) => location.pathname.startsWith(p));
+  // The ops console brings its own chrome. Wrapping it in AppShell would put the
+  // member side rail next to a tool for resolving disputes, and indent every table
+  // by the width of navigation that does not apply to it.
+  const isAdminRoute = location.pathname.startsWith('/admin');
   const showNav = NAV_PREFIXES.some((p) => location.pathname.startsWith(p));
 
   const routes = (
@@ -98,6 +108,19 @@ export default function App() {
       <Route path="/notifications" element={<Navigate to="/inbox?tab=notifications" replace />} />
 
       {/* Public share-link fallbacks — no auth required. */}
+      {/* Ops console. AdminLayout carries its own is_admin gate, and every route
+          behind it is re-checked server-side — this nesting only decides what is
+          drawn, never what is permitted. */}
+      <Route path="/admin" element={<AdminLayout />}>
+        <Route index element={<AdminOrdersPage />} />
+        <Route path="orders/:orderId" element={<AdminOrderDetailPage />} />
+        <Route path="disputes" element={<AdminDisputesPage />} />
+        <Route path="reports" element={<AdminReportsPage />} />
+        <Route path="auctions" element={<AdminAuctionsPage />} />
+        <Route path="events" element={<AdminEventsPage />} />
+        <Route path="audit" element={<AdminAuditPage />} />
+      </Route>
+
       <Route path="/piece/:id" element={<PieceDetailPage />} />
       <Route path="/series/:id" element={<SeriesDetailPage />} />
 
@@ -106,7 +129,7 @@ export default function App() {
     </Routes>
   );
 
-  if (isAuthRoute) {
+  if (isAuthRoute || isAdminRoute) {
     return routes;
   }
 
