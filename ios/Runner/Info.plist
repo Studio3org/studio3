@@ -2,27 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- Temporary, and scoped to one host.
-
-	     The AWS backend has no TLS yet; Let's Encrypt needs a domain name. iOS blocks
-	     plain HTTP by default, so without this the app cannot reach it at all.
-
-	     NSAllowsArbitraryLoads is deliberately NOT used: that would disable transport
-	     security for every request the app makes. This exempts one address.
-
-	     REMOVE once https://api.studio-3.co is live. App Review rejects ATS exceptions
-	     that are not justified, and this one has no justification in production. -->
-	<key>NSAppTransportSecurity</key>
-	<dict>
-		<key>NSExceptionDomains</key>
-		<dict>
-			<key>23.23.29.249</key>
-			<dict>
-				<key>NSExceptionAllowsInsecureHTTPLoads</key>
-				<true/>
-			</dict>
-		</dict>
-	</dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
