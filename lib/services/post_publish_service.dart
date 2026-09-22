@@ -154,11 +154,10 @@ class PostPublishService {
         draft.videoThumbnailBytes,
         purpose,
       );
-      // Same crop choice an image scene records — SceneVideoEditPage's own size step sets
-      // this on the draft's single transform slot. Sent only when there is one: a draft
-      // whose crop export failed carries no transform, and the home feed's video fallback
-      // (portrait9x16) is a better guess than asserting a frame the file was never actually
-      // cropped to.
+      // The display frame chosen on SceneVideoEditPage's own size step, same vocabulary an
+      // image scene records — not a physical crop of the uploaded file (see that page's
+      // own note on why), just what the feed should size the tile to and play the video
+      // into. Guarded on `isEmpty` defensively; the posting flow always sets one for video.
       final aspectRatio = draft.transforms.isEmpty
           ? null
           : switch (draft.transforms.first.aspectRatio) {

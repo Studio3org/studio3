@@ -109,13 +109,7 @@ class _ScenePostPageState extends State<ScenePostPage> {
                       if (thumbnail != null) {
                         _videoThumbnailBytes = thumbnail;
                       }
-                      // Null only when the crop export failed and the original,
-                      // still-whatever-shape-it-was clip is being posted instead — clear
-                      // the placeholder 9:16 from _goToEdit rather than let PostPublishService
-                      // claim a frame this file was never actually cropped to.
-                      _transforms = aspectRatio == null
-                          ? []
-                          : [PostImageTransform(aspectRatio: aspectRatio)];
+                      _transforms = [PostImageTransform(aspectRatio: aspectRatio)];
                       _step = _SceneFlowStep.details;
                     });
                   },

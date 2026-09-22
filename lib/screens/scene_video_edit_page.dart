@@ -29,14 +29,16 @@ class SceneVideoEditPage extends StatefulWidget {
   final String videoPath;
   final VoidCallback onBack;
 
-  /// [aspectRatio] is the frame the video was actually cropped to — carried back so the
-  /// posting flow can record it as `mediaAspectRatio`, same as an image scene's crop choice.
-  /// Null when the export failed and the original, uncropped clip is being posted instead —
-  /// claiming a frame the file was never actually cropped to would size the feed tile wrong.
+  /// [aspectRatio] is the frame the poster chose — carried back so the posting flow can
+  /// record it as `mediaAspectRatio`, same as an image scene's crop choice. This is a
+  /// **display** frame, not a physical crop of the file: the video itself is uploaded at
+  /// its native shape (trim/mute aside), and the feed sizes the tile to this ratio and
+  /// plays the video into it with `BoxFit.cover` — the same visual result as a real crop,
+  /// without re-encoding the file through an extra native pass to get it.
   final void Function(
     String videoPath,
     Uint8List? thumbnail,
-    CropAspectRatio? aspectRatio,
+    CropAspectRatio aspectRatio,
   ) onNext;
 
   @override
@@ -115,51 +117,37 @@ class _SceneVideoEditPageState extends State<SceneVideoEditPage> {
     return '$minutes:${seconds.toString().padLeft(2, '0')}';
   }
 
-  /// The library's own enum for the same four ratios [CropAspectRatio] already covers —
-  /// kept as a lookup here rather than merging the two types, since one belongs to the
-  /// posting/feed vocabulary and the other to this one export call.
-  VideoAspectRatio get _videoAspectRatio => switch (_aspectRatio) {
-        CropAspectRatio.ratio16x9 => VideoAspectRatio.ratio16x9,
-        CropAspectRatio.ratio9x16 => VideoAspectRatio.ratio9x16,
-        CropAspectRatio.ratio3x4 => VideoAspectRatio.ratio3x4,
-        CropAspectRatio.ratio1x1 => VideoAspectRatio.ratio1x1,
-      };
-
   Future<void> _onNext() async {
     if (_processing) return;
     setState(() => _processing = true);
     await _controller?.pause();
-    // Cropped every time, not just when it differs from the source clip's own shape — the
-    // point of this step is that the poster chose a frame, and the uploaded file should
-    // actually be that frame rather than whatever the camera happened to record.
+    // Trim and mute only — deliberately no `.crop()` here. Chaining a native crop into
+    // this export alongside trim/removeAudio produced a file some devices' players
+    // couldn't open at all (posted, but blank/broken in the feed with no autoplay), and
+    // the size choice doesn't need the file itself reshaped to work: `_aspectRatio` is
+    // sent along as `mediaAspectRatio` regardless, and the feed sizes the tile to it and
+    // plays the untouched video into that frame with BoxFit.cover — visually identical to
+    // a crop, with no extra re-encode pass that can produce a corrupt file.
     var path = widget.videoPath;
-    var cropped = false;
     try {
-      var builder = VideoEditorBuilder(videoPath: widget.videoPath)
-          .crop(aspectRatio: _videoAspectRatio);
-      if (_isTrimmed && _duration.inMilliseconds > 0) {
-        builder = builder.trim(
-          startTimeMs: (_start * _duration.inMilliseconds).round(),
-          endTimeMs: (_end * _duration.inMilliseconds).round(),
-        );
-      }
-      if (_muted) builder = builder.removeAudio();
-      final exported = await builder.export();
-      if (exported != null) {
-        path = exported;
-        cropped = true;
+      if (_isTrimmed || _muted) {
+        var builder = VideoEditorBuilder(videoPath: widget.videoPath);
+        if (_isTrimmed && _duration.inMilliseconds > 0) {
+          builder = builder.trim(
+            startTimeMs: (_start * _duration.inMilliseconds).round(),
+            endTimeMs: (_end * _duration.inMilliseconds).round(),
+          );
+        }
+        if (_muted) builder = builder.removeAudio();
+        path = await builder.export() ?? widget.videoPath;
       }
     } catch (_) {
-      // The crop/trim/mute pipeline failed end to end — post the original clip rather than
-      // block the flow entirely. It goes up at its native shape; mediaAspectRatio is only
-      // sent when the export we're about to trust actually produced the chosen frame.
       path = widget.videoPath;
-      cropped = false;
     }
 
     Uint8List? thumb;
     try {
-      final timeMs = _isTrimmed && !cropped
+      final timeMs = _isTrimmed && path == widget.videoPath
           ? (_start * _duration.inMilliseconds).round()
           : 0;
       thumb = await VideoThumbnail.thumbnailData(
@@ -173,7 +161,7 @@ class _SceneVideoEditPageState extends State<SceneVideoEditPage> {
 
     if (!mounted) return;
     setState(() => _processing = false);
-    widget.onNext(path, thumb, cropped ? _aspectRatio : null);
+    widget.onNext(path, thumb, _aspectRatio);
   }
 
   @override
