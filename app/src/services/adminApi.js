@@ -39,11 +39,13 @@ export function createShipment(orderId, { courier, trackingNumber, actualShippin
   });
 }
 
-export function updateShipment(orderId, { status, actualShippingCost }) {
+/** Blank fields mean "leave unchanged", so correcting a tracking number cannot
+ * accidentally clear the courier or re-post the shipping cost. */
+export function updateShipment(orderId, { status, courier, trackingNumber, actualShippingCost }) {
   return apiFetch(`/api/admin/orders/${orderId}/shipment/update`, {
     method: 'POST',
     auth: true,
-    body: { status, actualShippingCost },
+    body: { status, courier, trackingNumber, actualShippingCost },
   });
 }
 

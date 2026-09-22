@@ -130,6 +130,8 @@ export function AdminOrderDetailPage() {
                 <ShipmentUpdateForm
                   busy={busy}
                   statuses={summary?.shipmentStatuses || []}
+                  couriers={summary?.couriers || []}
+                  shipment={shipment}
                   onSubmit={(body) => run(() => updateShipment(orderId, body))}
                 />
               </>
@@ -229,26 +231,52 @@ function ShipmentCreateForm({ couriers, busy, onSubmit }) {
   );
 }
 
-function ShipmentUpdateForm({ statuses, busy, onSubmit }) {
+/** Every field is blank-means-unchanged, so a correction to one thing cannot
+ *  silently overwrite another. Courier and tracking are editable because they are
+ *  typed by hand off a courier label — a typo would otherwise have the collector
+ *  following somebody else's parcel with no way to fix it. */
+function ShipmentUpdateForm({ statuses, couriers, shipment, busy, onSubmit }) {
   const [status, setStatus] = useState('');
+  const [courier, setCourier] = useState('');
+  const [trackingNumber, setTracking] = useState('');
   const [actualShippingCost, setCost] = useState('');
+  const nothingToDo = !status && !courier && !trackingNumber && !actualShippingCost;
   return (
     <div className="admin-form">
       <label>
         Move to
         <select value={status} onChange={(e) => setStatus(e.target.value)}>
-          <option value="">Choose…</option>
+          <option value="">Leave unchanged</option>
           {statuses.map((s) => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
         </select>
       </label>
       <label>
+        Courier
+        <select value={courier} onChange={(e) => setCourier(e.target.value)}>
+          <option value="">Leave as {shipment?.courier || 'is'}</option>
+          {couriers.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
+      </label>
+      <label>
+        Tracking number
+        <input
+          value={trackingNumber}
+          onChange={(e) => setTracking(e.target.value)}
+          placeholder={shipment?.trackingNumber || 'unchanged'}
+        />
+      </label>
+      <label>
         Actual shipping cost (dollars)
-        <input value={actualShippingCost} onChange={(e) => setCost(e.target.value)} placeholder="unchanged" />
+        <input
+          value={actualShippingCost}
+          onChange={(e) => setCost(e.target.value)}
+          placeholder="unchanged"
+        />
       </label>
       <button
         className="admin-btn admin-btn--ghost"
-        disabled={busy || (!status && !actualShippingCost)}
-        onClick={() => onSubmit({ status, actualShippingCost })}
+        disabled={busy || nothingToDo}
+        onClick={() => onSubmit({ status, courier, trackingNumber, actualShippingCost })}
       >
         Update shipment
       </button>
