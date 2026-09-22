@@ -20,8 +20,10 @@ class PlaceBidSheet extends StatefulWidget {
 
   final FeedPreviewItem item;
 
-  static Future<void> show(BuildContext context, {required FeedPreviewItem item}) {
-    return showModalBottomSheet<void>(
+  /// Resolves to `true` when a bid was actually placed, so the caller can refresh the
+  /// piece it is showing behind the sheet.
+  static Future<bool> show(BuildContext context, {required FeedPreviewItem item}) async {
+    final placed = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -29,6 +31,7 @@ class PlaceBidSheet extends StatefulWidget {
       barrierColor: Colors.black.withValues(alpha: 0.2),
       builder: (context) => PlaceBidSheet(item: item),
     );
+    return placed ?? false;
   }
 
   @override
@@ -48,6 +51,14 @@ class _PlaceBidSheetState extends State<PlaceBidSheet> {
   /// card already chosen rather than being asked again.
   SavedCard? _card;
   bool _loadingCards = true;
+
+  /// Why the last attempt failed, shown inside the sheet rather than as a snackbar.
+  ///
+  /// A snackbar raised from here renders in the Scaffold *behind* this modal route, so a
+  /// declined card or a rejected bid looked to the bidder like the button simply spun and
+  /// then did nothing — the one case where silence is worst, because the money question is
+  /// exactly what they are waiting on an answer to.
+  String? _error;
 
   /// The server decides this. The increment is banded by price ($5 under $100 rising to
   /// $500 over $10,000) and the first bid on a piece may land exactly on the artist's
@@ -165,7 +176,10 @@ class _PlaceBidSheetState extends State<PlaceBidSheet> {
   Future<void> _onPlaceBid() async {
     final amount = _enteredAmountCents;
     if (amount == null || _submitting) return;
-    setState(() => _submitting = true);
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
     try {
       final bid = await BidService.instance.placeBid(
         _item.id,
@@ -173,19 +187,26 @@ class _PlaceBidSheetState extends State<PlaceBidSheet> {
         paymentMethodId: _card?.id,
       );
       if (!mounted) return;
-      Navigator.pop(context);
-      await PlaceBidConfirmationSheet.show(context, bid: bid);
+      // The confirmation is opened from the navigator rather than from this sheet's own
+      // context: by the time it runs this element is being torn down by the pop above, and
+      // a defunct context finds no navigator to push onto — which is why the success path
+      // showed nothing either.
+      final navigator = Navigator.of(context);
+      navigator.pop(true);
+      await PlaceBidConfirmationSheet.show(navigator.context, bid: bid);
     } on ApiException catch (e) {
       if (!mounted) return;
-      setState(() => _submitting = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      setState(() {
+        _submitting = false;
+        _error = e.message;
+      });
       await _refreshMinimum();
     } catch (_) {
       if (!mounted) return;
-      setState(() => _submitting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not place your bid. Please try again.')),
-      );
+      setState(() {
+        _submitting = false;
+        _error = 'Could not place your bid. Please try again.';
+      });
     }
   }
 
@@ -234,7 +255,7 @@ class _PlaceBidSheetState extends State<PlaceBidSheet> {
                       controller: _amountController,
                       keyboardType: TextInputType.number,
                       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      onChanged: (_) => setState(() {}),
+                      onChanged: (_) => setState(() => _error = null),
                       style: GoogleFonts.inter(
                         fontSize: 32,
                         fontWeight: FontWeight.w400,
@@ -275,6 +296,10 @@ class _PlaceBidSheetState extends State<PlaceBidSheet> {
                         color: CollectDetailTokens.textSecondary,
                       ),
                     ),
+                    if (_error != null) ...[
+                      const SizedBox(height: 16),
+                      _ErrorBanner(message: _error!),
+                    ],
                     const SizedBox(height: 28),
                     _PlaceBidCta(
                       loading: _submitting,
@@ -565,6 +590,49 @@ class _CardRow extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// The reason a bid did not go through, shown where the bidder is already looking.
+class _ErrorBanner extends StatelessWidget {
+  const _ErrorBanner({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: CollectDetailTokens.statusError.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: CollectDetailTokens.statusError.withValues(alpha: 0.32),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.error_outline,
+            size: 18,
+            color: CollectDetailTokens.statusError,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                height: 1.4,
+                color: CollectDetailTokens.textPrimary,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

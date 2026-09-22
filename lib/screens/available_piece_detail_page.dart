@@ -106,8 +106,12 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
     CollectPieceSheet.show(context, item: item);
   }
 
-  void _onPlaceBid() {
-    PlaceBidSheet.show(context, item: item);
+  Future<void> _onPlaceBid() async {
+    final placed = await PlaceBidSheet.show(context, item: item);
+    if (!mounted || !placed) return;
+    // The bar behind the sheet is still showing the pre-bid figures — current bid, bid
+    // count, and whether this viewer leads — all three of which the bid just changed.
+    await _loadDetail();
   }
 
   void _onCompletePurchase() {
@@ -175,10 +179,18 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
     return 'Auction ended';
   }
 
+  /// Whether the viewer is the artist whose piece this is.
+  ///
+  /// Checked against both author fields because a preview built from a feed row carries
+  /// only [FeedPreviewItem.handle] while one built from a piece response carries
+  /// `authorUsername` — matching on one alone left the other case looking like a stranger,
+  /// which is how the owner ended up being offered their own piece to buy.
   bool get _isOwner {
-    final viewerUsername = AuthSession.instance.user?.username;
+    final viewerUsername = AuthSession.instance.user?.username.toLowerCase();
     if (viewerUsername == null || viewerUsername.isEmpty) return false;
-    return viewerUsername.toLowerCase() == _authorHandle.toLowerCase();
+    final author = item.authorUsername?.toLowerCase();
+    if (author != null && author.isNotEmpty && author == viewerUsername) return true;
+    return viewerUsername == _authorHandle.toLowerCase();
   }
 
   Future<void> _onEdit() async {
@@ -254,8 +266,12 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
     // "leads the live bidding" and is necessarily false once the auction closes — using it
     // here meant no winner was ever offered the checkout. It also cannot express a cascade,
     // where the winner is whichever bidder's card actually worked.
-    final wonByMeAwaitingCheckout = auction?.needsCheckout ?? false;
-    final wonByMeNeedsNewCard = auction?.needsPaymentFix ?? false;
+    final isOwner = _isOwner;
+    // An artist cannot buy or bid on their own work — the server answers 400 to a self-bid —
+    // so the bar offers them the auction they are running instead of a purchase they can
+    // never complete.
+    final wonByMeAwaitingCheckout = !isOwner && (auction?.needsCheckout ?? false);
+    final wonByMeNeedsNewCard = !isOwner && (auction?.needsPaymentFix ?? false);
 
     return Scaffold(
       backgroundColor: CollectDetailTokens.background,
@@ -285,10 +301,10 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
                     onMore: () => PieceMoreSheet.show(
                       context,
                       item: item,
-                      isOwner: _isOwner,
-                      onEdit: _isOwner ? _onEdit : null,
+                      isOwner: isOwner,
+                      onEdit: isOwner ? _onEdit : null,
                       onManageAuction:
-                          _isOwner && item.auction != null ? _onManageAuction : null,
+                          isOwner && item.auction != null ? _onManageAuction : null,
                       imageIndex: widget.initialImageIndex,
                     ),
                   ),
@@ -307,15 +323,25 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
               onFollowToggle: toggleFollow,
               showCollect: true,
               collectPrice: price,
-              onCollect: (!isAuction && isLive) ? _onCollect : null,
-              onPlaceBid: isAuction && isLive ? _onPlaceBid : null,
+              onCollect: (!isOwner && !isAuction && isLive) ? _onCollect : null,
+              // The owner gets the seller's action in the slot where a collector would get
+              // "Place a bid", rather than a button greyed out against them.
+              onPlaceBid: !isAuction || !isLive
+                  ? null
+                  : (isOwner
+                      ? (auction != null ? _onManageAuction : null)
+                      : _onPlaceBid),
               onCompletePurchase:
                   wonByMeAwaitingCheckout ? _onCompletePurchase : null,
               onFixPayment: wonByMeNeedsNewCard ? _onFixWinnerPayment : null,
               collectStatusLabel: isAuction
-                  ? (isLive ? null : _auctionEndedLabel(auction))
-                  : (isLive ? null : _statusLabel(item.status)),
-              onMessage: _isOwner ? null : _onAskAboutPiece,
+                  ? (isLive
+                      ? (isOwner ? 'Manage auction' : null)
+                      : _auctionEndedLabel(auction))
+                  : (isLive
+                      ? (isOwner ? 'Your piece' : null)
+                      : _statusLabel(item.status)),
+              onMessage: isOwner ? null : _onAskAboutPiece,
               bottomInset: MediaQuery.paddingOf(context).bottom,
             ),
           ),

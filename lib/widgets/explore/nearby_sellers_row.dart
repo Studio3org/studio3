@@ -3,6 +3,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/nearby_seller.dart';
+import '../../services/auth_session.dart';
 import '../../services/nearby_service.dart';
 import '../../theme/home_feed_tokens.dart';
 import '../../utils/profile_navigation.dart';
@@ -53,7 +54,12 @@ class _NearbySellersRowState extends State<NearbySellersRow> {
       );
       if (!mounted) return;
       setState(() {
-        _sellers = sellers;
+        // The viewer is trivially the seller nearest to themselves, so the backend's radius
+        // query returns them first every time. Nobody discovers their own profile here.
+        final me = AuthSession.instance.user?.username.toLowerCase();
+        _sellers = me == null || me.isEmpty
+            ? sellers
+            : sellers.where((s) => s.username.toLowerCase() != me).toList();
         _loading = false;
       });
     } catch (_) {

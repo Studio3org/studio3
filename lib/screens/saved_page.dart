@@ -11,11 +11,13 @@ import '../services/social_service.dart';
 import '../services/user_service.dart';
 import '../screens/available_piece_detail_page.dart';
 import '../screens/piece_detail_page.dart';
+import '../services/api_exception.dart';
 import '../services/event_service.dart';
 import '../services/saved_content_store.dart';
 import '../theme/home_feed_tokens.dart';
 import '../utils/reels_route.dart';
 import '../widgets/collection_name_sheet.dart';
+import '../widgets/delete_confirmation_dialog.dart';
 import '../widgets/home_feed/home_feed_widgets.dart';
 import '../utils/scrolls_to_top_on_double_tap.dart';
 
@@ -462,6 +464,27 @@ class _SavedItemsViewState extends State<_SavedItemsView> {
     }
   }
 
+  /// A host deleting an event of their own — the three-dot menu, same as a piece or scene
+  /// gets on the profile grid, rather than the long-press "Remove from saved" every other
+  /// tile here has. Deleting is the host's action on the event itself, not a bookmark toggle.
+  Future<void> _deleteEvent(SavedEntry entry) async {
+    final confirmed = await showDeleteConfirmationDialog(
+      context,
+      itemLabel: 'event',
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      await EventService.instance.delete(entry.id);
+    } catch (e) {
+      if (!mounted) return;
+      final message = e is ApiException ? e.message : 'Failed to delete event';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      return;
+    }
+    if (!mounted) return;
+    _store.unsave(entry.id);
+  }
+
   String _emptyMessage() {
     switch (_filter) {
       case SavedContentFilter.all:
@@ -560,6 +583,10 @@ class _SavedItemsViewState extends State<_SavedItemsView> {
                         entry: entry,
                         onTap: () => _openEntry(entry),
                         onLongPress: () => _confirmUnsave(entry),
+                        onDeleteEvent: entry.kind == SavedContentKind.event &&
+                                entry.event?.isHost == true
+                            ? () => _deleteEvent(entry)
+                            : null,
                       );
                     },
                   ),
@@ -575,11 +602,53 @@ class _SavedGridCard extends StatelessWidget {
     required this.entry,
     required this.onTap,
     required this.onLongPress,
+    this.onDeleteEvent,
   });
 
   final SavedEntry entry;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
+
+  /// Set only for an event this viewer hosts — the three-dot "Delete" menu piece and scene
+  /// tiles get on the profile grid. Null for everything else, including an event saved from
+  /// someone else, which still only offers the long-press "Remove from saved".
+  final VoidCallback? onDeleteEvent;
+
+  void _showEventActions(BuildContext context) {
+    final delete = onDeleteEvent;
+    if (delete == null) return;
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A1A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(
+                Icons.delete_outline,
+                color: Color(0xFFE05252),
+              ),
+              title: const Text(
+                'Delete',
+                style: TextStyle(
+                  color: Color(0xFFE05252),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                delete();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -617,6 +686,29 @@ class _SavedGridCard extends StatelessWidget {
                 ),
               ),
             ],
+            if (onDeleteEvent != null)
+              Positioned(
+                top: 6,
+                right: 6,
+                child: GestureDetector(
+                  onTap: () => _showEventActions(context),
+                  behavior: HitTestBehavior.opaque,
+                  child: Container(
+                    width: 26,
+                    height: 26,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.45),
+                      shape: BoxShape.circle,
+                    ),
+                    alignment: Alignment.center,
+                    child: const Icon(
+                      Icons.more_horiz,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),

@@ -272,4 +272,11 @@ class EventService {
     );
     return StudioEvent.fromJson(_api.extractData(json) as Map<String, dynamic>);
   }
+
+  /// Remove a hosted event outright. A draft is deleted with nothing else to do; a published
+  /// event is wound down first — listings released, any auction cancelled and refunded,
+  /// attendees told — the same as [cancel], before the event itself disappears.
+  Future<void> delete(String eventId) async {
+    await _api.delete('/api/events/$eventId', auth: true);
+  }
 }
