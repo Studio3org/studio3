@@ -10,7 +10,7 @@ void main() {
   group('a printed https code', () {
     test('opens the piece it points at', () {
       final d = ScanQrPage.destinationFor(
-        'https://studio3-backend.onrender.com/share/piece/p1',
+        'https://api.studio-3.co/share/piece/p1',
       );
 
       expect(d.type, AppDestinationType.piece);

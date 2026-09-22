@@ -19,7 +19,7 @@ void main() {
 
   test('a long URL still encodes', () async {
     // QR capacity is finite and a share link with a UUID in it is not short.
-    final long = 'https://studio3-backend.onrender.com/share/piece/'
+    final long = 'https://api.studio-3.co/share/piece/'
         '0f4d1a8c-1111-2222-3333-444455556666';
 
     final bytes = await QrImageShare.render(long);

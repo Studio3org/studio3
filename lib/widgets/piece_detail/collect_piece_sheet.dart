@@ -37,13 +37,16 @@ class CollectPieceSheet extends StatefulWidget {
   /// pricing the payment intent that way would have *been* one.
   final int? prepaidCents;
 
-  static Future<void> show(
+  /// Resolves to `true` when a purchase actually completed, so the caller can refresh the
+  /// piece it is showing behind the sheet — otherwise a collected piece keeps showing its
+  /// old "Collect" button until the viewer leaves the page and comes back.
+  static Future<bool> show(
     BuildContext context, {
     required FeedPreviewItem item,
     int? winningBidCents,
     int? prepaidCents,
-  }) {
-    return showModalBottomSheet<void>(
+  }) async {
+    final collected = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -55,6 +58,7 @@ class CollectPieceSheet extends StatefulWidget {
         prepaidCents: prepaidCents,
       ),
     );
+    return collected ?? false;
   }
 
   @override
@@ -158,8 +162,12 @@ class _CollectPieceSheetState extends State<CollectPieceSheet> {
 
       final confirmed = await OrderService.instance.getOrder(order.id);
       if (!mounted) return;
-      Navigator.pop(context);
-      await CollectOrderConfirmationSheet.show(context, order: confirmed);
+      // Opened from the navigator captured before the pop, not this sheet's own context —
+      // that element is being torn down by the pop itself, and a defunct context finds no
+      // navigator to push the confirmation onto.
+      final navigator = Navigator.of(context);
+      navigator.pop(true);
+      await CollectOrderConfirmationSheet.show(navigator.context, order: confirmed);
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {

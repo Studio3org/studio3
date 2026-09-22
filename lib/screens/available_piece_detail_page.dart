@@ -102,8 +102,12 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
     applyFollowState(loaded);
   }
 
-  void _onCollect() {
-    CollectPieceSheet.show(context, item: item);
+  Future<void> _onCollect() async {
+    final collected = await CollectPieceSheet.show(context, item: item);
+    if (!mounted || !collected) return;
+    // The bar behind the sheet still shows "Collect" — the piece just sold, and nothing
+    // else on this page knew that without asking the server again.
+    await _loadDetail();
   }
 
   Future<void> _onPlaceBid() async {
@@ -114,8 +118,8 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
     await _loadDetail();
   }
 
-  void _onCompletePurchase() {
-    CollectPieceSheet.show(
+  Future<void> _onCompletePurchase() async {
+    final collected = await CollectPieceSheet.show(
       context,
       item: item,
       // The hammer price, and the amount already captured — not the highest active bid,
@@ -123,6 +127,8 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
       winningBidCents: item.auction?.winningBidCents ?? item.highestBidCents,
       prepaidCents: item.auction?.winningBidCents,
     );
+    if (!mounted || !collected) return;
+    await _loadDetail();
   }
 
   /// The winner replacing a card that was declined when the auction closed.
