@@ -148,7 +148,7 @@ class _ManageAuctionSheetState extends State<ManageAuctionSheet> {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     final canExtend = auction.isOpenForBidding;
     final canCancel = auction.isOpenForBidding;
-    final canRelist = auction.needsSellerDecision;
+    final canRelist = auction.canRelist;
 
     return Align(
       alignment: Alignment.bottomCenter,
@@ -237,10 +237,11 @@ class _ManageAuctionSheetState extends State<ManageAuctionSheet> {
   }
 
   String _statusLine() {
-    if (auction.needsSellerDecision) {
-      return auction.bidCount > 0 || auction.highestBidCents != null
-          ? 'This auction ended without a sale. Nothing was charged to anyone.'
-          : 'This auction ended with no bids.';
+    if (auction.status == 'closed_no_bids') {
+      return 'This auction ended with no bids.';
+    }
+    if (auction.needsSellerDecision || auction.status == 'closed_reserve_not_met') {
+      return 'This auction ended without a sale. Nothing was charged to anyone.';
     }
     if (auction.needsPaymentFix) {
       return "The winner's payment was declined. They have a short window to fix it before "

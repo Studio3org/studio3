@@ -101,6 +101,18 @@ class AuctionSummary {
   /// The seller has to decide what happens next: the reserve was not met, or nobody could pay.
   bool get needsSellerDecision => status == 'needs_seller_action';
 
+  /// Every ending the seller can run again from — mirrors the backend's
+  /// RELISTABLE_AUCTION_STATUSES. Deliberately wider than [needsSellerDecision]: an
+  /// auction that simply got no bids is `closed_no_bids`, not `needs_seller_action`, and
+  /// is the single most common way an auction ends without a sale. Excludes
+  /// `closed_sold` (a buyer already exists) and `cancelled` (the seller already decided
+  /// to stop) — relisting from either would be wrong, not just redundant.
+  bool get canRelist => const {
+        'needs_seller_action',
+        'closed_no_bids',
+        'closed_reserve_not_met',
+      }.contains(status);
+
   /// What to show as the headline figure. Falls back to the starting bid, because an auction
   /// nobody has bid on still has a number the artist is asking for.
   int? get displayBidCents => highestBidCents ?? startingBidCents;

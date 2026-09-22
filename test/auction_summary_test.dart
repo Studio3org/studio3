@@ -129,6 +129,34 @@ void main() {
       expect(auction.isClosed, isTrue);
     });
 
+    test('canRelist covers every no-charge ending, not just needsSellerDecision', () {
+      // The regression this guards: the relist button in ManageAuctionSheet was gated on
+      // needsSellerDecision alone, which only matches 'needs_seller_action' (reserve not
+      // met). An auction that simply got no bids — closed_no_bids, the most common way one
+      // ends without a sale — never showed the option at all, even though the backend
+      // accepts a relist for it.
+      for (final status in ['needs_seller_action', 'closed_no_bids', 'closed_reserve_not_met']) {
+        expect(
+          AuctionSummary.fromJson(_payload(status: status)).canRelist,
+          isTrue,
+          reason: '$status should be relistable',
+        );
+      }
+    });
+
+    test('canRelist excludes a sold or cancelled auction', () {
+      // A sold auction already has a buyer; a cancelled one was the seller deliberately
+      // stopping. Relisting from either would be wrong, not just redundant — never widen
+      // this list to include them.
+      for (final status in ['closed_sold', 'cancelled', 'live', 'closing']) {
+        expect(
+          AuctionSummary.fromJson(_payload(status: status)).canRelist,
+          isFalse,
+          reason: '$status should not be relistable',
+        );
+      }
+    });
+
     test('maybeFrom returns null for a payload with no auction in it', () {
       expect(AuctionSummary.maybeFrom({'id': 'p1', 'title': 'Untitled'}), isNull);
       expect(AuctionSummary.maybeFrom(_payload()), isNotNull);
