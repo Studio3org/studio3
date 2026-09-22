@@ -101,6 +101,9 @@ export function AdminLayout() {
               <Tab to="/admin/events" label="Events" />
               <Tab to="/admin/audit" label="Audit" />
             </nav>
+            {/* A way back. The console replaces the member chrome entirely, so
+                without this the only exit is the browser's back button. */}
+            <NavLink to="/home" className="admin-bar__link">Leave ops</NavLink>
             <span className="admin-bar__who">{user?.email}</span>
           </header>
           <main className="admin-main">

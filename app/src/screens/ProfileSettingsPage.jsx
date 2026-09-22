@@ -7,6 +7,7 @@ import {
   Wallet,
   BarChart3,
   ShoppingBag,
+  ShieldCheck,
   Receipt,
   User,
   Layers,
@@ -71,6 +72,25 @@ export function ProfileSettingsPage() {
         <div className="settings-header">
           <h1 className="settings-title">Profile Settings</h1>
         </div>
+
+        {/* Ops console. Shown only to staff — `isAdmin` is sent only to the
+            account itself, so this section does not exist for anyone else. It
+            decides what is drawn, never what is permitted: every admin route
+            re-checks the flag server-side on each request. */}
+        {user?.isAdmin && (
+          <div className="settings-section">
+            <h2 className="settings-section-title">Staff</h2>
+            <div className="settings-card" onClick={() => navigate('/admin')}>
+              <div className="settings-card-left">
+                <span className="settings-card-icon">
+                  <ShieldCheck size={20} />
+                </span>
+                <span className="settings-card-label">Admin console</span>
+              </div>
+              <ChevronRight size={18} color="#8c8880" />
+            </div>
+          </div>
+        )}
 
         {/* Seller Section */}
         <div className="settings-section">
