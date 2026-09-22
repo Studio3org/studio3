@@ -148,15 +148,27 @@ class ProfileTabContent extends StatelessWidget {
 
     if (currentTab == 'collect') {
       if (!sellerMode) {
-        return const SliverToBoxAdapter(
-          child: _EmptyState(label: 'Switch to Seller to list pieces for sale'),
+        return SliverToBoxAdapter(
+          child: _EmptyState(
+            label: isOwnProfile
+                ? 'Switch to Seller to list pieces for sale'
+                : 'Nothing listed for sale',
+          ),
         );
       }
 
+      // Segments are driven by the piece's listing state rather than raw
+      // `status`/`isForSale`, so a live auction counts as available (it is
+      // biddable, even though it has no fixed price) and a piece that has
+      // been reserved, delisted-after-sale or won at auction counts as
+      // sold instead of vanishing from both filters.
       final visible = switch (collectSegment) {
-        'sold' => listedPieces.where((p) => p.status == 'sold').toList(),
-        'available' =>
-          listedPieces.where((p) => p.isForSale && p.status != 'sold').toList(),
+        'sold' => listedPieces
+            .where((p) => p.isCollectedListing || p.isAuctionEnded)
+            .toList(),
+        'available' => listedPieces
+            .where((p) => p.isAvailableListing || p.isAuctionLive)
+            .toList(),
         _ => listedPieces,
       };
 
@@ -164,14 +176,18 @@ class ProfileTabContent extends StatelessWidget {
         final label = switch (collectSegment) {
           'sold' => 'No sold pieces yet',
           'available' => 'No pieces listed for sale yet',
-          _ => 'No collect pieces yet',
+          _ => isOwnProfile
+              ? 'Mark a piece for sale or auction and it will show up here'
+              : 'Nothing listed for sale yet',
         };
         return SliverToBoxAdapter(child: _EmptyState(label: label));
       }
 
+      // No `forSaleListing` flag any more: each tile reads its own
+      // listing state, so a sold piece says "Sold" under "All" without the
+      // grid having to be told which segment it is rendering.
       return ProfileContentGrid.fromPieces(
         visible,
-        forSaleListing: collectSegment != 'sold',
         onPieceTap: (piece) => openProfilePiece(context, piece),
       );
     }

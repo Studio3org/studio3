@@ -11,6 +11,7 @@ import '../theme/home_feed_tokens.dart';
 import '../utils/event_qr_pdf.dart';
 import '../utils/qr_image_share.dart';
 import '../widgets/share/share_sheet.dart';
+import '../widgets/loading/app_skeletons.dart';
 
 /// The codes a host puts beside each work in the room.
 ///
@@ -145,8 +146,10 @@ class _EventQrCodesPageState extends State<EventQrCodesPage> {
             ),
         ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+      // App bar and its export action stay put; only the code list
+      // placeholds while it is fetched.
+      body: _loading && codes == null
+          ? const CardListSkeleton(height: 120)
           : _error != null
               ? _Message(text: _error!, onRetry: _load)
               : codes == null || codes.pieces.isEmpty

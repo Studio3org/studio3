@@ -8,8 +8,8 @@ import '../theme/home_feed_tokens.dart';
 import '../utils/profile_navigation.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/home_feed/home_feed_widgets.dart';
+import '../widgets/loading/app_skeletons.dart';
 import '../widgets/offline_state.dart';
-import '../widgets/studio_loading.dart';
 
 class BlockedUsersPage extends StatefulWidget {
   const BlockedUsersPage({super.key});
@@ -110,7 +110,7 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
       return OfflineState(onRetry: _load);
     }
     if (_loading && _blocked.isEmpty) {
-      return const StudioLoadingBody();
+      return const UserListSkeleton(trailingAction: true);
     }
     if (_blocked.isEmpty) {
       return Center(

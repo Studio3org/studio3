@@ -106,20 +106,37 @@ Future<void> main() async {
   } catch (e) {
     debugPrint('Firebase unavailable (no config yet?): $e');
   }
-  await _preloadInterFont();
+  await _loadBundledFonts();
   runApp(const Studio3App());
   FlutterNativeSplash.remove();
 }
 
-/// Requests every Inter weight the app uses and waits for them to finish
-/// loading before the first frame paints — otherwise the very first time
-/// each weight is used in a session (e.g. Home's header right after login),
-/// Flutter briefly paints a fallback system font whose slightly different
-/// metrics can trip a `RenderFlex` overflow in tightly-fitted layouts (see
-/// `_FeedTypeDropdown` in `widgets/home_feed/home_feed_widgets.dart`).
-/// Bounded by a timeout so a genuinely offline first launch can't hang
-/// startup — it just falls back to the system font for that session.
-Future<void> _preloadInterFont() async {
+/// Loads every Inter/Geist weight the app uses from the asset bundle
+/// before the first frame paints.
+///
+/// Two reasons this has to happen up front. The first is metrics: the very
+/// first use of a weight in a session would otherwise paint in a fallback
+/// system font whose slightly different metrics can trip a `RenderFlex`
+/// overflow in tightly-fitted layouts (see `_FeedTypeDropdown` in
+/// `widgets/home_feed/home_feed_widgets.dart`). The second is latency —
+/// and it is why [GoogleFonts.config.allowRuntimeFetching] is off.
+///
+/// With runtime fetching enabled and nothing bundled (how this used to
+/// work), `google_fonts` downloads each family+weight from
+/// fonts.gstatic.com the first time a widget asks for it. The preload here
+/// gave up after 3 seconds, so on a cold or slow network most weights were
+/// still missing when the app started, and every screen that later
+/// introduced a new weight paid for that download mid-interaction — the
+/// Tickets step revealing its "Ticket Tiers" section on tapping "Yes" being
+/// the worst of them, at several seconds before the tap looked like it had
+/// registered.
+///
+/// The fonts now ship in `assets/google_fonts/`, so this resolves from disk
+/// and no text in the app ever waits on the network. Disabling runtime
+/// fetching is what keeps it honest: a weight that isn't bundled throws
+/// here rather than quietly reintroducing the stall.
+Future<void> _loadBundledFonts() async {
+  GoogleFonts.config.allowRuntimeFetching = false;
   for (final weight in const [
     FontWeight.w300,
     FontWeight.w400,
@@ -132,9 +149,12 @@ Future<void> _preloadInterFont() async {
     GoogleFonts.geist(fontWeight: weight);
   }
   try {
-    await GoogleFonts.pendingFonts().timeout(const Duration(seconds: 3));
-  } catch (_) {
-    // Offline/slow first launch — proceed with the fallback font.
+    await GoogleFonts.pendingFonts();
+  } catch (e) {
+    // Asset loads don't hit the network, so this only fires if a weight is
+    // missing from the bundle — surface it rather than shipping a silent
+    // fallback-font regression.
+    debugPrint('Bundled font load failed: $e');
   }
 }
 

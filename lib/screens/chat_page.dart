@@ -13,7 +13,7 @@ import '../theme/home_feed_tokens.dart';
 import '../widgets/accept_decline_buttons.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/home_feed/home_feed_widgets.dart';
-import '../widgets/studio_loading.dart';
+import '../widgets/loading/app_skeletons.dart';
 
 enum _InboxTab { all, requests }
 
@@ -90,8 +90,10 @@ class _ChatPageState extends State<ChatPage> {
       });
     } catch (_) {
       if (!mounted) return;
+      // A failed refresh must not wipe what the user is already looking
+      // at — keep the current page and let them retry (pull-to-refresh or
+      // the next focus load) instead of blanking the list.
       setState(() {
-        if (!append) _inquiries.clear();
         _loading = false;
         _loadingMore = false;
       });
@@ -130,8 +132,10 @@ class _ChatPageState extends State<ChatPage> {
       });
     } catch (_) {
       if (!mounted) return;
+      // A failed refresh must not wipe what the user is already looking
+      // at — keep the current page and let them retry (pull-to-refresh or
+      // the next focus load) instead of blanking the list.
       setState(() {
-        if (!append) _requests.clear();
         _requestsLoading = false;
         _requestsLoadingMore = false;
         _requestsLoaded = true;
@@ -431,8 +435,13 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Widget _buildAllBody() {
-    if (_loading) {
-      return const StudioLoadingBody();
+    // Never placehold over inquiries already on screen — a refresh keeps
+    // them and updates in place.
+    if (_loading && _inquiries.isEmpty) {
+      return const CardListSkeleton(
+        height: 108,
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      );
     }
     if (_inquiries.isEmpty) {
       return Center(
@@ -546,8 +555,11 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Widget _buildRequestsBody() {
-    if (_requestsLoading) {
-      return const StudioLoadingBody();
+    if (_requestsLoading && _requests.isEmpty) {
+      return const CardListSkeleton(
+        height: 108,
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      );
     }
     if (_requests.isEmpty) {
       return Center(
@@ -750,10 +762,7 @@ class _InquiryBottomSheet extends StatelessWidget {
           ),
           const SizedBox(height: AppDims.spaceMd),
           if (loading)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 24),
-              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-            )
+            const SizedBox(height: 220, child: ChatThreadSkeleton(itemCount: 4))
           else
             Flexible(
               child: SingleChildScrollView(

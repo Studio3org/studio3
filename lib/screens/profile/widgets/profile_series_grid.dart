@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../../../theme/home_feed_tokens.dart';
+import '../../../widgets/feed_skeleton.dart';
 import '../models/profile_series_data.dart';
 import '../profile_constants.dart';
 
@@ -19,10 +20,7 @@ class ProfileSeriesGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (loading && items.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 40),
-        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-      );
+      return const ProfileGridSkeleton();
     }
 
     if (items.isEmpty) {

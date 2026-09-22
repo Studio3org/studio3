@@ -38,6 +38,15 @@ class AddressService {
     );
   }
 
+  /// Synchronous cache read for seeding the address list before its first
+  /// frame — a revisit shows the saved addresses instantly.
+  List<Address>? peekAddressesCached() {
+    return CacheService.instance.peekCache<List<Address>>(
+      key: _cacheKey,
+      parse: (json) => _api.extractList(json).map(Address.fromJson).toList(),
+    );
+  }
+
   Future<Address> createAddress(Address address) async {
     final json = await _api.post(
       '/api/user/me/addresses',

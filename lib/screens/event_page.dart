@@ -10,6 +10,7 @@ import '../services/saved_content_store.dart';
 import '../theme/home_feed_tokens.dart';
 import '../utils/scrolls_to_top_on_double_tap.dart';
 import '../widgets/events/event_feed_widgets.dart';
+import '../widgets/loading/app_skeletons.dart';
 import '../widgets/studio_message.dart';
 
 /// Events tab — Figma `2783:12462`.
@@ -36,12 +37,20 @@ class _EventPageState extends State<EventPage>
   void initState() {
     super.initState();
     _store.addListener(_onStore);
+    // Whatever was browsed last time paints on the first frame; `_load`
+    // revalidates behind it instead of blanking the sections.
+    _browse = EventService.instance.peekBrowseCached();
     _load();
   }
 
   Future<void> _load() async {
     try {
-      final browse = await EventService.instance.browse();
+      final browse = await EventService.instance.browseCached(
+        onBackgroundUpdate: (fresh) {
+          if (!mounted) return;
+          setState(() => _browse = fresh);
+        },
+      );
       if (!mounted) return;
       setState(() {
         _browse = browse;
@@ -191,12 +200,15 @@ class _EventPageState extends State<EventPage>
               selectedIndex: _rangeIndex,
               onSelected: (i) => setState(() => _rangeIndex = i),
             ),
-            if (_loading)
+            // Header bar, search field and time filters above are static
+            // and already interactive. Only the event data placeholds, and
+            // only while nothing has been loaded or cached yet.
+            if (_loading && browse == null)
               const Padding(
-                padding: EdgeInsets.symmetric(vertical: 48),
-                child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                padding: EdgeInsets.only(top: 8),
+                child: HeroBlockSkeleton(),
               )
-            else if (_error != null)
+            else if (_error != null && browse == null)
               _EventsMessage(text: _error!, onRetry: _load)
             else if (featured == null)
               const _EventsMessage(

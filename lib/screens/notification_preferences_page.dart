@@ -5,8 +5,9 @@ import '../models/user_profile.dart';
 import '../services/api_exception.dart';
 import '../services/user_service.dart';
 import '../theme/home_feed_tokens.dart';
+import '../widgets/feed_skeleton.dart';
+import '../widgets/loading/section_loader.dart';
 import '../widgets/settings_tile.dart';
-import '../widgets/studio_loading.dart';
 
 const _pushLabels = {
   'follow': ('Follows', Icons.person_add_alt_outlined),
@@ -31,18 +32,39 @@ class _NotificationPreferencesPageState
   bool _loading = true;
   bool _saving = false;
 
+  /// Whether real preference values are on screen (cached or fetched) as
+  /// opposed to the placeholder defaults.
+  bool _hasPrefs = false;
+
   @override
   void initState() {
     super.initState();
+    // Paint the real switch positions immediately when the profile is
+    // already cached; the fetch below still runs and refreshes silently.
+    final cached = UserService.instance.peekMeCached()?.notificationPreferences;
+    if (cached != null) {
+      _prefs = cached;
+      _hasPrefs = true;
+    }
     _load();
   }
 
   Future<void> _load() async {
     try {
-      final profile = await UserService.instance.getMe();
+      final profile = await UserService.instance.getMeCached(
+        onBackgroundUpdate: (fresh) {
+          if (!mounted) return;
+          setState(() {
+            _prefs =
+                fresh.notificationPreferences ?? const NotificationPreferences();
+            _hasPrefs = true;
+          });
+        },
+      );
       if (!mounted) return;
       setState(() {
         _prefs = profile.notificationPreferences ?? const NotificationPreferences();
+        _hasPrefs = true;
         _loading = false;
       });
     } catch (_) {
@@ -141,23 +163,28 @@ class _NotificationPreferencesPageState
 
   @override
   Widget build(BuildContext context) {
-    return StudioLoadingGate(
-      loading: _loading,
-      child: Scaffold(
+    // Chrome is static — it never waits on the network. Only the switch
+    // positions are backend-dependent, so only they get a placeholder, and
+    // only until there are real values (cached or fetched) to show.
+    return Scaffold(
+      backgroundColor: HomeFeedTokens.background,
+      appBar: AppBar(
         backgroundColor: HomeFeedTokens.background,
-        appBar: AppBar(
-          backgroundColor: HomeFeedTokens.background,
-          elevation: 0,
-          title: Text(
-            'Notification preferences',
-            style: GoogleFonts.inter(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: HomeFeedTokens.textPrimary,
-            ),
+        elevation: 0,
+        title: Text(
+          'Notification preferences',
+          style: GoogleFonts.inter(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: HomeFeedTokens.textPrimary,
           ),
         ),
-        body: ListView(
+      ),
+      body: SectionLoader(
+        hasData: _hasPrefs,
+        loading: _loading,
+        skeleton: (_) => const SettingsListSkeleton(),
+        content: (_) => ListView(
           padding: const EdgeInsets.all(20),
           children: [
             _sectionLabel('Push notifications'),

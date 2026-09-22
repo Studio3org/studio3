@@ -130,6 +130,17 @@ class FeedService {
     );
   }
 
+  /// Synchronous peek at whatever Explore page is already cached — lets
+  /// the Explore tab paint its last-seen grid on the first frame instead
+  /// of a skeleton, and keeps something on screen when a cold backend
+  /// makes the live request fail.
+  FeedPage? peekExploreCached({String? medium, bool videoOnly = false}) {
+    return CacheService.instance.peekCache<FeedPage>(
+      key: 'feed.explore.${videoOnly ? 'video' : (medium ?? 'all')}',
+      parse: (json) => _parseFeedPage(json, videoOnly: videoOnly),
+    );
+  }
+
   Map<String, String> _query({String? cursor, int? limit}) {
     final query = <String, String>{};
     if (cursor != null && cursor.isNotEmpty) query['cursor'] = cursor;

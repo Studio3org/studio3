@@ -12,6 +12,7 @@ import '../widgets/share/share_sheet.dart';
 import 'profile/profile_constants.dart';
 import 'profile/widgets/profile_masonry_grid.dart';
 import 'series_editor_page.dart';
+import '../widgets/feed_skeleton.dart';
 
 /// Figma 2725:9434 — series view from the profile Series tab.
 class SeriesViewPage extends StatefulWidget {
@@ -281,16 +282,7 @@ class _SeriesViewPageState extends State<SeriesViewPage> {
             ),
           ),
           if (_loading && pieces.isEmpty)
-            const SliverFillRemaining(
-              hasScrollBody: false,
-              child: Center(
-                child: SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              ),
-            )
+            const SliverToBoxAdapter(child: ProfileGridSkeleton())
           else if (pieces.isEmpty)
             SliverToBoxAdapter(
               child: Padding(

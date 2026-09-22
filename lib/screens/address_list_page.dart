@@ -8,6 +8,7 @@ import '../services/connectivity_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/home_feed_tokens.dart';
 import '../widgets/glass_card.dart';
+import '../widgets/loading/app_skeletons.dart';
 import '../widgets/offline_state.dart';
 import 'address_form_page.dart';
 
@@ -27,6 +28,7 @@ class _AddressListPageState extends State<AddressListPage> {
   void initState() {
     super.initState();
     ConnectivityService.instance.addReconnectHook(_onReconnected);
+    _addresses = AddressService.instance.peekAddressesCached() ?? const [];
     _load();
   }
 
@@ -160,7 +162,7 @@ class _AddressListPageState extends State<AddressListPage> {
       return OfflineState(onRetry: () => _load(refresh: true));
     }
     if (_loading && _addresses.isEmpty) {
-      return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+      return const CardListSkeleton(height: 132);
     }
     if (_error != null && _addresses.isEmpty) {
       return ListView(

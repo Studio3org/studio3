@@ -12,6 +12,7 @@ import '../services/user_service.dart';
 import '../theme/home_feed_tokens.dart';
 import '../utils/profile_navigation.dart';
 import '../widgets/feed_skeleton.dart';
+import '../widgets/loading/skeleton_primitives.dart';
 import '../widgets/settings_tile.dart';
 import '../widgets/studio_loading.dart';
 import 'inbox_page.dart';
@@ -36,6 +37,17 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
   @override
   void initState() {
     super.initState();
+    // Cached profile → the settings list renders with real values on the
+    // first frame; `_loadSellerStatus` confirms them behind it.
+    final cached = UserService.instance.peekMeCached();
+    if (cached != null) {
+      _sellerEnabled = cached.sellerEnabled;
+      _profileLocation = cached.location;
+      _loadingSeller = false;
+    }
+    // Last known payout state, so a return visit renders the correct row
+    // immediately instead of guessing while the status call is in flight.
+    _payoutStatus = PayoutService.instance.peekStatusCached();
     _loadSellerStatus();
   }
 
@@ -124,14 +136,22 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
       _loadAnalytics();
       _loadPayoutStatus();
     } else if (result == false) {
+      await PayoutService.instance.invalidateStatus();
+      if (!mounted) return;
       setState(() => _payoutStatus = null);
     }
   }
 
-  Future<void> _loadPayoutStatus() async {
+  Future<void> _loadPayoutStatus({bool refresh = false}) async {
     if (!_sellerEnabled) return;
     try {
-      final status = await PayoutService.instance.getStatus();
+      final status = await PayoutService.instance.getStatusCached(
+        forceRefresh: refresh,
+        onBackgroundUpdate: (fresh) {
+          if (!mounted) return;
+          setState(() => _payoutStatus = fresh);
+        },
+      );
       if (!mounted) return;
       setState(() => _payoutStatus = status);
     } catch (_) {
@@ -201,30 +221,15 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
               onChanged: _onSellerToggle,
             ),
             if (_sellerEnabled) ...[
-              if (_payoutStatus == null || _payoutStatus!.needsAction)
-                SettingsTile(
-                  icon: Icons.account_balance_wallet_outlined,
-                  label: 'Payout setup',
-                  trailing: Text(
-                    'Required',
-                    style: GoogleFonts.inter(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: const Color(0xFFC47B2B),
-                    ),
-                  ),
-                  onTap: () async {
-                    await Navigator.pushNamed(context, '/payout-setup');
-                    if (!mounted) return;
-                    _loadPayoutStatus();
-                  },
-                )
-              else
-                SettingsTile(
-                  icon: Icons.account_balance_outlined,
-                  label: 'Payouts',
-                  onTap: _openPayoutDashboard,
-                ),
+              PayoutSettingsTile(
+                status: _payoutStatus,
+                onStartSetup: () async {
+                  await Navigator.pushNamed(context, '/payout-setup');
+                  if (!mounted) return;
+                  _loadPayoutStatus(refresh: true);
+                },
+                onOpenDashboard: _openPayoutDashboard,
+              ),
               SettingsTile(
                 icon: Icons.bar_chart_rounded,
                 label: 'Seller analytics',
@@ -387,6 +392,65 @@ class _SectionHeader extends StatelessWidget {
           color: HomeFeedTokens.textPrimary.withValues(alpha: 0.45),
         ),
       ),
+    );
+  }
+}
+
+/// The Seller section's payout row.
+///
+/// Three states, not two. A null [status] means "we haven't heard back
+/// yet", and that used to be folded in with "needs action" — so every
+/// fresh login flashed an amber "Required" at artists whose payouts were
+/// already set up, then quietly corrected itself a moment later once the
+/// status call landed. Unknown now renders a placeholder where the badge
+/// goes and asserts nothing about the account, and the row is inert until
+/// there is an answer to route on.
+class PayoutSettingsTile extends StatelessWidget {
+  const PayoutSettingsTile({
+    super.key,
+    required this.status,
+    required this.onStartSetup,
+    required this.onOpenDashboard,
+  });
+
+  final PayoutStatus? status;
+  final VoidCallback onStartSetup;
+  final VoidCallback onOpenDashboard;
+
+  @override
+  Widget build(BuildContext context) {
+    final current = status;
+
+    if (current == null) {
+      return const SettingsTile(
+        icon: Icons.account_balance_outlined,
+        label: 'Payouts',
+        trailing: SkeletonShimmer(
+          child: SkeletonBox(width: 56, height: 12, radius: 4),
+        ),
+      );
+    }
+
+    if (current.needsAction) {
+      return SettingsTile(
+        icon: Icons.account_balance_wallet_outlined,
+        label: 'Payout setup',
+        trailing: Text(
+          'Required',
+          style: GoogleFonts.inter(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: const Color(0xFFC47B2B),
+          ),
+        ),
+        onTap: onStartSetup,
+      );
+    }
+
+    return SettingsTile(
+      icon: Icons.account_balance_outlined,
+      label: 'Payouts',
+      onTap: onOpenDashboard,
     );
   }
 }
