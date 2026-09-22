@@ -275,29 +275,42 @@ class _ActivityCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            UserAvatar(
-              url: item.actorAvatarUrl,
-              name: item.actorDisplayName,
-              size: 36,
-            ),
+            item.hasActor
+                ? UserAvatar(
+                    url: item.actorAvatarUrl,
+                    name: item.actorDisplayName,
+                    size: 36,
+                  )
+                // A system notification (a bid result, an auction closing, an event
+                // cancelled) has no one to put a face to — a fake "Someone" avatar here
+                // was as misleading as the fake name next to it.
+                : const _SystemNotificationIcon(size: 36),
             const SizedBox(width: 12),
             Expanded(
               child: Wrap(
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  Text(
-                    '${item.actorDisplayName} ',
-                    style: AppFonts.inter(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.slate900,
+                  if (item.hasActor)
+                    Text(
+                      '${item.actorDisplayName} ',
+                      style: AppFonts.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.slate900,
+                      ),
                     ),
-                  ),
                   Text(
                     item.displayText,
                     style: AppFonts.inter(
                       fontSize: 14,
-                      color: AppColors.slate700,
+                      // A system message reads as its own sentence rather than the tail
+                      // end of one that starts with a name, so it gets the same emphasis
+                      // an actor-led one puts on the name.
+                      fontWeight:
+                          item.hasActor ? FontWeight.w400 : FontWeight.w600,
+                      color: item.hasActor
+                          ? AppColors.slate700
+                          : AppColors.slate900,
                     ),
                   ),
                   if (item.isInquiry) ...[
@@ -338,6 +351,33 @@ class _ActivityCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Stand-in for [UserAvatar] on a notification nobody sent — a bid result, an auction
+/// closing, an event cancelled. A neutral bell rather than an initials circle, so it reads
+/// as "the app telling you something" and not as a person whose name just failed to load.
+class _SystemNotificationIcon extends StatelessWidget {
+  const _SystemNotificationIcon({required this.size});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: const BoxDecoration(
+        color: AppColors.slate100,
+        shape: BoxShape.circle,
+      ),
+      alignment: Alignment.center,
+      child: Icon(
+        Icons.notifications_rounded,
+        size: size * 0.55,
+        color: AppColors.slate600,
       ),
     );
   }

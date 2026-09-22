@@ -46,8 +46,14 @@ class NotificationItem {
     );
   }
 
-  String get actorDisplayName =>
-      (actorName != null && actorName!.isNotEmpty) ? actorName! : 'Someone';
+  /// Whether this notification is actually about something a person did — as opposed to a
+  /// system/self event (a bid result, an auction closing, an event being cancelled) that has
+  /// no one to name. [displayText] already reads as a complete sentence for the latter, so a
+  /// caller should only prefix [actorDisplayName] onto it when this is true — otherwise a
+  /// system message like "You won the auction" gets a fabricated "Someone" stitched onto it.
+  bool get hasActor => actorName != null && actorName!.isNotEmpty;
+
+  String get actorDisplayName => hasActor ? actorName! : 'Someone';
 
   bool get isInquiry => type == 'inquiry';
 
@@ -56,8 +62,11 @@ class NotificationItem {
 
   bool get isSale => type == 'purchase';
 
-  /// The action text shown after the actor's name, built from the real
-  /// notification type and payload — never a fabricated string.
+  /// The action text — shown after the actor's name when [hasActor], on its own otherwise.
+  /// Built from the real notification type and payload where a type is worth its own
+  /// sentence (follow/like/save/comment/inquiry/purchase); every other type — including
+  /// every actor-less system notification — falls back to [message], which the backend now
+  /// always sends (the same text it push-notified with), never a fabricated string.
   String get displayText {
     switch (type) {
       case 'follow':

@@ -153,7 +153,7 @@ class _CollectPieceSheetState extends State<CollectPieceSheet> {
         // Nothing owed — skip Stripe entirely. Routing a free/fully-prepaid
         // collect through the payment sheet was the actual cause of this
         // getting stuck: the sheet has no defined behavior for a $0 charge.
-        await OrderService.instance.confirm(order.id);
+        await OrderService.instance.confirm(order.id, pieceId: item.id);
         paid = true;
       } else {
         paid = await _payForOrder(order.id);
@@ -210,7 +210,7 @@ class _CollectPieceSheetState extends State<CollectPieceSheet> {
         });
         return false;
       }
-      await OrderService.instance.confirm(orderId);
+      await OrderService.instance.confirm(orderId, pieceId: item.id);
       return true;
     }
 

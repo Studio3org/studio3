@@ -41,6 +41,12 @@ class OrderService {
     );
     final data = _api.extractData(json) as Map<String, dynamic>;
     await CacheService.instance.invalidate('orders.mine');
+    // The piece is reserved the moment this order is created — server-side, before
+    // payment even runs — so its cached detail (still showing "live"/for sale, from
+    // whenever it was last viewed) is stale as of this exact call, not just once payment
+    // clears. Left un-invalidated, PieceDetail's own post-purchase refresh would just
+    // re-serve that stale entry and the Collect button would keep showing.
+    await CacheService.instance.invalidate('piece.$pieceId');
     return Order.fromJson(data);
   }
 
@@ -57,14 +63,22 @@ class OrderService {
       auth: true,
     );
     final data = _api.extractData(json) as Map<String, dynamic>;
+    await CacheService.instance.invalidate('piece.$pieceId');
     await CacheService.instance.invalidate('orders.mine');
     return Order.fromJson(data);
   }
 
-  Future<Order> confirm(String orderId) async {
+  /// [pieceId] is optional only because this is also reached from places that don't have
+  /// one handy — pass it whenever the caller does, so the piece's cached detail (already
+  /// invalidated once at [collect]/[auctionCheckout] time, when it moved to reserved) is
+  /// invalidated again for the reserved → sold transition this call makes.
+  Future<Order> confirm(String orderId, {String? pieceId}) async {
     final json = await _api.post('/api/orders/$orderId/confirm', auth: true);
     final data = _api.extractData(json) as Map<String, dynamic>;
     await CacheService.instance.invalidate('orders.mine');
+    if (pieceId != null) {
+      await CacheService.instance.invalidate('piece.$pieceId');
+    }
     return Order.fromJson(data);
   }
 
