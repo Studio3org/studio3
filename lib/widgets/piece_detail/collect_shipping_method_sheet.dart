@@ -7,6 +7,7 @@ import '../../services/api_exception.dart';
 import '../../services/order_service.dart';
 import '../../theme/collect_detail_tokens.dart';
 import 'collect_shipping_sheet.dart';
+import '../loading/app_skeletons.dart';
 
 /// Shipping method picker — Figma 2382-1648.
 class CollectShippingMethodSheet extends StatefulWidget {
@@ -127,7 +128,7 @@ class _CollectShippingMethodSheetState
               ),
               Expanded(
                 child: _loading
-                    ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+                    ? const OptionListSkeleton()
                     : ListView(
                         padding: EdgeInsets.fromLTRB(16, 0, 16, 24 + bottomInset),
                         children: [

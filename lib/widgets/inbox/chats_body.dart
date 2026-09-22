@@ -95,8 +95,10 @@ class _ChatsBodyState extends State<ChatsBody> {
       });
     } catch (_) {
       if (!mounted) return;
+      // A failed refresh must not wipe what the user is already looking
+      // at — keep the current page and let them retry (pull-to-refresh or
+      // the next focus load) instead of blanking the list.
       setState(() {
-        if (!append) _conversations.clear();
         _loading = false;
         _loadingMore = false;
       });
@@ -134,8 +136,10 @@ class _ChatsBodyState extends State<ChatsBody> {
       });
     } catch (_) {
       if (!mounted) return;
+      // A failed refresh must not wipe what the user is already looking
+      // at — keep the current page and let them retry (pull-to-refresh or
+      // the next focus load) instead of blanking the list.
       setState(() {
-        if (!append) _requests.clear();
         _requestsLoading = false;
         _requestsLoadingMore = false;
         _requestsLoaded = true;
@@ -446,7 +450,9 @@ class _ChatsBodyState extends State<ChatsBody> {
   }
 
   Widget _buildAllBody() {
-    if (_loading) {
+    // Conversations already on screen survive a refresh — the placeholder
+    // is only for a genuinely empty first load.
+    if (_loading && _conversations.isEmpty) {
       return const FlatListRowSkeleton();
     }
     if (_conversations.isEmpty) {
@@ -545,7 +551,7 @@ class _ChatsBodyState extends State<ChatsBody> {
   }
 
   Widget _buildRequestsBody() {
-    if (_requestsLoading) {
+    if (_requestsLoading && _requests.isEmpty) {
       return const FlatListRowSkeleton();
     }
     if (_requests.isEmpty) {

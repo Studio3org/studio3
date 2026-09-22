@@ -11,6 +11,7 @@ import '../../theme/home_feed_tokens.dart';
 import '../profile_avatar.dart';
 import 'create_flow_widgets.dart';
 import 'event_lineup_models.dart';
+import '../loading/app_skeletons.dart';
 
 class EventPieceGroup {
   const EventPieceGroup({required this.person, required this.pieces});
@@ -212,14 +213,8 @@ class _EventFeaturedPiecesPickerPageState
             ),
           ),
           Expanded(
-            child: _loading
-                ? const Center(
-                    child: SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  )
+            child: _loading && _groups.isEmpty
+                ? const TileGridSkeleton(crossAxisCount: 3, itemCount: 9)
                 : _groups.isEmpty
                     ? Center(
                         child: Padding(

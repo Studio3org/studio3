@@ -282,7 +282,12 @@ class StudioLoadingAnimation extends StatelessWidget {
   }
 }
 
-/// Centered body placeholder for scaffold/page initial loads.
+/// Centered bubble mark, for the rare case where a page body is waiting on
+/// something that has no meaningful shape to placehold.
+///
+/// Not for list/grid/form sections: those use the shaped skeletons in
+/// `widgets/loading/app_skeletons.dart`, which show the user what is about
+/// to arrive instead of a generic spinner.
 class StudioLoadingBody extends StatelessWidget {
   const StudioLoadingBody({super.key, this.width = 96, this.color});
 
@@ -412,6 +417,14 @@ class StudioLoginLoadingOverlay extends StatelessWidget {
 }
 
 /// When [loading] is true, covers the entire page with [StudioLoadingOverlay].
+///
+/// **Mutations only.** Pass a flag that tracks a submit / publish / upload
+/// the user must not interrupt — never one that tracks an initial GET.
+/// Blocking the whole page on a read hides static chrome that could have
+/// painted immediately and content that may already be cached; a read
+/// placeholds per section instead, via `SectionLoader` and the skeletons in
+/// `widgets/loading/` (see `loading/skeleton_primitives.dart` for the full
+/// rule).
 class StudioLoadingGate extends StatelessWidget {
   const StudioLoadingGate({
     super.key,

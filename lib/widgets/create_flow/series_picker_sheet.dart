@@ -12,6 +12,7 @@ import '../../services/series_service.dart';
 import '../../theme/home_feed_tokens.dart';
 import 'create_flow_widgets.dart';
 import 'create_series_dialog.dart';
+import '../loading/app_skeletons.dart';
 
 class SeriesPickerResult {
   const SeriesPickerResult({
@@ -183,12 +184,7 @@ class _SeriesPickerSheetState extends State<SeriesPickerSheet> {
           ),
           Expanded(
             child: _loading
-                ? const Center(
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: HomeFeedTokens.textSecondary,
-                    ),
-                  )
+                ? const OptionListSkeleton()
                 : _error != null
                     ? Center(
                         child: Padding(

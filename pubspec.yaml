@@ -153,6 +153,16 @@ flutter:
     - assets/profile/
     - assets/piece/
     - assets/event/
+    # Inter + Geist, in the exact weights the app uses, under the filenames
+    # `google_fonts` looks for in the asset bundle (`<Family>-<Variant>.ttf`).
+    # With these present the package never touches the network: it resolves
+    # every GoogleFonts.inter()/geist() call from here. Without them each
+    # family+weight is downloaded from fonts.gstatic.com the first time a
+    # screen uses it, which shows up as multi-second stalls when a new
+    # section appears. `GoogleFonts.config.allowRuntimeFetching = false` in
+    # `main.dart` keeps it that way — a weight that isn't bundled throws in
+    # debug instead of silently going back to fetching at runtime.
+    - assets/google_fonts/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

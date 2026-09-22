@@ -10,6 +10,7 @@ import '../post_picker_search_field.dart';
 import '../profile_avatar.dart';
 import 'create_flow_widgets.dart';
 import 'event_lineup_models.dart';
+import '../loading/app_skeletons.dart';
 
 /// Search/select a person for event co-hosts or featured artists.
 class EventPeoplePickerPage extends StatefulWidget {
@@ -165,14 +166,8 @@ class _EventPeoplePickerPageState extends State<EventPeoplePickerPage> {
             ),
           ),
           Expanded(
-            child: loading
-                ? const Center(
-                    child: SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  )
+            child: loading && people.isEmpty
+                ? const UserListSkeleton(padding: EdgeInsets.fromLTRB(24, 0, 24, 16))
                 : people.isEmpty
                     ? Center(
                         child: Text(
