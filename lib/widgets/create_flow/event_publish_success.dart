@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../data/post_media_assets.dart';
 import '../../models/post_image_transform.dart';
@@ -8,6 +7,7 @@ import '../../theme/home_feed_tokens.dart';
 import '../post_crop_preview.dart';
 import '../share/share_sheet.dart';
 import 'event_ticket_edit_page.dart' show ticketAccent;
+import '../../theme/app_fonts.dart';
 
 /// Full-bleed cover + confirmation after publishing an event.
 class EventPublishSuccessOverlay extends StatelessWidget {
@@ -68,7 +68,7 @@ class EventPublishSuccessOverlay extends StatelessWidget {
                     Text(
                       'Your event is live',
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.geist(
+                      style: AppFonts.geist(
                         fontSize: 18,
                         fontWeight: FontWeight.w500,
                         color: HomeFeedTokens.textPrimary,
@@ -78,7 +78,7 @@ class EventPublishSuccessOverlay extends StatelessWidget {
                     Text(
                       'Visible on your Discover now',
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.geist(
+                      style: AppFonts.geist(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
                         color: HomeFeedTokens.textSecondary,
@@ -90,7 +90,7 @@ class EventPublishSuccessOverlay extends StatelessWidget {
                         "Your cover photo didn't upload — add one from "
                         'event settings.',
                         textAlign: TextAlign.center,
-                        style: GoogleFonts.geist(
+                        style: AppFonts.geist(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                           color: ticketAccent,
@@ -117,7 +117,7 @@ class EventPublishSuccessOverlay extends StatelessWidget {
                               ),
                               child: Text(
                                 'Share',
-                                style: GoogleFonts.geist(
+                                style: AppFonts.geist(
                                   fontSize: 16,
                                   color: HomeFeedTokens.textInverse,
                                 ),
@@ -142,7 +142,7 @@ class EventPublishSuccessOverlay extends StatelessWidget {
                               ),
                               child: Text(
                                 'View Event',
-                                style: GoogleFonts.geist(
+                                style: AppFonts.geist(
                                   fontSize: 16,
                                   color: HomeFeedTokens.textPrimary,
                                 ),
@@ -205,7 +205,7 @@ class EventPublishSuccessOverlay extends StatelessWidget {
               if (kicker != null && kicker!.isNotEmpty)
                 Text(
                   kicker!.toUpperCase(),
-                  style: GoogleFonts.geist(
+                  style: AppFonts.geist(
                     fontSize: 11,
                     fontWeight: FontWeight.w500,
                     letterSpacing: 0.8,
@@ -215,7 +215,7 @@ class EventPublishSuccessOverlay extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 title,
-                style: GoogleFonts.geist(
+                style: AppFonts.geist(
                   fontSize: 24,
                   fontWeight: FontWeight.w500,
                   color: HomeFeedTokens.textInverse,
@@ -226,7 +226,7 @@ class EventPublishSuccessOverlay extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   scheduleLine!,
-                  style: GoogleFonts.geist(
+                  style: AppFonts.geist(
                     fontSize: 13,
                     color: HomeFeedTokens.textInverse,
                   ),

@@ -168,6 +168,16 @@ class Studio3App extends StatelessWidget {
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       themeMode: ThemeMode.light,
+      // Defense in depth for emoji rendering (see theme/app_fonts.dart for the actual
+      // fix): AppFonts.inter/.geist already carry the fallback themselves, but this
+      // still covers a Text widget with no style at all, or one built from
+      // GoogleFonts directly rather than AppFonts — Text.build() merges its own style
+      // onto this ambient one, keeping this fallback for any field the widget's own
+      // style leaves unset.
+      builder: (context, child) => DefaultTextStyle.merge(
+        style: const TextStyle(fontFamilyFallback: AppTheme.emojiFallback),
+        child: child!,
+      ),
       initialRoute: resolveInitialRoute(),
       navigatorObservers: [routeObserver, OpenAtTopObserver()],
       routes: {

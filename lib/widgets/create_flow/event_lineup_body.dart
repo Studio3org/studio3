@@ -2,13 +2,13 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../data/post_media_assets.dart';
 import '../../theme/home_feed_tokens.dart';
 import '../profile_avatar.dart';
 import 'event_lineup_models.dart';
 import 'event_relist_dialog.dart';
+import '../../theme/app_fonts.dart';
 
 const _hairline = Color(0xFFC8C5BC);
 const _cardBorder = Color(0xFFC4C4C4);
@@ -62,7 +62,7 @@ class EventLineupBody extends StatelessWidget {
             children: [
               Text(
                 'Pieces',
-                style: GoogleFonts.geist(
+                style: AppFonts.geist(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                   color: HomeFeedTokens.textPrimary,
@@ -73,7 +73,7 @@ class EventLineupBody extends StatelessWidget {
                 pieces.isEmpty
                     ? 'Tag pieces being shown, sold, or auctioned at this event'
                     : 'Off shows this only to people you share it with',
-                style: GoogleFonts.geist(
+                style: AppFonts.geist(
                   fontSize: 11,
                   color: HomeFeedTokens.textSecondary,
                 ),
@@ -92,7 +92,7 @@ class EventLineupBody extends StatelessWidget {
                 behavior: HitTestBehavior.opaque,
                 child: Text(
                   '+ Tag a piece',
-                  style: GoogleFonts.geist(
+                  style: AppFonts.geist(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                     color: HomeFeedTokens.textPrimary,
@@ -139,7 +139,7 @@ class _PeopleSection extends StatelessWidget {
             children: [
               Text(
                 label,
-                style: GoogleFonts.geist(
+                style: AppFonts.geist(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                   color: HomeFeedTokens.textSecondary,
@@ -192,7 +192,7 @@ class _PersonChip extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
-              style: GoogleFonts.geist(
+              style: AppFonts.geist(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
                 color: HomeFeedTokens.textPrimary,
@@ -203,7 +203,7 @@ class _PersonChip extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
-              style: GoogleFonts.geist(
+              style: AppFonts.geist(
                 fontSize: 11,
                 color: HomeFeedTokens.textSecondary,
               ),
@@ -406,7 +406,7 @@ class _EventTaggedPieceCardState extends State<EventTaggedPieceCard> {
                         tagged.piece.title.isEmpty
                             ? 'Untitled'
                             : tagged.piece.title,
-                        style: GoogleFonts.geist(
+                        style: AppFonts.geist(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
                           color: HomeFeedTokens.textPrimary,
@@ -415,7 +415,7 @@ class _EventTaggedPieceCardState extends State<EventTaggedPieceCard> {
                       const SizedBox(height: 4),
                       Text(
                         artist,
-                        style: GoogleFonts.geist(
+                        style: AppFonts.geist(
                           fontSize: 10,
                           color: HomeFeedTokens.textSecondary,
                         ),
@@ -519,7 +519,7 @@ class _LabeledBlock extends StatelessWidget {
       children: [
         Text(
           label,
-          style: GoogleFonts.geist(
+          style: AppFonts.geist(
             fontSize: 11,
             color: HomeFeedTokens.textSecondary,
           ),
@@ -559,7 +559,7 @@ class _ModeChip extends StatelessWidget {
           ),
           child: Text(
             label,
-            style: GoogleFonts.geist(
+            style: AppFonts.geist(
               fontSize: 13,
               fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
               color: selected
@@ -600,7 +600,7 @@ class _FulfillChip extends StatelessWidget {
           ),
           child: Text(
             label,
-            style: GoogleFonts.geist(
+            style: AppFonts.geist(
               fontSize: 13,
               color: selected
                   ? HomeFeedTokens.textPrimary
@@ -632,7 +632,7 @@ class _PriceField extends StatelessWidget {
         children: [
           Text(
             '\$',
-            style: GoogleFonts.geist(
+            style: AppFonts.geist(
               fontSize: 11,
               fontWeight: FontWeight.w500,
               color: HomeFeedTokens.textSecondary,
@@ -649,7 +649,7 @@ class _PriceField extends StatelessWidget {
               ],
               onChanged: onChanged,
               cursorColor: HomeFeedTokens.textPrimary,
-              style: GoogleFonts.geist(
+              style: AppFonts.geist(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
                 color: HomeFeedTokens.textPrimary,

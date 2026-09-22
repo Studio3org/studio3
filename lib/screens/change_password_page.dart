@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../services/api_exception.dart';
 import '../services/user_service.dart';
@@ -8,6 +7,7 @@ import '../utils/auth_validators.dart';
 import '../widgets/pill_input.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/studio_loading.dart';
+import '../theme/app_fonts.dart';
 
 /// Authenticated password change, distinct from the unauthenticated
 /// forgot/reset-password flow — reached from Settings > Password & security.
@@ -94,7 +94,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
           elevation: 0,
           title: Text(
             'Change password',
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 18,
               fontWeight: FontWeight.w600,
               color: HomeFeedTokens.textPrimary,
@@ -145,7 +145,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
 
   Widget _label(String text) => Text(
         text,
-        style: GoogleFonts.inter(
+        style: AppFonts.inter(
           fontSize: 13,
           fontWeight: FontWeight.w500,
           color: HomeFeedTokens.textPrimary.withValues(alpha: 0.6),

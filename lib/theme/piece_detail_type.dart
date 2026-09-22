@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import 'collect_detail_tokens.dart';
+import 'app_fonts.dart';
 
 /// Line boxes from Figma 2707:3548 (text node height ÷ font size).
 abstract final class PieceDetailType {
@@ -11,7 +11,7 @@ abstract final class PieceDetailType {
     FontWeight weight = FontWeight.w400,
     required Color color,
   }) {
-    return GoogleFonts.geist(
+    return AppFonts.geist(
       fontSize: size,
       fontWeight: weight,
       height: line / size,

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../models/user_profile.dart';
 import '../services/api_exception.dart';
@@ -8,6 +7,7 @@ import '../theme/home_feed_tokens.dart';
 import '../widgets/feed_skeleton.dart';
 import '../widgets/loading/section_loader.dart';
 import '../widgets/settings_tile.dart';
+import '../theme/app_fonts.dart';
 
 const _pushLabels = {
   'follow': ('Follows', Icons.person_add_alt_outlined),
@@ -173,7 +173,7 @@ class _NotificationPreferencesPageState
         elevation: 0,
         title: Text(
           'Notification preferences',
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 18,
             fontWeight: FontWeight.w600,
             color: HomeFeedTokens.textPrimary,
@@ -219,7 +219,7 @@ class _NotificationPreferencesPageState
         padding: const EdgeInsets.only(bottom: 8),
         child: Text(
           text,
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 13,
             fontWeight: FontWeight.w500,
             color: HomeFeedTokens.textPrimary.withValues(alpha: 0.6),

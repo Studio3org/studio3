@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../models/feed_preview_item.dart';
 import '../services/api_exception.dart';
@@ -27,6 +26,7 @@ import '../widgets/piece_detail/piece_more_sheet.dart';
 import '../widgets/piece_detail/piece_related_scenes_row.dart';
 import '../widgets/piece_detail/piece_share_sheet.dart';
 import '../widgets/piece_detail/piece_series_row.dart';
+import '../theme/app_fonts.dart';
 
 class PieceDetailPage extends StatefulWidget {
   const PieceDetailPage({
@@ -285,7 +285,7 @@ class _PieceDetailPageState extends State<PieceDetailPage>
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                   child: Text(
                     item.title,
-                    style: GoogleFonts.inter(
+                    style: AppFonts.inter(
                       fontSize: 24,
                       fontWeight: FontWeight.w400,
                       color: HomeFeedTokens.textPrimary,
@@ -303,7 +303,7 @@ class _PieceDetailPageState extends State<PieceDetailPage>
                           children: [
                             Text(
                               '${item.medium} · ${item.year}',
-                              style: GoogleFonts.inter(
+                              style: AppFonts.inter(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w400,
                                 color: HomeFeedTokens.textSecondary,
@@ -312,7 +312,7 @@ class _PieceDetailPageState extends State<PieceDetailPage>
                             const SizedBox(height: 4),
                             Text(
                               item.dimensions,
-                              style: GoogleFonts.inter(
+                              style: AppFonts.inter(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w400,
                                 color: HomeFeedTokens.textSecondary,
@@ -327,7 +327,7 @@ class _PieceDetailPageState extends State<PieceDetailPage>
                               showMaterialsSheet(context, item.materials),
                           child: Text(
                             'View Materials →',
-                            style: GoogleFonts.inter(
+                            style: AppFonts.inter(
                               fontSize: 12,
                               fontWeight: FontWeight.w400,
                               color: HomeFeedTokens.sky600,
@@ -342,7 +342,7 @@ class _PieceDetailPageState extends State<PieceDetailPage>
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
                   child: Text(
                     item.story,
-                    style: GoogleFonts.inter(
+                    style: AppFonts.inter(
                       fontSize: 16,
                       fontWeight: FontWeight.w400,
                       height: 1.45,

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../config/app_link_config.dart';
 import '../models/studio_event.dart';
@@ -15,6 +14,7 @@ import '../widgets/home_feed/home_feed_widgets.dart';
 import '../widgets/profile_avatar.dart';
 import '../widgets/share/share_sheet.dart';
 import '../widgets/studio_message.dart';
+import '../theme/app_fonts.dart';
 
 /// Returns the pushed route's future, so a caller that wants to know when the viewer is
 /// back — to refresh a list something on this page could have changed, an RSVP or a
@@ -170,7 +170,7 @@ class _EventDetailPageState extends State<EventDetailPage> {
     FontWeight weight = FontWeight.w400,
     Color color = HomeFeedTokens.textPrimary,
   }) {
-    return GoogleFonts.geist(
+    return AppFonts.geist(
       fontSize: size,
       fontWeight: weight,
       color: color,

@@ -2,11 +2,11 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../data/post_media_assets.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/home_feed_tokens.dart';
+import '../../theme/app_fonts.dart';
 
 /// Shared horizontal inset for create / listing flow dividers.
 const double createFlowHorizontalInset = 15.0;
@@ -79,7 +79,7 @@ class CreateFlowBanner extends StatelessWidget {
                 ),
                 Text(
                   title,
-                  style: GoogleFonts.geist(
+                  style: AppFonts.geist(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
                     color: HomeFeedTokens.textPrimary,
@@ -181,14 +181,14 @@ class CreateFlowTextField extends StatelessWidget {
   InputDecoration _decoration({required bool multiline}) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: GoogleFonts.inter(
+      hintStyle: AppFonts.inter(
         fontSize: 15,
         fontWeight: FontWeight.w400,
         color: _textDim,
         height: multiline ? 1.35 : null,
       ),
       prefixText: prefixText,
-      prefixStyle: GoogleFonts.inter(
+      prefixStyle: AppFonts.inter(
         fontSize: 15,
         fontWeight: FontWeight.w500,
         color: HomeFeedTokens.textPrimary,
@@ -222,7 +222,7 @@ class CreateFlowTextField extends StatelessWidget {
       maxLines: maxLines,
       minLines: minLines,
       keyboardType: keyboardType,
-      style: GoogleFonts.inter(
+      style: AppFonts.inter(
         fontSize: 15,
         fontWeight: style == CreateFlowTextFieldStyle.title
             ? FontWeight.w500
@@ -294,7 +294,7 @@ class CreateFlowMetadataRow extends StatelessWidget {
             Expanded(
               child: Text(
                 label,
-                style: GoogleFonts.inter(
+                style: AppFonts.inter(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                   color: HomeFeedTokens.textPrimary,
@@ -304,7 +304,7 @@ class CreateFlowMetadataRow extends StatelessWidget {
             if (trailing != null) ...[
               Text(
                 trailing!,
-                style: GoogleFonts.inter(
+                style: AppFonts.inter(
                   fontSize: 11,
                   fontWeight: FontWeight.w400,
                   color: _textSecondary,
@@ -323,7 +323,7 @@ class CreateFlowMetadataRow extends StatelessWidget {
                 ),
                 child: Text(
                   '$countBadge',
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 11,
                     fontWeight: FontWeight.w500,
                     color: HomeFeedTokens.textInverse,
@@ -372,7 +372,7 @@ class CreateFlowLocationChip extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 9,
             fontWeight: FontWeight.w400,
             color: _textSecondary,
@@ -430,7 +430,7 @@ class CreateFlowToggleRow extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: GoogleFonts.inter(
+              style: AppFonts.inter(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
                 color: HomeFeedTokens.textPrimary,
@@ -516,7 +516,7 @@ class CreateFlowBottomButton extends StatelessWidget {
             child: child ??
                 Text(
                   label,
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                     color: textColor,

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../data/post_media_assets.dart';
 import '../../theme/home_feed_tokens.dart';
+import '../../theme/app_fonts.dart';
 
 const Color kSceneVideoTrackFill = Color(0xFFE8E6DF);
 const Color kSceneVideoTrimOrange = Color(0xFFC4541E);
@@ -253,7 +253,7 @@ class SceneVideoFlowBanner extends StatelessWidget {
                 ),
                 Text(
                   title,
-                  style: GoogleFonts.geist(
+                  style: AppFonts.geist(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
                     color: HomeFeedTokens.textPrimary,
@@ -272,7 +272,7 @@ class SceneVideoFlowBanner extends StatelessWidget {
                           )
                         : Text(
                             actionLabel,
-                            style: GoogleFonts.geist(
+                            style: AppFonts.geist(
                               fontSize: 16,
                               fontWeight: FontWeight.w500,
                               color: onAction == null

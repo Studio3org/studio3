@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../theme/home_feed_tokens.dart';
 import 'profile/widgets/profile_seller_insights.dart';
+import '../theme/app_fonts.dart';
 
 /// Seller analytics detail — opened from Settings when seller mode is on.
 class SellerAnalyticsPage extends StatelessWidget {
@@ -29,7 +29,7 @@ class SellerAnalyticsPage extends StatelessWidget {
         centerTitle: true,
         title: Text(
           'Seller analytics',
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 18,
             fontWeight: FontWeight.w600,
             color: HomeFeedTokens.textPrimary,
@@ -46,7 +46,7 @@ class SellerAnalyticsPage extends StatelessWidget {
         children: [
           Text(
             'Your insights',
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 22,
               fontWeight: FontWeight.w700,
               color: HomeFeedTokens.textPrimary,
@@ -55,7 +55,7 @@ class SellerAnalyticsPage extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             'Track how your listings perform over time.',
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 14,
               color: HomeFeedTokens.textPrimary.withValues(alpha: 0.55),
               height: 1.4,

@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../data/post_material_options.dart';
 import '../data/post_media_assets.dart';
 import '../screens/profile/profile_constants.dart';
 import '../theme/home_feed_tokens.dart';
 import '../widgets/create_flow/create_flow_widgets.dart';
+import '../theme/app_fonts.dart';
 
 /// Piece posting materials: empty state → custom add form → list.
 class AddMaterialsPage extends StatefulWidget {
@@ -271,7 +271,7 @@ class _MaterialsList extends StatelessWidget {
             onTap: onDone,
             child: Text(
               'Done',
-              style: GoogleFonts.geist(
+              style: AppFonts.geist(
                 fontSize: 16,
                 fontWeight: FontWeight.w400,
                 color: HomeFeedTokens.textInverse,
@@ -496,7 +496,7 @@ class _UnderlineField extends StatelessWidget {
         TextField(
           controller: controller,
           cursorColor: HomeFeedTokens.textPrimary,
-          style: GoogleFonts.geist(
+          style: AppFonts.geist(
             fontSize: 16,
             fontWeight: FontWeight.w400,
             color: HomeFeedTokens.textPrimary,
@@ -504,7 +504,7 @@ class _UnderlineField extends StatelessWidget {
           decoration: InputDecoration(
             isDense: true,
             hintText: hint,
-            hintStyle: GoogleFonts.geist(
+            hintStyle: AppFonts.geist(
               fontSize: 16,
               fontWeight: FontWeight.w400,
               color: textColor.withValues(alpha: 0.55),

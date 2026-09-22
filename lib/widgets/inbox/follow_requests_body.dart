@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/follow_request.dart';
 import '../../services/social_service.dart';
@@ -10,6 +9,7 @@ import '../feed_skeleton.dart';
 import '../glass_card.dart';
 import '../home_feed/home_feed_widgets.dart';
 import '../offline_state.dart';
+import '../../theme/app_fonts.dart';
 
 /// Follow-requests list content for the Inbox page's "Requests" tab —
 /// extracted from the former standalone FollowRequestsPage, minus its own
@@ -101,7 +101,7 @@ class FollowRequestsBodyState extends State<FollowRequestsBody> {
       return Center(
         child: Text(
           'No pending requests',
-          style: GoogleFonts.inter(fontSize: 14, color: AppColors.slate400),
+          style: AppFonts.inter(fontSize: 14, color: AppColors.slate400),
         ),
       );
     }
@@ -162,14 +162,14 @@ class _FollowRequestRow extends StatelessWidget {
               children: [
                 Text(
                   request.name,
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 Text(
                   '@${request.username} · requested ${_timeAgo(request.requestedAt)}',
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 12,
                     color: AppColors.slate500,
                   ),

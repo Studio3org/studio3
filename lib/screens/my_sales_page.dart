@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../models/order.dart';
 import '../services/order_service.dart';
@@ -9,6 +8,7 @@ import '../widgets/glass_card.dart';
 import '../widgets/loading/app_skeletons.dart';
 import '../widgets/loading/section_loader.dart';
 import 'order_detail_page.dart';
+import '../theme/app_fonts.dart';
 
 class MySalesPage extends StatefulWidget {
   const MySalesPage({super.key});
@@ -99,7 +99,7 @@ class _MySalesPageState extends State<MySalesPage> {
         centerTitle: true,
         title: Text(
           'My Sales',
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 18,
             fontWeight: FontWeight.w600,
             color: HomeFeedTokens.textPrimary,
@@ -129,7 +129,7 @@ class _MySalesPageState extends State<MySalesPage> {
           Center(
             child: Text(
               'No sales yet',
-              style: GoogleFonts.inter(fontSize: 14, color: AppColors.slate400),
+              style: AppFonts.inter(fontSize: 14, color: AppColors.slate400),
             ),
           ),
         ],
@@ -194,7 +194,7 @@ class _SaleCard extends StatelessWidget {
                 children: [
                   Text(
                     'Order #${order.id.substring(0, order.id.length > 8 ? 8 : order.id.length)}',
-                    style: GoogleFonts.inter(
+                    style: AppFonts.inter(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: AppColors.slate900,
@@ -203,7 +203,7 @@ class _SaleCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     '${order.items.length} item${order.items.length == 1 ? '' : 's'} · ${order.totalDisplay}',
-                    style: GoogleFonts.inter(
+                    style: AppFonts.inter(
                       fontSize: 13,
                       color: AppColors.slate600,
                     ),
@@ -219,7 +219,7 @@ class _SaleCard extends StatelessWidget {
               ),
               child: Text(
                 order.status.replaceAll('_', ' '),
-                style: GoogleFonts.inter(
+                style: AppFonts.inter(
                   fontSize: 11,
                   fontWeight: FontWeight.w500,
                   color: AppColors.slate700,

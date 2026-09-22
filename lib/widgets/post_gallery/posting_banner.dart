@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../data/post_media_assets.dart';
 import '../../theme/home_feed_tokens.dart';
+import '../../theme/app_fonts.dart';
 
 /// Close / Recents / Next bar (Figma 2757:10777).
 class PostingBanner extends StatelessWidget {
@@ -63,7 +63,7 @@ class PostingBanner extends StatelessWidget {
                           onTap: onNext,
                           child: Text(
                             'Next',
-                            style: GoogleFonts.geist(
+                            style: AppFonts.geist(
                               fontSize: 16,
                               fontWeight: FontWeight.w500,
                               color: HomeFeedTokens.textPrimary,
@@ -84,7 +84,7 @@ class PostingBanner extends StatelessWidget {
                       children: [
                         Text(
                           albumName,
-                          style: GoogleFonts.geist(
+                          style: AppFonts.geist(
                             fontSize: 16,
                             fontWeight: FontWeight.w500,
                             color: HomeFeedTokens.textPrimary,

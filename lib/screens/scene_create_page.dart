@@ -2,7 +2,6 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../data/post_location_options.dart';
 import '../data/post_media_assets.dart';
@@ -20,6 +19,7 @@ import '../widgets/post_crop_preview.dart';
 import '../utils/payout_setup.dart';
 import '../widgets/publish_result_overlays.dart';
 import 'scene_set_cover_page.dart';
+import '../theme/app_fonts.dart';
 
 /// Scene details step — independent of the piece create flow.
 class SceneCreatePage extends StatefulWidget {
@@ -271,7 +271,7 @@ class _SceneCreatePageState extends State<SceneCreatePage> {
                         : (onReview ? _publish : _onSaveAndContinue),
                     child: Text(
                       ctaLabel,
-                      style: GoogleFonts.geist(
+                      style: AppFonts.geist(
                         fontSize: 16,
                         fontWeight: FontWeight.w400,
                         color: HomeFeedTokens.textInverse,
@@ -356,7 +356,7 @@ class _SceneCreatePageState extends State<SceneCreatePage> {
         children: [
           Text(
             label,
-            style: GoogleFonts.geist(
+            style: AppFonts.geist(
               fontSize: 13,
               fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
               color: selected
@@ -386,7 +386,7 @@ class _SceneCreatePageState extends State<SceneCreatePage> {
         children: [
           Text(
             'Caption',
-            style: GoogleFonts.geist(
+            style: AppFonts.geist(
               fontSize: 13,
               fontWeight: FontWeight.w500,
               color: HomeFeedTokens.textSecondary,
@@ -404,7 +404,7 @@ class _SceneCreatePageState extends State<SceneCreatePage> {
               controller: _descriptionController,
               maxLines: null,
               cursorColor: HomeFeedTokens.textPrimary,
-              style: GoogleFonts.geist(
+              style: AppFonts.geist(
                 fontSize: 12,
                 fontWeight: FontWeight.w400,
                 color: HomeFeedTokens.textPrimary,
@@ -414,7 +414,7 @@ class _SceneCreatePageState extends State<SceneCreatePage> {
                 border: InputBorder.none,
                 contentPadding: EdgeInsets.zero,
                 hintText: 'Every piece has a behind-the-scenes…',
-                hintStyle: GoogleFonts.geist(
+                hintStyle: AppFonts.geist(
                   fontSize: 12,
                   fontWeight: FontWeight.w400,
                   color: HomeFeedTokens.textSecondary,
@@ -460,7 +460,7 @@ class _SceneCreatePageState extends State<SceneCreatePage> {
                 Expanded(
                   child: Text(
                     'Details',
-                    style: GoogleFonts.geist(
+                    style: AppFonts.geist(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
                       color: HomeFeedTokens.textPrimary,
@@ -472,7 +472,7 @@ class _SceneCreatePageState extends State<SceneCreatePage> {
                   behavior: HitTestBehavior.opaque,
                   child: Text(
                     'Edit',
-                    style: GoogleFonts.geist(
+                    style: AppFonts.geist(
                       fontSize: 12,
                       fontWeight: FontWeight.w400,
                       color: HomeFeedTokens.textSecondary,
@@ -485,7 +485,7 @@ class _SceneCreatePageState extends State<SceneCreatePage> {
               const SizedBox(height: 12),
               Text(
                 caption,
-                style: GoogleFonts.geist(
+                style: AppFonts.geist(
                   fontSize: 12,
                   fontWeight: FontWeight.w400,
                   color: HomeFeedTokens.textPrimary,
@@ -496,7 +496,7 @@ class _SceneCreatePageState extends State<SceneCreatePage> {
               const SizedBox(height: 8),
               Text(
                 location,
-                style: GoogleFonts.geist(
+                style: AppFonts.geist(
                   fontSize: 12,
                   fontWeight: FontWeight.w400,
                   color: HomeFeedTokens.textSecondary,
@@ -507,7 +507,7 @@ class _SceneCreatePageState extends State<SceneCreatePage> {
               const SizedBox(height: 8),
               Text(
                 _linkedReviewLine,
-                style: GoogleFonts.geist(
+                style: AppFonts.geist(
                   fontSize: 12,
                   fontWeight: FontWeight.w400,
                   color: HomeFeedTokens.textSecondary,
@@ -606,7 +606,7 @@ class _SceneCoverPreview extends StatelessWidget {
                     ),
                     child: Text(
                       'Edit cover',
-                      style: GoogleFonts.geist(
+                      style: AppFonts.geist(
                         fontSize: 12,
                         fontWeight: FontWeight.w400,
                         color: HomeFeedTokens.textInverse,
@@ -642,7 +642,7 @@ class _SceneCoverPreview extends StatelessWidget {
                 ),
                 child: Text(
                   counterLabel,
-                  style: GoogleFonts.geist(
+                  style: AppFonts.geist(
                     fontSize: 11,
                     fontWeight: FontWeight.w400,
                     color: HomeFeedTokens.textInverse,
@@ -677,7 +677,7 @@ class _NavRow extends StatelessWidget {
           children: [
             Text(
               label,
-              style: GoogleFonts.geist(
+              style: AppFonts.geist(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
                 color: HomeFeedTokens.textPrimary,
@@ -691,7 +691,7 @@ class _NavRow extends StatelessWidget {
                   textAlign: TextAlign.right,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.geist(
+                  style: AppFonts.geist(
                     fontSize: 12,
                     fontWeight: FontWeight.w400,
                     color: HomeFeedTokens.textSecondary,

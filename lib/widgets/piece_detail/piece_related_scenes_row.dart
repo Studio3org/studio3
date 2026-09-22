@@ -1,12 +1,12 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/feed_preview_item.dart';
 import '../../theme/piece_detail_type.dart';
 import '../../utils/explore_detail_route.dart';
 import '../../models/feed_item.dart';
 import '../../models/post_summary.dart';
+import '../../theme/app_fonts.dart';
 
 class PieceRelatedScenesRow extends StatelessWidget {
   const PieceRelatedScenesRow({
@@ -106,7 +106,7 @@ class PieceRelatedScenesRow extends StatelessWidget {
                             bottom: 8,
                             child: Text(
                               scene.duration!,
-                              style: GoogleFonts.inter(
+                              style: AppFonts.inter(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w400,
                                 color: Colors.white,

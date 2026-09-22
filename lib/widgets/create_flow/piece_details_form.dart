@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../data/post_media_assets.dart';
 import '../../models/listing_details.dart';
 import '../../screens/profile/profile_constants.dart';
 import '../../theme/home_feed_tokens.dart';
+import '../../theme/app_fonts.dart';
 
 /// Figma 2720:6711 — piece posting Details tab.
 class PieceDetailsForm extends StatefulWidget {
@@ -356,7 +356,7 @@ class _OutlineField extends StatelessWidget {
       minLines: minLines,
       keyboardType: keyboardType,
       cursorColor: HomeFeedTokens.textPrimary,
-      style: GoogleFonts.geist(
+      style: AppFonts.geist(
         fontSize: fontSize,
         fontWeight: FontWeight.w400,
         color: HomeFeedTokens.textPrimary,
@@ -364,7 +364,7 @@ class _OutlineField extends StatelessWidget {
       decoration: InputDecoration(
         isDense: true,
         hintText: hint,
-        hintStyle: GoogleFonts.geist(
+        hintStyle: AppFonts.geist(
           fontSize: fontSize,
           fontWeight: FontWeight.w400,
           color: HomeFeedTokens.textSecondary,
@@ -448,7 +448,7 @@ class _DimBox extends StatelessWidget {
                 FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
               ],
               cursorColor: HomeFeedTokens.textPrimary,
-              style: GoogleFonts.geist(
+              style: AppFonts.geist(
                 fontSize: 13,
                 fontWeight: FontWeight.w400,
                 color: HomeFeedTokens.textPrimary,
@@ -576,7 +576,7 @@ class _NavRow extends StatelessWidget {
                   textAlign: TextAlign.right,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.geist(
+                  style: AppFonts.geist(
                     fontSize: trailingSize,
                     fontWeight: FontWeight.w400,
                     color: HomeFeedTokens.textSecondary,

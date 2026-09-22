@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/order.dart';
 import '../../theme/collect_detail_tokens.dart';
+import '../../theme/app_fonts.dart';
 
 /// Order confirmation shown after a successful collect + confirm.
 class CollectOrderConfirmationSheet extends StatelessWidget {
@@ -49,7 +49,7 @@ class CollectOrderConfirmationSheet extends StatelessWidget {
               const SizedBox(height: 16),
               Text(
                 isPaid ? 'Order confirmed' : 'Order placed',
-                style: GoogleFonts.inter(
+                style: AppFonts.inter(
                   fontSize: 20,
                   fontWeight: FontWeight.w600,
                   color: CollectDetailTokens.textPrimary,
@@ -59,7 +59,7 @@ class CollectOrderConfirmationSheet extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   'Test mode — no real payment was captured.',
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 12,
                     color: CollectDetailTokens.textSecondary,
                   ),
@@ -76,7 +76,7 @@ class CollectOrderConfirmationSheet extends StatelessWidget {
                 children: [
                   Text(
                     'Total',
-                    style: GoogleFonts.inter(
+                    style: AppFonts.inter(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                       color: CollectDetailTokens.textPrimary,
@@ -85,7 +85,7 @@ class CollectOrderConfirmationSheet extends StatelessWidget {
                   const Spacer(),
                   Text(
                     order.totalDisplay,
-                    style: GoogleFonts.inter(
+                    style: AppFonts.inter(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                       color: CollectDetailTokens.textPrimary,
@@ -110,7 +110,7 @@ class CollectOrderConfirmationSheet extends StatelessWidget {
                     child: Center(
                       child: Text(
                         'Done',
-                        style: GoogleFonts.inter(
+                        style: AppFonts.inter(
                           fontSize: 16,
                           fontWeight: FontWeight.w400,
                           color: CollectDetailTokens.textInverse,
@@ -140,7 +140,7 @@ class _SummaryLine extends StatelessWidget {
       children: [
         Text(
           label,
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 12,
             fontWeight: FontWeight.w400,
             color: CollectDetailTokens.textPrimary,
@@ -149,7 +149,7 @@ class _SummaryLine extends StatelessWidget {
         const Spacer(),
         Text(
           value,
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 12,
             fontWeight: FontWeight.w400,
             color: CollectDetailTokens.textPrimary,

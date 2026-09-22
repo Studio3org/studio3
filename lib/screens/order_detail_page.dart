@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../models/order.dart';
 import '../services/api_exception.dart';
@@ -8,6 +7,7 @@ import '../theme/app_theme.dart';
 import '../theme/home_feed_tokens.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/loading/app_skeletons.dart';
+import '../theme/app_fonts.dart';
 
 class OrderDetailPage extends StatefulWidget {
   const OrderDetailPage({
@@ -86,7 +86,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
         centerTitle: true,
         title: Text(
           'Order details',
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 18,
             fontWeight: FontWeight.w600,
             color: HomeFeedTokens.textPrimary,
@@ -113,7 +113,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
       return Center(
         child: Text(
           _error ?? 'Order not found',
-          style: GoogleFonts.inter(fontSize: 14, color: AppColors.slate400),
+          style: AppFonts.inter(fontSize: 14, color: AppColors.slate400),
         ),
       );
     }
@@ -130,12 +130,12 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
             children: [
               Text(
                 'Status',
-                style: GoogleFonts.inter(fontSize: 12, color: AppColors.slate500),
+                style: AppFonts.inter(fontSize: 12, color: AppColors.slate500),
               ),
               const SizedBox(height: 4),
               Text(
                 order.statusLabel,
-                style: GoogleFonts.inter(
+                style: AppFonts.inter(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                   color: AppColors.slate900,
@@ -145,7 +145,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                 const SizedBox(height: 6),
                 Text(
                   _escrowNote(order)!,
-                  style: GoogleFonts.inter(fontSize: 12, color: AppColors.slate500),
+                  style: AppFonts.inter(fontSize: 12, color: AppColors.slate500),
                 ),
               ],
             ],
@@ -163,14 +163,14 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Issue reported',
-                    style: GoogleFonts.inter(fontSize: 12, color: AppColors.slate500)),
+                    style: AppFonts.inter(fontSize: 12, color: AppColors.slate500)),
                 const SizedBox(height: 6),
-                Text(order.dispute!.reason, style: GoogleFonts.inter(fontSize: 14)),
+                Text(order.dispute!.reason, style: AppFonts.inter(fontSize: 14)),
                 const SizedBox(height: 6),
                 Text(
                   "Our team is looking into this and will be in touch. The artist "
                   "hasn't been paid while this is open.",
-                  style: GoogleFonts.inter(fontSize: 12, color: AppColors.slate500),
+                  style: AppFonts.inter(fontSize: 12, color: AppColors.slate500),
                 ),
               ],
             ),
@@ -185,16 +185,16 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
               children: [
                 Text(
                   'Shipping address',
-                  style: GoogleFonts.inter(fontSize: 12, color: AppColors.slate500),
+                  style: AppFonts.inter(fontSize: 12, color: AppColors.slate500),
                 ),
                 const SizedBox(height: 8),
-                Text(address.fullName, style: GoogleFonts.inter(fontSize: 14)),
-                Text(address.line1, style: GoogleFonts.inter(fontSize: 14)),
+                Text(address.fullName, style: AppFonts.inter(fontSize: 14)),
+                Text(address.line1, style: AppFonts.inter(fontSize: 14)),
                 if (address.line2 != null && address.line2!.isNotEmpty)
-                  Text(address.line2!, style: GoogleFonts.inter(fontSize: 14)),
+                  Text(address.line2!, style: AppFonts.inter(fontSize: 14)),
                 Text(
                   '${address.city}, ${address.state} ${address.zip}',
-                  style: GoogleFonts.inter(fontSize: 14),
+                  style: AppFonts.inter(fontSize: 14),
                 ),
               ],
             ),
@@ -207,7 +207,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
             children: [
               Text(
                 'Order summary',
-                style: GoogleFonts.inter(fontSize: 12, color: AppColors.slate500),
+                style: AppFonts.inter(fontSize: 12, color: AppColors.slate500),
               ),
               const SizedBox(height: 12),
               _SummaryLine(label: 'Piece', value: order.artworkDisplay),
@@ -271,7 +271,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Tracking',
-              style: GoogleFonts.inter(fontSize: 12, color: AppColors.slate500)),
+              style: AppFonts.inter(fontSize: 12, color: AppColors.slate500)),
           const SizedBox(height: 8),
           _SummaryLine(label: 'Courier', value: shipment.courier),
           const SizedBox(height: 6),
@@ -412,7 +412,7 @@ class _SummaryLine extends StatelessWidget {
       children: [
         Text(
           label,
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 13,
             fontWeight: bold ? FontWeight.w600 : FontWeight.w400,
             color: AppColors.slate700,
@@ -421,7 +421,7 @@ class _SummaryLine extends StatelessWidget {
         const Spacer(),
         Text(
           value,
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 13,
             fontWeight: bold ? FontWeight.w600 : FontWeight.w400,
             color: AppColors.slate900,

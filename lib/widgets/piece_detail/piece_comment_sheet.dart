@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/comment_page.dart';
 import '../../models/feed_item.dart';
@@ -10,6 +9,7 @@ import '../../theme/home_feed_tokens.dart';
 import '../../utils/profile_navigation.dart';
 import '../profile_avatar.dart';
 import '../loading/app_skeletons.dart';
+import '../../theme/app_fonts.dart';
 
 /// Instagram-style comment list + add-comment bottom sheet for a piece or
 /// scene. List/create only — no like/reply (backend has no API for those).
@@ -230,7 +230,7 @@ class _PieceCommentSheetState extends State<PieceCommentSheet> {
           const SizedBox(height: 12),
           Text(
             'Comments',
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 15,
               fontWeight: FontWeight.w600,
               color: HomeFeedTokens.textPrimary,
@@ -256,7 +256,7 @@ class _PieceCommentSheetState extends State<PieceCommentSheet> {
       return Center(
         child: Text(
           _error!,
-          style: GoogleFonts.inter(color: HomeFeedTokens.textSecondary),
+          style: AppFonts.inter(color: HomeFeedTokens.textSecondary),
         ),
       );
     }
@@ -264,7 +264,7 @@ class _PieceCommentSheetState extends State<PieceCommentSheet> {
       return Center(
         child: Text(
           'No comments yet',
-          style: GoogleFonts.inter(color: HomeFeedTokens.textSecondary),
+          style: AppFonts.inter(color: HomeFeedTokens.textSecondary),
         ),
       );
     }
@@ -308,13 +308,13 @@ class _PieceCommentSheetState extends State<PieceCommentSheet> {
               maxLines: 4,
               textInputAction: TextInputAction.send,
               onSubmitted: (_) => _submit(),
-              style: GoogleFonts.inter(
+              style: AppFonts.inter(
                 fontSize: 14,
                 color: HomeFeedTokens.textPrimary,
               ),
               decoration: InputDecoration(
                 hintText: 'Add a comment…',
-                hintStyle: GoogleFonts.inter(
+                hintStyle: AppFonts.inter(
                   fontSize: 14,
                   color: HomeFeedTokens.textSecondary,
                 ),
@@ -387,7 +387,7 @@ class _CommentTile extends StatelessWidget {
                                 comment.authorName!.isNotEmpty)
                             ? comment.authorName!
                             : (comment.authorUsername ?? 'User'),
-                        style: GoogleFonts.inter(
+                        style: AppFonts.inter(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                           color: HomeFeedTokens.textPrimary,
@@ -397,7 +397,7 @@ class _CommentTile extends StatelessWidget {
                     const SizedBox(width: 8),
                     Text(
                       _timeAgo(comment.createdAt),
-                      style: GoogleFonts.inter(
+                      style: AppFonts.inter(
                         fontSize: 11,
                         color: HomeFeedTokens.textSecondary,
                       ),
@@ -407,7 +407,7 @@ class _CommentTile extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   comment.body,
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 13,
                     color: HomeFeedTokens.textPrimary,
                   ),

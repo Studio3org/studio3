@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/follow_user_summary.dart';
 import '../../services/auth_session.dart';
@@ -11,6 +10,7 @@ import '../profile_avatar.dart';
 import 'create_flow_widgets.dart';
 import 'event_lineup_models.dart';
 import '../loading/app_skeletons.dart';
+import '../../theme/app_fonts.dart';
 
 /// Search/select a person for event co-hosts or featured artists.
 class EventPeoplePickerPage extends StatefulWidget {
@@ -175,7 +175,7 @@ class _EventPeoplePickerPageState extends State<EventPeoplePickerPage> {
                               ? 'No people found'
                               : 'Follow artists to add them here, or search.',
                           textAlign: TextAlign.center,
-                          style: GoogleFonts.geist(
+                          style: AppFonts.geist(
                             fontSize: 13,
                             color: HomeFeedTokens.textSecondary,
                           ),
@@ -205,7 +205,7 @@ class _EventPeoplePickerPageState extends State<EventPeoplePickerPage> {
                                     children: [
                                       Text(
                                         person.displayName,
-                                        style: GoogleFonts.geist(
+                                        style: AppFonts.geist(
                                           fontSize: 14,
                                           fontWeight: FontWeight.w500,
                                           color: HomeFeedTokens.textPrimary,
@@ -213,7 +213,7 @@ class _EventPeoplePickerPageState extends State<EventPeoplePickerPage> {
                                       ),
                                       Text(
                                         person.handle,
-                                        style: GoogleFonts.geist(
+                                        style: AppFonts.geist(
                                           fontSize: 12,
                                           color: HomeFeedTokens.textSecondary,
                                         ),

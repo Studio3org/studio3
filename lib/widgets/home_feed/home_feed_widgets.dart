@@ -1,7 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../../data/nav_assets.dart';
@@ -12,6 +11,7 @@ import '../../services/notification_service.dart';
 import '../../services/social_service.dart';
 import '../../theme/home_feed_tokens.dart';
 import '../../utils/profile_navigation.dart';
+import '../../theme/app_fonts.dart';
 
 class FeedHomeHeader extends StatelessWidget {
   const FeedHomeHeader({
@@ -46,7 +46,7 @@ class FeedHomeHeader extends StatelessWidget {
             child: Text(
               'studio 3',
               textAlign: TextAlign.center,
-              style: GoogleFonts.geist(
+              style: AppFonts.geist(
                 fontSize: 28,
                 fontWeight: FontWeight.w800,
                 color: Colors.black,
@@ -121,7 +121,7 @@ class _FeedTypeDropdown extends StatelessWidget {
                 HomeFeedContentFilter.piece => 'Piece',
                 HomeFeedContentFilter.scene => 'Scene',
               },
-              style: GoogleFonts.geist(
+              style: AppFonts.geist(
                 fontSize: 16,
                 fontWeight: option == selected
                     ? FontWeight.w600
@@ -136,7 +136,7 @@ class _FeedTypeDropdown extends StatelessWidget {
         children: [
           Text(
             label,
-            style: GoogleFonts.geist(
+            style: AppFonts.geist(
               fontSize: 20,
               fontWeight: FontWeight.w600,
               color: HomeFeedTokens.textPrimary,
@@ -243,7 +243,7 @@ class _InboxMenuButtonState extends State<_InboxMenuButton> {
                 alignment: Alignment.center,
                 child: Text(
                   _badgeCount > 9 ? '9+' : '$_badgeCount',
-                  style: GoogleFonts.geist(
+                  style: AppFonts.geist(
                     fontSize: 9,
                     fontWeight: FontWeight.w600,
                     color: Colors.white,
@@ -280,7 +280,7 @@ class FeedFilterTab extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       child: Text(
         label,
-        style: GoogleFonts.inter(
+        style: AppFonts.inter(
           fontSize: fontSize,
           fontWeight: FontWeight.w400,
           color: active
@@ -384,7 +384,7 @@ class _InitialsAvatar extends StatelessWidget {
       alignment: Alignment.center,
       child: Text(
         initial,
-        style: GoogleFonts.inter(
+        style: AppFonts.inter(
           fontSize: size * 0.42,
           fontWeight: FontWeight.w600,
           color: HomeFeedTokens.textInverse,
@@ -445,7 +445,7 @@ class FeedCardArtistStrip extends StatelessWidget {
                   name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.geist(
+                  style: AppFonts.geist(
                     fontSize: 12,
                     fontWeight: FontWeight.w400,
                     color: HomeFeedTokens.textInverse,
@@ -456,7 +456,7 @@ class FeedCardArtistStrip extends StatelessWidget {
                     medium!,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.geist(
+                    style: AppFonts.geist(
                       fontSize: 11,
                       fontWeight: FontWeight.w400,
                       color: HomeFeedTokens.textInverse.withValues(alpha: 0.6),
@@ -567,7 +567,7 @@ class _StatusPill extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             label,
-            style: GoogleFonts.geist(
+            style: AppFonts.geist(
               fontSize: 11,
               fontWeight: FontWeight.w400,
               color: HomeFeedTokens.textInverse,

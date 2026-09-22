@@ -1,6 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../models/series_summary.dart';
 import '../services/api_exception.dart';
@@ -12,6 +11,7 @@ import '../widgets/loading/section_loader.dart';
 import 'profile/models/profile_series_data.dart';
 import 'profile/profile_constants.dart';
 import 'series_editor_page.dart';
+import '../theme/app_fonts.dart';
 
 class ManageSeriesPage extends StatefulWidget {
   const ManageSeriesPage({super.key});
@@ -99,7 +99,7 @@ class _ManageSeriesPageState extends State<ManageSeriesPage> {
         centerTitle: true,
         title: Text(
           'Manage series',
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 18,
             fontWeight: FontWeight.w600,
             color: HomeFeedTokens.textPrimary,
@@ -118,7 +118,7 @@ class _ManageSeriesPageState extends State<ManageSeriesPage> {
         icon: const Icon(Icons.add),
         label: Text(
           'New series',
-          style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+          style: AppFonts.inter(fontWeight: FontWeight.w600),
         ),
       ),
       body: RefreshIndicator(
@@ -144,7 +144,7 @@ class _ManageSeriesPageState extends State<ManageSeriesPage> {
               Text(
                 'Group related pieces into a series. Series appear on your profile once they have more than one piece.',
                 textAlign: TextAlign.center,
-                style: GoogleFonts.inter(
+                style: AppFonts.inter(
                   fontSize: 15,
                   height: 1.5,
                   color: kProfileTextMuted,
@@ -231,7 +231,7 @@ class _ManageSeriesCard extends StatelessWidget {
                   children: [
                     Text(
                       data.name,
-                      style: GoogleFonts.inter(
+                      style: AppFonts.inter(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                         color: HomeFeedTokens.textPrimary,
@@ -240,7 +240,7 @@ class _ManageSeriesCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       '${data.pieceCount} piece${data.pieceCount == 1 ? '' : 's'}',
-                      style: GoogleFonts.inter(
+                      style: AppFonts.inter(
                         fontSize: 13,
                         color: kProfileTextMuted,
                       ),

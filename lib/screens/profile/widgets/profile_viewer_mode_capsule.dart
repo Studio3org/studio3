@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../../theme/app_fonts.dart';
 
 /// Bottom-center pill shown when previewing your own profile as a viewer.
 class ProfileViewerModeCapsule extends StatelessWidget {
@@ -17,7 +17,7 @@ class ProfileViewerModeCapsule extends StatelessWidget {
         child: Text(
           'Viewing your profile as others see it',
           textAlign: TextAlign.center,
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 12,
             fontWeight: FontWeight.w500,
             color: Colors.white.withValues(alpha: 0.92),

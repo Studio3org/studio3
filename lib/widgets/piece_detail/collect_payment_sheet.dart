@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/collect_checkout.dart';
 import '../../theme/collect_detail_tokens.dart';
+import '../../theme/app_fonts.dart';
 
 /// Payment method picker — GPay / Apple Pay / Credit-Debit.
 class CollectPaymentSheet extends StatefulWidget {
@@ -82,7 +82,7 @@ class _CollectPaymentSheetState extends State<CollectPaymentSheet> {
                       ),
                       Text(
                         'Payment',
-                        style: GoogleFonts.inter(
+                        style: AppFonts.inter(
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
                           color: CollectDetailTokens.textPrimary,
@@ -143,7 +143,7 @@ class _CollectPaymentSheetState extends State<CollectPaymentSheet> {
                           child: Center(
                             child: Text(
                               'Save and next',
-                              style: GoogleFonts.inter(
+                              style: AppFonts.inter(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w400,
                                 color: CollectDetailTokens.textInverse,
@@ -205,7 +205,7 @@ class _PaymentOption extends StatelessWidget {
               Expanded(
                 child: Text(
                   method.label,
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 14,
                     fontWeight: FontWeight.w400,
                     color: CollectDetailTokens.textPrimary,

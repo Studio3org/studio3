@@ -1,13 +1,13 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../data/post_media_assets.dart';
 import '../../models/piece_summary.dart';
 import '../../screens/profile/profile_constants.dart';
 import '../../theme/home_feed_tokens.dart';
 import 'create_flow_widgets.dart';
+import '../../theme/app_fonts.dart';
 
 /// Full-screen linked-pieces picker for scene Details (Figma 2761:11632).
 class RelatedPiecesPickerPage extends StatefulWidget {
@@ -102,7 +102,7 @@ class _RelatedPiecesPickerPageState extends State<RelatedPiecesPickerPage> {
                           alignment: Alignment.centerRight,
                           child: Text(
                             '$count selected',
-                            style: GoogleFonts.geist(
+                            style: AppFonts.geist(
                               fontSize: 12,
                               fontWeight: FontWeight.w400,
                               color: HomeFeedTokens.textSecondary,
@@ -157,7 +157,7 @@ class _RelatedPiecesPickerPageState extends State<RelatedPiecesPickerPage> {
               onTap: () => Navigator.pop(context, _selected),
               child: Text(
                 'Save',
-                style: GoogleFonts.geist(
+                style: AppFonts.geist(
                   fontSize: 16,
                   fontWeight: FontWeight.w400,
                   color: HomeFeedTokens.textInverse,

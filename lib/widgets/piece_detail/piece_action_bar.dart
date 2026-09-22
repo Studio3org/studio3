@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../theme/home_feed_tokens.dart';
+import '../../theme/app_fonts.dart';
 
 class PieceActionBar extends StatelessWidget {
   const PieceActionBar({
@@ -81,7 +81,7 @@ class _ActionButton extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             label,
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 12,
               fontWeight: FontWeight.w400,
               color: color,

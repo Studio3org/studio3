@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/saved_card.dart';
 import '../../services/api_exception.dart';
 import '../../services/saved_card_service.dart';
 import '../../theme/collect_detail_tokens.dart';
 import '../loading/app_skeletons.dart';
+import '../../theme/app_fonts.dart';
 
 /// Choosing which card a bid is authorised against.
 ///
@@ -133,7 +133,7 @@ class _BidCardPickerSheetState extends State<BidCardPickerSheet> {
                   children: [
                     Text(
                       'Your card is held, not charged. We only take payment if you win.',
-                      style: GoogleFonts.inter(
+                      style: AppFonts.inter(
                         fontSize: 13,
                         height: 1.4,
                         color: CollectDetailTokens.textSecondary,
@@ -158,7 +158,7 @@ class _BidCardPickerSheetState extends State<BidCardPickerSheet> {
                         const SizedBox(height: 12),
                         Text(
                           _error!,
-                          style: GoogleFonts.inter(
+                          style: AppFonts.inter(
                             fontSize: 13,
                             color: CollectDetailTokens.statusError,
                           ),
@@ -214,7 +214,7 @@ class _CardRow extends StatelessWidget {
                     children: [
                       Text(
                         card.label,
-                        style: GoogleFonts.inter(
+                        style: AppFonts.inter(
                           fontSize: 15,
                           color: expired
                               ? CollectDetailTokens.textSecondary
@@ -227,7 +227,7 @@ class _CardRow extends StatelessWidget {
                           expired
                               ? 'Expired ${card.expiryLabel}'
                               : 'Expires ${card.expiryLabel}',
-                          style: GoogleFonts.inter(
+                          style: AppFonts.inter(
                             fontSize: 12,
                             color: expired
                                 ? CollectDetailTokens.statusError
@@ -282,7 +282,7 @@ class _AddCardButton extends StatelessWidget {
                   )
                 : Text(
                     'Add a card',
-                    style: GoogleFonts.inter(
+                    style: AppFonts.inter(
                       fontSize: 16,
                       color: CollectDetailTokens.textInverse,
                     ),
@@ -326,7 +326,7 @@ class _SheetHeader extends StatelessWidget {
             ),
             Text(
               title,
-              style: GoogleFonts.inter(
+              style: AppFonts.inter(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
                 color: CollectDetailTokens.textPrimary,

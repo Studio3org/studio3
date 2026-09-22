@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/feed_preview_item.dart';
 import '../../theme/collect_detail_tokens.dart';
 import '../../utils/auction_time.dart';
+import '../../theme/app_fonts.dart';
 
 /// What the artist sees on their own for-sale piece, before the buy/bid bar: how it's
 /// listed, what it's currently at if it's an auction, and whether it can still be had.
@@ -75,7 +75,7 @@ class OwnerListingSummary extends StatelessWidget {
                   const SizedBox(width: 6),
                   Text(
                     _isAuction ? 'Auction listing' : 'Fixed price listing',
-                    style: GoogleFonts.inter(
+                    style: AppFonts.inter(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
                       color: CollectDetailTokens.textSecondary,
@@ -94,7 +94,7 @@ class OwnerListingSummary extends StatelessWidget {
                         children: [
                           Text(
                             item.bidCount > 0 ? 'Current bid' : 'Starting bid',
-                            style: GoogleFonts.inter(
+                            style: AppFonts.inter(
                               fontSize: 12,
                               color: CollectDetailTokens.textSecondary,
                             ),
@@ -102,7 +102,7 @@ class OwnerListingSummary extends StatelessWidget {
                           const SizedBox(height: 2),
                           Text(
                             formatCollectPrice(_currentBidCents),
-                            style: GoogleFonts.inter(
+                            style: AppFonts.inter(
                               fontSize: 20,
                               fontWeight: FontWeight.w600,
                               color: CollectDetailTokens.textPrimary,
@@ -117,7 +117,7 @@ class OwnerListingSummary extends StatelessWidget {
                         children: [
                           Text(
                             'Closes in',
-                            style: GoogleFonts.inter(
+                            style: AppFonts.inter(
                               fontSize: 12,
                               color: CollectDetailTokens.textSecondary,
                             ),
@@ -125,7 +125,7 @@ class OwnerListingSummary extends StatelessWidget {
                           const SizedBox(height: 2),
                           Text(
                             _timeRemaining!,
-                            style: GoogleFonts.inter(
+                            style: AppFonts.inter(
                               fontSize: 20,
                               fontWeight: FontWeight.w600,
                               color: CollectDetailTokens.statusError,
@@ -177,7 +177,7 @@ class _StatusPill extends StatelessWidget {
         const SizedBox(width: 6),
         Text(
           label,
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 13,
             fontWeight: FontWeight.w600,
             color: color,

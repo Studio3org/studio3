@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/home_feed_tokens.dart';
+import '../theme/app_fonts.dart';
 
 /// A label + tappable field that opens a bottom-sheet picker, for the small
 /// enum settings (visibility, message permission, banner rule).
@@ -52,7 +52,7 @@ class LabeledDropdown extends StatelessWidget {
       children: [
         Text(
           label,
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 13,
             fontWeight: FontWeight.w500,
             color: HomeFeedTokens.textPrimary.withValues(alpha: 0.6),
@@ -77,7 +77,7 @@ class LabeledDropdown extends StatelessWidget {
                   Expanded(
                     child: Text(
                       _selectedLabel,
-                      style: GoogleFonts.inter(
+                      style: AppFonts.inter(
                         fontSize: 15,
                         color: HomeFeedTokens.textPrimary,
                       ),
@@ -127,7 +127,7 @@ class _OptionPickerSheet extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             label,
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 16,
               fontWeight: FontWeight.w600,
               color: HomeFeedTokens.textPrimary,
@@ -150,7 +150,7 @@ class _OptionPickerSheet extends StatelessWidget {
                           Expanded(
                             child: Text(
                               option.$2,
-                              style: GoogleFonts.inter(
+                              style: AppFonts.inter(
                                 fontSize: 15,
                                 fontWeight: option.$1 == value
                                     ? FontWeight.w600

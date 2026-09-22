@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../models/user_profile.dart';
 import '../services/api_exception.dart';
@@ -18,6 +17,7 @@ import '../widgets/loading/skeleton_primitives.dart';
 import '../widgets/studio_loading.dart';
 import 'profile_banner_picker_sheet.dart';
 import 'profile_settings_page.dart';
+import '../theme/app_fonts.dart';
 
 const _pronounPresets = ['she/her', 'he/him', 'they/them', 'she/they', 'he/they'];
 const _categoryPresets = [
@@ -351,7 +351,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
             children: [
               Text(
                 'Edit Profile',
-                style: GoogleFonts.inter(
+                style: AppFonts.inter(
                   fontSize: 17,
                   fontWeight: FontWeight.w600,
                   color: HomeFeedTokens.textPrimary,
@@ -373,7 +373,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   const SizedBox(width: 5),
                   Text(
                     '$_completionPercentage% Complete',
-                    style: GoogleFonts.inter(
+                    style: AppFonts.inter(
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
                       color: HomeFeedTokens.textSecondary,
@@ -391,7 +391,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 icon: const Icon(Icons.check, size: 16, color: Colors.white),
                 label: Text(
                   'Save',
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: Colors.white,
@@ -504,7 +504,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         const SizedBox(width: 6),
                         Text(
                           _coverPhotoUrl != null ? 'Change Cover' : 'Upload Cover',
-                          style: GoogleFonts.inter(
+                          style: AppFonts.inter(
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
                             color: Colors.white,
@@ -577,7 +577,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   children: [
                     Text(
                       _nameController.text.isNotEmpty ? _nameController.text : 'Your Name',
-                      style: GoogleFonts.inter(
+                      style: AppFonts.inter(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                         color: HomeFeedTokens.textPrimary,
@@ -585,7 +585,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     ),
                     Text(
                       '@${_usernameController.text.isNotEmpty ? _usernameController.text : 'handle'}',
-                      style: GoogleFonts.inter(
+                      style: AppFonts.inter(
                         fontSize: 12,
                         color: HomeFeedTokens.textSecondary,
                       ),
@@ -650,7 +650,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
               const SizedBox(width: 6),
               Text(
                 label,
-                style: GoogleFonts.inter(
+                style: AppFonts.inter(
                   fontSize: 12,
                   fontWeight: active ? FontWeight.w600 : FontWeight.w500,
                   color: active ? HomeFeedTokens.textPrimary : HomeFeedTokens.textSecondary,
@@ -689,7 +689,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         const SizedBox(height: 16),
         Text(
           'Pronouns',
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 13,
             fontWeight: FontWeight.w500,
             color: HomeFeedTokens.textPrimary,
@@ -709,7 +709,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
               },
               selectedColor: HomeFeedTokens.neutral800,
               backgroundColor: Colors.white,
-              labelStyle: GoogleFonts.inter(
+              labelStyle: AppFonts.inter(
                 fontSize: 12,
                 color: selected ? Colors.white : HomeFeedTokens.textSecondary,
               ),
@@ -733,7 +733,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         const SizedBox(height: 16),
         Text(
           'Primary Discipline',
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 13,
             fontWeight: FontWeight.w500,
             color: HomeFeedTokens.textPrimary,
@@ -773,7 +773,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   children: [
                     Text(
                       cat,
-                      style: GoogleFonts.inter(
+                      style: AppFonts.inter(
                         fontSize: 12,
                         fontWeight: active ? FontWeight.w600 : FontWeight.w500,
                         color: HomeFeedTokens.textPrimary,
@@ -802,7 +802,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
           children: [
             Text(
               'Bio',
-              style: GoogleFonts.inter(
+              style: AppFonts.inter(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
                 color: HomeFeedTokens.textPrimary,
@@ -810,7 +810,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
             ),
             Text(
               '${_bioController.text.length}/250',
-              style: GoogleFonts.inter(
+              style: AppFonts.inter(
                 fontSize: 11,
                 color: HomeFeedTokens.textSecondary,
               ),
@@ -825,7 +825,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
           onChanged: (_) => setState(() {}),
           decoration: InputDecoration(
             hintText: 'Write a brief artist statement...',
-            hintStyle: GoogleFonts.inter(fontSize: 13, color: HomeFeedTokens.textSecondary),
+            hintStyle: AppFonts.inter(fontSize: 13, color: HomeFeedTokens.textSecondary),
             filled: true,
             fillColor: Colors.white,
             counterText: '',
@@ -856,7 +856,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   const SizedBox(width: 4),
                   Text(
                     'QUICK BIO STARTERS',
-                    style: GoogleFonts.inter(
+                    style: AppFonts.inter(
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
                       color: HomeFeedTokens.neutral800,
@@ -880,7 +880,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       ),
                       child: Text(
                         '"${tmpl.substring(0, tmpl.length > 42 ? 42 : tmpl.length)}..."',
-                        style: GoogleFonts.inter(
+                        style: AppFonts.inter(
                           fontSize: 11,
                           color: HomeFeedTokens.textPrimary,
                         ),
@@ -895,7 +895,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         const SizedBox(height: 16),
         Text(
           'Location',
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 13,
             fontWeight: FontWeight.w500,
             color: HomeFeedTokens.textPrimary,
@@ -1028,7 +1028,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   deleteIcon: const Icon(Icons.close, size: 14),
                   onDeleted: () => setState(() => _tags.remove(t)),
                   backgroundColor: const Color(0xFFEAE6DE),
-                  labelStyle: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500),
+                  labelStyle: AppFonts.inter(fontSize: 12, fontWeight: FontWeight.w500),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 );
               }).toList(),
@@ -1043,7 +1043,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       onSubmitted: _addTag,
                       decoration: InputDecoration(
                         hintText: 'Type a tag (e.g. oil, abstract) & press enter',
-                        hintStyle: GoogleFonts.inter(fontSize: 12, color: HomeFeedTokens.textSecondary),
+                        hintStyle: AppFonts.inter(fontSize: 12, color: HomeFeedTokens.textSecondary),
                         prefixIcon: const Icon(Icons.tag, size: 16),
                         filled: true,
                         fillColor: Colors.white,
@@ -1124,7 +1124,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 children: [
                   Text(
                     title,
-                    style: GoogleFonts.inter(
+                    style: AppFonts.inter(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: HomeFeedTokens.textPrimary,
@@ -1132,7 +1132,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   ),
                   Text(
                     desc,
-                    style: GoogleFonts.inter(
+                    style: AppFonts.inter(
                       fontSize: 11,
                       color: HomeFeedTokens.textSecondary,
                     ),
@@ -1178,7 +1178,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 children: [
                   Text(
                     'Account & Security Settings',
-                    style: GoogleFonts.inter(
+                    style: AppFonts.inter(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: HomeFeedTokens.textPrimary,
@@ -1186,7 +1186,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   ),
                   Text(
                     'Manage password, privacy, email & notifications',
-                    style: GoogleFonts.inter(
+                    style: AppFonts.inter(
                       fontSize: 11,
                       color: HomeFeedTokens.textSecondary,
                     ),
@@ -1218,7 +1218,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         children: [
           Text(
             title,
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 15,
               fontWeight: FontWeight.w600,
               color: HomeFeedTokens.textPrimary,
@@ -1227,7 +1227,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
           const SizedBox(height: 2),
           Text(
             subtitle,
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 12,
               color: HomeFeedTokens.textSecondary,
             ),
@@ -1257,7 +1257,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         if (label.isNotEmpty) ...[
           Text(
             label,
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 13,
               fontWeight: FontWeight.w500,
               color: HomeFeedTokens.textPrimary,
@@ -1271,16 +1271,16 @@ class _EditProfilePageState extends State<EditProfilePage> {
           maxLines: maxLines,
           maxLength: maxLength,
           onChanged: onChanged,
-          style: GoogleFonts.inter(fontSize: 14, color: HomeFeedTokens.textPrimary),
+          style: AppFonts.inter(fontSize: 14, color: HomeFeedTokens.textPrimary),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: GoogleFonts.inter(fontSize: 13, color: HomeFeedTokens.textSecondary),
+            hintStyle: AppFonts.inter(fontSize: 13, color: HomeFeedTokens.textSecondary),
             errorText: errorText,
             prefixIcon: prefixIcon != null
                 ? Icon(prefixIcon, size: 18, color: HomeFeedTokens.textSecondary)
                 : null,
             prefixText: prefixText,
-            prefixStyle: GoogleFonts.inter(
+            prefixStyle: AppFonts.inter(
               fontSize: 14,
               fontWeight: FontWeight.w500,
               color: HomeFeedTokens.textSecondary,

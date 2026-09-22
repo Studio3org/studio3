@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../models/piece_summary.dart';
 import '../services/api_exception.dart';
@@ -9,6 +8,7 @@ import '../theme/home_feed_tokens.dart';
 import '../utils/payout_setup.dart';
 import '../widgets/choose_location_sheet.dart';
 import '../widgets/studio_loading.dart';
+import '../theme/app_fonts.dart';
 
 class EditPiecePage extends StatefulWidget {
   const EditPiecePage({super.key, required this.piece});
@@ -273,7 +273,7 @@ class _EditPiecePageState extends State<EditPiecePage> {
           elevation: 0,
           title: Text(
             'Edit piece',
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 18,
               fontWeight: FontWeight.w600,
               color: HomeFeedTokens.textPrimary,
@@ -284,7 +284,7 @@ class _EditPiecePageState extends State<EditPiecePage> {
               onPressed: _saving ? null : _save,
               child: Text(
                 'Save',
-                style: GoogleFonts.inter(
+                style: AppFonts.inter(
                   fontWeight: FontWeight.w600,
                   color: HomeFeedTokens.textPrimary,
                 ),
@@ -331,7 +331,7 @@ class _EditPiecePageState extends State<EditPiecePage> {
                   'This auction ended without a sale. Switch it to a fixed price and '
                   'it goes back on sale immediately — or close this and use "Manage '
                   'auction" on the piece to run the auction again instead.',
-                  style: GoogleFonts.inter(fontSize: 12, height: 1.4),
+                  style: AppFonts.inter(fontSize: 12, height: 1.4),
                 ),
                 value: _sellAsFixedPrice,
                 onChanged: _onSellAsFixedPriceChanged,
@@ -355,7 +355,7 @@ class _EditPiecePageState extends State<EditPiecePage> {
               const SizedBox(height: 16),
               Text(
                 'Shipping details',
-                style: GoogleFonts.inter(
+                style: AppFonts.inter(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                   color: HomeFeedTokens.textPrimary.withValues(alpha: 0.6),
@@ -364,7 +364,7 @@ class _EditPiecePageState extends State<EditPiecePage> {
               const SizedBox(height: 4),
               Text(
                 'Measure the packed crate or box, not the artwork.',
-                style: GoogleFonts.inter(
+                style: AppFonts.inter(
                   fontSize: 12,
                   color: HomeFeedTokens.textPrimary.withValues(alpha: 0.45),
                 ),
@@ -404,7 +404,7 @@ class _EditPiecePageState extends State<EditPiecePage> {
             if (_statusIsEditable) ...[
               Text(
                 'Status',
-                style: GoogleFonts.inter(
+                style: AppFonts.inter(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                   color: HomeFeedTokens.textPrimary.withValues(alpha: 0.6),
@@ -422,13 +422,13 @@ class _EditPiecePageState extends State<EditPiecePage> {
             ] else
               Text(
                 'Status: ${widget.piece.status} (managed automatically by checkout)',
-                style: GoogleFonts.inter(fontSize: 13, color: AppColors.slate500),
+                style: AppFonts.inter(fontSize: 13, color: AppColors.slate500),
               ),
             if (_error != null) ...[
               const SizedBox(height: 12),
               Text(
                 _error!,
-                style: GoogleFonts.inter(fontSize: 12, color: Colors.red.shade700),
+                style: AppFonts.inter(fontSize: 12, color: Colors.red.shade700),
               ),
             ],
           ],
@@ -463,7 +463,7 @@ class _UnitChip extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 13,
             fontWeight: FontWeight.w500,
             color: selected
@@ -490,7 +490,7 @@ class _Field extends StatelessWidget {
       children: [
         Text(
           label,
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 13,
             fontWeight: FontWeight.w500,
             color: HomeFeedTokens.textPrimary.withValues(alpha: 0.6),

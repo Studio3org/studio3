@@ -3,7 +3,6 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-import 'package:google_fonts/google_fonts.dart';
 
 import '../data/post_material_options.dart';
 import '../data/post_location_options.dart';
@@ -29,6 +28,7 @@ import '../widgets/post_crop_preview.dart';
 import '../utils/payout_setup.dart';
 import '../widgets/publish_result_overlays.dart';
 import 'add_materials_page.dart';
+import '../theme/app_fonts.dart';
 
 /// Add Piece / Scene details — posting flow step (Figma 1995:1486).
 class PostCreatePage extends StatefulWidget {
@@ -571,7 +571,7 @@ class _PostCreatePageState extends State<PostCreatePage> {
                           )
                         : Text(
                             ctaLabel,
-                            style: GoogleFonts.geist(
+                            style: AppFonts.geist(
                               fontSize: 16,
                               fontWeight: FontWeight.w400,
                               color: HomeFeedTokens.textInverse,
@@ -662,7 +662,7 @@ class _PostCreatePageState extends State<PostCreatePage> {
               children: [
                 Text(
                   label,
-                  style: GoogleFonts.geist(
+                  style: AppFonts.geist(
                     fontSize: 13,
                     fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
                     color: selected
@@ -774,7 +774,7 @@ class _PostCreatePageState extends State<PostCreatePage> {
             width: 110,
             child: Text(
               label,
-              style: GoogleFonts.inter(
+              style: AppFonts.inter(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
                 color: const Color(0xFF8C8880),
@@ -784,7 +784,7 @@ class _PostCreatePageState extends State<PostCreatePage> {
           Expanded(
             child: Text(
               value,
-              style: GoogleFonts.inter(
+              style: AppFonts.inter(
                 fontSize: 14,
                 fontWeight: FontWeight.w400,
                 color: HomeFeedTokens.textPrimary,
@@ -853,7 +853,7 @@ class _PieceCoverPreview extends StatelessWidget {
               ),
               child: Text(
                 counterLabel,
-                style: GoogleFonts.geist(
+                style: AppFonts.geist(
                   fontSize: 11,
                   fontWeight: FontWeight.w400,
                   color: HomeFeedTokens.textInverse,

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../models/user_profile.dart';
 import '../services/api_exception.dart';
@@ -8,6 +7,7 @@ import '../theme/home_feed_tokens.dart';
 import '../widgets/labeled_dropdown.dart';
 import '../widgets/loading/app_skeletons.dart';
 import '../widgets/loading/section_loader.dart';
+import '../theme/app_fonts.dart';
 
 const _visibilityOptions = [('public', 'Public'), ('private', 'Private')];
 const _messagePermissionOptions = [
@@ -113,7 +113,7 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
         elevation: 0,
         title: Text(
           'Privacy',
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 18,
             fontWeight: FontWeight.w600,
             color: HomeFeedTokens.textPrimary,

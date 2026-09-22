@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/home_feed_tokens.dart';
+import '../theme/app_fonts.dart';
 
 /// Search field used in create-post bottom sheets.
 class PostPickerSearchField extends StatelessWidget {
@@ -35,7 +35,7 @@ class PostPickerSearchField extends StatelessWidget {
             child: TextField(
               controller: controller,
               onChanged: onChanged,
-              style: GoogleFonts.geist(
+              style: AppFonts.geist(
                 fontSize: 13,
                 fontWeight: FontWeight.w400,
                 color: HomeFeedTokens.textPrimary,
@@ -45,7 +45,7 @@ class PostPickerSearchField extends StatelessWidget {
                 isDense: true,
                 border: InputBorder.none,
                 hintText: hintText,
-                hintStyle: GoogleFonts.geist(
+                hintStyle: AppFonts.geist(
                   fontSize: 13,
                   fontWeight: FontWeight.w400,
                   color: _textSecondary,

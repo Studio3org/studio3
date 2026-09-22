@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/app_theme.dart';
 import '../theme/home_feed_tokens.dart';
 import 'auth_ui.dart';
+import '../theme/app_fonts.dart';
 
 /// Exact Figma geometry for node `2559:1688` ("Logo for loading screen").
 ///
@@ -377,7 +377,7 @@ class StudioPublishingOverlay extends StatelessWidget {
                 Text(
                   message,
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.geist(
+                  style: AppFonts.geist(
                     fontSize: 18,
                     fontWeight: FontWeight.w500,
                     color: HomeFeedTokens.textPrimary,

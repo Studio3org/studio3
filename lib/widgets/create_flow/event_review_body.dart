@@ -1,6 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../data/post_location_options.dart';
 import '../../data/post_picker_options.dart';
@@ -9,6 +8,7 @@ import '../profile_avatar.dart';
 import 'event_date_sheet.dart';
 import 'event_lineup_models.dart';
 import 'event_ticket_edit_page.dart';
+import '../../theme/app_fonts.dart';
 
 const _editColor = Color(0xFFC4541E);
 const _cardBorder = Color(0xFFC4C4C4);
@@ -56,7 +56,7 @@ class EventReviewBody extends StatelessWidget {
               children: [
                 Text(
                   title.trim().isEmpty ? 'Untitled event' : title.trim(),
-                  style: GoogleFonts.geist(
+                  style: AppFonts.geist(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                     color: HomeFeedTokens.textPrimary,
@@ -65,7 +65,7 @@ class EventReviewBody extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   _categoryPublicLine,
-                  style: GoogleFonts.geist(
+                  style: AppFonts.geist(
                     fontSize: 12,
                     color: HomeFeedTokens.textSecondary,
                   ),
@@ -74,7 +74,7 @@ class EventReviewBody extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     _locationLine!,
-                    style: GoogleFonts.geist(
+                    style: AppFonts.geist(
                       fontSize: 11,
                       color: HomeFeedTokens.textSecondary,
                     ),
@@ -84,7 +84,7 @@ class EventReviewBody extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     eventDate!.reviewLine,
-                    style: GoogleFonts.geist(
+                    style: AppFonts.geist(
                       fontSize: 11,
                       color: HomeFeedTokens.textSecondary,
                     ),
@@ -103,7 +103,7 @@ class EventReviewBody extends StatelessWidget {
                 if (paid == false)
                   Text(
                     'Free / RSVP',
-                    style: GoogleFonts.geist(
+                    style: AppFonts.geist(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
                       color: HomeFeedTokens.textPrimary,
@@ -117,7 +117,7 @@ class EventReviewBody extends StatelessWidget {
                   if (tickets.any((t) => t.isComplete))
                     Text(
                       'Flexible refund policy',
-                      style: GoogleFonts.geist(
+                      style: AppFonts.geist(
                         fontSize: 10,
                         color: HomeFeedTokens.textSecondary,
                       ),
@@ -125,7 +125,7 @@ class EventReviewBody extends StatelessWidget {
                   else
                     Text(
                       'No tickets added',
-                      style: GoogleFonts.geist(
+                      style: AppFonts.geist(
                         fontSize: 13,
                         color: HomeFeedTokens.textSecondary,
                       ),
@@ -144,7 +144,7 @@ class EventReviewBody extends StatelessWidget {
                 if (cohosts.isNotEmpty) ...[
                   Text(
                     'Co-hosts · ${cohosts.length} of ${cohosts.length}',
-                    style: GoogleFonts.geist(
+                    style: AppFonts.geist(
                       fontSize: 12,
                       color: HomeFeedTokens.textSecondary,
                     ),
@@ -162,7 +162,7 @@ class EventReviewBody extends StatelessWidget {
                   if (cohosts.isNotEmpty) const SizedBox(height: 16),
                   Text(
                     'Featured artists · ${artists.length}',
-                    style: GoogleFonts.geist(
+                    style: AppFonts.geist(
                       fontSize: 12,
                       color: HomeFeedTokens.textSecondary,
                     ),
@@ -175,7 +175,7 @@ class EventReviewBody extends StatelessWidget {
                     const SizedBox(height: 16),
                   Text(
                     'Pieces',
-                    style: GoogleFonts.geist(
+                    style: AppFonts.geist(
                       fontSize: 12,
                       color: HomeFeedTokens.textSecondary,
                     ),
@@ -197,7 +197,7 @@ class EventReviewBody extends StatelessWidget {
                 if (cohosts.isEmpty && artists.isEmpty && pieces.isEmpty)
                   Text(
                     'No lineup added',
-                    style: GoogleFonts.geist(
+                    style: AppFonts.geist(
                       fontSize: 13,
                       color: HomeFeedTokens.textSecondary,
                     ),
@@ -259,7 +259,7 @@ class _ReviewCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     label,
-                    style: GoogleFonts.geist(
+                    style: AppFonts.geist(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
                       color: HomeFeedTokens.textSecondary,
@@ -271,7 +271,7 @@ class _ReviewCard extends StatelessWidget {
                   behavior: HitTestBehavior.opaque,
                   child: Text(
                     'Edit',
-                    style: GoogleFonts.geist(
+                    style: AppFonts.geist(
                       fontSize: 12,
                       color: _editColor,
                     ),
@@ -300,7 +300,7 @@ class _TicketLine extends StatelessWidget {
         children: [
           TextSpan(
             text: '${ticket.name}: ',
-            style: GoogleFonts.geist(
+            style: AppFonts.geist(
               fontSize: 13,
               fontWeight: FontWeight.w500,
               color: HomeFeedTokens.textPrimary,
@@ -308,7 +308,7 @@ class _TicketLine extends StatelessWidget {
           ),
           TextSpan(
             text: ticket.reviewDetailLine,
-            style: GoogleFonts.geist(
+            style: AppFonts.geist(
               fontSize: 13,
               fontWeight: FontWeight.w400,
               color: HomeFeedTokens.textSecondary,
@@ -337,7 +337,7 @@ class _NamedAvatar extends StatelessWidget {
           children: [
             Text(
               person.displayName,
-              style: GoogleFonts.geist(
+              style: AppFonts.geist(
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
                 color: HomeFeedTokens.textPrimary,
@@ -345,7 +345,7 @@ class _NamedAvatar extends StatelessWidget {
             ),
             Text(
               person.handle,
-              style: GoogleFonts.geist(
+              style: AppFonts.geist(
                 fontSize: 10,
                 color: HomeFeedTokens.textSecondary,
               ),
@@ -399,7 +399,7 @@ class _StackedArtists extends StatelessWidget {
         Expanded(
           child: Text(
             '$names$extra',
-            style: GoogleFonts.geist(
+            style: AppFonts.geist(
               fontSize: 11,
               color: HomeFeedTokens.textSecondary,
             ),
@@ -452,7 +452,7 @@ class _ReviewPieceRow extends StatelessWidget {
         Expanded(
           child: Text(
             tagged.piece.title.isEmpty ? 'Untitled' : tagged.piece.title,
-            style: GoogleFonts.geist(
+            style: AppFonts.geist(
               fontSize: 13,
               fontWeight: FontWeight.w500,
               color: HomeFeedTokens.textPrimary,
@@ -464,7 +464,7 @@ class _ReviewPieceRow extends StatelessWidget {
           children: [
             Text(
               modeLabel,
-              style: GoogleFonts.geist(
+              style: AppFonts.geist(
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
                 color: HomeFeedTokens.textPrimary,
@@ -474,7 +474,7 @@ class _ReviewPieceRow extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 priceLabel,
-                style: GoogleFonts.geist(
+                style: AppFonts.geist(
                   fontSize: 11,
                   color: HomeFeedTokens.textSecondary,
                 ),

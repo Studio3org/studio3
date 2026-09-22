@@ -1,12 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/studio_event.dart';
 import '../../theme/home_feed_tokens.dart';
 import '../../utils/auction_time.dart';
 import '../home_feed/home_feed_widgets.dart';
+import '../../theme/app_fonts.dart';
 
 /// The works on the bill, and what they are at right now.
 ///
@@ -128,14 +128,14 @@ class _EventLineupSectionState extends State<EventLineupSection> {
                   const SizedBox(width: 6),
                   Text(
                     anyOpen ? 'On the block' : 'In this event',
-                    style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700),
+                    style: AppFonts.inter(fontSize: 14, fontWeight: FontWeight.w700),
                   ),
                   const Spacer(),
                   if (remaining != null)
                     Text(
                       // Said once, for the room: everything closes together.
                       'Closes in $remaining',
-                      style: GoogleFonts.inter(
+                      style: AppFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: const Color(0xFFB3261E),
@@ -203,7 +203,7 @@ class _LineupRow extends StatelessWidget {
                               item.title ?? 'Untitled',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.inter(
+                              style: AppFonts.inter(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -219,7 +219,7 @@ class _LineupRow extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           item.artistName!,
-                          style: GoogleFonts.inter(
+                          style: AppFonts.inter(
                             fontSize: 12,
                             color: HomeFeedTokens.textSecondary,
                           ),
@@ -228,7 +228,7 @@ class _LineupRow extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         item.statusLine,
-                        style: GoogleFonts.inter(
+                        style: AppFonts.inter(
                           fontSize: 11,
                           color: HomeFeedTokens.textSecondary,
                         ),
@@ -239,7 +239,7 @@ class _LineupRow extends StatelessWidget {
                 const SizedBox(width: 12),
                 Text(
                   _money(item.currentCents),
-                  style: GoogleFonts.inter(fontSize: 17, fontWeight: FontWeight.w700),
+                  style: AppFonts.inter(fontSize: 17, fontWeight: FontWeight.w700),
                 ),
               ],
             ),
@@ -279,7 +279,7 @@ class _BiddingOpenTag extends StatelessWidget {
         const SizedBox(width: 5),
         Text(
           'Bidding open',
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 11,
             fontWeight: FontWeight.w600,
             color: const Color(0xFF2E8B57),
@@ -305,7 +305,7 @@ class _Pill extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: GoogleFonts.inter(
+        style: AppFonts.inter(
           fontSize: 10,
           fontWeight: FontWeight.w500,
           color: HomeFeedTokens.textInverse,

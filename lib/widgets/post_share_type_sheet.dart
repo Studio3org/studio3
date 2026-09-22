@@ -2,10 +2,10 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../data/post_media_assets.dart';
 import '../theme/home_feed_tokens.dart';
+import '../theme/app_fonts.dart';
 
 /// Bottom sheet shown from the nav + button: Piece vs Scene (Figma 2714:5424).
 class PostShareTypeSheet extends StatelessWidget {
@@ -81,7 +81,7 @@ class _SheetBody extends StatelessWidget {
                   const SizedBox(height: 12),
                   Text(
                     'What are you sharing?',
-                    style: GoogleFonts.inter(
+                    style: AppFonts.inter(
                       fontSize: 18,
                       fontWeight: FontWeight.w500,
                       color: HomeFeedTokens.textPrimary,
@@ -142,7 +142,7 @@ class _ShareTypeRow extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: GoogleFonts.inter(
+                style: AppFonts.inter(
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
                   color: HomeFeedTokens.textPrimary,
@@ -151,7 +151,7 @@ class _ShareTypeRow extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 subtitle,
-                style: GoogleFonts.inter(
+                style: AppFonts.inter(
                   fontSize: 12,
                   fontWeight: FontWeight.w400,
                   color: HomeFeedTokens.textSecondary,

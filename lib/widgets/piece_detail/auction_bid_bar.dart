@@ -2,12 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/auction_summary.dart';
 import '../../theme/collect_detail_tokens.dart';
 import '../../theme/piece_detail_type.dart';
 import '../../utils/auction_time.dart';
+import '../../theme/app_fonts.dart';
 
 /// The auction bar on piece detail (Figma 2707:3728, "Piece detail - bid").
 ///
@@ -177,7 +177,7 @@ class _AuctionBidBarState extends State<AuctionBidBar> {
               auction!.reserveMet
                   ? 'Reserve met'
                   : 'Reserve not yet met — the piece only sells above it',
-              style: GoogleFonts.inter(
+              style: AppFonts.inter(
                 fontSize: 12,
                 color: auction.reserveMet
                     ? CollectDetailTokens.textSecondary
@@ -267,7 +267,7 @@ class _PaymentFailedBanner extends StatelessWidget {
               children: [
                 Text(
                   'You won — but your card was declined',
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: CollectDetailTokens.statusError,
@@ -279,7 +279,7 @@ class _PaymentFailedBanner extends StatelessWidget {
                       ? 'Add another card now to keep this piece.'
                       : 'Add another card within $countdown or this piece goes to the '
                           'next bidder.',
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 13,
                     height: 1.4,
                     color: CollectDetailTokens.textPrimary,
@@ -316,7 +316,7 @@ class _WonBanner extends StatelessWidget {
         children: [
           Text(
             'You won this piece',
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 14,
               fontWeight: FontWeight.w600,
               color: CollectDetailTokens.textPrimary,
@@ -327,7 +327,7 @@ class _WonBanner extends StatelessWidget {
             // Says what is left rather than restating the total, because the hammer price is
             // already collected and quoting it again reads as a second charge.
             '$paid Add your delivery details to settle shipping and tax.',
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 13,
               height: 1.4,
               color: CollectDetailTokens.textSecondary,
@@ -352,7 +352,7 @@ class _LeadingPill extends StatelessWidget {
       ),
       child: Text(
         "You're winning",
-        style: GoogleFonts.inter(
+        style: AppFonts.inter(
           fontSize: 11,
           fontWeight: FontWeight.w500,
           color: CollectDetailTokens.textInverse,

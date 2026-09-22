@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:printing/printing.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
@@ -12,6 +11,7 @@ import '../utils/event_qr_pdf.dart';
 import '../utils/qr_image_share.dart';
 import '../widgets/share/share_sheet.dart';
 import '../widgets/loading/app_skeletons.dart';
+import '../theme/app_fonts.dart';
 
 /// The codes a host puts beside each work in the room.
 ///
@@ -129,7 +129,7 @@ class _EventQrCodesPageState extends State<EventQrCodesPage> {
         elevation: 0,
         title: Text(
           'Codes for the room',
-          style: GoogleFonts.inter(fontSize: 17, fontWeight: FontWeight.w500),
+          style: AppFonts.inter(fontSize: 17, fontWeight: FontWeight.w500),
         ),
         actions: [
           if (_codes != null)
@@ -163,7 +163,7 @@ class _EventQrCodesPageState extends State<EventQrCodesPage> {
                         Text(
                           'Put one beside each piece. Anyone can scan it to see the work and '
                           'bid — no account needed to look.',
-                          style: GoogleFonts.inter(
+                          style: AppFonts.inter(
                             fontSize: 13,
                             height: 1.4,
                             color: HomeFeedTokens.textSecondary,
@@ -240,12 +240,12 @@ class _QrCard extends StatelessWidget {
                   title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w500),
+                  style: AppFonts.inter(fontSize: 15, fontWeight: FontWeight.w500),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 12,
                     color: HomeFeedTokens.textSecondary,
                   ),
@@ -315,7 +315,7 @@ class _SmallAction extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       child: Text(
         label,
-        style: GoogleFonts.inter(
+        style: AppFonts.inter(
           fontSize: 13,
           fontWeight: FontWeight.w500,
           color: HomeFeedTokens.textPrimary,
@@ -342,7 +342,7 @@ class _Message extends StatelessWidget {
             Text(
               text,
               textAlign: TextAlign.center,
-              style: GoogleFonts.inter(fontSize: 14, height: 1.4),
+              style: AppFonts.inter(fontSize: 14, height: 1.4),
             ),
             if (onRetry != null) ...[
               const SizedBox(height: 12),
@@ -389,7 +389,7 @@ class _DownloadButton extends StatelessWidget {
             : const Icon(Icons.download_outlined, size: 18),
         label: Text(
           loading ? 'Building…' : 'Download $count cards as PDF',
-          style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w500),
+          style: AppFonts.inter(fontSize: 15, fontWeight: FontWeight.w500),
         ),
       ),
     );

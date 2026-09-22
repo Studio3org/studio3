@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../services/auth_service.dart';
@@ -18,6 +17,7 @@ import '../widgets/studio_loading.dart';
 import 'inbox_page.dart';
 import 'profile/widgets/profile_seller_insights.dart';
 import 'seller_analytics_page.dart';
+import '../theme/app_fonts.dart';
 
 class ProfileSettingsPage extends StatefulWidget {
   const ProfileSettingsPage({super.key});
@@ -196,7 +196,7 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
           centerTitle: true,
           title: Text(
             'Settings',
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 18,
               fontWeight: FontWeight.w600,
               color: HomeFeedTokens.textPrimary,
@@ -385,7 +385,7 @@ class _SectionHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(4, 20, 4, 8),
       child: Text(
         label,
-        style: GoogleFonts.inter(
+        style: AppFonts.inter(
           fontSize: 13,
           fontWeight: FontWeight.w600,
           letterSpacing: 0.3,
@@ -437,7 +437,7 @@ class PayoutSettingsTile extends StatelessWidget {
         label: 'Payout setup',
         trailing: Text(
           'Required',
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 13,
             fontWeight: FontWeight.w500,
             color: const Color(0xFFC47B2B),

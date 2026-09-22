@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/feed_preview_item.dart';
 import '../../services/api_exception.dart';
@@ -9,6 +8,7 @@ import '../../theme/home_feed_tokens.dart';
 import '../../utils/profile_navigation.dart';
 import 'detail_share.dart';
 import 'report_reason_sheet.dart';
+import '../../theme/app_fonts.dart';
 
 class PieceMoreSheet extends StatelessWidget {
   const PieceMoreSheet({
@@ -198,7 +198,7 @@ class PieceMoreSheet extends StatelessWidget {
         backgroundColor: HomeFeedTokens.background,
         title: Text(
           'Block $_handle?',
-          style: GoogleFonts.geist(
+          style: AppFonts.geist(
             fontSize: 16,
             fontWeight: FontWeight.w500,
             color: CollectDetailTokens.textPrimary,
@@ -206,7 +206,7 @@ class PieceMoreSheet extends StatelessWidget {
         ),
         content: Text(
           'You won’t see their pieces or scenes in your feed.',
-          style: GoogleFonts.geist(
+          style: AppFonts.geist(
             fontSize: 14,
             color: CollectDetailTokens.textSecondary,
           ),
@@ -220,7 +220,7 @@ class PieceMoreSheet extends StatelessWidget {
             onPressed: () => Navigator.pop(context, true),
             child: Text(
               'Block',
-              style: GoogleFonts.geist(color: const Color(0xFFC45C4A)),
+              style: AppFonts.geist(color: const Color(0xFFC45C4A)),
             ),
           ),
         ],
@@ -262,7 +262,7 @@ class _MoreRow extends StatelessWidget {
       onTap: onTap,
       title: Text(
         label,
-        style: GoogleFonts.geist(
+        style: AppFonts.geist(
           fontSize: 16,
           fontWeight: FontWeight.w400,
           color: destructive

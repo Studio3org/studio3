@@ -2,7 +2,6 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
@@ -12,6 +11,7 @@ import '../theme/home_feed_tokens.dart';
 import '../widgets/create_flow/create_flow_widgets.dart';
 import '../widgets/create_flow/scene_video_tracks.dart';
 import '../widgets/permission_denied_sheet.dart';
+import '../theme/app_fonts.dart';
 
 /// Scene video Set a cover (Figma 2761:12262).
 class SceneSetCoverPage extends StatefulWidget {
@@ -200,7 +200,7 @@ class _SceneSetCoverPageState extends State<SceneSetCoverPage> {
                               ),
                               child: Text(
                                 'Cover',
-                                style: GoogleFonts.geist(
+                                style: AppFonts.geist(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w400,
                                   color: HomeFeedTokens.textInverse,
@@ -220,7 +220,7 @@ class _SceneSetCoverPageState extends State<SceneSetCoverPage> {
                       children: [
                         Text(
                           'Drag to pick a frame',
-                          style: GoogleFonts.geist(
+                          style: AppFonts.geist(
                             fontSize: 12,
                             fontWeight: FontWeight.w400,
                             color: HomeFeedTokens.textSecondary,
@@ -236,7 +236,7 @@ class _SceneSetCoverPageState extends State<SceneSetCoverPage> {
                   ),
                   Text(
                     '- or -',
-                    style: GoogleFonts.geist(
+                    style: AppFonts.geist(
                       fontSize: 12,
                       fontWeight: FontWeight.w400,
                       color: HomeFeedTokens.textSecondary,
@@ -251,7 +251,7 @@ class _SceneSetCoverPageState extends State<SceneSetCoverPage> {
                     onTap: _uploadImage,
                     child: Text(
                       'Upload cover image',
-                      style: GoogleFonts.geist(
+                      style: AppFonts.geist(
                         fontSize: 13,
                         fontWeight: FontWeight.w400,
                         color: HomeFeedTokens.textInverse,

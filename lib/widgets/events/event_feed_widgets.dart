@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/studio_event.dart';
 import '../../theme/home_feed_tokens.dart';
 import '../home_feed/home_feed_widgets.dart';
+import '../../theme/app_fonts.dart';
 
 abstract final class EventAssets {
   static const back = 'assets/event/back.svg';
@@ -30,7 +30,7 @@ TextStyle _geist({
   Color color = EventTokens.primary,
   double? height,
 }) {
-  return GoogleFonts.geist(
+  return AppFonts.geist(
     fontSize: size,
     fontWeight: weight,
     color: color,

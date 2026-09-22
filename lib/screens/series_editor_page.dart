@@ -1,6 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../models/piece_summary.dart';
 import '../models/series_summary.dart';
@@ -13,6 +12,7 @@ import '../widgets/create_flow/create_series_dialog.dart';
 import '../widgets/loading/app_skeletons.dart';
 import '../widgets/loading/section_loader.dart';
 import '../widgets/studio_loading.dart';
+import '../theme/app_fonts.dart';
 
 class SeriesEditorPage extends StatefulWidget {
   const SeriesEditorPage({
@@ -109,7 +109,7 @@ class _SeriesEditorPageState extends State<SeriesEditorPage> {
         backgroundColor: HomeFeedTokens.background,
         title: Text(
           'Series description',
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 18,
             fontWeight: FontWeight.w600,
             color: HomeFeedTokens.textPrimary,
@@ -129,14 +129,14 @@ class _SeriesEditorPageState extends State<SeriesEditorPage> {
             onPressed: () => Navigator.pop(context),
             child: Text(
               'Cancel',
-              style: GoogleFonts.inter(color: HomeFeedTokens.textSecondary),
+              style: AppFonts.inter(color: HomeFeedTokens.textSecondary),
             ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, controller.text.trim()),
             child: Text(
               'Save',
-              style: GoogleFonts.inter(
+              style: AppFonts.inter(
                 fontWeight: FontWeight.w600,
                 color: HomeFeedTokens.textPrimary,
               ),
@@ -262,7 +262,7 @@ class _SeriesEditorPageState extends State<SeriesEditorPage> {
           elevation: 0,
           title: Text(
             series?.name ?? 'Series',
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 18,
               fontWeight: FontWeight.w600,
               color: HomeFeedTokens.textPrimary,
@@ -294,7 +294,7 @@ class _SeriesEditorPageState extends State<SeriesEditorPage> {
                 children: [
                   Text(
                     '${_piecesInSeries.length} piece${_piecesInSeries.length == 1 ? '' : 's'} in this series',
-                    style: GoogleFonts.inter(
+                    style: AppFonts.inter(
                       fontSize: 14,
                       color: HomeFeedTokens.textSecondary,
                     ),
@@ -318,7 +318,7 @@ class _SeriesEditorPageState extends State<SeriesEditorPage> {
                       child: Text(
                         'No pieces yet. Tap Add pieces to include artwork from your profile.',
                         textAlign: TextAlign.center,
-                        style: GoogleFonts.inter(
+                        style: AppFonts.inter(
                           fontSize: 14,
                           height: 1.45,
                           color: HomeFeedTokens.textSecondary,
@@ -369,7 +369,7 @@ class _PieceRow extends StatelessWidget {
           Expanded(
             child: Text(
               piece.title,
-              style: GoogleFonts.inter(
+              style: AppFonts.inter(
                 fontSize: 15,
                 fontWeight: FontWeight.w500,
                 color: HomeFeedTokens.textPrimary,
@@ -415,7 +415,7 @@ class _AddPiecesSheetState extends State<_AddPiecesSheet> {
           children: [
             Text(
               'Add pieces',
-              style: GoogleFonts.inter(
+              style: AppFonts.inter(
                 fontSize: 17,
                 fontWeight: FontWeight.w600,
                 color: HomeFeedTokens.textPrimary,
@@ -445,7 +445,7 @@ class _AddPiecesSheetState extends State<_AddPiecesSheet> {
                     },
                     title: Text(
                       piece.title,
-                      style: GoogleFonts.inter(fontSize: 15),
+                      style: AppFonts.inter(fontSize: 15),
                     ),
                     secondary: ClipRRect(
                       borderRadius: BorderRadius.circular(6),

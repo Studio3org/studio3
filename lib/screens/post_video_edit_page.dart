@@ -3,11 +3,11 @@ import 'dart:io';
 import 'package:easy_video_editor/easy_video_editor.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:video_player/video_player.dart';
 
 import '../data/post_media_assets.dart';
 import '../theme/home_feed_tokens.dart';
+import '../theme/app_fonts.dart';
 
 /// Video "edit" step — select which part of the clip to upload (trim) and
 /// whether to upload it without audio. Mirrors `PostEditPage`'s crop step
@@ -156,7 +156,7 @@ class _PostVideoEditPageState extends State<PostVideoEditPage> {
                 children: [
                   Text(
                     _formatMs(_range.start),
-                    style: GoogleFonts.inter(
+                    style: AppFonts.inter(
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
                       color: HomeFeedTokens.textPrimary,
@@ -164,7 +164,7 @@ class _PostVideoEditPageState extends State<PostVideoEditPage> {
                   ),
                   Text(
                     _formatMs(_range.end),
-                    style: GoogleFonts.inter(
+                    style: AppFonts.inter(
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
                       color: HomeFeedTokens.textPrimary,
@@ -204,7 +204,7 @@ class _PostVideoEditPageState extends State<PostVideoEditPage> {
                 Expanded(
                   child: Text(
                     'Upload without audio',
-                    style: GoogleFonts.inter(
+                    style: AppFonts.inter(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                       color: HomeFeedTokens.textPrimary,
@@ -271,7 +271,7 @@ class _VideoEditBanner extends StatelessWidget {
                   child: Center(
                     child: Text(
                       'Trim',
-                      style: GoogleFonts.inter(
+                      style: AppFonts.inter(
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
                         color: HomeFeedTokens.textPrimary,
@@ -300,7 +300,7 @@ class _VideoEditBanner extends StatelessWidget {
                             )
                           : Text(
                               'Next',
-                              style: GoogleFonts.inter(
+                              style: AppFonts.inter(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w500,
                                 color: HomeFeedTokens.textPrimary,

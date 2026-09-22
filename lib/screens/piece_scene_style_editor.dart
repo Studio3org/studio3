@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../data/post_media_assets.dart';
 import '../models/post_image_transform.dart';
 import '../theme/home_feed_tokens.dart';
 import '../utils/crop_cover_math.dart';
 import '../widgets/post_crop_preview.dart';
+import '../theme/app_fonts.dart';
 
 enum _PieceEditTool { fitFill, crop, adjust }
 
@@ -56,7 +56,7 @@ class _PieceSceneStyleEditorState extends State<PieceSceneStyleEditor> {
 
   void _save() => Navigator.pop(context, _transform.copy());
 
-  TextStyle get _bannerStyle => GoogleFonts.geist(
+  TextStyle get _bannerStyle => AppFonts.geist(
     fontSize: 16,
     fontWeight: FontWeight.w500,
     color: HomeFeedTokens.textPrimary,
@@ -387,7 +387,7 @@ class _PieceSceneStyleEditorState extends State<PieceSceneStyleEditor> {
                 ),
                 child: Text(
                   _transform.adjustValueFor(_adjustSub!).round().toString(),
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 28,
                     fontWeight: FontWeight.w500,
                     color: HomeFeedTokens.textInverse,
@@ -586,7 +586,7 @@ class _LabeledIcon extends StatelessWidget {
           SvgPicture.asset(asset, width: 32, height: 32),
           Text(
             label,
-            style: GoogleFonts.geist(
+            style: AppFonts.geist(
               fontSize: 10,
               fontWeight: FontWeight.w500,
               color: HomeFeedTokens.textPrimary,
@@ -649,7 +649,7 @@ class _ChoiceChip extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: GoogleFonts.geist(
+          style: AppFonts.geist(
             fontSize: 13,
             fontWeight: FontWeight.w500,
             color: selected

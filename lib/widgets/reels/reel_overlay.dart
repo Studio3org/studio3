@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/feed_item.dart';
 import '../../services/engagement_store.dart';
@@ -13,6 +12,7 @@ import '../profile_avatar.dart';
 import '../save_to_collection_sheet.dart';
 import 'reel_description_sheet.dart';
 import 'scene_video_comment_sheet.dart';
+import '../../theme/app_fonts.dart';
 
 class ReelOverlay extends StatefulWidget {
   const ReelOverlay({
@@ -309,7 +309,7 @@ class ReelOverlayState extends State<ReelOverlay>
                               authorName,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.inter(
+                              style: AppFonts.inter(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
                                 color: Colors.white,
@@ -321,7 +321,7 @@ class ReelOverlayState extends State<ReelOverlay>
                                 '@$authorUsername',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.inter(
+                                style: AppFonts.inter(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w400,
                                   color: Colors.white.withValues(alpha: 0.7),
@@ -352,7 +352,7 @@ class ReelOverlayState extends State<ReelOverlay>
                       caption,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.inter(
+                      style: AppFonts.inter(
                         fontSize: 13,
                         fontWeight: FontWeight.w400,
                         color: Colors.white.withValues(alpha: 0.92),
@@ -424,7 +424,7 @@ class _LikeActionButton extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             label,
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 11,
               fontWeight: FontWeight.w500,
               color: Colors.white,
@@ -458,7 +458,7 @@ class _SaveActionButton extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             'Save',
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 11,
               fontWeight: FontWeight.w500,
               color: Colors.white,
@@ -514,7 +514,7 @@ class _ActionButton extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             label,
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 11,
               fontWeight: FontWeight.w500,
               color: Colors.white,
