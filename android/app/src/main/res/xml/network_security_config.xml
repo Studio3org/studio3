@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Temporary, and scoped on purpose.
+
+  The AWS backend has no TLS yet — Let's Encrypt needs a domain name, and the
+  Squarespace record is not pointed at it. Android blocks plain HTTP on targetSdk 28+,
+  so without this an APK cannot reach that host at all.
+
+  Only this one address is exempted. A blanket cleartextTrafficPermitted="true" would
+  also permit any other http:// the app or a dependency happens to request, on any
+  network the device is on.
+
+  DELETE THIS FILE once https://api.studio-3.co is live, along with the
+  networkSecurityConfig line in AndroidManifest.xml.
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">23.23.29.249</domain>
+    </domain-config>
+</network-security-config>
