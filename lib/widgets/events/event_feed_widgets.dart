@@ -9,7 +9,6 @@ import '../home_feed/home_feed_widgets.dart';
 abstract final class EventAssets {
   static const back = 'assets/event/back.svg';
   static const nearChevron = 'assets/event/near_chevron.svg';
-  static const headerBookmark = 'assets/event/header_bookmark.svg';
   static const search = 'assets/event/search.svg';
   static const calendar = 'assets/event/calendar.svg';
   static const bookmark = 'assets/event/bookmark.svg';
@@ -45,14 +44,18 @@ class EventHeaderBar extends StatelessWidget {
     required this.locationLabel,
     required this.onLocationTap,
     this.onLeadingTap,
-    this.onSavedTap,
+    this.onMyEventsTap,
     this.onScanTap,
   });
 
   final String locationLabel;
   final VoidCallback onLocationTap;
   final VoidCallback? onLeadingTap;
-  final VoidCallback? onSavedTap;
+
+  /// Opens "My events" — what the viewer hosts, and what they've registered for. Not a
+  /// bookmark shortcut; the general Saved tab (with its own Event filter) is reached from
+  /// the home feed's header instead.
+  final VoidCallback? onMyEventsTap;
 
   /// Opens the QR scanner. Lives on the events tab because that is where somebody standing
   /// in a room with a code in front of them is most likely to look for it.
@@ -113,16 +116,12 @@ class EventHeaderBar extends StatelessWidget {
               const SizedBox(width: 16),
             ],
             GestureDetector(
-              onTap: onSavedTap,
+              onTap: onMyEventsTap,
               behavior: HitTestBehavior.opaque,
-              child: SvgPicture.asset(
-                EventAssets.headerBookmark,
-                width: 14,
-                height: 20,
-                colorFilter: const ColorFilter.mode(
-                  EventTokens.primary,
-                  BlendMode.srcIn,
-                ),
+              child: const Icon(
+                Icons.confirmation_number_outlined,
+                size: 20,
+                color: EventTokens.primary,
               ),
             ),
           ],

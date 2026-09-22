@@ -106,34 +106,50 @@ class _EventLineupSectionState extends State<EventLineupSection> {
     final anyOpen = lineup.any((item) => item.isBiddingOpen);
     final remaining = anyOpen ? formatDeadlineCountdown(closesAt) : null;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-          child: Row(
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+      child: DecoratedBox(
+        // A tinted card, not just another row in the plain scroll — this is the one section
+        // on the page with real money moving on a clock, and it used to look exactly like
+        // the static "Pieces at this event" strip below it.
+        decoration: BoxDecoration(
+          color: const Color(0xFFFBEFE8),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFEBD3C2)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 6),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                anyOpen ? 'On the block' : 'In this event',
-                style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500),
-              ),
-              const Spacer(),
-              if (remaining != null)
-                Text(
-                  // Said once, for the room: everything closes together.
-                  'Bidding closes in $remaining',
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: const Color(0xFFB3261E),
+              Row(
+                children: [
+                  const Icon(Icons.gavel, size: 16, color: Color(0xFFB3261E)),
+                  const SizedBox(width: 6),
+                  Text(
+                    anyOpen ? 'On the block' : 'In this event',
+                    style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700),
                   ),
-                ),
+                  const Spacer(),
+                  if (remaining != null)
+                    Text(
+                      // Said once, for the room: everything closes together.
+                      'Closes in $remaining',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFFB3261E),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              for (final item in lineup)
+                _LineupRow(item: item, onTap: () => widget.onTapPiece?.call(item)),
             ],
           ),
         ),
-        for (final item in lineup)
-          _LineupRow(item: item, onTap: () => widget.onTapPiece?.call(item)),
-      ],
+      ),
     );
   }
 }
@@ -149,77 +165,85 @@ class _LineupRow extends StatelessWidget {
     final live = item.auction;
     final leading = live?.isHighestBidder ?? false;
     final won = live?.isWinner ?? false;
+    final open = item.isBiddingOpen;
 
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-        child: Row(
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: SizedBox(
-                width: 56,
-                height: 56,
-                child: FeedPicsumImage(url: item.mediaUrl ?? ''),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          item.title ?? 'Untitled',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.inter(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                      if (leading || won) ...[
-                        const SizedBox(width: 6),
-                        _Pill(label: won ? 'You won' : "You're winning"),
-                      ],
-                    ],
-                  ),
-                  if (item.artistName != null) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      item.artistName!,
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: HomeFeedTokens.textSecondary,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: Padding(
+            padding: const EdgeInsets.all(10),
+            child: Row(
               children: [
-                Text(
-                  item.statusLine,
-                  style: GoogleFonts.inter(
-                    fontSize: 11,
-                    color: HomeFeedTokens.textSecondary,
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: SizedBox(
+                    width: 72,
+                    height: 72,
+                    child: FeedPicsumImage(url: item.mediaUrl ?? ''),
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (open) ...[
+                        const _BiddingOpenTag(),
+                        const SizedBox(height: 4),
+                      ],
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              item.title ?? 'Untitled',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.inter(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          if (leading || won) ...[
+                            const SizedBox(width: 6),
+                            _Pill(label: won ? 'You won' : "You're winning"),
+                          ],
+                        ],
+                      ),
+                      if (item.artistName != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          item.artistName!,
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: HomeFeedTokens.textSecondary,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 4),
+                      Text(
+                        item.statusLine,
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          color: HomeFeedTokens.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
                 Text(
                   _money(item.currentCents),
-                  style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w500),
+                  style: GoogleFonts.inter(fontSize: 17, fontWeight: FontWeight.w700),
                 ),
               ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -231,6 +255,38 @@ class _LineupRow extends StatelessWidget {
     return amount == amount.roundToDouble()
         ? '\$${amount.toStringAsFixed(0)}'
         : '\$${amount.toStringAsFixed(2)}';
+  }
+}
+
+/// The one-glance flag that this specific work can be bid on right now — distinct from
+/// [_Pill], which says where *this viewer* stands rather than whether bidding is open at all.
+class _BiddingOpenTag extends StatelessWidget {
+  const _BiddingOpenTag();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 6,
+          height: 6,
+          decoration: const BoxDecoration(
+            color: Color(0xFF2E8B57),
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          'Bidding open',
+          style: GoogleFonts.inter(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFF2E8B57),
+          ),
+        ),
+      ],
+    );
   }
 }
 

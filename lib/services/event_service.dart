@@ -58,8 +58,9 @@ class EventService {
     );
   }
 
-  /// One slice of the list. [scope] is `upcoming` (the default), `today`, `following` or
-  /// `saved`; the last two need a signed-in viewer.
+  /// One slice of the list. [scope] is `upcoming` (the default), `today`, `following`,
+  /// `saved`, `hosting` (events this viewer hosts, drafts included) or `going` (events this
+  /// viewer has RSVP'd to); every scope but `upcoming`/`today` needs a signed-in viewer.
   Future<List<StudioEvent>> list({
     String scope = 'upcoming',
     String? category,

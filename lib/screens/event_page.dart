@@ -6,6 +6,7 @@ import '../screens/scan_qr_page.dart';
 import '../services/api_exception.dart';
 import '../services/event_service.dart';
 import '../screens/event_post_page.dart';
+import '../screens/my_events_page.dart';
 import '../services/saved_content_store.dart';
 import '../theme/home_feed_tokens.dart';
 import '../utils/scrolls_to_top_on_double_tap.dart';
@@ -189,7 +190,7 @@ class _EventPageState extends State<EventPage>
                   builder: (_) => const EventPostPage(),
                 ),
               ),
-              onSavedTap: () => Navigator.pushNamed(context, '/saved'),
+              onMyEventsTap: () => MyEventsPage.open(context),
               onScanTap: () => ScanQrPage.open(context),
             ),
             EventSearchField(

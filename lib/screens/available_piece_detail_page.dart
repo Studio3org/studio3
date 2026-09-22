@@ -322,6 +322,7 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
               followBusy: followBusy,
               onFollowToggle: toggleFollow,
               showCollect: true,
+              isOwner: isOwner,
               collectPrice: price,
               onCollect: (!isOwner && !isAuction && isLive) ? _onCollect : null,
               // The owner gets the seller's action in the slot where a collector would get

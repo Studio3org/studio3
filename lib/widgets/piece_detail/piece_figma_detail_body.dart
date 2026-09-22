@@ -8,6 +8,7 @@ import 'auction_bid_bar.dart';
 import 'available_collect_bar.dart';
 import 'collect_artist_row.dart';
 import 'materials_sheet.dart';
+import 'owner_listing_summary.dart';
 import 'piece_details_section.dart';
 import 'piece_related_scenes_row.dart';
 import 'piece_series_card.dart';
@@ -20,6 +21,7 @@ class PieceFigmaDetailBody extends StatelessWidget {
     required this.followBusy,
     required this.onFollowToggle,
     this.showCollect = false,
+    this.isOwner = false,
     this.collectPrice,
     this.onCollect,
     this.onCompletePurchase,
@@ -35,6 +37,10 @@ class PieceFigmaDetailBody extends StatelessWidget {
   final bool followBusy;
   final VoidCallback onFollowToggle;
   final bool showCollect;
+
+  /// Shows [OwnerListingSummary] above the buy/bid bar — the artist's own read of a piece
+  /// they've listed, ahead of whatever action that bar offers them instead of a purchase.
+  final bool isOwner;
   final String? collectPrice;
   final VoidCallback? onCollect;
   /// The auction winner settling shipping and tax after their payment cleared.
@@ -166,6 +172,8 @@ class PieceFigmaDetailBody extends StatelessWidget {
               ],
             ),
           ),
+        if (showCollect && isOwner)
+          OwnerListingSummary(item: item, fallbackStatusLabel: collectStatusLabel),
         if (showCollect && item.isAuction)
           AuctionBidBar(
             // The winning bid once there is one: after a close the highest *active* bid is

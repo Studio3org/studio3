@@ -16,8 +16,11 @@ import '../widgets/profile_avatar.dart';
 import '../widgets/share/share_sheet.dart';
 import '../widgets/studio_message.dart';
 
-void openEventDetail(BuildContext context, StudioEvent event) {
-  Navigator.of(context).push<void>(
+/// Returns the pushed route's future, so a caller that wants to know when the viewer is
+/// back — to refresh a list something on this page could have changed, an RSVP or a
+/// delete — can await it instead of guessing when to re-fetch.
+Future<void> openEventDetail(BuildContext context, StudioEvent event) {
+  return Navigator.of(context).push<void>(
     MaterialPageRoute<void>(
       builder: (_) => EventDetailPage(event: event),
     ),
@@ -82,6 +85,40 @@ class _EventDetailPageState extends State<EventDetailPage> {
       setState(() => _rsvping = false);
       StudioMessage.show(context, 'Could not update your RSVP.');
     }
+  }
+
+  void _showGoingActions(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A1A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(
+                Icons.event_busy_outlined,
+                color: Color(0xFFE05252),
+              ),
+              title: const Text(
+                'Cancel registration',
+                style: TextStyle(
+                  color: Color(0xFFE05252),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _toggleRsvp();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -260,6 +297,23 @@ class _EventDetailPageState extends State<EventDetailPage> {
                                       padding: EdgeInsets.all(8),
                                       child: Icon(
                                         Icons.qr_code_2,
+                                        size: 22,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                // Cancelling only makes sense once the viewer is actually
+                                // registered — moved here, off a bottom bar that used to show
+                                // both "You're going" and "Can't make it" at once for the
+                                // whole time someone was on the guest list.
+                                if (_event.viewerIsGoing && !_event.isHost)
+                                  GestureDetector(
+                                    onTap: () => _showGoingActions(context),
+                                    behavior: HitTestBehavior.opaque,
+                                    child: const Padding(
+                                      padding: EdgeInsets.all(8),
+                                      child: Icon(
+                                        Icons.more_horiz,
                                         size: 22,
                                         color: Colors.white,
                                       ),
@@ -549,58 +603,74 @@ class _EventDetailPageState extends State<EventDetailPage> {
                     style: _geist(size: 13, color: HomeFeedTokens.textSecondary),
                   ),
                   const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 40,
-                    child: FilledButton(
-                      // A full event the viewer is not already on keeps its button, disabled
-                      // — so "full" reads as a fact about the event rather than as a missing
-                      // control.
-                      onPressed:
-                          _event.canRsvp && !_rsvping ? _toggleRsvp : null,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: _event.viewerIsGoing
-                            ? HomeFeedTokens.skeletonBase
-                            : HomeFeedTokens.neutral800,
-                        foregroundColor: _event.viewerIsGoing
-                            ? HomeFeedTokens.textPrimary
-                            : HomeFeedTokens.textInverse,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                  if (_event.isHost)
+                    // A host can't RSVP to their own event, so what belongs here isn't a
+                    // button — it's the number they actually came to this page for.
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.people_alt_outlined,
+                          size: 20,
+                          color: HomeFeedTokens.textPrimary,
                         ),
-                      ),
-                      child: _rsvping
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : Text(
-                              _event.rsvpCtaLabel,
-                              style: _geist(
-                                size: 16,
-                                color: _event.viewerIsGoing
-                                    ? HomeFeedTokens.textPrimary
-                                    : HomeFeedTokens.textInverse,
-                              ),
-                            ),
-                    ),
-                  ),
-                  if (_event.viewerIsGoing) ...[
-                    const SizedBox(height: 6),
-                    Center(
-                      child: TextButton(
-                        onPressed: _rsvping ? null : _toggleRsvp,
-                        child: Text(
-                          "Can't make it",
-                          style: _geist(
-                            size: 13,
-                            color: HomeFeedTokens.textSecondary,
+                        const SizedBox(width: 8),
+                        Text(
+                          _event.rsvpCount == 1
+                              ? '1 person registered'
+                              : '${_event.rsvpCount} people registered',
+                          style: _geist(size: 16, weight: FontWeight.w600),
+                        ),
+                      ],
+                    )
+                  else if (_event.viewerIsGoing)
+                    // The action that used to live here — "Can't make it" — is now behind
+                    // the three-dot menu at the top, so this bar only ever states a fact.
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.check_circle,
+                          size: 20,
+                          color: Color(0xFF2E8B57),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          "You're going",
+                          style: _geist(size: 16, weight: FontWeight.w600),
+                        ),
+                      ],
+                    )
+                  else
+                    SizedBox(
+                      width: double.infinity,
+                      height: 40,
+                      child: FilledButton(
+                        // A full event the viewer is not already on keeps its button,
+                        // disabled — so "full" reads as a fact about the event rather than
+                        // as a missing control.
+                        onPressed:
+                            _event.canRsvp && !_rsvping ? _toggleRsvp : null,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: HomeFeedTokens.neutral800,
+                          foregroundColor: HomeFeedTokens.textInverse,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
                           ),
                         ),
+                        child: _rsvping
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : Text(
+                                _event.rsvpCtaLabel,
+                                style: _geist(
+                                  size: 16,
+                                  color: HomeFeedTokens.textInverse,
+                                ),
+                              ),
                       ),
                     ),
-                  ],
                 ],
               ),
             ),
