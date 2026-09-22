@@ -365,20 +365,28 @@ class _ApiFeedTileState extends State<_ApiFeedTile> {
   void _resolveAspectRatio() {
     final stored = widget.item.mediaAspectRatio;
     if (stored != null) {
-      // Known synchronously from the baked-at-publish-time ratio — no
-      // decode round-trip, so the tile never renders at the wrong shape
-      // before snapping to the real one.
-      _aspectRatio = stored == '16:9'
-          ? ImageAspectRatioResolver.landscape16x9
-          : ImageAspectRatioResolver.portrait3x4;
+      // Known synchronously from the baked-at-publish-time ratio (or, for a video, the
+      // ratio it was cropped to in SceneVideoEditPage) — no decode round-trip, so the tile
+      // never renders at the wrong shape before snapping to the real one.
+      _aspectRatio = switch (stored) {
+        '16:9' => ImageAspectRatioResolver.landscape16x9,
+        '9:16' => ImageAspectRatioResolver.portrait9x16,
+        '1:1' => ImageAspectRatioResolver.square1x1,
+        _ => ImageAspectRatioResolver.portrait3x4,
+      };
       return;
     }
 
-    // Fallback for legacy content published before mediaAspectRatio existed
-    // (and for videos, which have no crop/transform step today).
+    // Legacy video published before SceneVideoEditPage had a crop step, so there is no
+    // baked ratio to trust. NetworkImage can't decode a video file to measure it, so this
+    // is a plain guess rather than something worth an async decode attempt — vertical is
+    // the far more common shape for a phone-shot clip.
     if (widget.item.isVideo) {
-      _aspectRatio = ImageAspectRatioResolver.landscape16x9;
+      _aspectRatio = ImageAspectRatioResolver.portrait9x16;
+      return;
     }
+
+    // Fallback for legacy images published before mediaAspectRatio existed.
     final url = widget.item.mediaUrl;
     if (url == null) return;
     final cached = ImageAspectRatioResolver.cached(url);

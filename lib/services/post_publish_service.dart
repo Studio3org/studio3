@@ -154,6 +154,19 @@ class PostPublishService {
         draft.videoThumbnailBytes,
         purpose,
       );
+      // Same crop choice an image scene records — SceneVideoEditPage's own size step sets
+      // this on the draft's single transform slot. Sent only when there is one: a draft
+      // whose crop export failed carries no transform, and the home feed's video fallback
+      // (portrait9x16) is a better guess than asserting a frame the file was never actually
+      // cropped to.
+      final aspectRatio = draft.transforms.isEmpty
+          ? null
+          : switch (draft.transforms.first.aspectRatio) {
+              CropAspectRatio.ratio16x9 => '16:9',
+              CropAspectRatio.ratio9x16 => '9:16',
+              CropAspectRatio.ratio1x1 => '1:1',
+              CropAspectRatio.ratio3x4 => '3:4',
+            };
       await _posts.create({
         'mediaUrl': mediaUrl,
         'mediaType': 'video',
@@ -164,6 +177,7 @@ class PostPublishService {
         if (draft.location != null && draft.location!.isNotEmpty)
           'location': draft.location,
         if (thumbnailUrl != null) 'thumbnailUrl': thumbnailUrl,
+        if (aspectRatio != null) 'mediaAspectRatio': aspectRatio,
         'isProcess': draft.isProcess,
         'status': draft.status,
       });
