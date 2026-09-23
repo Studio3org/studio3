@@ -24,6 +24,7 @@ import 'utils/app_state_store.dart';
 import 'utils/open_at_top_observer.dart';
 import 'utils/profile_navigation.dart';
 import 'theme/app_theme.dart';
+import 'theme/app_text_scale.dart';
 import 'widgets/bottom_nav.dart' show BottomNav, BottomNavIndex;
 import 'widgets/post_share_type_sheet.dart';
 import 'screens/login_page.dart';
@@ -174,10 +175,20 @@ class Studio3App extends StatelessWidget {
       // GoogleFonts directly rather than AppFonts — Text.build() merges its own style
       // onto this ambient one, keeping this fallback for any field the widget's own
       // style leaves unset.
-      builder: (context, child) => DefaultTextStyle.merge(
-        style: const TextStyle(fontFamilyFallback: AppTheme.emojiFallback),
-        child: child!,
-      ),
+      //
+      // Tablet text scale: phone Figma sizes (11–14) are 1:1 on phones and
+      // bumped on tablet so type stays readable on a large canvas. System
+      // accessibility scaling is preserved (see [AppTextScale]).
+      builder: (context, child) {
+        final media = MediaQuery.of(context);
+        return MediaQuery(
+          data: media.copyWith(textScaler: AppTextScale.scalerOf(media)),
+          child: DefaultTextStyle.merge(
+            style: const TextStyle(fontFamilyFallback: AppTheme.emojiFallback),
+            child: child!,
+          ),
+        );
+      },
       initialRoute: resolveInitialRoute(),
       navigatorObservers: [routeObserver, OpenAtTopObserver()],
       routes: {

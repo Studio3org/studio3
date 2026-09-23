@@ -24,6 +24,7 @@ import { InboxLayout } from './screens/InboxLayout';
 import { ChatThreadPage } from './screens/ChatThreadPage';
 import { PieceDetailPage } from './screens/PieceDetailPage';
 import { SeriesDetailPage } from './screens/SeriesDetailPage';
+import { DeleteAccountPage } from './screens/DeleteAccountPage';
 import { AppShell } from './components/layout/AppShell';
 import { StudioLogoLoader } from './components/common/StudioLogoLoader';
 import { PostModal } from './components/layout/PostModal';
@@ -123,6 +124,10 @@ export default function App() {
 
       <Route path="/piece/:id" element={<PieceDetailPage />} />
       <Route path="/series/:id" element={<SeriesDetailPage />} />
+      {/* Google Play Data Safety requires a URL, reachable without signing in, where
+          someone can request their account and data be deleted — see DeleteAccountPage
+          for why the wording there has to track auth_controller.delete_account exactly. */}
+      <Route path="/delete-account" element={<DeleteAccountPage />} />
 
       <Route path="/" element={<RootRedirect />} />
       <Route path="*" element={<RootRedirect />} />
