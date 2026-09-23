@@ -107,19 +107,36 @@ html {
   text-size-adjust: 100%;
   background: var(--cream-bg, #fafaf7);
   color-scheme: light;
+  --app-zoom: 1.12;
 }
 
-/* Phone Figma px sizes stay 1:1. Tablet/desktop bump so 11–14px type
-   stays readable. Matches AppShell breakpoints (768 rail, 1264 labeled). */
 @media (min-width: 768px) {
   html {
-    zoom: 1.125;
+    --app-zoom: 1.22;
   }
 }
 
 @media (min-width: 1264px) {
   html {
-    zoom: 1.08;
+    --app-zoom: 1.14;
+  }
+}
+
+/* Scale the UI, not html, so iOS Safari (weak `html { zoom }`) still enlarges
+   phone-px type. Transform fallback for engines that ignore zoom. */
+#root {
+  zoom: var(--app-zoom);
+  min-height: 100vh;
+  background: var(--cream-bg, #fafaf7);
+}
+
+@supports not (zoom: 1) {
+  #root {
+    zoom: unset;
+    transform: scale(var(--app-zoom));
+    transform-origin: top left;
+    width: calc(100% / var(--app-zoom));
+    min-height: calc(100dvh / var(--app-zoom));
   }
 }
 
@@ -128,11 +145,6 @@ body {
   background: var(--cream-bg, #fafaf7);
   color: var(--cream-text, #231f1b);
   overflow-x: hidden;
-}
-
-#root {
-  min-height: 100vh;
-  background: var(--cream-bg, #fafaf7);
 }
 
 /* AppShell chrome (components/layout/AppShell.jsx): full-viewport content,

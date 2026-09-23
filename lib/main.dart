@@ -175,10 +175,6 @@ class Studio3App extends StatelessWidget {
       // GoogleFonts directly rather than AppFonts — Text.build() merges its own style
       // onto this ambient one, keeping this fallback for any field the widget's own
       // style leaves unset.
-      //
-      // Tablet text scale: phone Figma sizes (11–14) are 1:1 on phones and
-      // bumped on tablet so type stays readable on a large canvas. System
-      // accessibility scaling is preserved (see [AppTextScale]).
       builder: (context, child) {
         final media = MediaQuery.of(context);
         return MediaQuery(

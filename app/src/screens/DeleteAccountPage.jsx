@@ -70,7 +70,7 @@ export function DeleteAccountPage() {
           <ol style={ol}>
             <li>Open Studio3 and go to your <strong>Profile</strong>.</li>
             <li>Tap the settings icon, then scroll to <strong>Delete account</strong>.</li>
-            <li>Enter your password and confirm.</li>
+            <li>Tell us why you're leaving, enter your password, and confirm.</li>
           </ol>
           <p style={p}>
             This takes effect immediately — your session ends and your login stops

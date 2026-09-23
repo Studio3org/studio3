@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bookmark, ChevronDown } from 'lucide-react';
+import { Bookmark, ChevronDown, Play } from 'lucide-react';
 import { apiFetch } from '../services/apiClient';
 import { useBreakpoint } from '../hooks/useBreakpoint';
 import { NavIcon } from '../components/icons/NavIcon';
@@ -46,6 +46,11 @@ function mapFeedItem(item) {
     aspect: aspectFor(item),
     status: statusFor(item),
     mediaUrl: item.mediaUrl,
+    // A video's mediaUrl is an .mp4 — rendered in an <img> (as this card does) that
+    // shows nothing at all, not even a broken-image icon. isVideo/thumbnailUrl let the
+    // card show the poster frame instead, the same fix DiscoverPage's tile already has.
+    isVideo: item.mediaType === 'video',
+    thumbnailUrl: item.thumbnailUrl,
   };
 }
 
@@ -321,16 +326,48 @@ function FeedTile({ item, onOpen }) {
         background: 'var(--cream-skeleton)',
       }}
     >
-      {item.mediaUrl ? (
-        <img src={item.mediaUrl} alt={item.title} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
-      ) : (
+      {(() => {
+        // A video's mediaUrl is an .mp4 — an <img> given that src renders nothing at
+        // all (not even a broken-image icon), which is why a scene video showed as a
+        // blank card. Show its poster frame instead, same fix DiscoverPage already has.
+        const displayUrl = item.isVideo ? item.thumbnailUrl || item.mediaUrl : item.mediaUrl;
+        return displayUrl ? (
+          <img src={displayUrl} alt={item.title} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+        ) : (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: 'linear-gradient(135deg, #d9d4cc 0%, #e2ded6 50%, #cfc9bf 100%)',
+            }}
+          />
+        );
+      })()}
+      {item.isVideo && (
         <div
           style={{
             position: 'absolute',
             inset: 0,
-            background: 'linear-gradient(135deg, #d9d4cc 0%, #e2ded6 50%, #cfc9bf 100%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(35,31,27,0.15)',
           }}
-        />
+        >
+          <div
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: '50%',
+              background: 'rgba(35,31,27,0.55)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Play size={18} fill="#ffffff" color="#ffffff" />
+          </div>
+        </div>
       )}
       <div
         style={{
