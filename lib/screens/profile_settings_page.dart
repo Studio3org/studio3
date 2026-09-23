@@ -243,6 +243,23 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
     }
   }
 
+  Future<void> _openExternalLink(String url, {required String errorMessage}) async {
+    try {
+      final launched = await launchUrl(
+        Uri.parse(url),
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open the browser.')),
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errorMessage)));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return StudioLoadingGate(
@@ -349,6 +366,14 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
               icon: Icons.shield_outlined,
               label: 'Profile visibility & messaging',
               onTap: () => Navigator.pushNamed(context, '/privacy-settings'),
+            ),
+            SettingsTile(
+              icon: Icons.description_outlined,
+              label: 'Privacy policy',
+              onTap: () => _openExternalLink(
+                'https://studiosthree.com/privacy',
+                errorMessage: 'Could not open the privacy policy.',
+              ),
             ),
             SettingsTile(
               icon: Icons.person_add_alt_outlined,
