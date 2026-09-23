@@ -112,18 +112,18 @@ class AuthService {
   /// [ApiException]) if active listings or in-progress orders make deletion unsafe right
   /// now — the caller should show that message rather than clearing the session.
   ///
-  /// [reason] is required server-side (one of the values the delete-account dialog offers)
-  /// and is recorded, with the account's real name/username still attached, as an audit
+  /// [reason] is optional (one of the values the delete-account dialog offers) and, when
+  /// given, is recorded with the account's real name/username still attached, as an audit
   /// event an admin can read — the account's own data is anonymized right after, so this is
   /// the one place that answer survives. [feedback] is free text and optional.
   Future<void> deleteAccount(
     String password, {
-    required String reason,
+    String? reason,
     String? feedback,
   }) async {
-    await _api.delete('/api/users/me', body: {
+    await _api.delete('/api/user/me', body: {
       'password': password,
-      'reason': reason,
+      if (reason != null && reason.isNotEmpty) 'reason': reason,
       if (feedback != null && feedback.isNotEmpty) 'feedback': feedback,
     });
     await _session.clear();

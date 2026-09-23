@@ -174,9 +174,7 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
               child: const Text('Cancel'),
             ),
             TextButton(
-              onPressed: reason == null
-                  ? null
-                  : () => Navigator.pop(dialogContext, true),
+              onPressed: () => Navigator.pop(dialogContext, true),
               child: const Text(
                 'Delete account',
                 style: TextStyle(color: Color(0xFFE05252)),
@@ -186,14 +184,14 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
         ),
       ),
     );
-    if (confirmed != true || !mounted || reason == null) return;
+    if (confirmed != true || !mounted) return;
     final password = passwordController.text;
     if (password.isEmpty) return;
     try {
       await DeviceService.instance.unregisterCurrentDevice();
       await AuthService.instance.deleteAccount(
         password,
-        reason: reason!,
+        reason: reason,
         feedback: feedbackController.text.trim().isEmpty
             ? null
             : feedbackController.text.trim(),
