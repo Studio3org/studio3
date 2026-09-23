@@ -108,6 +108,14 @@ class AuthService {
     await _session.clear();
   }
 
+  /// Permanently deletes the account. The server rejects this with a 400 (surfaced via
+  /// [ApiException]) if active listings or in-progress orders make deletion unsafe right
+  /// now — the caller should show that message rather than clearing the session.
+  Future<void> deleteAccount(String password) async {
+    await _api.delete('/api/users/me', body: {'password': password});
+    await _session.clear();
+  }
+
   Future<AuthUser> _persistAuthResponse(Map<String, dynamic> json) async {
     final data = json['data'] as Map<String, dynamic>? ?? {};
     final token = data['accessToken'] as String?;

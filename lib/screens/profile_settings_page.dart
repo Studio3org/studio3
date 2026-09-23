@@ -109,6 +109,65 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
     Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
   }
 
+  Future<void> _confirmDeleteAccount() async {
+    final controller = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete your account?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'This permanently removes your profile, posts, and listings. '
+              'This cannot be undone. Enter your password to confirm.',
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              obscureText: true,
+              autofocus: true,
+              decoration: const InputDecoration(labelText: 'Password'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text(
+              'Delete account',
+              style: TextStyle(color: Color(0xFFE05252)),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final password = controller.text;
+    if (password.isEmpty) return;
+    try {
+      await DeviceService.instance.unregisterCurrentDevice();
+      await AuthService.instance.deleteAccount(password);
+      if (!mounted) return;
+      Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(e.message)));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not delete your account. Please try again.')),
+      );
+    }
+  }
+
   Future<void> _loadAnalytics() async {
     try {
       final analytics = await UserService.instance.getSellerAnalytics();
@@ -365,6 +424,12 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
                   await AuthService.instance.logout();
                 },
               ),
+            ),
+            SettingsTile(
+              icon: Icons.delete_forever_rounded,
+              label: 'Delete account',
+              destructive: true,
+              onTap: _confirmDeleteAccount,
             ),
           ],
         ),
