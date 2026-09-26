@@ -19,19 +19,6 @@ import 'profile/widgets/profile_seller_insights.dart';
 import 'seller_analytics_page.dart';
 import '../theme/app_fonts.dart';
 
-/// Same fixed set the backend validates against (auth_controller.DELETION_REASONS) —
-/// kept as label/value pairs here since the API only ever sees the value.
-const _deletionReasons = <(String value, String label)>[
-  ('not_using', "I'm not using it enough"),
-  ('found_alternative', 'I found another platform'),
-  ('fees_too_high', 'The fees are too high'),
-  ('privacy_concerns', 'Privacy concerns'),
-  ('too_many_notifications', 'Too many notifications'),
-  ('technical_issues', 'Technical issues or bugs'),
-  ('poor_support', 'Poor customer support'),
-  ('other', 'Other'),
-];
-
 class ProfileSettingsPage extends StatefulWidget {
   const ProfileSettingsPage({super.key});
 
@@ -124,64 +111,42 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
 
   Future<void> _confirmDeleteAccount() async {
     final passwordController = TextEditingController();
-    final feedbackController = TextEditingController();
-    String? reason;
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) => AlertDialog(
-          title: const Text('Delete your account?'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'This permanently removes your profile, posts, and listings. '
-                  'This cannot be undone.',
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  initialValue: reason,
-                  decoration: const InputDecoration(labelText: 'Why are you leaving?'),
-                  items: [
-                    for (final (value, label) in _deletionReasons)
-                      DropdownMenuItem(value: value, child: Text(label)),
-                  ],
-                  onChanged: (value) => setDialogState(() => reason = value),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: feedbackController,
-                  maxLines: 3,
-                  decoration: const InputDecoration(
-                    labelText: "Anything else you'd like us to know? (optional)",
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: passwordController,
-                  obscureText: true,
-                  decoration: const InputDecoration(labelText: 'Confirm your password'),
-                ),
-              ],
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete your account?'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'This permanently deletes your account and all your data — '
+                'profile, posts, listings, and orders. This cannot be undone.',
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: passwordController,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'Confirm your password'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text(
+              'Delete account',
+              style: TextStyle(color: Color(0xFFE05252)),
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text(
-                'Delete account',
-                style: TextStyle(color: Color(0xFFE05252)),
-              ),
-            ),
-          ],
-        ),
+        ],
       ),
     );
     if (confirmed != true || !mounted) return;
@@ -189,13 +154,7 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
     if (password.isEmpty) return;
     try {
       await DeviceService.instance.unregisterCurrentDevice();
-      await AuthService.instance.deleteAccount(
-        password,
-        reason: reason,
-        feedback: feedbackController.text.trim().isEmpty
-            ? null
-            : feedbackController.text.trim(),
-      );
+      await AuthService.instance.deleteAccount(password);
       if (!mounted) return;
       Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
     } on ApiException catch (e) {

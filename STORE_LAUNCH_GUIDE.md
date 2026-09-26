@@ -168,65 +168,51 @@ hand.
 |---|---|
 | Application ID | `com.studio3.discover` |
 | `google-services.json` | **Present** — Firebase/push already works on Android |
-| Release signing | **Using the debug key** (`android/app/build.gradle.kts:44`) — must be fixed before the first real release |
-| Release keystore | **Does not exist anywhere in this project** |
-| `ANDROID_CERT_FINGERPRINTS` (backend) | Only the debug keystore's fingerprint — Android App Links will not verify for a Play Store install until the real release fingerprint is added |
+| Release signing | **Done** — real keystore, wired into `android/app/build.gradle.kts`, first Play Console upload was rejected for being debug-signed; rebuilt and re-verified as release-signed |
+| Release keystore | `android/app/upload-keystore.jks` (gitignored) — **back this up outside this machine now**, alongside `android/key.properties`. Lose it and there is no recovery: Play Store requires every future update signed with the same key. |
+| `ANDROID_CERT_FINGERPRINTS` (backend) | **Still needs updating** — see §2.7. The live value today doesn't match this keystore, the old debug key on this machine, or anything else recognizable; it needs replacing regardless of its origin. |
 
-## 2.1 — Generate the release keystore (do this once, ever)
+## 2.1 — Generate the release keystore (do this once, ever) — ✅ done
 
-```bash
-keytool -genkey -v -keystore ~/studio3-release.keystore \
-  -alias studio3 -keyalg RSA -keysize 2048 -validity 10000
+Keystore: `android/app/upload-keystore.jks`, alias `upload`, RSA 2048, valid until 2056.
+
+SHA-256 fingerprint (needed below and for §2.7):
+```
+1A:B8:04:3F:1D:FA:2E:66:46:DC:1C:08:C5:7C:5B:0B:52:FF:F6:CC:9C:83:04:86:91:9B:21:CA:36:B6:84:0D
 ```
 
-You'll be prompted for a keystore password, a key password, and your name/organization
-details. **Back up the resulting file immediately** — Google Play requires every future
-update to this app be signed with the same key. Lose it, and the only recovery is
+**Back up the keystore file and its passwords (in `android/key.properties`) outside this
+machine now** — a password manager or encrypted cloud storage. Google Play requires every
+future update to this app be signed with the same key; lose it, and the only recovery is
 publishing as a brand new app listing, losing all reviews, install counts and the existing
 URL.
 
-Get its SHA-256 fingerprint (needed for step 2.4 and later for `ANDROID_CERT_FINGERPRINTS`):
-```bash
-keytool -list -v -keystore ~/studio3-release.keystore -alias studio3 | grep SHA256
-```
+## 2.2 — Store the keystore credentials outside git — ✅ done
 
-## 2.2 — Store the keystore credentials outside git
+`android/key.properties` exists (gitignored, per `android/.gitignore`) with the store
+password, key password (same value — modern PKCS12 keystores require store and key password
+to match), alias `upload`, and the relative path to the `.jks` above.
 
-Create `android/key.properties` (this file must **never** be committed — confirm it's
-covered by `.gitignore`, it is not present in the repo today so nothing to check against
-yet):
+## 2.3 — Wire it into the release build — ✅ done
 
-```properties
-storePassword=<the keystore password from step 2.1>
-keyPassword=<the key password from step 2.1>
-keyAlias=studio3
-storeFile=/Users/sahil/studio3-release.keystore
-```
+`android/app/build.gradle.kts` now loads `key.properties` at the top, defines a `release`
+signing config from it, and `buildTypes.release.signingConfig` uses it — falling back to
+the debug key only if `key.properties` is absent (e.g. a fresh checkout on another machine
+that hasn't been given the keystore), so `flutter run --release` still works there too.
 
-## 2.3 — Wire it into the release build
+## 2.4 — Build the release bundle — ✅ done
 
-`android/app/build.gradle.kts` currently has, near the top:
-```kotlin
-buildTypes {
-    release {
-        // TODO: Add your own signing config for the release build.
-        // Signing with the debug keys for now, so `flutter run --release` works.
-        signingConfig = signingConfigs.getByName("debug")
-```
-
-This needs to change to load `key.properties` and define a real `release` signing config,
-then point `buildTypes.release.signingConfig` at it instead of `debug`. This is a code
-change to a tracked file — **not done as part of this document**; ask for it explicitly
-when you're ready, since it needs the keystore from §2.1 to already exist.
-
-## 2.4 — Build the release bundle
-
-Once §2.3 is done:
 ```bash
 flutter build appbundle --release
 ```
-Produces `build/app/outputs/bundle/release/app-release.aab`. Play Store wants the `.aab`
-(App Bundle), not a bare `.apk`.
+Produced `build/app/outputs/bundle/release/app-release.aab`. Verified with `jarsigner
+-verify -certs` that the embedded certificate is now `CN=Studio3`, not the debug cert.
+
+Building this also surfaced a separate, one-time environment gap on this machine: the
+Android SDK's command-line tools weren't installed, which made Flutter's post-build
+"strip debug symbols" check fail even though the Gradle build itself succeeded. Fixed by
+installing `cmdline-tools` from Google's official repository (checksum-verified) into
+the SDK — nothing to redo here, just noting it in case a fresh machine hits the same thing.
 
 ## 2.5 — Play Console setup (first time only)
 
@@ -247,20 +233,32 @@ Produces `build/app/outputs/bundle/release/app-release.aab`. Play Store wants th
 4. Review is typically a few hours to a few days for a first submission; usually faster for
    updates
 
-## 2.7 — After the first upload: fix the deep-link fingerprints
+## 2.7 — After the first upload: fix the deep-link fingerprints — one value ready, one still blocked
 
 Two SHA-256 fingerprints need to reach `ANDROID_CERT_FINGERPRINTS` (comma-separated) in the
 backend's environment, or Android App Links (opening a shared piece/event link directly in
 the app) will silently fail for anyone who installed from the Play Store:
 
-- **The release keystore's own fingerprint** — from §2.1
-- **Play App Signing's re-signing key** — Google generates this automatically after your
-  first upload if Play App Signing is enabled (the default and recommended setting); find
-  it under **Play Console → Setup → App integrity → App signing**
+- **The release keystore's own fingerprint** — ready now, from §2.1:
+  ```
+  1A:B8:04:3F:1D:FA:2E:66:46:DC:1C:08:C5:7C:5B:0B:52:FF:F6:CC:9C:83:04:86:91:9B:21:CA:36:B6:84:0D
+  ```
+- **Play App Signing's re-signing key** — not available yet. Google only generates this
+  after a *successful* upload with Play App Signing enabled (the default); every upload so
+  far was rejected for being debug-signed, so this doesn't exist yet either. Come back for
+  it under **Play Console → Setup → App integrity → App signing** once the newly
+  release-signed `.aab` has actually been accepted.
 
-Update `ANDROID_CERT_FINGERPRINTS` wherever the backend's production environment is
-configured, comma-separated with the existing debug fingerprint if you still need debug
-builds to verify too.
+The value currently live at `https://api.studio-3.co/.well-known/assetlinks.json` —
+`1A:4D:84:7F:C4:FC:98:4C:9B:36:E1:68:DA:C9:B9:0A:23:B5:36:04:C0:42:0C:5A:B2:0F:05:D8:F4:26:01:29`
+— matches neither this release key nor the debug key on this machine
+(`6C:12:81:34:64:84:B7:00:E1:27:DC:41:0C:52:6E:0F:E9:CC:86:3E:F7:AB:6E:1F:77:8B:BE:68:D0:3F:CE:BD`),
+so whatever set it, it needs replacing rather than appending to.
+
+This is a production environment variable (`deploy/config.env` on the server, per
+`deploy/config.env.example`), not a value in this repo — nothing here can set it directly.
+Update it there once both fingerprints are in hand, comma-separated, plus the debug
+fingerprint above if debug builds still need to verify too.
 
 ---
 

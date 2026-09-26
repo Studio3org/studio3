@@ -88,6 +88,21 @@ export function DeleteAccountPage() {
           </p>
         </Section>
 
+        <Section title="Delete some of your data without deleting your account">
+          <p style={p}>
+            You don't have to delete your whole account to remove something specific.
+            Open the piece or scene from your <strong>Profile</strong>, tap the ⋯ menu on
+            it, and choose <strong>Delete</strong> — this removes that item immediately
+            and doesn't touch anything else on your account.
+          </p>
+          <p style={p}>
+            For anything the app doesn't give you a direct delete option for — a message,
+            a comment, or data you can't reach yourself — email{' '}
+            <a href="mailto:support@studio-3.co" style={link}>support@studio-3.co</a> and
+            tell us what to remove; we'll process it within 30 days.
+          </p>
+        </Section>
+
         <Section title="What actually gets deleted">
           <p style={p}>
             Your name, email address, phone number, bio, location, profile and cover
@@ -95,12 +110,12 @@ export function DeleteAccountPage() {
             password is cleared — nobody can sign in as you again.
           </p>
           <p style={p}>
-            What we don't tear out: a piece, scene, or message you posted can still be
-            part of someone else's order history or an existing conversation, so rather
-            than deleting those outright, they stay — re-attributed to an anonymized
-            "Deleted user" with none of your personal information attached. If you'd
-            rather those came down first too, remove them yourself before deleting your
-            account, or mention it in your email above.
+            Your pieces, scenes, and hosted events are deleted along with the rest of
+            your data — they don't linger under an anonymized name. The one exception is
+            a message you sent, or a piece already part of a completed order: those can
+            still be part of someone else's conversation or order history, so rather
+            than deleting them outright, they stay — re-attributed to an anonymized
+            "Deleted user" with none of your personal information attached.
           </p>
         </Section>
 

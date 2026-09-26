@@ -97,19 +97,20 @@ export function ProfileSettingsPage() {
 
   // Mirrors the Flutter app's own delete flow (profile_settings_page.dart /
   // AuthService.deleteAccount) — same endpoint, same password requirement, same
-  // server-side refusal (400) while active listings or in-progress orders exist. The
-  // reason is required server-side (auth_controller.DELETION_REASONS); feedback is not.
+  // server-side refusal (400) while active listings or in-progress orders exist.
+  // reason/feedback are no longer validated server-side but are still passed along
+  // as optional context.
   const handleDeleteAccount = async () => {
-    if (!deleteReason || !deletePassword || deleting) return;
+    if (!deletePassword || deleting) return;
     setDeleting(true);
     setDeleteError(null);
     try {
-      await apiFetch('/api/users/me', {
+      await apiFetch('/api/user/me', {
         method: 'DELETE',
         auth: true,
         body: {
           password: deletePassword,
-          reason: deleteReason,
+          reason: deleteReason || undefined,
           feedback: deleteFeedback.trim() || undefined,
         },
       });
@@ -468,7 +469,7 @@ export function ProfileSettingsPage() {
                 type="button"
                 className="settings-modal-btn settings-modal-btn-confirm"
                 onClick={handleDeleteAccount}
-                disabled={!deleteReason || !deletePassword || deleting}
+                disabled={!deletePassword || deleting}
               >
                 {deleting ? 'Deleting…' : 'Delete account'}
               </button>

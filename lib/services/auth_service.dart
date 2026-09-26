@@ -108,24 +108,11 @@ class AuthService {
     await _session.clear();
   }
 
-  /// Permanently deletes the account. The server rejects this with a 400 (surfaced via
-  /// [ApiException]) if active listings or in-progress orders make deletion unsafe right
-  /// now — the caller should show that message rather than clearing the session.
-  ///
-  /// [reason] is optional (one of the values the delete-account dialog offers) and, when
-  /// given, is recorded with the account's real name/username still attached, as an audit
-  /// event an admin can read — the account's own data is anonymized right after, so this is
-  /// the one place that answer survives. [feedback] is free text and optional.
-  Future<void> deleteAccount(
-    String password, {
-    String? reason,
-    String? feedback,
-  }) async {
-    await _api.delete('/api/user/me', body: {
-      'password': password,
-      if (reason != null && reason.isNotEmpty) 'reason': reason,
-      if (feedback != null && feedback.isNotEmpty) 'feedback': feedback,
-    });
+  /// Permanently deletes the account and all its data. The server rejects this with a 400
+  /// (surfaced via [ApiException]) if active listings or in-progress orders make deletion
+  /// unsafe right now — the caller should show that message rather than clearing the session.
+  Future<void> deleteAccount(String password) async {
+    await _api.delete('/api/user/me', body: {'password': password});
     await _session.clear();
   }
 
