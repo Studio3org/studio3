@@ -1,103 +1,192 @@
-import React from 'react';
-import { NavIcon } from '../icons/NavIcon';
-import { ARIA_LABEL, NAV_ICON_ID, NAV_ICON_USER, NAV_ICON_SAVED, NAV_TAB_ORDER } from './navConfig';
+import React, { useCallback, useState } from 'react';
+import {
+  Bell,
+  Bookmark,
+  Compass,
+  Home,
+  MoreHorizontal,
+  Plus,
+  User,
+} from 'lucide-react';
+
+/** @typedef {'more' | 'home' | 'compass' | 'plus' | 'bookmark' | 'bell' | 'profile'} FloatingPillTabId */
+
+/** Center pill only — left “more” and right avatar are separate controls. */
+export const CENTER_PILL_TAB_ORDER = /** @type {const} */ ([
+  'home',
+  'compass',
+  'plus',
+  'bookmark',
+  'bell',
+]);
+
+export const FLOATING_PILL_TAB_ORDER = /** @type {const} */ ([
+  'more',
+  ...CENTER_PILL_TAB_ORDER,
+  'profile',
+]);
+
+const ICON_MAP = {
+  home: Home,
+  compass: Compass,
+  plus: Plus,
+  bookmark: Bookmark,
+  bell: Bell,
+};
+
+const ARIA_LABEL = {
+  more: 'More',
+  home: 'Home',
+  compass: 'Discover',
+  plus: 'Create',
+  bookmark: 'Bookmarks',
+  bell: 'Notifications',
+};
+
+const GLASS_SURFACE =
+  'border border-white/[0.08] bg-[#1C1C1E]/[0.88] backdrop-blur-xl backdrop-saturate-150 ' +
+  'shadow-[0_8px_24px_rgba(0,0,0,0.32),0_2px_8px_rgba(0,0,0,0.18)]';
+
+const ICON_CLASS = 'h-6 w-6 shrink-0';
+
+const ICON_STROKE_ACTIVE = 2.1;
+const ICON_STROKE_INACTIVE = 1.75;
 
 /**
- * Floating bottom nav — a single pill capsule with 6 equal icon slots
- * (Home / Explore / Post / Event / Saved / Profile-avatar), matching the real app's
- * `lib/widgets/bottom_nav.dart` exactly.
+ * Floating bottom nav: separate glass circle (more), pill (main icons), and avatar — matches split “glass” layout.
  *
  * @param {object} props
- * @param {import('./navConfig').NavTabId} [props.activeTab]
- * @param {(id: import('./navConfig').NavTabId) => void} [props.onActiveTabChange]
+ * @param {FloatingPillTabId} [props.activeTab] — controlled active tab
+ * @param {FloatingPillTabId} [props.defaultActiveTab='home'] — initial tab when uncontrolled
+ * @param {(id: FloatingPillTabId) => void} [props.onActiveTabChange]
  * @param {string} [props.avatarSrc]
  * @param {string} [props.avatarAlt='Profile']
+ * @param {string} [props.className] — extra classes on the outer wrapper
  */
 export function FloatingPillBottomNav({
-  activeTab = 'home',
+  activeTab: activeTabProp,
+  defaultActiveTab = 'home',
   onActiveTabChange,
   avatarSrc,
   avatarAlt = 'Profile',
+  className = '',
 }) {
+  const [internalTab, setInternalTab] = useState(
+    /** @type {FloatingPillTabId} */ (defaultActiveTab),
+  );
+
+  const isControlled = activeTabProp !== undefined;
+  const activeTab = isControlled ? activeTabProp : internalTab;
+
+  const setActive = useCallback(
+    /** @param {FloatingPillTabId} id */
+    (id) => {
+      if (!isControlled) setInternalTab(id);
+      onActiveTabChange?.(id);
+    },
+    [isControlled, onActiveTabChange],
+  );
+
+  const moreActive = activeTab === 'more';
+  const profileActive = activeTab === 'profile';
+
   return (
     <nav
       role="navigation"
       aria-label="Main"
-      style={{
-        position: 'fixed',
-        bottom: 12,
-        left: '50%',
-        transform: 'translateX(-50%)',
-        zIndex: 100,
-        width: 'min(380px, calc(100% - 20px))',
-        height: 64,
-        borderRadius: 32,
-        background: 'rgba(35, 31, 27, 0.85)',
-        backdropFilter: 'blur(24px) saturate(150%)',
-        WebkitBackdropFilter: 'blur(24px) saturate(150%)',
-        boxShadow: '0 8px 24px rgba(0,0,0,0.32), 0 2px 8px rgba(0,0,0,0.18)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '0 12px',
-      }}
+      className={[
+        'fixed bottom-4 left-1/2 z-[100] flex max-w-[calc(100vw-1.5rem)] -translate-x-1/2',
+        'items-center gap-2.5 sm:gap-3',
+        className,
+      ]
+        .filter(Boolean)
+        .join(' ')}
     >
-      {NAV_TAB_ORDER.map((id) => {
-        const isActive = activeTab === id;
-        const isProfile = id === 'profile';
-        const isSaved = id === 'saved';
-        return (
-          <button
-            key={id}
-            type="button"
-            onClick={() => onActiveTabChange?.(id)}
-            aria-label={ARIA_LABEL[id]}
-            aria-current={isActive ? 'page' : undefined}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: 44,
-              height: 44,
-              borderRadius: '50%',
-              flexShrink: 0,
-            }}
+      {/* Left: more — circular */}
+      <button
+        type="button"
+        onClick={() => setActive('more')}
+        aria-label={ARIA_LABEL.more}
+        aria-pressed={moreActive}
+        className={[
+          'flex h-14 w-14 shrink-0 items-center justify-center rounded-full transition-shadow',
+          GLASS_SURFACE,
+          moreActive ? 'ring-2 ring-white/25' : '',
+          'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/40',
+        ].join(' ')}
+      >
+        <MoreHorizontal
+          className="h-6 w-6 text-white"
+          strokeWidth={2}
+          aria-hidden
+        />
+      </button>
+
+      {/* Center: primary icons — pill */}
+      <div
+        className={[
+          'flex shrink-0 items-center justify-center gap-5 rounded-full px-6 py-3.5 sm:gap-6 sm:px-8',
+          GLASS_SURFACE,
+        ].join(' ')}
+      >
+        {CENTER_PILL_TAB_ORDER.map((id) => {
+          const Icon = ICON_MAP[id];
+          const isActive = activeTab === id;
+          return (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setActive(id)}
+              aria-label={ARIA_LABEL[id]}
+              aria-current={isActive ? 'page' : undefined}
+              className={[
+                'flex min-h-10 min-w-10 shrink-0 items-center justify-center rounded-full transition-colors',
+                'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/40',
+                isActive ? 'text-white' : 'text-white/40 hover:text-white/55',
+              ].join(' ')}
+            >
+              <Icon
+                className={ICON_CLASS}
+                strokeWidth={isActive ? ICON_STROKE_ACTIVE : ICON_STROKE_INACTIVE}
+                aria-hidden
+              />
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Right: profile — circular */}
+      <button
+        type="button"
+        onClick={() => setActive('profile')}
+        aria-label={avatarAlt}
+        aria-current={profileActive ? 'page' : undefined}
+        className={[
+          'relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full transition-shadow',
+          GLASS_SURFACE,
+          profileActive ? 'ring-2 ring-white/35' : '',
+          'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/40',
+        ].join(' ')}
+      >
+        {avatarSrc ? (
+          <img
+            src={avatarSrc}
+            alt=""
+            width={56}
+            height={56}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <span
+            className={[
+              'flex h-10 w-10 items-center justify-center rounded-full',
+              profileActive ? 'bg-white/20 text-white' : 'bg-white/10 text-white/45',
+            ].join(' ')}
           >
-            {isProfile ? (
-              <span
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: 24,
-                  height: 24,
-                  borderRadius: '50%',
-                  overflow: 'hidden',
-                  boxSizing: 'content-box',
-                  border: isActive ? '1.5px solid rgba(250,250,247,0.7)' : '1.5px solid transparent',
-                  background: 'rgba(255,255,255,0.1)',
-                }}
-              >
-                {avatarSrc ? (
-                  <img
-                    src={avatarSrc}
-                    alt={avatarAlt}
-                    width={24}
-                    height={24}
-                    style={{ objectFit: 'cover', width: '100%', height: '100%' }}
-                  />
-                ) : (
-                  <NAV_ICON_USER size={14} color={isActive ? '#FAFAF7' : '#8C8880'} strokeWidth={1.75} aria-hidden />
-                )}
-              </span>
-            ) : isSaved ? (
-              <NAV_ICON_SAVED size={22} color={isActive ? '#FAFAF7' : '#8C8880'} strokeWidth={1.75} />
-            ) : (
-              <NavIcon id={NAV_ICON_ID[id]} size={24} color={isActive ? '#FAFAF7' : '#8C8880'} />
-            )}
-          </button>
-        );
-      })}
+            <User className="h-5 w-5" strokeWidth={1.75} aria-hidden />
+          </span>
+        )}
+      </button>
     </nav>
   );
 }

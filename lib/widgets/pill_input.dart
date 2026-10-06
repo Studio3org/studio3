@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
-import '../theme/app_fonts.dart';
 
 class PillInput extends StatelessWidget {
   const PillInput({
@@ -38,14 +38,14 @@ class PillInput extends StatelessWidget {
             onChanged: onChanged,
             obscureText: obscureText,
             keyboardType: keyboardType,
-            style: AppFonts.inter(
+            style: GoogleFonts.inter(
               fontSize: 15,
               fontWeight: FontWeight.w400,
               color: AppColors.slate700,
             ),
             decoration: InputDecoration(
               hintText: placeholder,
-              hintStyle: AppFonts.inter(color: AppColors.slate400),
+              hintStyle: GoogleFonts.inter(color: AppColors.slate400),
               filled: true,
               fillColor: AppColors.white,
               contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 0),
@@ -84,7 +84,7 @@ class PillInput extends StatelessWidget {
             padding: const EdgeInsets.only(left: 20, top: 6),
             child: Text(
               errorText!,
-              style: AppFonts.inter(fontSize: 12, color: errorColor),
+              style: GoogleFonts.inter(fontSize: 12, color: errorColor),
             ),
           ),
       ],

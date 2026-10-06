@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../data/post_material_options.dart';
 import '../data/post_media_assets.dart';
 import '../theme/home_feed_tokens.dart';
 import '../widgets/post_picker_search_field.dart';
-import '../theme/app_fonts.dart';
 
 /// Material search & pick list — second step of add materials flow.
 class PickMaterialsPage extends StatefulWidget {
@@ -82,11 +82,11 @@ class _PickMaterialsPageState extends State<PickMaterialsPage> {
     final byCategory = PostMaterialOptions.byCategory;
 
     return Scaffold(
-      backgroundColor: HomeFeedTokens.background,
+      backgroundColor: Colors.black,
       body: Column(
         children: [
           ColoredBox(
-            color: HomeFeedTokens.background,
+            color: Colors.black,
             child: Padding(
               padding: EdgeInsets.only(top: topInset),
               child: SizedBox(
@@ -103,20 +103,16 @@ class _PickMaterialsPageState extends State<PickMaterialsPage> {
                           PostMediaAssets.createCloseIcon,
                           width: 14,
                           height: 14,
-                          colorFilter: const ColorFilter.mode(
-                            HomeFeedTokens.textPrimary,
-                            BlendMode.srcIn,
-                          ),
                         ),
                       ),
                       Expanded(
                         child: Center(
                           child: Text(
                             'Add materials',
-                            style: AppFonts.inter(
+                            style: GoogleFonts.inter(
                               fontSize: 16,
                               fontWeight: FontWeight.w500,
-                              color: HomeFeedTokens.textPrimary,
+                              color: HomeFeedTokens.textInverse,
                             ),
                           ),
                         ),
@@ -136,7 +132,7 @@ class _PickMaterialsPageState extends State<PickMaterialsPage> {
                             ),
                             child: Text(
                               'Done',
-                              style: AppFonts.inter(
+                              style: GoogleFonts.inter(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
                                 color: HomeFeedTokens.textPrimary,
@@ -192,7 +188,7 @@ class _SectionHeader extends StatelessWidget {
         padding: const EdgeInsets.only(left: 6),
         child: Text(
           title,
-          style: AppFonts.inter(
+          style: GoogleFonts.inter(
             fontSize: 11,
             fontWeight: FontWeight.w500,
             color: _textSecondary,
@@ -215,10 +211,10 @@ class _MaterialRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Text(
         material.name,
-        style: AppFonts.inter(
+        style: GoogleFonts.inter(
           fontSize: 13,
           fontWeight: FontWeight.w400,
-          color: HomeFeedTokens.textPrimary,
+          color: HomeFeedTokens.textInverse,
           height: 1.25,
         ),
       ),
@@ -241,7 +237,7 @@ class _MaterialPickerTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: selected
-          ? HomeFeedTokens.detailBackground
+          ? Colors.white.withValues(alpha: 0.06)
           : Colors.transparent,
       child: InkWell(
         onTap: onTap,

@@ -1,31 +1,30 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
-import '../data/nav_assets.dart';
 import '../widgets/profile_avatar.dart';
 
-/// Bottom nav — Figma Home bar (home, explore, post, event, profile).
+/// Bottom nav — Figma Nav/Bottom (4-icon pill + profile avatar).
 abstract final class BottomNavIndex {
   static const int home = 0;
   static const int discover = 1;
-  static const int post = 2;
-  static const int event = 3;
+  static const int reels = 2;
+  static const int bookmark = 3;
   static const int profile = 4;
 }
 
-const Color _kNavFill = Color(0xD9231F1B);
-const Color _kNavSelected = Color(0xFFFAFAF7);
-const Color _kNavInactive = Color(0xFF8C8880);
+const Color _kNavGlassFill = Color(0x991A1A1A);
+const Color _kNavGlassBorder = Color(0x26FFFFFF);
 
-const double _kBarWidth = 342;
-const double _kBarHeight = 64;
-const double _kBarRadius = 32;
+const double _kPillWidth = 275;
+const double _kPillHeight = 52;
+const double _kPillRadius = 100;
+const double _kAvatarSize = 50;
+const double _kPillAvatarGap = 8;
 const double _kIconSize = 24;
 const double _kIconHit = 48;
-const double _kAvatarSize = 24;
 const double _kBottomLift = 12;
+const double _kInactiveWhite = 0.4;
 
 class BottomNav extends StatelessWidget {
   const BottomNav({
@@ -51,10 +50,21 @@ class BottomNav extends StatelessWidget {
         child: Center(
           child: FittedBox(
             fit: BoxFit.scaleDown,
-            child: _NavBar(
-              selectedNavIndex: selectedNavIndex,
-              onNavTap: onNavTap,
-              avatarUrl: avatarUrl,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _NavPill(
+                  selectedNavIndex: selectedNavIndex,
+                  onNavTap: onNavTap,
+                ),
+                const SizedBox(width: _kPillAvatarGap),
+                _ProfileAvatar(
+                  selected: selectedNavIndex == BottomNavIndex.profile,
+                  avatarUrl: avatarUrl,
+                  onTap: () => onNavTap(BottomNavIndex.profile),
+                ),
+              ],
             ),
           ),
         ),
@@ -63,74 +73,108 @@ class BottomNav extends StatelessWidget {
   }
 }
 
-class _NavBar extends StatelessWidget {
-  const _NavBar({
-    required this.selectedNavIndex,
-    required this.onNavTap,
-    this.avatarUrl,
+class _GlassSurface extends StatelessWidget {
+  const _GlassSurface({
+    required this.child,
+    required this.borderRadius,
   });
 
-  final int selectedNavIndex;
-  final ValueChanged<int> onNavTap;
-  final String? avatarUrl;
-
-  static const _slots = <({int index, String asset})>[
-    (index: BottomNavIndex.home, asset: NavAssets.homeIcon),
-    (index: BottomNavIndex.discover, asset: NavAssets.exploreIcon),
-    (index: BottomNavIndex.post, asset: NavAssets.postIcon),
-    (index: BottomNavIndex.event, asset: NavAssets.eventIcon),
-  ];
+  final Widget child;
+  final BorderRadius borderRadius;
 
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(_kBarRadius),
+      borderRadius: borderRadius,
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
         child: Container(
-          width: _kBarWidth,
-          height: _kBarHeight,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
-            color: _kNavFill,
-            borderRadius: BorderRadius.circular(_kBarRadius),
+            color: _kNavGlassFill,
+            borderRadius: borderRadius,
+            border: Border.all(color: _kNavGlassBorder, width: 1),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              for (final slot in _slots)
-                _NavIconButton(
-                  asset: slot.asset,
-                  selected: selectedNavIndex == slot.index,
-                  onTap: () => onNavTap(slot.index),
-                ),
-              _ProfileAvatar(
-                selected: selectedNavIndex == BottomNavIndex.profile,
-                avatarUrl: avatarUrl,
-                onTap: () => onNavTap(BottomNavIndex.profile),
-              ),
-            ],
-          ),
+          child: child,
         ),
       ),
     );
   }
 }
 
-class _NavIconButton extends StatelessWidget {
-  const _NavIconButton({
-    required this.asset,
+class _NavPill extends StatelessWidget {
+  const _NavPill({
+    required this.selectedNavIndex,
+    required this.onNavTap,
+  });
+
+  final int selectedNavIndex;
+  final ValueChanged<int> onNavTap;
+
+  static const _slots = <({int index, IconData outline, IconData filled})>[
+    (
+      index: BottomNavIndex.home,
+      outline: Icons.home_outlined,
+      filled: Icons.home_rounded,
+    ),
+    (
+      index: BottomNavIndex.discover,
+      outline: Icons.explore_outlined,
+      filled: Icons.explore_rounded,
+    ),
+    (
+      index: BottomNavIndex.reels,
+      outline: Icons.play_circle_outline,
+      filled: Icons.play_circle_rounded,
+    ),
+    (
+      index: BottomNavIndex.bookmark,
+      outline: Icons.bookmark_border_rounded,
+      filled: Icons.bookmark_rounded,
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return _GlassSurface(
+      borderRadius: BorderRadius.circular(_kPillRadius),
+      child: SizedBox(
+        width: _kPillWidth,
+        height: _kPillHeight,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            for (final slot in _slots)
+              _PillIconButton(
+                selected: selectedNavIndex == slot.index,
+                outline: slot.outline,
+                filled: slot.filled,
+                onTap: () => onNavTap(slot.index),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PillIconButton extends StatelessWidget {
+  const _PillIconButton({
     required this.selected,
+    required this.outline,
+    required this.filled,
     required this.onTap,
   });
 
-  final String asset;
   final bool selected;
+  final IconData outline;
+  final IconData filled;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? _kNavSelected : _kNavInactive;
+    final icon = selected ? filled : outline;
+    final color =
+        selected ? Colors.white : Colors.white.withValues(alpha: _kInactiveWhite);
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -139,13 +183,11 @@ class _NavIconButton extends StatelessWidget {
         child: SizedBox(
           width: _kIconHit,
           height: _kIconHit,
-          child: Center(
-            child: SvgPicture.asset(
-              asset,
-              width: _kIconSize,
-              height: _kIconSize,
-              colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
-            ),
+          child: Icon(
+            icon,
+            size: _kIconSize,
+            color: color,
+            applyTextScaling: false,
           ),
         ),
       ),
@@ -166,32 +208,31 @@ class _ProfileAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final borderColor = selected
+        ? Colors.white.withValues(alpha: 0.4)
+        : Colors.white.withValues(alpha: 0.14);
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
         customBorder: const CircleBorder(),
-        child: SizedBox(
-          width: _kIconHit,
-          height: _kIconHit,
-          child: Center(
-            child: Container(
-              width: _kAvatarSize,
-              height: _kAvatarSize,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: selected
-                      ? _kNavSelected.withValues(alpha: 0.7)
-                      : Colors.transparent,
-                  width: selected ? 1.5 : 0,
-                ),
+        child: _GlassSurface(
+          borderRadius: BorderRadius.circular(_kAvatarSize / 2),
+          child: Container(
+            width: _kAvatarSize,
+            height: _kAvatarSize,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: borderColor,
+                width: selected ? 1.5 : 1,
               ),
-              clipBehavior: Clip.antiAlias,
-              child: ProfileAvatar(
-                url: avatarUrl,
-                size: _kAvatarSize,
-              ),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: ProfileAvatar(
+              url: avatarUrl,
+              size: _kAvatarSize,
             ),
           ),
         ),

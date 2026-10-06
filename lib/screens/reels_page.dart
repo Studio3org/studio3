@@ -157,10 +157,8 @@ class _ReelsPageState extends State<ReelsPage>
       });
     } catch (_) {
       if (!mounted) return;
-      // A failed refresh must not wipe what the user is already looking
-      // at — keep the current page and let them retry (pull-to-refresh or
-      // the next focus load) instead of blanking the list.
       setState(() {
+        if (!append) _items = [];
         _loading = false;
         _loadingMore = false;
       });

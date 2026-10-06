@@ -5,14 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && node ./sync-vercel-output.mjs",
+    "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
     "lucide-react": "^1.0.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-easy-crop": "^6.2.3",
     "react-router-dom": "^6.22.0"
   },
   "devDependencies": {

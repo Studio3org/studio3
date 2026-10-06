@@ -1,128 +1,227 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft } from 'lucide-react';
-import { SharePieceIcon, ShareSceneIcon } from '../components/icons/PostIcons';
-import { usePostForm } from './post/usePostForm';
-import { AvailabilityTab, DetailsTab, PublishFooter, ReviewTab, TabBar } from './post/PostFormFields';
-import { MediaGalleryStep } from './post/MediaGalleryStep';
-import { MediaEditStep } from './post/MediaEditStep';
+import { PillInput } from '../components/inputs/PillInput';
+import { PrimaryButton } from '../components/buttons/PrimaryButton';
 
-/** Mobile entry: Piece-vs-Scene bottom sheet (lib/widgets/post_share_type_sheet.dart),
- * then a full-page details form matching PostCreatePage's shape. The desktop modal
- * (components/layout/PostModal.jsx) shares the same form via usePostForm/PostFormFields —
- * this is the same posting flow, just full-page mobile chrome instead of a dialog. */
+const modalStyle = {
+  position: 'fixed',
+  inset: 0,
+  background: 'var(--white)',
+  zIndex: 200,
+  display: 'flex',
+  flexDirection: 'column',
+  maxWidth: 375,
+  margin: '0 auto',
+  boxShadow: '0 24px 64px rgba(15,23,42,0.2)',
+};
+
 export function PostPage() {
   const navigate = useNavigate();
-  const [type, setType] = useState(null);
+  const [type, setType] = useState('piece');
+  const [media, setMedia] = useState(null);
+  const [title, setTitle] = useState('');
+  const [story, setStory] = useState('');
+  const [year, setYear] = useState('');
+  const [listForSale, setListForSale] = useState(false);
+  const [price, setPrice] = useState('');
+  const [caption, setCaption] = useState('');
+  const [tags, setTags] = useState([]);
 
-  if (!type) {
-    return <ShareTypeSheet onChoose={setType} onCancel={() => navigate(-1)} />;
-  }
-  return <PostDetailsForm type={type} onClose={() => navigate(-1)} />;
-}
-
-function ShareTypeSheet({ onChoose, onCancel }) {
   return (
-    <div style={{ position: 'absolute', inset: 0, zIndex: 200 }}>
-      <div
-        onClick={onCancel}
+    <div style={modalStyle}>
+      <header
         style={{
-          position: 'absolute',
-          inset: 0,
-          background: 'rgba(35,31,27,0.4)',
-          backdropFilter: 'blur(4px)',
-        }}
-      />
-      <div
-        style={{
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'var(--cream-bg)',
-          borderRadius: '20px 20px 0 0',
-          padding: '16px 24px 24px',
+          padding: '16px 16px 12px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          borderBottom: '1px solid var(--slate-100)',
         }}
       >
-        <div style={{ width: 40, height: 2, borderRadius: 12, background: 'var(--cream-title-hairline)', margin: '0 auto 12px' }} />
-        <h2 style={{ fontFamily: 'var(--font-inter)', fontSize: 18, fontWeight: 500, color: 'var(--cream-text)', marginBottom: 23 }}>
-          What are you sharing?
-        </h2>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 23 }}>
-          <ShareTypeRow
-            icon={<SharePieceIcon size={36} />}
-            title="Piece"
-            subtitle="A finished work, up to 5 angles"
-            onClick={() => onChoose('piece')}
-          />
-          <ShareTypeRow
-            icon={<ShareSceneIcon size={36} />}
-            title="Scene"
-            subtitle="One photo or video"
-            onClick={() => onChoose('scene')}
-          />
+        <button style={{ fontSize: 15, color: 'var(--slate-500)' }} onClick={() => navigate(-1)}>Cancel</button>
+        <h2 style={{ fontSize: 16, fontWeight: 600, color: 'var(--slate-900)' }}>New Post</h2>
+        <button
+          style={{
+            fontSize: 15,
+            fontWeight: 600,
+            color: media ? 'var(--slate-900)' : 'var(--slate-300)',
+          }}
+          disabled={!media}
+        >
+          Share
+        </button>
+      </header>
+
+      <div style={{ padding: '0 16px', marginBottom: 16 }}>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            style={{
+              padding: '8px 16px',
+              borderRadius: 9999,
+              fontSize: 14,
+              fontWeight: 500,
+              background: type === 'piece' ? 'var(--slate-900)' : 'var(--slate-100)',
+              color: type === 'piece' ? 'var(--white)' : 'var(--slate-600)',
+            }}
+            onClick={() => setType('piece')}
+          >
+            Piece
+          </button>
+          <button
+            style={{
+              padding: '8px 16px',
+              borderRadius: 9999,
+              fontSize: 14,
+              fontWeight: 500,
+              background: type === 'post' ? 'var(--slate-900)' : 'var(--slate-100)',
+              color: type === 'post' ? 'var(--white)' : 'var(--slate-600)',
+            }}
+            onClick={() => setType('post')}
+          >
+            Post
+          </button>
         </div>
       </div>
-    </div>
-  );
-}
 
-function ShareTypeRow({ icon, title, subtitle, onClick }) {
-  return (
-    <button onClick={onClick} style={{ display: 'flex', alignItems: 'center', gap: 16, width: '100%', textAlign: 'left' }}>
-      <span style={{ width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{icon}</span>
-      <span>
-        <div style={{ fontFamily: 'var(--font-inter)', fontSize: 16, fontWeight: 500, color: 'var(--cream-text)' }}>{title}</div>
-        <div style={{ fontFamily: 'var(--font-inter)', fontSize: 12, color: 'var(--cream-text-secondary)', marginTop: 2 }}>{subtitle}</div>
-      </span>
-    </button>
-  );
-}
+      <div style={{ flex: 1, overflow: 'auto', padding: '0 16px 24px' }}>
+        <div
+          style={{
+            position: 'relative',
+            width: '100%',
+            maxWidth: 320,
+            height: 280,
+            margin: '0 auto 20px',
+            borderRadius: 16,
+            border: '2px dashed var(--slate-300)',
+            background: media ? 'var(--slate-200)' : 'var(--slate-100)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--slate-400)',
+            fontSize: 14,
+          }}
+          onClick={() => !media && setMedia('placeholder')}
+        >
+          {media ? (
+            <>
+              <div style={{ width: '100%', height: '100%', position: 'absolute', inset: 0, background: 'var(--slate-200)', borderRadius: 14 }} />
+              <button
+                type="button"
+                style={{
+                  position: 'absolute',
+                  bottom: 12,
+                  padding: '6px 14px',
+                  borderRadius: 9999,
+                  background: 'var(--slate-200)',
+                  fontSize: 12,
+                  fontWeight: 500,
+                  zIndex: 1,
+                }}
+                onClick={(e) => { e.stopPropagation(); setMedia(null); }}
+              >
+                Change
+              </button>
+            </>
+          ) : (
+            <>Tap to add photo or video</>
+          )}
+        </div>
 
-function PostDetailsForm({ type, onClose }) {
-  const form = usePostForm(type, onClose);
-
-  const back = () => {
-    if (form.step === 'gallery') return onClose();
-    if (form.step === 'edit') return form.goToGallery();
-    if (form.tab === form.TABS[0]) {
-      return form.media.hasVideo ? form.goToGallery() : form.goToEdit();
-    }
-    return onClose();
-  };
-
-  return (
-    <div style={{ background: 'var(--cream-bg)', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ height: 53, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', padding: '0 16px' }}>
-        <button onClick={back} aria-label="Back" style={{ position: 'absolute', left: 12, color: 'var(--cream-text)' }}>
-          <ChevronLeft size={18} strokeWidth={2} />
-        </button>
-        <span style={{ fontFamily: 'var(--font-inter)', fontSize: 16, fontWeight: 500, color: 'var(--cream-text)' }}>
-          {type === 'piece' ? 'Piece' : 'Scene'}
-        </span>
-      </div>
-
-      <div style={{ flex: 1, padding: '20px 16px', overflowY: 'auto' }}>
-        {form.step === 'gallery' && <MediaGalleryStep type={type} form={form} />}
-        {form.step === 'edit' && <MediaEditStep type={type} form={form} />}
-        {form.step === 'tabs' && (
+        {type === 'piece' && (
           <>
-            <div style={{ marginBottom: 20 }}>
-              <TabBar form={form} />
+            <div style={{ marginBottom: 16 }}>
+              <PillInput placeholder="Title (required)" value={title} onChange={(e) => setTitle(e.target.value)} />
             </div>
-            {form.tab === 'Availability' && <AvailabilityTab form={form} />}
-            {form.tab === 'Details' && <DetailsTab type={type} form={form} />}
-            {form.tab === 'Review' && <ReviewTab type={type} form={form} />}
+            <textarea
+              placeholder="Story / Intent (optional)"
+              value={story}
+              onChange={(e) => setStory(e.target.value)}
+              style={{
+                width: '100%',
+                minHeight: 80,
+                borderRadius: 16,
+                background: 'var(--slate-50)',
+                border: '1.5px solid var(--slate-200)',
+                padding: 14,
+                fontSize: 14,
+                marginBottom: 16,
+              }}
+            />
+            <div style={{ marginBottom: 16 }}>
+              <PillInput placeholder="Year (optional)" value={year} onChange={(e) => setYear(e.target.value)} />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <span style={{ fontSize: 15, color: 'var(--slate-700)' }}>List for Sale</span>
+              <button
+                style={{
+                  width: 50,
+                  height: 28,
+                  borderRadius: 14,
+                  background: listForSale ? 'var(--slate-900)' : 'var(--slate-300)',
+                  position: 'relative',
+                }}
+                onClick={() => setListForSale((s) => !s)}
+              >
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: 2,
+                    left: listForSale ? 24 : 2,
+                    width: 24,
+                    height: 24,
+                    borderRadius: '50%',
+                    background: 'var(--white)',
+                    transition: 'left 0.2s',
+                  }}
+                />
+              </button>
+            </div>
+            {listForSale && (
+              <div style={{ marginBottom: 16 }}>
+                <PillInput placeholder="Price ($)" value={price} onChange={(e) => setPrice(e.target.value)} />
+              </div>
+            )}
+            <p style={{ fontSize: 12, color: 'var(--slate-500)', marginBottom: 8 }}>Tags (up to 10)</p>
+            <PillInput placeholder="Add tags..." />
+          </>
+        )}
+
+        {type === 'post' && (
+          <>
+            <textarea
+              placeholder="Caption"
+              value={caption}
+              onChange={(e) => setCaption(e.target.value)}
+              maxLength={2000}
+              style={{
+                width: '100%',
+                minHeight: 100,
+                borderRadius: 16,
+                border: '1.5px solid var(--slate-200)',
+                padding: 14,
+                fontSize: 14,
+                marginBottom: 8,
+              }}
+            />
+            <p style={{ fontSize: 12, color: 'var(--slate-400)', marginBottom: 16 }}>{caption.length}/2000</p>
+            <button
+              style={{
+                width: '100%',
+                padding: 14,
+                borderRadius: 12,
+                border: '1.5px solid var(--slate-200)',
+                background: 'var(--white)',
+                fontSize: 14,
+                color: 'var(--slate-500)',
+                textAlign: 'left',
+              }}
+            >
+              Link to a Piece (optional)
+            </button>
           </>
         )}
       </div>
-
-      {form.step === 'tabs' && (
-        <div style={{ padding: 16 }}>
-          <PublishFooter form={form} />
-        </div>
-      )}
     </div>
   );
 }
-

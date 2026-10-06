@@ -1,39 +1,14 @@
-/// A user-entered material on a piece (name required; brand/notes optional).
+/// Material product for the add-materials flow (Figma 2021:4128).
 class PostMaterialOption {
   const PostMaterialOption({
     required this.id,
     required this.name,
-    this.brand,
-    this.description,
-    this.category = '',
+    required this.category,
   });
 
   final String id;
   final String name;
-  final String? brand;
-  final String? description;
   final String category;
-
-  factory PostMaterialOption.custom({
-    required String name,
-    String? brand,
-    String? description,
-  }) {
-    return PostMaterialOption(
-      id: 'custom-${DateTime.now().microsecondsSinceEpoch}-$name',
-      name: name.trim(),
-      brand: brand?.trim().isEmpty == true ? null : brand?.trim(),
-      description:
-          description?.trim().isEmpty == true ? null : description?.trim(),
-    );
-  }
-
-  /// Stored as a single string until the API supports structured materials.
-  String get publishLabel {
-    final b = brand?.trim();
-    if (b == null || b.isEmpty) return name;
-    return '$name · $b';
-  }
 }
 
 abstract final class PostMaterialOptions {

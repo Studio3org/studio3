@@ -1,28 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:shimmer/shimmer.dart';
 
 import '../theme/explore_tokens.dart';
 import '../theme/home_feed_tokens.dart';
 import '../utils/image_aspect_ratio_resolver.dart';
-import 'loading/skeleton_primitives.dart';
 
-/// Feed-shaped skeletons. These are section placeholders under the app's
-/// loading rule (see `loading/skeleton_primitives.dart`) — they stand in
-/// for a feed that has no cached or loaded items yet, never for a feed
-/// that is merely refreshing.
+/// Wraps a skeleton's placeholder blocks in an animated shimmer sweep —
+/// shared by every skeleton below so first-load placeholders read as
+/// "loading" rather than a static gray blob.
 ///
-/// The shimmer sweep itself lives in [SkeletonShimmer] so every
-/// placeholder in the app animates identically; this thin wrapper keeps
-/// the existing call sites below unchanged.
+/// [highlightColor] must be visibly lighter than [baseColor] — the sweep
+/// reads as a bright highlight crossing the placeholder shape, not a dimmer
+/// version of the same faint tint (which just fades toward the page
+/// background and stops looking like a shimmer at all).
 Widget _shimmer(
   Widget child, {
   required Color baseColor,
   required Color highlightColor,
-  Duration period = const Duration(milliseconds: 1400),
 }) {
-  return SkeletonShimmer(
-    base: baseColor,
-    highlight: highlightColor,
-    period: period,
+  return Shimmer.fromColors(
+    baseColor: baseColor,
+    highlightColor: highlightColor,
+    period: const Duration(milliseconds: 1400),
     child: child,
   );
 }
@@ -164,12 +163,7 @@ class FeedListSkeleton extends StatelessWidget {
         itemBuilder: (_, __) => card(),
       ),
       baseColor: fill,
-      // Brighter than the shared skeletonHighlight token and a shorter
-      // period — this is the first thing a user sees on entering the app,
-      // so the left-to-right wave needs to actually read as motion instead
-      // of the subtle tan-on-tan sweep used for lower-visibility skeletons.
-      highlightColor: Colors.white,
-      period: const Duration(milliseconds: 1100),
+      highlightColor: HomeFeedTokens.skeletonHighlight,
     );
   }
 }

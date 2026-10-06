@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/nearby_seller.dart';
-import '../../services/auth_session.dart';
 import '../../services/nearby_service.dart';
 import '../../theme/home_feed_tokens.dart';
 import '../../utils/profile_navigation.dart';
 import '../home_feed/home_feed_widgets.dart';
-import '../../theme/app_fonts.dart';
 
 /// Horizontal row of sellers near the viewer's current location.
 class NearbySellersRow extends StatefulWidget {
@@ -54,12 +53,7 @@ class _NearbySellersRowState extends State<NearbySellersRow> {
       );
       if (!mounted) return;
       setState(() {
-        // The viewer is trivially the seller nearest to themselves, so the backend's radius
-        // query returns them first every time. Nobody discovers their own profile here.
-        final me = AuthSession.instance.user?.username.toLowerCase();
-        _sellers = me == null || me.isEmpty
-            ? sellers
-            : sellers.where((s) => s.username.toLowerCase() != me).toList();
+        _sellers = sellers;
         _loading = false;
       });
     } catch (_) {
@@ -79,7 +73,7 @@ class _NearbySellersRowState extends State<NearbySellersRow> {
           onTap: _load,
           child: Text(
             'Enable location to discover nearby sellers',
-            style: AppFonts.inter(
+            style: GoogleFonts.inter(
               fontSize: 12,
               color: HomeFeedTokens.textSecondary,
             ),
@@ -99,7 +93,7 @@ class _NearbySellersRowState extends State<NearbySellersRow> {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
             child: Text(
               'Sellers near you',
-              style: AppFonts.inter(
+              style: GoogleFonts.inter(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
                 color: HomeFeedTokens.textPrimary,
@@ -131,7 +125,7 @@ class _NearbySellersRowState extends State<NearbySellersRow> {
                           seller.displayName,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: AppFonts.inter(
+                          style: GoogleFonts.inter(
                             fontSize: 11,
                             fontWeight: FontWeight.w500,
                             color: HomeFeedTokens.textPrimary,
@@ -141,7 +135,7 @@ class _NearbySellersRowState extends State<NearbySellersRow> {
                           seller.distanceDisplay,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: AppFonts.inter(
+                          style: GoogleFonts.inter(
                             fontSize: 10,
                             color: HomeFeedTokens.textSecondary,
                           ),

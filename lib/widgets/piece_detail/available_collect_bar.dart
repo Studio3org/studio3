@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../theme/collect_detail_tokens.dart';
-import '../../theme/piece_detail_type.dart';
 
 class AvailableCollectBar extends StatelessWidget {
   const AvailableCollectBar({
@@ -10,66 +9,86 @@ class AvailableCollectBar extends StatelessWidget {
     required this.priceDisplay,
     this.onCollect,
     this.statusLabel,
-    this.onMessage,
   });
 
   final String priceDisplay;
   final VoidCallback? onCollect;
   final String? statusLabel;
-  final VoidCallback? onMessage;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(10, 24, 10, 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            height: 24,
-            child: Text(
-              priceDisplay,
-              style: PieceDetailType.price,
-              strutStyle: PieceDetailType.priceStrut,
-            ),
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+
+    return Positioned(
+      left: 0,
+      right: 0,
+      bottom: 0,
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          color: CollectDetailTokens.background,
+          border: Border(
+            top: BorderSide(color: CollectDetailTokens.divider),
           ),
-          const SizedBox(height: 16),
-          Row(
+        ),
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            CollectDetailTokens.horizontalPadding,
+            12,
+            CollectDetailTokens.horizontalPadding,
+            12 + bottomInset,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(
-                child: SizedBox(
-                  height: 40,
-                  child: Material(
-                    color: onCollect == null
-                        ? CollectDetailTokens.ctaFill.withValues(alpha: 0.5)
-                        : CollectDetailTokens.ctaFill,
-                    borderRadius: BorderRadius.circular(8),
-                    child: InkWell(
-                      onTap: onCollect,
-                      borderRadius: BorderRadius.circular(8),
-                      child: Center(
-                        child: Text(
-                          statusLabel ?? 'Collect',
-                          style: PieceDetailType.collect,
+              Text(
+                priceDisplay,
+                style: GoogleFonts.inter(
+                  fontSize: CollectDetailTokens.barPriceSize,
+                  fontWeight: FontWeight.w400,
+                  height: CollectDetailTokens.barPriceLineHeight /
+                      CollectDetailTokens.barPriceSize,
+                  color: CollectDetailTokens.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 9),
+              SizedBox(
+                height: CollectDetailTokens.collectButtonHeight,
+                child: Material(
+                  color: onCollect == null
+                      ? CollectDetailTokens.ctaFill.withValues(alpha: 0.5)
+                      : CollectDetailTokens.ctaFill,
+                  borderRadius: BorderRadius.circular(
+                    CollectDetailTokens.collectButtonRadius,
+                  ),
+                  child: InkWell(
+                    onTap: onCollect,
+                    borderRadius: BorderRadius.circular(
+                      CollectDetailTokens.collectButtonRadius,
+                    ),
+                    child: Center(
+                      child: Text(
+                        statusLabel ?? 'Collect',
+                        style: GoogleFonts.inter(
+                          fontSize: CollectDetailTokens.collectLabelSize,
+                          fontWeight: FontWeight.w400,
+                          height: CollectDetailTokens.storyLineHeight /
+                              CollectDetailTokens.collectLabelSize,
+                          color: CollectDetailTokens.textInverse,
                         ),
                       ),
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
-              GestureDetector(
-                onTap: onMessage,
-                child: SvgPicture.asset(
-                  'assets/piece/message_btn.svg',
-                  width: 40,
-                  height: 40,
-                ),
-              ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }
+
+  static double totalHeight(BuildContext context) =>
+      CollectDetailTokens.collectBarContentHeight +
+      MediaQuery.paddingOf(context).bottom;
 }

@@ -3,22 +3,18 @@ import 'dart:async';
 import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
 
-import '../utils/app_destination.dart';
+import '../models/feed_preview_item.dart';
+import '../utils/explore_detail_route.dart';
+import 'piece_service.dart';
 
-/// Resolves incoming `https://<host>/piece/:id` and `https://<host>/series/:id`
-/// links, plus Stripe Connect return/refresh (`/connect/return`,
-/// `/connect/refresh`), via Android App Links / iOS Universal Links —
-/// *and* the equivalent `studio3://piece/:id` / `studio3://series/:id` /
-/// `studio3://connect/return` custom-scheme links (see the backend's
-/// `src/modules/share`), which need no domain verification and so work
-/// today even though the `https://` host is still a placeholder domain
-/// (see lib/config/app_link_config.dart).
+/// Resolves incoming `https://<host>/piece/:id` links (Android App Links /
+/// iOS Universal Links — see AndroidManifest.xml's intent-filter and
+/// ios/Runner/Runner.entitlements) into the piece detail screen.
 ///
-/// The two shapes parse differently: `https://host/piece/abc` puts
-/// `["piece", "abc"]` in [Uri.pathSegments], but a custom-scheme URI like
-/// `studio3://piece/abc` treats `piece` as the *authority* — it lands in
-/// [Uri.host], with only `["abc"]` left in [Uri.pathSegments]. `_handle`
-/// normalizes both into one segments list before dispatching.
+/// The host is a placeholder domain until a real production domain is
+/// wired up end-to-end (see lib/config/app_link_config.dart) — until then
+/// these links won't actually reach the app on a real device, but the
+/// in-app resolution logic is exercised the same way once they do.
 class DeepLinkService {
   DeepLinkService._();
   static final DeepLinkService instance = DeepLinkService._();
@@ -45,19 +41,22 @@ class DeepLinkService {
   }
 
   void _handle(BuildContext context, Uri uri) {
-    var segments = uri.scheme == 'studio3'
-        ? [uri.host, ...uri.pathSegments]
-        : uri.pathSegments;
-    // Shared links point at the backend's preview route, /share/piece/<id>, which renders
-    // the OG tags and an open-app interstitial. Drop that prefix so both that shape and the
-    // bare /piece/<id> route to the same place — otherwise a link the app itself generated
-    // would open the app and then do nothing.
-    if (segments.isNotEmpty && segments.first == 'share') {
-      segments = segments.sublist(1);
+    final segments = uri.pathSegments;
+    if (segments.length < 2 || segments[0] != 'piece') return;
+    final id = segments[1];
+    if (id.isEmpty) return;
+    _openPiece(context, id);
+  }
+
+  Future<void> _openPiece(BuildContext context, String id) async {
+    try {
+      final piece = await PieceService.instance.getById(id);
+      if (!context.mounted) return;
+      final preview = FeedPreviewItem.fromPieceSummary(piece);
+      await openPieceDetailPreview(context, preview);
+    } catch (_) {
+      // Piece not found/unreachable — ignore rather than crash navigation
+      // from a stale or invalid shared link.
     }
-    // Where the link goes is resolved in one shared place, so a destination reachable from a
-    // link is reachable from a notification tap too — and the QR codes in the event flow,
-    // which arrive here, land on exactly the same routing as everything else.
-    openDestination(context, AppDestination.fromSegments(segments));
   }
 }

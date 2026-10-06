@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../models/address.dart';
 import '../services/address_service.dart';
@@ -7,10 +8,8 @@ import '../services/connectivity_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/home_feed_tokens.dart';
 import '../widgets/glass_card.dart';
-import '../widgets/loading/app_skeletons.dart';
 import '../widgets/offline_state.dart';
 import 'address_form_page.dart';
-import '../theme/app_fonts.dart';
 
 class AddressListPage extends StatefulWidget {
   const AddressListPage({super.key});
@@ -28,7 +27,6 @@ class _AddressListPageState extends State<AddressListPage> {
   void initState() {
     super.initState();
     ConnectivityService.instance.addReconnectHook(_onReconnected);
-    _addresses = AddressService.instance.peekAddressesCached() ?? const [];
     _load();
   }
 
@@ -130,7 +128,7 @@ class _AddressListPageState extends State<AddressListPage> {
         centerTitle: true,
         title: Text(
           'Shipping addresses',
-          style: AppFonts.inter(
+          style: GoogleFonts.inter(
             fontSize: 18,
             fontWeight: FontWeight.w600,
             color: HomeFeedTokens.textPrimary,
@@ -162,7 +160,7 @@ class _AddressListPageState extends State<AddressListPage> {
       return OfflineState(onRetry: () => _load(refresh: true));
     }
     if (_loading && _addresses.isEmpty) {
-      return const CardListSkeleton(height: 132);
+      return const Center(child: CircularProgressIndicator(strokeWidth: 2));
     }
     if (_error != null && _addresses.isEmpty) {
       return ListView(
@@ -171,7 +169,7 @@ class _AddressListPageState extends State<AddressListPage> {
           Center(
             child: Text(
               _error!,
-              style: AppFonts.inter(fontSize: 14, color: AppColors.slate400),
+              style: GoogleFonts.inter(fontSize: 14, color: AppColors.slate400),
             ),
           ),
         ],
@@ -184,7 +182,7 @@ class _AddressListPageState extends State<AddressListPage> {
           Center(
             child: Text(
               'No saved addresses yet',
-              style: AppFonts.inter(fontSize: 14, color: AppColors.slate400),
+              style: GoogleFonts.inter(fontSize: 14, color: AppColors.slate400),
             ),
           ),
         ],
@@ -241,7 +239,7 @@ class _AddressCard extends StatelessWidget {
                         address.label?.isNotEmpty == true
                             ? address.label!
                             : address.fullName,
-                        style: AppFonts.inter(
+                        style: GoogleFonts.inter(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
                           color: AppColors.slate900,
@@ -258,7 +256,7 @@ class _AddressCard extends StatelessWidget {
                           ),
                           child: Text(
                             'Default',
-                            style: AppFonts.inter(
+                            style: GoogleFonts.inter(
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
                               color: AppColors.white,
@@ -271,20 +269,20 @@ class _AddressCard extends StatelessWidget {
                   const SizedBox(height: 6),
                   Text(
                     address.fullName,
-                    style: AppFonts.inter(fontSize: 13, color: AppColors.slate600),
+                    style: GoogleFonts.inter(fontSize: 13, color: AppColors.slate600),
                   ),
                   Text(
                     address.line1,
-                    style: AppFonts.inter(fontSize: 13, color: AppColors.slate600),
+                    style: GoogleFonts.inter(fontSize: 13, color: AppColors.slate600),
                   ),
                   if (address.line2 != null && address.line2!.isNotEmpty)
                     Text(
                       address.line2!,
-                      style: AppFonts.inter(fontSize: 13, color: AppColors.slate600),
+                      style: GoogleFonts.inter(fontSize: 13, color: AppColors.slate600),
                     ),
                   Text(
                     '${address.city}, ${address.state} ${address.zip}',
-                    style: AppFonts.inter(fontSize: 13, color: AppColors.slate600),
+                    style: GoogleFonts.inter(fontSize: 13, color: AppColors.slate600),
                   ),
                 ],
               ),

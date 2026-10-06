@@ -34,7 +34,6 @@ class PostDraft {
     this.aiDisclosed = false,
     this.altText,
     this.linkedPieceId,
-    this.relatedSceneIds = const [],
     this.isProcess = false,
     this.isForSale = false,
     this.status = 'live',
@@ -59,7 +58,6 @@ class PostDraft {
   final bool aiDisclosed;
   final String? altText;
   final String? linkedPieceId;
-  final List<String> relatedSceneIds;
   final bool isProcess;
   final bool isForSale;
 
@@ -89,7 +87,6 @@ class PostDraft {
     bool? aiDisclosed,
     String? altText,
     String? linkedPieceId,
-    List<String>? relatedSceneIds,
     bool? isProcess,
     bool? isForSale,
     String? status,
@@ -113,7 +110,6 @@ class PostDraft {
       aiDisclosed: aiDisclosed ?? this.aiDisclosed,
       altText: altText ?? this.altText,
       linkedPieceId: linkedPieceId ?? this.linkedPieceId,
-      relatedSceneIds: relatedSceneIds ?? this.relatedSceneIds,
       isProcess: isProcess ?? this.isProcess,
       isForSale: isForSale ?? this.isForSale,
       status: status ?? this.status,
@@ -154,18 +150,6 @@ class PostPublishService {
         draft.videoThumbnailBytes,
         purpose,
       );
-      // The display frame chosen on SceneVideoEditPage's own size step, same vocabulary an
-      // image scene records — not a physical crop of the uploaded file (see that page's
-      // own note on why), just what the feed should size the tile to and play the video
-      // into. Guarded on `isEmpty` defensively; the posting flow always sets one for video.
-      final aspectRatio = draft.transforms.isEmpty
-          ? null
-          : switch (draft.transforms.first.aspectRatio) {
-              CropAspectRatio.ratio16x9 => '16:9',
-              CropAspectRatio.ratio9x16 => '9:16',
-              CropAspectRatio.ratio1x1 => '1:1',
-              CropAspectRatio.ratio3x4 => '3:4',
-            };
       await _posts.create({
         'mediaUrl': mediaUrl,
         'mediaType': 'video',
@@ -176,7 +160,6 @@ class PostPublishService {
         if (draft.location != null && draft.location!.isNotEmpty)
           'location': draft.location,
         if (thumbnailUrl != null) 'thumbnailUrl': thumbnailUrl,
-        if (aspectRatio != null) 'mediaAspectRatio': aspectRatio,
         'isProcess': draft.isProcess,
         'status': draft.status,
       });
@@ -186,31 +169,28 @@ class PostPublishService {
     if (draft.imagePaths.isEmpty) {
       throw Exception('No image selected');
     }
+    final imageIndex = draft.previewImageIndex.clamp(
+      0,
+      draft.imagePaths.length - 1,
+    );
+    final imagePath = draft.imagePaths[imageIndex];
+    final transform = imageIndex < draft.transforms.length
+        ? draft.transforms[imageIndex]
+        : PostImageTransform();
+    final bytes = await PostImageRenderer.render(
+      imagePath: imagePath,
+      transform: transform,
+    );
+    final mediaUrl = await _media.uploadBytes(
+      purpose: purpose,
+      bytes: bytes,
+      contentType: 'image/png',
+    );
+    final mediaAspectRatio = transform.aspectRatio == CropAspectRatio.ratio16x9
+        ? '16:9'
+        : '3:4';
 
     if (isScene) {
-      final imageIndex = draft.previewImageIndex.clamp(
-        0,
-        draft.imagePaths.length - 1,
-      );
-      final imagePath = draft.imagePaths[imageIndex];
-      final transform = imageIndex < draft.transforms.length
-          ? draft.transforms[imageIndex]
-          : PostImageTransform();
-      final bytes = await PostImageRenderer.render(
-        imagePath: imagePath,
-        transform: transform,
-      );
-      final mediaUrl = await _media.uploadBytes(
-        purpose: purpose,
-        bytes: bytes,
-        contentType: 'image/png',
-      );
-      final mediaAspectRatio = switch (transform.aspectRatio) {
-        CropAspectRatio.ratio16x9 => '16:9',
-        CropAspectRatio.ratio9x16 => '9:16',
-        CropAspectRatio.ratio1x1 => '1:1',
-        CropAspectRatio.ratio3x4 => '3:4',
-      };
       await _posts.create({
         'mediaUrl': mediaUrl,
         'mediaType': 'image',
@@ -227,41 +207,12 @@ class PostPublishService {
       return;
     }
 
-    // Piece: every picked image is uploaded and sent as an ordered gallery —
-    // index 0 is the cover chosen on the "Set your cover" step (Figma
-    // 2716:5774); the rest ride along as the piece's remaining gallery
-    // images. The backend mirrors images[0] onto the piece's own cover
-    // fields, so every existing single-image read path keeps working.
-    final images = <Map<String, dynamic>>[];
-    for (var i = 0; i < draft.imagePaths.length; i++) {
-      final transform = i < draft.transforms.length
-          ? draft.transforms[i]
-          : PostImageTransform();
-      final bytes = await PostImageRenderer.render(
-        imagePath: draft.imagePaths[i],
-        transform: transform,
-      );
-      final url = await _media.uploadBytes(
-        purpose: purpose,
-        bytes: bytes,
-        contentType: 'image/png',
-      );
-      images.add({
-        'mediaUrl': url,
-        'mediaType': 'image',
-        'mediaAspectRatio':
-            transform.aspectRatio == CropAspectRatio.ratio16x9
-                ? '16:9'
-                : '3:4',
-      });
-    }
-
     final caption = draft.description.trim();
-    final materials = draft.materials.map((m) => m.publishLabel).toList();
+    final materials = draft.materials.map((m) => m.name).toList();
 
     final body = <String, dynamic>{
       'title': draft.title.trim().isNotEmpty ? draft.title.trim() : 'Untitled',
-      'images': images,
+      'mediaUrl': mediaUrl,
       'mediaType': 'image',
       if (caption.isNotEmpty) 'caption': caption,
       if (draft.mediumId != null) 'medium': draft.mediumId,
@@ -277,6 +228,7 @@ class PostPublishService {
       if (draft.styleTags.isNotEmpty) 'styleTags': draft.styleTags,
       if (draft.location != null && draft.location!.isNotEmpty)
         'location': draft.location,
+      'mediaAspectRatio': mediaAspectRatio,
       'status': draft.status,
       'aiDisclosed': draft.aiDisclosed,
       if (draft.altText != null && draft.altText!.trim().isNotEmpty)
@@ -285,34 +237,15 @@ class PostPublishService {
         'isForSale': true,
         if (draft.listingDetails?.priceCents != null)
           'priceCents': draft.listingDetails!.priceCents,
-        if (draft.listingDetails?.listingType != null)
-          'listingType': draft.listingDetails!.listingType,
-        if (draft.listingDetails?.listingType == 'auction' &&
-            draft.listingDetails?.auctionDurationDays != null)
-          'auctionDurationDays': draft.listingDetails!.auctionDurationDays,
         if (draft.listingDetails?.dimensionsString != null)
           'dimensions': draft.listingDetails!.dimensionsString,
-        if ((draft.listingDetails?.location ?? draft.location) != null)
-          'shippingRegion':
-              draft.listingDetails?.location ?? draft.location,
-        // Courier-facing shipping attributes — the API rejects a for-sale
-        // listing without these, since ops can't book a shipment without them.
-        if (draft.listingDetails?.weightKg != null)
-          'weightKg': draft.listingDetails!.weightKg,
-        if (draft.listingDetails?.packageLengthCm != null)
-          'packageLengthCm': draft.listingDetails!.packageLengthCm,
-        if (draft.listingDetails?.packageWidthCm != null)
-          'packageWidthCm': draft.listingDetails!.packageWidthCm,
-        if (draft.listingDetails?.packageHeightCm != null)
-          'packageHeightCm': draft.listingDetails!.packageHeightCm,
-        if (draft.listingDetails?.declaredValueCents != null)
-          'declaredValueCents': draft.listingDetails!.declaredValueCents,
+        if (draft.listingDetails?.location != null)
+          'shippingRegion': draft.listingDetails!.location,
       },
     };
 
     final piece = await _pieces.create(body);
     await _assignPieceToSeries(draft, piece.id);
-    await _linkRelatedScenes(draft, piece.id);
   }
 
   /// Uploads the poster-frame bytes captured at pick-time (via
@@ -334,17 +267,6 @@ class PostPublishService {
       );
     } catch (_) {
       return null;
-    }
-  }
-
-  Future<void> _linkRelatedScenes(PostDraft draft, String pieceId) async {
-    for (final id in draft.relatedSceneIds) {
-      if (id.isEmpty) continue;
-      try {
-        await _posts.update(id, {'linkedPieceId': pieceId});
-      } catch (_) {
-        // Linking is best-effort — the piece itself already published.
-      }
     }
   }
 

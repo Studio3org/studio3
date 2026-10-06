@@ -1,13 +1,11 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:photo_manager/photo_manager.dart';
 
 import '../../services/permission_service.dart';
 import '../../services/photo_library_service.dart';
-import '../../theme/home_feed_tokens.dart';
-import '../loading/app_skeletons.dart';
-import '../../theme/app_fonts.dart';
 
 enum _LoadState { loading, denied, ready }
 
@@ -31,7 +29,6 @@ class PostGalleryPicker extends StatefulWidget {
     required this.onPermissionPermanentlyDenied,
     this.maxSelection = 10,
     this.allowVideos = false,
-    this.initialSelection = const [],
   });
 
   final ValueNotifier<bool> openNotifier;
@@ -39,14 +36,9 @@ class PostGalleryPicker extends StatefulWidget {
   final ValueChanged<List<AssetEntity>> onSelectionChanged;
   final VoidCallback onPermissionPermanentlyDenied;
   final int maxSelection;
-  /// When true (Scene posts), the grid mixes videos alongside photos.
-  /// Selecting a video is exclusive of photos.
+  /// When true (Scene posts), the grid mixes in videos alongside photos,
+  /// uses a 3:4 cell ratio, and selecting a video is exclusive of photos.
   final bool allowVideos;
-  /// Assets already picked before this picker opened (e.g. re-entering the
-  /// gallery via "add more" on the piece cover-selection screen) — seeded
-  /// into the selection in order so they show pre-checked with their
-  /// existing numbering instead of the user losing their prior picks.
-  final List<AssetEntity> initialSelection;
 
   @override
   State<PostGalleryPicker> createState() => _PostGalleryPickerState();
@@ -57,7 +49,7 @@ class _PostGalleryPickerState extends State<PostGalleryPicker> {
   List<_AlbumEntry> _albums = const [];
   _AlbumEntry? _selectedAlbum;
   List<AssetEntity> _assets = const [];
-  late final List<AssetEntity> _selected = List.of(widget.initialSelection);
+  final List<AssetEntity> _selected = [];
 
   @override
   void initState() {
@@ -115,16 +107,6 @@ class _PostGalleryPickerState extends State<PostGalleryPicker> {
       widget.onSelectionChanged(List.unmodifiable(_selected));
       return;
     }
-    // Single-select (scenes): tapping another cell replaces the current pick.
-    if (widget.maxSelection <= 1) {
-      setState(() {
-        _selected
-          ..clear()
-          ..add(asset);
-      });
-      widget.onSelectionChanged(List.unmodifiable(_selected));
-      return;
-    }
     // Video selection is exclusive: picking a video clears any photos, and
     // picking a photo while a video is selected clears the video first, so
     // the outgoing selection is always either N photos or exactly 1 video.
@@ -177,24 +159,19 @@ class _PostGalleryPickerState extends State<PostGalleryPicker> {
   Widget _buildBody() {
     switch (_state) {
       case _LoadState.loading:
-        // Same grid the library resolves into, so the sheet does not jump
-        // when the thumbnails land.
-        return const TileGridSkeleton(
-          padding: EdgeInsets.zero,
-          spacing: 2,
-          radius: 0,
-          itemCount: 12,
+        return const Center(
+          child: CircularProgressIndicator(color: Colors.white54),
         );
       case _LoadState.denied:
         return _PermissionFallback(onRetry: _retry);
       case _LoadState.ready:
         return GridView.builder(
           padding: EdgeInsets.zero,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 3,
-            crossAxisSpacing: 3,
-            mainAxisSpacing: 3,
-            childAspectRatio: 1,
+            crossAxisSpacing: 2,
+            mainAxisSpacing: 2,
+            childAspectRatio: widget.allowVideos ? 3 / 4 : 1.0,
           ),
           itemCount: _assets.length,
           itemBuilder: (context, index) => _buildCell(_assets[index]),
@@ -203,8 +180,7 @@ class _PostGalleryPickerState extends State<PostGalleryPicker> {
   }
 
   Widget _buildCell(AssetEntity asset) {
-    final selectedIndex = _selected.indexWhere((a) => a.id == asset.id);
-    final selected = selectedIndex >= 0;
+    final selected = _selected.any((a) => a.id == asset.id);
     final isVideo = asset.type == AssetType.video;
     return GestureDetector(
       onTap: () => _toggleSelect(asset),
@@ -236,35 +212,30 @@ class _PostGalleryPickerState extends State<PostGalleryPicker> {
               bottom: 6,
               child: Text(
                 _formatDuration(asset.videoDuration),
-                style: AppFonts.inter(
+                style: GoogleFonts.inter(
                   fontSize: 13,
                   fontWeight: FontWeight.w400,
                   color: Colors.white,
                 ),
               ),
             ),
-          if (selected)
-            Container(
-              color: const Color.fromRGBO(255, 255, 255, 0.68),
-              alignment: Alignment.center,
-              // A selection-order number only means something when more than
-              // one photo can be picked (piece galleries) — Scene and Event
-              // posts cap `maxSelection` at 1, so there's nothing to order.
-              child: widget.maxSelection > 1
-                  ? Text(
-                      '${selectedIndex + 1}',
-                      style: AppFonts.geist(
-                        fontSize: 32,
-                        fontWeight: FontWeight.w400,
-                        color: HomeFeedTokens.textPrimary,
-                      ),
-                    )
-                  : Icon(
-                      Icons.check_circle,
-                      size: 32,
-                      color: HomeFeedTokens.textPrimary,
-                    ),
+          if (selected) Container(color: Colors.black.withValues(alpha: 0.35)),
+          Positioned(
+            top: 6,
+            right: 6,
+            child: Container(
+              width: 20,
+              height: 20,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: selected ? Colors.white : Colors.black.withValues(alpha: 0.3),
+                border: Border.all(color: Colors.white, width: 1.2),
+              ),
+              child: selected
+                  ? const Icon(Icons.check, size: 14, color: Colors.black)
+                  : null,
             ),
+          ),
         ],
       ),
     );
@@ -272,7 +243,7 @@ class _PostGalleryPickerState extends State<PostGalleryPicker> {
 
   Widget _buildAlbumMenu() {
     return ColoredBox(
-      color: HomeFeedTokens.background,
+      color: Colors.black,
       child: ListView.builder(
         padding: EdgeInsets.zero,
         itemCount: _albums.length,
@@ -292,23 +263,20 @@ class _PostGalleryPickerState extends State<PostGalleryPicker> {
                         asset: entry.cover!,
                         size: 100,
                       )
-                    : ColoredBox(color: HomeFeedTokens.skeletonBase),
+                    : const ColoredBox(color: Colors.white10),
               ),
             ),
             title: Text(
               entry.path.name,
-              style: AppFonts.inter(
-                color: HomeFeedTokens.textPrimary,
+              style: GoogleFonts.inter(
+                color: Colors.white,
                 fontSize: 15,
                 fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
               ),
             ),
             subtitle: Text(
               '${entry.count}',
-              style: AppFonts.inter(
-                color: HomeFeedTokens.textSecondary,
-                fontSize: 13,
-              ),
+              style: GoogleFonts.inter(color: Colors.white54, fontSize: 13),
             ),
           );
         },
@@ -352,9 +320,7 @@ class _AssetThumbnailState extends State<_AssetThumbnail> {
       future: _future,
       builder: (context, snapshot) {
         final bytes = snapshot.data;
-        if (bytes == null) {
-          return ColoredBox(color: HomeFeedTokens.skeletonBase);
-        }
+        if (bytes == null) return const ColoredBox(color: Colors.white10);
         return Image.memory(bytes, fit: BoxFit.cover);
       },
     );
@@ -372,32 +338,28 @@ class _PermissionFallback extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
-            Icons.photo_library_outlined,
-            color: HomeFeedTokens.textPrimary,
-            size: 56,
-          ),
+          const Icon(Icons.photo_library_outlined, color: Colors.white, size: 56),
           const SizedBox(height: 16),
           Text(
             'Please give access to your gallery',
-            style: AppFonts.inter(
+            style: GoogleFonts.inter(
               fontSize: 15,
               fontWeight: FontWeight.w500,
-              color: HomeFeedTokens.textPrimary,
+              color: Colors.white,
             ),
           ),
           const SizedBox(height: 20),
           FilledButton(
             onPressed: onRetry,
             style: FilledButton.styleFrom(
-              backgroundColor: HomeFeedTokens.textPrimary,
-              foregroundColor: HomeFeedTokens.textInverse,
+              backgroundColor: Colors.white,
+              foregroundColor: Colors.black,
               padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(100),
               ),
             ),
-            child: Text('Allow access', style: AppFonts.inter(fontWeight: FontWeight.w600)),
+            child: Text('Allow access', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
           ),
         ],
       ),

@@ -2,15 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../data/post_location_options.dart';
 import '../services/location_search_service.dart';
-import '../screens/profile/profile_constants.dart';
 import '../theme/home_feed_tokens.dart';
-import 'create_flow/create_flow_widgets.dart';
 import 'post_picker_search_field.dart';
-import 'loading/app_skeletons.dart';
-import '../theme/app_fonts.dart';
 
 /// Draggable location picker — live search via `LocationSearchService`
 /// (Nominatim), plus a "Use current location" option.
@@ -39,11 +36,10 @@ class ChooseLocationSheet extends StatefulWidget {
 }
 
 class _ChooseLocationSheetState extends State<ChooseLocationSheet> {
-  static const _sheetBg = HomeFeedTokens.background;
-  static const _handleColor = Color(0xFFC8C5BC);
-  static const _disabledFill = Color(0xFFC8C5BC);
+  static const _sheetBg = Color(0xFF231F1B);
+  static const _handleColor = Color(0xFF4A4843);
 
-  static const _initialSize = 0.55;
+  static const _initialSize = 0.33;
   static const _maxSize = 0.88;
 
   final _searchController = TextEditingController();
@@ -51,7 +47,6 @@ class _ChooseLocationSheetState extends State<ChooseLocationSheet> {
   List<PostLocationOption> _results = const [];
   bool _searching = false;
   bool _locating = false;
-  PostLocationOption? _pending;
 
   @override
   void dispose() {
@@ -107,7 +102,8 @@ class _ChooseLocationSheetState extends State<ChooseLocationSheet> {
         );
         return;
       }
-      setState(() => _pending = location);
+      widget.onLocationSelected(location);
+      Navigator.pop(context);
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -118,40 +114,31 @@ class _ChooseLocationSheetState extends State<ChooseLocationSheet> {
     }
   }
 
-  void _onDone() {
-    final selected = _pending;
-    if (selected == null) return;
-    widget.onLocationSelected(selected);
-    Navigator.pop(context);
-  }
-
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
-    final safeBottom = MediaQuery.paddingOf(context).bottom;
-    final canSubmit = _pending != null;
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
       child: DraggableScrollableSheet(
         initialChildSize: _initialSize,
-        minChildSize: 0.4,
+        minChildSize: _initialSize,
         maxChildSize: _maxSize,
         expand: false,
         builder: (context, scrollController) {
           return DecoratedBox(
             decoration: const BoxDecoration(
               color: _sheetBg,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
             ),
             child: Column(
               children: [
                 const SizedBox(height: 10),
                 Container(
-                  width: 36,
+                  width: 82,
                   height: 4,
                   decoration: BoxDecoration(
                     color: _handleColor,
-                    borderRadius: BorderRadius.circular(2),
+                    borderRadius: BorderRadius.circular(100),
                   ),
                 ),
                 Padding(
@@ -160,15 +147,16 @@ class _ChooseLocationSheetState extends State<ChooseLocationSheet> {
                     alignment: Alignment.centerLeft,
                     child: Text(
                       'Add location',
-                      style: kProfileGeist(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
+                      style: GoogleFonts.inter(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: HomeFeedTokens.textInverse,
                       ),
                     ),
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  padding: const EdgeInsets.fromLTRB(10, 12, 10, 8),
                   child: PostPickerSearchField(
                     controller: _searchController,
                     hintText: 'Search locations',
@@ -178,50 +166,33 @@ class _ChooseLocationSheetState extends State<ChooseLocationSheet> {
                 Expanded(
                   child: ListView(
                     controller: scrollController,
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                    padding: const EdgeInsets.fromLTRB(4, 4, 4, 24),
                     children: [
-                      if (_searchController.text.trim().isEmpty)
-                        _UseCurrentLocationTile(
-                          loading: _locating,
-                          onTap: _locating ? null : _useCurrentLocation,
-                        ),
+                      _UseCurrentLocationTile(
+                        loading: _locating,
+                        onTap: _locating ? null : _useCurrentLocation,
+                      ),
                       if (_searching)
-                        const OptionListSkeleton(
-                          itemCount: 4,
-                          padding: EdgeInsets.symmetric(vertical: 8),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 24),
+                          child: Center(
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
                         )
                       else
                         for (final location in _results)
                           _LocationListTile(
                             location: location,
-                            selected: _pending?.id == location.id,
-                            onTap: () => setState(() => _pending = location),
+                            onTap: () {
+                              widget.onLocationSelected(location);
+                              Navigator.pop(context);
+                            },
                           ),
                     ],
-                  ),
-                ),
-                Padding(
-                  padding: EdgeInsets.fromLTRB(10, 8, 10, safeBottom + 16),
-                  child: CreateFlowBottomButton(
-                    label: 'Done',
-                    height: 40,
-                    backgroundColor: canSubmit
-                        ? HomeFeedTokens.neutral800
-                        : _disabledFill,
-                    textColor: canSubmit
-                        ? HomeFeedTokens.textInverse
-                        : HomeFeedTokens.textPrimary,
-                    onTap: canSubmit ? _onDone : null,
-                    child: Text(
-                      'Done',
-                      style: AppFonts.geist(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w400,
-                        color: canSubmit
-                            ? HomeFeedTokens.textInverse
-                            : HomeFeedTokens.textPrimary,
-                      ),
-                    ),
                   ),
                 ),
               ],
@@ -256,17 +227,14 @@ class _UseCurrentLocationTile extends StatelessWidget {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               else
-                const Icon(
-                  Icons.my_location,
-                  size: 16,
-                  color: HomeFeedTokens.textPrimary,
-                ),
+                const Icon(Icons.my_location, size: 16, color: Colors.white),
               const SizedBox(width: 10),
               Text(
                 'Use current location',
-                style: kProfileGeist(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w400,
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: HomeFeedTokens.textInverse,
                 ),
               ),
             ],
@@ -278,46 +246,43 @@ class _UseCurrentLocationTile extends StatelessWidget {
 }
 
 class _LocationListTile extends StatelessWidget {
-  const _LocationListTile({
-    required this.location,
-    required this.onTap,
-    this.selected = false,
-  });
+  const _LocationListTile({required this.location, required this.onTap});
 
   static const _textSecondary = Color(0xFF8C8880);
 
   final PostLocationOption location;
   final VoidCallback onTap;
-  final bool selected;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              location.name,
-              style: kProfileGeist(
-                fontSize: 16,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                location.name,
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: HomeFeedTokens.textInverse,
+                ),
               ),
-            ),
-            if (location.subtitle.isNotEmpty) ...[
               const SizedBox(height: 2),
               Text(
                 location.subtitle,
-                style: kProfileGeist(
-                  fontSize: 12,
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w400,
                   color: _textSecondary,
                 ),
               ),
             ],
-          ],
+          ),
         ),
       ),
     );

@@ -1,0 +1,4 @@
+2026/09/16-09:37:44.420 2d04 Creating DB d:\studio3\app\.chrome-pd\Default\shared_proto_db\metadata since it was missing.
+2026/09/16-09:37:44.426 2d04 Reusing MANIFEST d:\studio3\app\.chrome-pd\Default\shared_proto_db\metadata/MANIFEST-000001
+2026/09/16-09:37:44.428 2d04 Recovering log #3
+2026/09/16-09:37:44.429 2d04 Reusing old log d:\studio3\app\.chrome-pd\Default\shared_proto_db\metadata/000003.log 

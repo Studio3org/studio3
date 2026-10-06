@@ -3,7 +3,6 @@ import 'dart:typed_data';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
-import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:path_provider/path_provider.dart';
 
 import '../config/api_config.dart';
@@ -117,9 +116,8 @@ class ApiClient {
     } on DioException catch (e) {
       throw _toApiException(e);
     } catch (e) {
-      debugPrint('API error (non-Dio, GET $path): $e');
       throw ApiException(
-        "Can't reach the server. Check your connection and try again.",
+        'Cannot reach server at ${ApiConfig.baseUrl}. Is the API running?',
       );
     }
   }
@@ -140,9 +138,8 @@ class ApiClient {
     } on DioException catch (e) {
       throw _toApiException(e);
     } catch (e) {
-      debugPrint('API error (non-Dio, POST $path): $e');
       throw ApiException(
-        "Can't reach the server. Check your connection and try again.",
+        'Cannot reach server at ${ApiConfig.baseUrl}. Is the API running?',
       );
     }
   }
@@ -163,37 +160,8 @@ class ApiClient {
     } on DioException catch (e) {
       throw _toApiException(e);
     } catch (e) {
-      debugPrint('API error (non-Dio, PATCH $path): $e');
       throw ApiException(
-        "Can't reach the server. Check your connection and try again.",
-      );
-    }
-  }
-
-  /// Replace a resource wholesale, as opposed to [patch]'s partial update.
-  ///
-  /// Used where a partial update cannot express the intent — replacing an event's artist
-  /// list, for instance, where sending only additions would make removing somebody
-  /// impossible.
-  Future<Map<String, dynamic>> put(
-    String path, {
-    Map<String, dynamic>? body,
-    bool auth = true,
-  }) async {
-    try {
-      final dio = await _client;
-      final response = await dio.put<Map<String, dynamic>>(
-        path,
-        data: body,
-        options: Options(headers: _authHeaders(auth: auth)),
-      );
-      return _parseResponse(response);
-    } on DioException catch (e) {
-      throw _toApiException(e);
-    } catch (e) {
-      debugPrint('API error (non-Dio, PUT $path): $e');
-      throw ApiException(
-        "Can't reach the server. Check your connection and try again.",
+        'Cannot reach server at ${ApiConfig.baseUrl}. Is the API running?',
       );
     }
   }
@@ -214,9 +182,8 @@ class ApiClient {
     } on DioException catch (e) {
       throw _toApiException(e);
     } catch (e) {
-      debugPrint('API error (non-Dio, DELETE $path): $e');
       throw ApiException(
-        "Can't reach the server. Check your connection and try again.",
+        'Cannot reach server at ${ApiConfig.baseUrl}. Is the API running?',
       );
     }
   }
@@ -284,63 +251,18 @@ class ApiClient {
     return response.data ?? {'success': true};
   }
 
-  /// Always plain, non-technical copy — nothing here should ever read like a
-  /// stack trace or a Dio/HTTP internals dump (status codes, exception class
-  /// names, "RequestOptions.validateStatus", the API's own base URL, etc.).
-  /// The one exception is a message the *backend* sent, which is assumed to
-  /// already be written for a user. Anything Dio generated on its own gets
-  /// mapped to friendly copy here instead, with the real detail only going
-  /// to the debug log for developers.
   ApiException _toApiException(DioException e) {
     final response = e.response;
-    final statusCode = response?.statusCode;
-    // A real HTTP response (any status code) means the server received and
-    // processed the request — a definitive answer, even if it's an error.
-    // No response at all (a connection error, a timeout, or anything else
-    // that falls through unmapped below) means we genuinely don't know
-    // whether the write went through — see ApiException.ambiguous.
-    final ambiguous = statusCode == null;
-
     if (response?.data is Map<String, dynamic>) {
       final json = response!.data as Map<String, dynamic>;
-      final serverMessage = json['message'] as String? ?? json['error'] as String?;
-      if (serverMessage != null && serverMessage.trim().isNotEmpty) {
-        return ApiException(serverMessage, statusCode: statusCode, ambiguous: ambiguous);
-      }
-    }
-
-    if (statusCode == 429) {
-      return ApiException(
-        "You're doing that a little too fast — please wait a moment and try again.",
-        statusCode: statusCode,
-        ambiguous: ambiguous,
-      );
-    }
-    if (statusCode == 401 || statusCode == 403) {
-      return ApiException(
-        "You don't have permission to do that.",
-        statusCode: statusCode,
-        ambiguous: ambiguous,
-      );
-    }
-    if (statusCode == 404) {
-      return ApiException(
-        "We couldn't find that — it may have been removed.",
-        statusCode: statusCode,
-        ambiguous: ambiguous,
-      );
-    }
-    if (statusCode != null && statusCode >= 500) {
-      return ApiException(
-        "Something went wrong on our end. Please try again in a moment.",
-        statusCode: statusCode,
-        ambiguous: ambiguous,
-      );
+      final message = json['message'] as String? ??
+          json['error'] as String? ??
+          'Request failed (${response.statusCode})';
+      return ApiException(message, statusCode: response.statusCode);
     }
     if (e.type == DioExceptionType.connectionError) {
       return ApiException(
-        "Can't reach the server. Check your connection and try again.",
-        ambiguous: ambiguous,
+        'Cannot reach server at ${ApiConfig.baseUrl}. Is the API running?',
       );
     }
     if (e.type == DioExceptionType.connectionTimeout ||
@@ -349,15 +271,11 @@ class ApiClient {
       return ApiException(
         'Server is taking longer than usual to respond — it may be waking '
         'up from inactivity. Please try again in a moment.',
-        ambiguous: ambiguous,
       );
     }
-
-    debugPrint('API error (unmapped): ${e.type} ${e.message}');
     return ApiException(
-      'Something went wrong. Please try again.',
-      statusCode: statusCode,
-      ambiguous: ambiguous,
+      e.message ?? 'Request failed',
+      statusCode: response?.statusCode,
     );
   }
 

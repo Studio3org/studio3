@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../models/piece_summary.dart';
 import '../models/series_summary.dart';
@@ -9,10 +10,7 @@ import '../services/piece_service.dart';
 import '../services/series_service.dart';
 import '../theme/home_feed_tokens.dart';
 import '../widgets/create_flow/create_series_dialog.dart';
-import '../widgets/loading/app_skeletons.dart';
-import '../widgets/loading/section_loader.dart';
 import '../widgets/studio_loading.dart';
-import '../theme/app_fonts.dart';
 
 class SeriesEditorPage extends StatefulWidget {
   const SeriesEditorPage({
@@ -87,71 +85,6 @@ class _SeriesEditorPageState extends State<SeriesEditorPage> {
       final updated = await SeriesService.instance.update(
         widget.seriesId,
         name: name,
-      );
-      if (!mounted) return;
-      setState(() {
-        _series = updated;
-        _busy = false;
-      });
-    } catch (e) {
-      if (mounted) setState(() => _busy = false);
-      _showError(e);
-    }
-  }
-
-  Future<void> _editDescription() async {
-    final series = _series;
-    if (series == null) return;
-    final controller = TextEditingController(text: series.description ?? '');
-    final saved = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: HomeFeedTokens.background,
-        title: Text(
-          'Series description',
-          style: AppFonts.inter(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: HomeFeedTokens.textPrimary,
-          ),
-        ),
-        content: TextField(
-          controller: controller,
-          maxLines: 5,
-          maxLength: 4000,
-          decoration: InputDecoration(
-            hintText: 'Describe this series',
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Cancel',
-              style: AppFonts.inter(color: HomeFeedTokens.textSecondary),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: Text(
-              'Save',
-              style: AppFonts.inter(
-                fontWeight: FontWeight.w600,
-                color: HomeFeedTokens.textPrimary,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-    controller.dispose();
-    if (saved == null || !mounted) return;
-    setState(() => _busy = true);
-    try {
-      final updated = await SeriesService.instance.update(
-        widget.seriesId,
-        description: saved,
       );
       if (!mounted) return;
       setState(() {
@@ -250,11 +183,8 @@ class _SeriesEditorPageState extends State<SeriesEditorPage> {
   Widget build(BuildContext context) {
     final series = _series;
 
-    // The gate covers `_busy` only — a mutation in flight. The initial
-    // fetch leaves the chrome (title bar, back, rename) on screen and
-    // placeholds just the series body.
     return StudioLoadingGate(
-      loading: _busy,
+      loading: _loading || _busy,
       child: Scaffold(
         backgroundColor: HomeFeedTokens.background,
         appBar: AppBar(
@@ -262,7 +192,7 @@ class _SeriesEditorPageState extends State<SeriesEditorPage> {
           elevation: 0,
           title: Text(
             series?.name ?? 'Series',
-            style: AppFonts.inter(
+            style: GoogleFonts.inter(
               fontSize: 18,
               fontWeight: FontWeight.w600,
               color: HomeFeedTokens.textPrimary,
@@ -281,29 +211,17 @@ class _SeriesEditorPageState extends State<SeriesEditorPage> {
             ),
           ],
         ),
-        body: SectionLoader(
-          hasData: series != null,
-          loading: _loading,
-          skeleton: (_) => const FormSkeleton(
-            fieldCount: 4,
-            padding: EdgeInsets.all(16),
-          ),
-          empty: (_) => const SizedBox.shrink(),
-          content: (_) => ListView(
+        body: series == null
+            ? const SizedBox.shrink()
+            : ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
                   Text(
                     '${_piecesInSeries.length} piece${_piecesInSeries.length == 1 ? '' : 's'} in this series',
-                    style: AppFonts.inter(
+                    style: GoogleFonts.inter(
                       fontSize: 14,
                       color: HomeFeedTokens.textSecondary,
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    onPressed: _editDescription,
-                    icon: const Icon(Icons.notes_outlined),
-                    label: const Text('Edit description'),
                   ),
                   const SizedBox(height: 12),
                   OutlinedButton.icon(
@@ -318,7 +236,7 @@ class _SeriesEditorPageState extends State<SeriesEditorPage> {
                       child: Text(
                         'No pieces yet. Tap Add pieces to include artwork from your profile.',
                         textAlign: TextAlign.center,
-                        style: AppFonts.inter(
+                        style: GoogleFonts.inter(
                           fontSize: 14,
                           height: 1.45,
                           color: HomeFeedTokens.textSecondary,
@@ -334,7 +252,6 @@ class _SeriesEditorPageState extends State<SeriesEditorPage> {
                     ),
                 ],
               ),
-        ),
       ),
     );
   }
@@ -369,7 +286,7 @@ class _PieceRow extends StatelessWidget {
           Expanded(
             child: Text(
               piece.title,
-              style: AppFonts.inter(
+              style: GoogleFonts.inter(
                 fontSize: 15,
                 fontWeight: FontWeight.w500,
                 color: HomeFeedTokens.textPrimary,
@@ -415,7 +332,7 @@ class _AddPiecesSheetState extends State<_AddPiecesSheet> {
           children: [
             Text(
               'Add pieces',
-              style: AppFonts.inter(
+              style: GoogleFonts.inter(
                 fontSize: 17,
                 fontWeight: FontWeight.w600,
                 color: HomeFeedTokens.textPrimary,
@@ -445,7 +362,7 @@ class _AddPiecesSheetState extends State<_AddPiecesSheet> {
                     },
                     title: Text(
                       piece.title,
-                      style: AppFonts.inter(fontSize: 15),
+                      style: GoogleFonts.inter(fontSize: 15),
                     ),
                     secondary: ClipRRect(
                       borderRadius: BorderRadius.circular(6),
