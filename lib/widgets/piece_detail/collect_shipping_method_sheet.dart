@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/address.dart';
 import '../../models/collect_checkout.dart';
@@ -7,6 +6,8 @@ import '../../services/api_exception.dart';
 import '../../services/order_service.dart';
 import '../../theme/collect_detail_tokens.dart';
 import 'collect_shipping_sheet.dart';
+import '../loading/app_skeletons.dart';
+import '../../theme/app_fonts.dart';
 
 /// Shipping method picker — Figma 2382-1648.
 class CollectShippingMethodSheet extends StatefulWidget {
@@ -127,7 +128,7 @@ class _CollectShippingMethodSheetState
               ),
               Expanded(
                 child: _loading
-                    ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+                    ? const OptionListSkeleton()
                     : ListView(
                         padding: EdgeInsets.fromLTRB(16, 0, 16, 24 + bottomInset),
                         children: [
@@ -145,7 +146,7 @@ class _CollectShippingMethodSheetState
                                     children: [
                                       Text(
                                         'Ship to',
-                                        style: GoogleFonts.inter(
+                                        style: AppFonts.inter(
                                           fontSize: 11,
                                           fontWeight: FontWeight.w400,
                                           color: CollectDetailTokens.textSecondary,
@@ -156,7 +157,7 @@ class _CollectShippingMethodSheetState
                                         onTap: _changeAddress,
                                         child: Text(
                                           'Change',
-                                          style: GoogleFonts.inter(
+                                          style: AppFonts.inter(
                                             fontSize: 11,
                                             fontWeight: FontWeight.w500,
                                             color: CollectDetailTokens.textSecondary,
@@ -197,7 +198,7 @@ class _CollectShippingMethodSheetState
                                 children: [
                                   Text(
                                     'Shipping method',
-                                    style: GoogleFonts.inter(
+                                    style: AppFonts.inter(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w400,
                                       color: CollectDetailTokens.textSecondary,
@@ -207,7 +208,7 @@ class _CollectShippingMethodSheetState
                                   if (_error != null)
                                     Text(
                                       _error!,
-                                      style: GoogleFonts.inter(
+                                      style: AppFonts.inter(
                                         fontSize: 12,
                                         color: Colors.red.shade300,
                                       ),
@@ -253,7 +254,7 @@ class _CollectShippingMethodSheetState
                                 child: Center(
                                   child: Text(
                                     'Save and continue',
-                                    style: GoogleFonts.inter(
+                                    style: AppFonts.inter(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w400,
                                       color: CollectDetailTokens.textInverse,
@@ -289,7 +290,7 @@ class _AddressLine extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 6),
       child: Text(
         text,
-        style: GoogleFonts.inter(
+        style: AppFonts.inter(
           fontSize: 12,
           fontWeight: FontWeight.w400,
           color: CollectDetailTokens.textPrimary,
@@ -337,7 +338,7 @@ class _MethodOption extends StatelessWidget {
               children: [
                 Text(
                   method.title,
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 12,
                     fontWeight: FontWeight.w400,
                     color: CollectDetailTokens.textPrimary,
@@ -346,7 +347,7 @@ class _MethodOption extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   method.duration,
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 11,
                     fontWeight: FontWeight.w400,
                     color: CollectDetailTokens.textSecondary,
@@ -357,7 +358,7 @@ class _MethodOption extends StatelessWidget {
           ),
           Text(
             method.priceDisplay,
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 12,
               fontWeight: FontWeight.w400,
               color: CollectDetailTokens.textSecondary,
@@ -401,7 +402,7 @@ class _SheetHeader extends StatelessWidget {
             ),
             Text(
               title,
-              style: GoogleFonts.inter(
+              style: AppFonts.inter(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
                 color: CollectDetailTokens.textPrimary,

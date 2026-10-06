@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/app_theme.dart';
+import '../theme/app_fonts.dart';
 
 /// Light-skinned 6-digit OTP field, styled to match [PillInput] (fully
 /// rounded, white fill, slate border) for use in Settings-launched flows
@@ -31,7 +31,7 @@ class LightOtpInput extends StatelessWidget {
         textAlign: TextAlign.center,
         maxLength: length,
         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        style: GoogleFonts.inter(
+        style: AppFonts.inter(
           fontSize: 20,
           fontWeight: FontWeight.w600,
           letterSpacing: 8,

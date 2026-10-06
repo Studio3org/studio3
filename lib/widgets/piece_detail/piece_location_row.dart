@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../theme/home_feed_tokens.dart';
+import '../../theme/app_fonts.dart';
 
 /// Shows the piece/scene's tagged location — self-hides when none was set.
 class PieceLocationRow extends StatelessWidget {
@@ -24,7 +24,7 @@ class PieceLocationRow extends StatelessWidget {
           Expanded(
             child: Text(
               text,
-              style: GoogleFonts.inter(
+              style: AppFonts.inter(
                 fontSize: 13,
                 fontWeight: FontWeight.w400,
                 color: HomeFeedTokens.textSecondary,

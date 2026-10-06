@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/home_feed_tokens.dart';
+import '../theme/app_fonts.dart';
 
 /// Bottom-sheet prompt for a collection name — shared by "create a new
 /// collection" and "rename an existing one". Returns the trimmed name, or
@@ -79,7 +79,7 @@ class _CollectionNameSheetState extends State<CollectionNameSheet> {
             children: [
               Text(
                 widget.title,
-                style: GoogleFonts.inter(
+                style: AppFonts.inter(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                   color: HomeFeedTokens.textPrimary,
@@ -104,7 +104,7 @@ class _CollectionNameSheetState extends State<CollectionNameSheet> {
                     onPressed: () => Navigator.pop(context),
                     child: Text(
                       'Cancel',
-                      style: GoogleFonts.inter(color: HomeFeedTokens.textSecondary),
+                      style: AppFonts.inter(color: HomeFeedTokens.textSecondary),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -112,7 +112,7 @@ class _CollectionNameSheetState extends State<CollectionNameSheet> {
                     onPressed: _submit,
                     child: Text(
                       widget.actionLabel,
-                      style: GoogleFonts.inter(
+                      style: AppFonts.inter(
                         fontWeight: FontWeight.w600,
                         color: HomeFeedTokens.textPrimary,
                       ),

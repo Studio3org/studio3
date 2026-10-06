@@ -1,19 +1,23 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../services/auth_service.dart';
 import '../services/auth_session.dart';
 import '../services/device_service.dart';
 import '../models/user_profile.dart';
+import '../services/api_exception.dart';
+import '../services/payout_service.dart';
 import '../services/user_service.dart';
 import '../theme/home_feed_tokens.dart';
 import '../utils/profile_navigation.dart';
 import '../widgets/feed_skeleton.dart';
+import '../widgets/loading/skeleton_primitives.dart';
 import '../widgets/settings_tile.dart';
 import '../widgets/studio_loading.dart';
 import 'inbox_page.dart';
 import 'profile/widgets/profile_seller_insights.dart';
 import 'seller_analytics_page.dart';
+import '../theme/app_fonts.dart';
 
 class ProfileSettingsPage extends StatefulWidget {
   const ProfileSettingsPage({super.key});
@@ -28,10 +32,22 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
   bool _togglingSeller = false;
   String? _profileLocation;
   SellerAnalytics? _analytics;
+  PayoutStatus? _payoutStatus;
 
   @override
   void initState() {
     super.initState();
+    // Cached profile → the settings list renders with real values on the
+    // first frame; `_loadSellerStatus` confirms them behind it.
+    final cached = UserService.instance.peekMeCached();
+    if (cached != null) {
+      _sellerEnabled = cached.sellerEnabled;
+      _profileLocation = cached.location;
+      _loadingSeller = false;
+    }
+    // Last known payout state, so a return visit renders the correct row
+    // immediately instead of guessing while the status call is in flight.
+    _payoutStatus = PayoutService.instance.peekStatusCached();
     _loadSellerStatus();
   }
 
@@ -49,7 +65,10 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
         _profileLocation = profile.location;
         _loadingSeller = false;
       });
-      if (status.enabled) _loadAnalytics();
+      if (status.enabled) {
+        _loadAnalytics();
+        _loadPayoutStatus();
+      }
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -90,6 +109,67 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
     Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
   }
 
+  Future<void> _confirmDeleteAccount() async {
+    final passwordController = TextEditingController();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete your account?'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'This permanently deletes your account and all your data — '
+                'profile, posts, listings, and orders. This cannot be undone.',
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: passwordController,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'Confirm your password'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text(
+              'Delete account',
+              style: TextStyle(color: Color(0xFFE05252)),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final password = passwordController.text;
+    if (password.isEmpty) return;
+    try {
+      await DeviceService.instance.unregisterCurrentDevice();
+      await AuthService.instance.deleteAccount(password);
+      if (!mounted) return;
+      Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(e.message)));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not delete your account. Please try again.')),
+      );
+    }
+  }
+
   Future<void> _loadAnalytics() async {
     try {
       final analytics = await UserService.instance.getSellerAnalytics();
@@ -113,7 +193,73 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
       _togglingSeller = false;
       if (result != null) _sellerEnabled = result;
     });
-    if (result == true) _loadAnalytics();
+    if (result == true) {
+      _loadAnalytics();
+      _loadPayoutStatus();
+    } else if (result == false) {
+      await PayoutService.instance.invalidateStatus();
+      if (!mounted) return;
+      setState(() => _payoutStatus = null);
+    }
+  }
+
+  Future<void> _loadPayoutStatus({bool refresh = false}) async {
+    if (!_sellerEnabled) return;
+    try {
+      final status = await PayoutService.instance.getStatusCached(
+        forceRefresh: refresh,
+        onBackgroundUpdate: (fresh) {
+          if (!mounted) return;
+          setState(() => _payoutStatus = fresh);
+        },
+      );
+      if (!mounted) return;
+      setState(() => _payoutStatus = status);
+    } catch (_) {
+      // Seller mode still works if Connect status fails to load.
+    }
+  }
+
+  Future<void> _openPayoutDashboard() async {
+    try {
+      final url = await PayoutService.instance.dashboardUrl();
+      final launched = await launchUrl(
+        Uri.parse(url),
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open the browser.')),
+        );
+      }
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(e.message)));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open payouts.')),
+      );
+    }
+  }
+
+  Future<void> _openExternalLink(String url, {required String errorMessage}) async {
+    try {
+      final launched = await launchUrl(
+        Uri.parse(url),
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open the browser.')),
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errorMessage)));
+    }
   }
 
   @override
@@ -128,7 +274,7 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
           centerTitle: true,
           title: Text(
             'Settings',
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 18,
               fontWeight: FontWeight.w600,
               color: HomeFeedTokens.textPrimary,
@@ -153,6 +299,15 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
               onChanged: _onSellerToggle,
             ),
             if (_sellerEnabled) ...[
+              PayoutSettingsTile(
+                status: _payoutStatus,
+                onStartSetup: () async {
+                  await Navigator.pushNamed(context, '/payout-setup');
+                  if (!mounted) return;
+                  _loadPayoutStatus(refresh: true);
+                },
+                onOpenDashboard: _openPayoutDashboard,
+              ),
               SettingsTile(
                 icon: Icons.bar_chart_rounded,
                 label: 'Seller analytics',
@@ -215,6 +370,14 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
               onTap: () => Navigator.pushNamed(context, '/privacy-settings'),
             ),
             SettingsTile(
+              icon: Icons.description_outlined,
+              label: 'Privacy policy',
+              onTap: () => _openExternalLink(
+                'https://studiosthree.com/privacy',
+                errorMessage: 'Could not open the privacy policy.',
+              ),
+            ),
+            SettingsTile(
               icon: Icons.person_add_alt_outlined,
               label: 'Follow requests',
               onTap: () => Navigator.pushNamed(
@@ -227,6 +390,11 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
               icon: Icons.block_outlined,
               label: 'Blocked accounts',
               onTap: () => Navigator.pushNamed(context, '/blocked-users'),
+            ),
+            SettingsTile(
+              icon: Icons.flag_outlined,
+              label: 'My reports',
+              onTap: () => Navigator.pushNamed(context, '/my-reports'),
             ),
 
             const _SectionHeader('Login & security'),
@@ -284,6 +452,12 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
                 },
               ),
             ),
+            SettingsTile(
+              icon: Icons.delete_forever_rounded,
+              label: 'Delete account',
+              destructive: true,
+              onTap: _confirmDeleteAccount,
+            ),
           ],
         ),
       ),
@@ -303,13 +477,72 @@ class _SectionHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(4, 20, 4, 8),
       child: Text(
         label,
-        style: GoogleFonts.inter(
+        style: AppFonts.inter(
           fontSize: 13,
           fontWeight: FontWeight.w600,
           letterSpacing: 0.3,
           color: HomeFeedTokens.textPrimary.withValues(alpha: 0.45),
         ),
       ),
+    );
+  }
+}
+
+/// The Seller section's payout row.
+///
+/// Three states, not two. A null [status] means "we haven't heard back
+/// yet", and that used to be folded in with "needs action" — so every
+/// fresh login flashed an amber "Required" at artists whose payouts were
+/// already set up, then quietly corrected itself a moment later once the
+/// status call landed. Unknown now renders a placeholder where the badge
+/// goes and asserts nothing about the account, and the row is inert until
+/// there is an answer to route on.
+class PayoutSettingsTile extends StatelessWidget {
+  const PayoutSettingsTile({
+    super.key,
+    required this.status,
+    required this.onStartSetup,
+    required this.onOpenDashboard,
+  });
+
+  final PayoutStatus? status;
+  final VoidCallback onStartSetup;
+  final VoidCallback onOpenDashboard;
+
+  @override
+  Widget build(BuildContext context) {
+    final current = status;
+
+    if (current == null) {
+      return const SettingsTile(
+        icon: Icons.account_balance_outlined,
+        label: 'Payouts',
+        trailing: SkeletonShimmer(
+          child: SkeletonBox(width: 56, height: 12, radius: 4),
+        ),
+      );
+    }
+
+    if (current.needsAction) {
+      return SettingsTile(
+        icon: Icons.account_balance_wallet_outlined,
+        label: 'Payout setup',
+        trailing: Text(
+          'Required',
+          style: AppFonts.inter(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: const Color(0xFFC47B2B),
+          ),
+        ),
+        onTap: onStartSetup,
+      );
+    }
+
+    return SettingsTile(
+      icon: Icons.account_balance_outlined,
+      label: 'Payouts',
+      onTap: onOpenDashboard,
     );
   }
 }

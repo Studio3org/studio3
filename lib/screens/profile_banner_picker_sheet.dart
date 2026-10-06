@@ -1,10 +1,11 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../services/piece_service.dart';
 import '../services/post_service.dart';
 import '../theme/home_feed_tokens.dart';
+import '../widgets/loading/app_skeletons.dart';
+import '../theme/app_fonts.dart';
 
 /// Result of the banner picker: (targetType, targetId), or (null, null) to
 /// clear a manual pin and fall back to `bannerAutoRule`.
@@ -54,7 +55,7 @@ class _ProfileBannerPickerSheet extends StatelessWidget {
                 const SizedBox(width: 48),
                 Text(
                   'Pin profile banner',
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                     color: HomeFeedTokens.textPrimary,
@@ -97,7 +98,10 @@ class _PieceGrid extends StatelessWidget {
       future: PieceService.instance.getUserPieces(username),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
+          return const TileGridSkeleton(
+            padding: EdgeInsets.all(12),
+            spacing: 6,
+          );
         }
         final pieces = snapshot.data!;
         if (pieces.isEmpty) {
@@ -137,7 +141,10 @@ class _PostGrid extends StatelessWidget {
       future: PostService.instance.getUserPosts(username),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
+          return const TileGridSkeleton(
+            padding: EdgeInsets.all(12),
+            spacing: 6,
+          );
         }
         final posts = snapshot.data!;
         if (posts.isEmpty) {

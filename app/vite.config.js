@@ -4,5 +4,12 @@ import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  base: './',
+  // Absolute base so hashed assets resolve on nested routes like /piece/:id.
+  base: '/',
+  envPrefix: ['VITE_', 'NEXT_PUBLIC_'],
+  build: {
+    // Production is serving `app/dist` (https://studio3-eta.vercel.app).
+    outDir: 'dist',
+    emptyOutDir: true,
+  },
 });

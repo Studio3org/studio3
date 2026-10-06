@@ -1,8 +1,8 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../theme/home_feed_tokens.dart';
+import '../../theme/app_fonts.dart';
 
 class PieceSeriesRow extends StatelessWidget {
   const PieceSeriesRow({
@@ -31,7 +31,7 @@ class PieceSeriesRow extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
           child: Text(
             '$seriesName · $count',
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 14,
               fontWeight: FontWeight.w400,
               color: HomeFeedTokens.textSecondary,

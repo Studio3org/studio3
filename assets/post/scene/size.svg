@@ -1,0 +1,6 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Buttons">
+<rect width="32" height="32" rx="4" fill="#E8E6DF"/>
+<path id="Vector" d="M16 13.375V23M7.5 13.375H18.55C19.0009 13.375 19.4333 13.5594 19.7521 13.8876C20.0709 14.2158 20.25 14.6609 20.25 15.125V23M9.2 9H22.8C23.7389 9 24.5 9.7835 24.5 10.75V21.25C24.5 22.2165 23.7389 23 22.8 23H9.2C8.26112 23 7.5 22.2165 7.5 21.25V10.75C7.5 9.7835 8.26112 9 9.2 9Z" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+</svg>

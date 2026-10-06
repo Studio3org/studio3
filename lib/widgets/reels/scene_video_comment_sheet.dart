@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../services/social_service.dart';
 import '../../theme/home_feed_tokens.dart';
+import '../../theme/app_fonts.dart';
 
 class SceneVideoCommentSheet extends StatefulWidget {
   const SceneVideoCommentSheet({
@@ -93,7 +93,7 @@ class _SceneVideoCommentSheetState extends State<SceneVideoCommentSheet> {
             const SizedBox(height: 16),
             Text(
               'Comment on ${widget.authorName}\'s scene',
-              style: GoogleFonts.inter(
+              style: AppFonts.inter(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
                 color: HomeFeedTokens.textPrimary,
@@ -107,13 +107,13 @@ class _SceneVideoCommentSheetState extends State<SceneVideoCommentSheet> {
               minLines: 2,
               textInputAction: TextInputAction.send,
               onSubmitted: (_) => _submit(),
-              style: GoogleFonts.inter(
+              style: AppFonts.inter(
                 fontSize: 14,
                 color: HomeFeedTokens.textPrimary,
               ),
               decoration: InputDecoration(
                 hintText: 'Add a comment…',
-                hintStyle: GoogleFonts.inter(
+                hintStyle: AppFonts.inter(
                   fontSize: 14,
                   color: HomeFeedTokens.textSecondary,
                 ),
@@ -148,7 +148,7 @@ class _SceneVideoCommentSheetState extends State<SceneVideoCommentSheet> {
                     )
                   : Text(
                       'Post comment',
-                      style: GoogleFonts.inter(
+                      style: AppFonts.inter(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                       ),

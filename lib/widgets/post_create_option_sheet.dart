@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../data/post_picker_options.dart';
+import '../screens/profile/profile_constants.dart';
 import '../theme/home_feed_tokens.dart';
+import 'create_flow/create_flow_widgets.dart';
 import 'post_picker_search_field.dart';
+import '../theme/app_fonts.dart';
 
 enum PostPickerSelectionMode { singleRadio, multiCheckbox }
 
-/// Draggable option picker for medium / style (Figma medium & style sheets).
+/// Draggable option picker for medium / style.
 class PostCreateOptionSheet extends StatefulWidget {
   const PostCreateOptionSheet({
     super.key,
@@ -17,11 +19,13 @@ class PostCreateOptionSheet extends StatefulWidget {
     required this.selectedIds,
     required this.mode,
     required this.onSelectionChanged,
+    this.subtitle,
     this.maxSelections,
     this.closeOnSelection = false,
   });
 
   final String title;
+  final String? subtitle;
   final String searchHint;
   final List<PostPickerOption> options;
   final Set<String> selectedIds;
@@ -38,6 +42,7 @@ class PostCreateOptionSheet extends StatefulWidget {
     required Set<String> selectedIds,
     required PostPickerSelectionMode mode,
     required ValueChanged<Set<String>> onSelectionChanged,
+    String? subtitle,
     int? maxSelections,
     bool closeOnSelection = false,
   }) {
@@ -48,6 +53,7 @@ class PostCreateOptionSheet extends StatefulWidget {
       barrierColor: Colors.black.withValues(alpha: 0.5),
       builder: (context) => PostCreateOptionSheet(
         title: title,
+        subtitle: subtitle,
         searchHint: searchHint,
         options: options,
         selectedIds: selectedIds,
@@ -64,11 +70,12 @@ class PostCreateOptionSheet extends StatefulWidget {
 }
 
 class _PostCreateOptionSheetState extends State<PostCreateOptionSheet> {
-  static const _sheetBg = Color(0xFF231F1B);
+  static const _sheetBg = HomeFeedTokens.background;
   static const _textSecondary = Color(0xFF8C8880);
-  static const _handleColor = Color(0xFF4A4843);
+  static const _handleColor = Color(0xFFC8C5BC);
+  static const _disabledFill = Color(0xFFC8C5BC);
 
-  static const _initialSize = 0.33;
+  static const _initialSize = 0.55;
   static const _maxSize = 0.88;
 
   final _searchController = TextEditingController();
@@ -95,12 +102,14 @@ class _PostCreateOptionSheetState extends State<PostCreateOptionSheet> {
         .toList();
   }
 
+  bool get _canSubmit => _selectedIds.isNotEmpty;
+
   void _toggleOption(PostPickerOption option) {
     setState(() {
       if (widget.mode == PostPickerSelectionMode.singleRadio) {
         _selectedIds = {option.id};
-        widget.onSelectionChanged(_selectedIds);
         if (widget.closeOnSelection) {
+          widget.onSelectionChanged(_selectedIds);
           Navigator.pop(context);
         }
         return;
@@ -116,8 +125,13 @@ class _PostCreateOptionSheetState extends State<PostCreateOptionSheet> {
         }
         _selectedIds.add(option.id);
       }
-      widget.onSelectionChanged(Set<String>.from(_selectedIds));
     });
+  }
+
+  void _onDone() {
+    if (!_canSubmit) return;
+    widget.onSelectionChanged(Set<String>.from(_selectedIds));
+    Navigator.pop(context);
   }
 
   void _showMaxSelectionMessage(int max) {
@@ -140,11 +154,10 @@ class _PostCreateOptionSheetState extends State<PostCreateOptionSheet> {
             child: Text(
               'You can select up to $max styles at a time.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.inter(
+              style: kProfileGeist(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
                 color: Colors.white,
-                height: 1.3,
               ),
             ),
           ),
@@ -158,59 +171,77 @@ class _PostCreateOptionSheetState extends State<PostCreateOptionSheet> {
         widget.mode == PostPickerSelectionMode.multiCheckbox &&
         widget.maxSelections != null;
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final safeBottom = MediaQuery.paddingOf(context).bottom;
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
       child: DraggableScrollableSheet(
         initialChildSize: _initialSize,
-        minChildSize: _initialSize,
+        minChildSize: 0.4,
         maxChildSize: _maxSize,
         expand: false,
         builder: (context, scrollController) {
           return DecoratedBox(
             decoration: const BoxDecoration(
               color: _sheetBg,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
             ),
             child: Column(
               children: [
                 const SizedBox(height: 10),
                 Container(
-                  width: 82,
+                  width: 36,
                   height: 4,
                   decoration: BoxDecoration(
                     color: _handleColor,
-                    borderRadius: BorderRadius.circular(100),
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
-                        child: Text(
-                          widget.title,
-                          style: GoogleFonts.inter(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                            color: HomeFeedTokens.textInverse,
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              widget.title,
+                              style: kProfileGeist(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            if (widget.subtitle != null) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                widget.subtitle!,
+                                style: kProfileGeist(
+                                  fontSize: 13,
+                                  color: _textSecondary,
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                       if (showCounter)
-                        Text(
-                          '${_selectedIds.length}/${widget.maxSelections}',
-                          style: GoogleFonts.inter(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w400,
-                            color: _textSecondary,
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            '${_selectedIds.length}/${widget.maxSelections}',
+                            style: kProfileGeist(
+                              fontSize: 13,
+                              color: _textSecondary,
+                            ),
                           ),
                         ),
                     ],
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(10, 12, 10, 8),
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                   child: PostPickerSearchField(
                     controller: _searchController,
                     hintText: widget.searchHint,
@@ -218,11 +249,10 @@ class _PostCreateOptionSheetState extends State<PostCreateOptionSheet> {
                   ),
                 ),
                 Expanded(
-                  child: ListView.separated(
+                  child: ListView.builder(
                     controller: scrollController,
-                    padding: const EdgeInsets.fromLTRB(4, 4, 4, 24),
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
                     itemCount: _filtered.length,
-                    separatorBuilder: (context, _) => const SizedBox(height: 3),
                     itemBuilder: (context, index) {
                       final option = _filtered[index];
                       final selected = _selectedIds.contains(option.id);
@@ -233,6 +263,30 @@ class _PostCreateOptionSheetState extends State<PostCreateOptionSheet> {
                         onTap: () => _toggleOption(option),
                       );
                     },
+                  ),
+                ),
+                Padding(
+                  padding: EdgeInsets.fromLTRB(10, 8, 10, safeBottom + 16),
+                  child: CreateFlowBottomButton(
+                    label: 'Done',
+                    height: 40,
+                    backgroundColor: _canSubmit
+                        ? HomeFeedTokens.neutral800
+                        : _disabledFill,
+                    textColor: _canSubmit
+                        ? HomeFeedTokens.textInverse
+                        : HomeFeedTokens.textPrimary,
+                    onTap: _canSubmit ? _onDone : null,
+                    child: Text(
+                      'Done',
+                      style: AppFonts.geist(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w400,
+                        color: _canSubmit
+                            ? HomeFeedTokens.textInverse
+                            : HomeFeedTokens.textPrimary,
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -259,29 +313,27 @@ class _OptionListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: selected
-          ? Colors.white.withValues(alpha: 0.06)
-          : Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  label,
-                  style: GoogleFonts.inter(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: HomeFeedTokens.textInverse,
-                  ),
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: kProfileGeist(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w400,
+                  color: selected
+                      ? HomeFeedTokens.textPrimary
+                      : const Color(0xFF8C8880),
                 ),
               ),
-              _SelectionIndicator(selected: selected, mode: mode),
-            ],
-          ),
+            ),
+            _SelectionIndicator(selected: selected, mode: mode),
+          ],
         ),
       ),
     );
@@ -300,22 +352,19 @@ class _SelectionIndicator extends StatelessWidget {
   Widget build(BuildContext context) {
     if (mode == PostPickerSelectionMode.singleRadio) {
       return Container(
-        width: 18,
-        height: 18,
+        width: 20,
+        height: 20,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          border: Border.all(
-            color: selected ? HomeFeedTokens.textInverse : _borderColor,
-            width: 1.5,
-          ),
+          border: Border.all(color: _borderColor, width: 1.5),
         ),
         alignment: Alignment.center,
         child: selected
             ? Container(
-                width: 8,
-                height: 8,
+                width: 10,
+                height: 10,
                 decoration: const BoxDecoration(
-                  color: HomeFeedTokens.textInverse,
+                  color: HomeFeedTokens.textPrimary,
                   shape: BoxShape.circle,
                 ),
               )
@@ -324,19 +373,19 @@ class _SelectionIndicator extends StatelessWidget {
     }
 
     return Container(
-      width: 18,
-      height: 18,
+      width: 20,
+      height: 20,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
-          color: selected ? HomeFeedTokens.textInverse : _borderColor,
+          color: selected ? HomeFeedTokens.textPrimary : _borderColor,
           width: 1.5,
         ),
-        color: selected ? HomeFeedTokens.textInverse : Colors.transparent,
+        color: selected ? HomeFeedTokens.textPrimary : Colors.transparent,
       ),
       alignment: Alignment.center,
       child: selected
-          ? const Icon(Icons.check, size: 12, color: HomeFeedTokens.textPrimary)
+          ? const Icon(Icons.check, size: 14, color: HomeFeedTokens.textInverse)
           : null,
     );
   }

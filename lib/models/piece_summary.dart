@@ -1,5 +1,36 @@
+import 'auction_summary.dart';
 import 'post_summary.dart';
 import 'series_summary.dart';
+
+/// One image in a piece's gallery (Figma 2716:5774 cover/reorder posting
+/// flow) — `sortOrder == 0` is the cover, mirrored onto [PieceSummary.mediaUrl].
+class PieceImage {
+  const PieceImage({
+    required this.mediaUrl,
+    this.mediaType,
+    this.mediaAspectRatio,
+    this.sortOrder = 0,
+  });
+
+  final String mediaUrl;
+  final String? mediaType;
+  final String? mediaAspectRatio;
+  final int sortOrder;
+
+  factory PieceImage.fromJson(Map<String, dynamic> json) => PieceImage(
+        mediaUrl: json['mediaUrl'] as String? ?? '',
+        mediaType: json['mediaType'] as String?,
+        mediaAspectRatio: json['mediaAspectRatio'] as String?,
+        sortOrder: (json['sortOrder'] as num?)?.toInt() ?? 0,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'mediaUrl': mediaUrl,
+        if (mediaType != null) 'mediaType': mediaType,
+        if (mediaAspectRatio != null) 'mediaAspectRatio': mediaAspectRatio,
+        'sortOrder': sortOrder,
+      };
+}
 
 class PieceSummary {
   const PieceSummary({
@@ -7,12 +38,28 @@ class PieceSummary {
     required this.title,
     this.mediaUrl,
     this.mediaType,
+    this.images = const [],
     this.caption,
     this.medium,
     this.isForSale = false,
     this.priceCents,
+    this.listingType,
+    this.auctionDurationDays,
+    this.auctionEndsAt,
+    this.highestBidCents,
+    this.startingBidCents,
+    this.bidIncrementCents,
+    this.bidCount = 0,
+    this.minNextBidCents,
+    this.isHighestBidder = false,
+    this.auction,
     this.dimensions,
     this.shippingRegion,
+    this.weightKg,
+    this.packageLengthCm,
+    this.packageWidthCm,
+    this.packageHeightCm,
+    this.declaredValueCents,
     this.location,
     this.mediaAspectRatio,
     this.yearCreated,
@@ -29,6 +76,7 @@ class PieceSummary {
     this.authorIsFollowing = false,
     this.series,
     this.status,
+    this.listingState,
     this.materials = const [],
     this.styleTags = const [],
     this.aiDisclosed = false,
@@ -40,12 +88,44 @@ class PieceSummary {
   final String title;
   final String? mediaUrl;
   final String? mediaType;
+  /// Full ordered gallery — index 0 is the cover and matches [mediaUrl].
+  /// Empty on older cached payloads; callers should fall back to [mediaUrl].
+  final List<PieceImage> images;
   final String? caption;
   final String? medium;
   final bool isForSale;
   final int? priceCents;
+  /// `fixed` | `auction`; null when not for sale.
+  final String? listingType;
+  final int? auctionDurationDays;
+  final DateTime? auctionEndsAt;
+  final int? highestBidCents;
+
+  /// The artist's stated minimum — the first bid may land exactly on it.
+  /// Distinct from [highestBidCents], which is null until someone bids.
+  final int? startingBidCents;
+
+  /// Server-computed step above the current high bid. Banded by price, so the
+  /// client must never assume a fixed amount. Zero when there are no bids yet.
+  final int? bidIncrementCents;
+  final int bidCount;
+  final int? minNextBidCents;
+  /// Whether the viewer currently leads the *live* bidding. Goes false the moment the
+  /// auction closes, because there is no longer a highest active bid — use
+  /// [AuctionSummary.isWinner] on [auction] to ask who won.
+  final bool isHighestBidder;
+
+  /// The full auction state, including everything that only exists after the close: who won,
+  /// whether their payment failed, and how long they have to fix it. Null for a fixed-price
+  /// piece.
+  final AuctionSummary? auction;
   final String? dimensions;
   final String? shippingRegion;
+  final double? weightKg;
+  final double? packageLengthCm;
+  final double? packageWidthCm;
+  final double? packageHeightCm;
+  final int? declaredValueCents;
   final String? location;
   final String? mediaAspectRatio;
   final int? yearCreated;
@@ -62,6 +142,8 @@ class PieceSummary {
   final bool authorIsFollowing;
   final PieceSeriesInfo? series;
   final String? status;
+  /// `available` | `collected` from the API; null on older payloads.
+  final String? listingState;
   final List<String> materials;
   final List<String> styleTags;
   final bool aiDisclosed;
@@ -69,6 +151,42 @@ class PieceSummary {
   final List<PostSummary>? relatedPosts;
 
   bool get isLive => status == null || status == 'live';
+
+  bool get isAuction => listingType == 'auction';
+
+  /// The auction closed with a winning bid and is awaiting the winner's checkout.
+  bool get isAuctionWon => status == 'auction_won';
+
+  /// Buyable right now at a fixed price.
+  ///
+  /// Deliberately false for a live auction: the price shown there is a starting bid, and
+  /// the only way to acquire the piece is to win it. The server reports those separately as
+  /// `auction_live` for that reason.
+  bool get isAvailableListing => _listingState == 'available';
+
+  /// Sold, reserved, or otherwise no longer purchasable.
+  bool get isCollectedListing => _listingState == 'collected';
+
+  /// Bidding is open.
+  bool get isAuctionLive => _listingState == 'auction_live';
+
+  /// The auction closed with a winner, who has yet to complete checkout.
+  bool get isAuctionEnded => _listingState == 'auction_ended';
+
+  /// True for anything that should carry a marketplace badge, auctions included.
+  bool get hasListingBadge => _listingState != 'none';
+
+  String get _listingState => listingState ?? _derivedListingState;
+
+  /// Fallback for cached payloads written before the server sent listingState.
+  String get _derivedListingState {
+    if (status == 'sold' || status == 'reserved') return 'collected';
+    if (status == 'auction_won') return 'auction_ended';
+    if (status == 'delisted' && isForSale) return 'collected';
+    if (isForSale && isAuction && isLive) return 'auction_live';
+    if (isForSale && isLive) return 'available';
+    return 'none';
+  }
 
   factory PieceSummary.fromJson(Map<String, dynamic> json) {
     final author = json['author'] as Map<String, dynamic>?;
@@ -80,12 +198,32 @@ class PieceSummary {
       title: json['title'] as String? ?? '',
       mediaUrl: json['mediaUrl'] as String?,
       mediaType: json['mediaType'] as String?,
+      images: (json['images'] as List?)
+              ?.whereType<Map<String, dynamic>>()
+              .map(PieceImage.fromJson)
+              .toList() ??
+          const [],
       caption: json['caption'] as String?,
       medium: json['medium'] as String?,
       isForSale: json['isForSale'] as bool? ?? false,
       priceCents: json['priceCents'] as int?,
+      listingType: json['listingType'] as String?,
+      auctionDurationDays: _intFrom(json['auctionDurationDays']),
+      auctionEndsAt: DateTime.tryParse(json['auctionEndsAt'] as String? ?? ''),
+      highestBidCents: _intFrom(json['highestBidCents']),
+      startingBidCents: _intFrom(json['startingBidCents']),
+      bidIncrementCents: _intFrom(json['bidIncrementCents']),
+      bidCount: _intFrom(json['bidCount']) ?? 0,
+      minNextBidCents: _intFrom(json['minNextBidCents']),
+      isHighestBidder: json['isHighestBidder'] as bool? ?? false,
+      auction: AuctionSummary.maybeFrom(json),
       dimensions: json['dimensions'] as String?,
       shippingRegion: json['shippingRegion'] as String?,
+      weightKg: _doubleFrom(json['weightKg']),
+      packageLengthCm: _doubleFrom(json['packageLengthCm']),
+      packageWidthCm: _doubleFrom(json['packageWidthCm']),
+      packageHeightCm: _doubleFrom(json['packageHeightCm']),
+      declaredValueCents: _intFrom(json['declaredValueCents']),
       location: json['location'] as String?,
       mediaAspectRatio: json['mediaAspectRatio'] as String?,
       yearCreated: _intFrom(json['yearCreated']),
@@ -112,6 +250,7 @@ class PieceSummary {
           ? PieceSeriesInfo.fromJson(seriesJson)
           : null,
       status: json['status'] as String?,
+      listingState: json['listingState'] as String?,
       materials: (json['materials'] as List?)?.whereType<String>().toList() ??
           const [],
       styleTags: (json['styleTags'] as List?)?.whereType<String>().toList() ??
@@ -133,18 +272,39 @@ class PieceSummary {
     return null;
   }
 
+  static double? _doubleFrom(dynamic value) {
+    if (value is double) return value;
+    if (value is num) return value.toDouble();
+    return null;
+  }
+
   Map<String, dynamic> toJson() => {
         'type': 'piece',
         'id': id,
         'title': title,
         if (mediaUrl != null) 'mediaUrl': mediaUrl,
         if (mediaType != null) 'mediaType': mediaType,
+        if (images.isNotEmpty) 'images': images.map((i) => i.toJson()).toList(),
         if (caption != null) 'caption': caption,
         if (medium != null) 'medium': medium,
         'isForSale': isForSale,
         if (priceCents != null) 'priceCents': priceCents,
+        if (listingType != null) 'listingType': listingType,
+        if (auctionDurationDays != null) 'auctionDurationDays': auctionDurationDays,
+        if (auctionEndsAt != null) 'auctionEndsAt': auctionEndsAt!.toIso8601String(),
+        if (highestBidCents != null) 'highestBidCents': highestBidCents,
+        if (startingBidCents != null) 'startingBidCents': startingBidCents,
+        if (bidIncrementCents != null) 'bidIncrementCents': bidIncrementCents,
+        'bidCount': bidCount,
+        if (minNextBidCents != null) 'minNextBidCents': minNextBidCents,
+        'isHighestBidder': isHighestBidder,
         if (dimensions != null) 'dimensions': dimensions,
         if (shippingRegion != null) 'shippingRegion': shippingRegion,
+        if (weightKg != null) 'weightKg': weightKg,
+        if (packageLengthCm != null) 'packageLengthCm': packageLengthCm,
+        if (packageWidthCm != null) 'packageWidthCm': packageWidthCm,
+        if (packageHeightCm != null) 'packageHeightCm': packageHeightCm,
+        if (declaredValueCents != null) 'declaredValueCents': declaredValueCents,
         if (location != null) 'location': location,
         if (mediaAspectRatio != null) 'mediaAspectRatio': mediaAspectRatio,
         if (yearCreated != null) 'yearCreated': yearCreated,
@@ -161,6 +321,7 @@ class PieceSummary {
         'authorIsFollowing': authorIsFollowing,
         if (series != null) 'series': series!.toJson(),
         if (status != null) 'status': status,
+        if (listingState != null) 'listingState': listingState,
         'materials': materials,
         'styleTags': styleTags,
         'aiDisclosed': aiDisclosed,

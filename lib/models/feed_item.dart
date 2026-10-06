@@ -1,3 +1,4 @@
+import '../utils/media_type_utils.dart';
 import 'piece_summary.dart';
 import 'post_summary.dart';
 
@@ -51,6 +52,13 @@ class FeedItem {
   bool get isForSale =>
       type == FeedItemType.piece ? (piece?.isForSale ?? false) : false;
 
+  bool get isAvailableListing => piece?.isAvailableListing ?? false;
+
+  /// Bidding is open on this piece.
+  bool get isAuctionLive => piece?.isAuctionLive ?? false;
+
+  bool get isCollected => piece?.isCollectedListing ?? false;
+
   String? get priceDisplay =>
       type == FeedItemType.piece ? piece?.priceDisplay : null;
 
@@ -65,10 +73,7 @@ class FeedItem {
   String? get thumbnailUrl =>
       type == FeedItemType.piece ? null : post?.thumbnailUrl;
 
-  bool get isVideo {
-    final t = mediaType?.toLowerCase();
-    return t == 'video' || t == 'reel' || t == 'reels';
-  }
+  bool get isVideo => isVideoMediaType(mediaType, mediaUrl);
 
   Map<String, dynamic> toJson() =>
       type == FeedItemType.piece ? piece!.toJson() : post!.toJson();

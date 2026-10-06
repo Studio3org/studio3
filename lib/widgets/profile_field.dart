@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/home_feed_tokens.dart';
+import '../theme/app_fonts.dart';
 
 /// Label + borderless text field, meant to sit inside a card container that
 /// supplies its own visual boundary (see the field card on `EditProfilePage`).
@@ -30,7 +30,7 @@ class ProfileField extends StatelessWidget {
       children: [
         Text(
           label,
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 13,
             fontWeight: FontWeight.w500,
             color: HomeFeedTokens.textPrimary.withValues(alpha: 0.6),
@@ -42,7 +42,7 @@ class ProfileField extends StatelessWidget {
           maxLines: maxLines,
           enabled: enabled,
           onChanged: onChanged,
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 15,
             color: HomeFeedTokens.textPrimary,
           ),

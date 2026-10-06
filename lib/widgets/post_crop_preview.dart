@@ -18,11 +18,14 @@ class PostCropPreview extends StatefulWidget {
     required this.imagePath,
     required this.transform,
     this.borderRadius = BorderRadius.zero,
+    this.frameSize,
   });
 
   final String imagePath;
   final PostImageTransform transform;
   final BorderRadius borderRadius;
+  /// When set, the preview fills this box instead of the transform's crop ratio.
+  final Size? frameSize;
 
   /// The final cropped/output look: resolves the transform's crop box and
   /// renders exactly what will be uploaded — Fill maps the box to fill the
@@ -243,14 +246,24 @@ class _PostCropPreviewState extends State<PostCropPreview> {
   Widget build(BuildContext context) {
     return ClipRRect(
       borderRadius: widget.borderRadius,
-      child: AspectRatio(
-        aspectRatio: widget.transform.aspectRatio.value,
-        child: PostCropPreview.buildTransformedContent(
-          imagePath: widget.imagePath,
-          transform: widget.transform,
-          imageAspect: _imageAspect ?? 1.0,
-        ),
-      ),
+      child: widget.frameSize != null
+          ? SizedBox(
+              width: widget.frameSize!.width,
+              height: widget.frameSize!.height,
+              child: PostCropPreview.buildTransformedContent(
+                imagePath: widget.imagePath,
+                transform: widget.transform,
+                imageAspect: _imageAspect ?? 1.0,
+              ),
+            )
+          : AspectRatio(
+              aspectRatio: widget.transform.aspectRatio.value,
+              child: PostCropPreview.buildTransformedContent(
+                imagePath: widget.imagePath,
+                transform: widget.transform,
+                imageAspect: _imageAspect ?? 1.0,
+              ),
+            ),
     );
   }
 }

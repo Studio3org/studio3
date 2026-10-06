@@ -4,7 +4,9 @@ import 'dart:ui' show Offset, Rect;
 /// Crop frame aspect ratios (width / height).
 enum CropAspectRatio {
   ratio3x4(3 / 4, 'Portrait'),
-  ratio16x9(16 / 9, 'Landscape');
+  ratio16x9(16 / 9, 'Landscape'),
+  ratio9x16(9 / 16, '9:16'),
+  ratio1x1(1, '1:1');
 
   const CropAspectRatio(this.value, this.label);
 

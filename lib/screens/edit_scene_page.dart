@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../models/piece_summary.dart';
 import '../models/post_summary.dart';
@@ -9,6 +8,7 @@ import '../services/piece_service.dart';
 import '../services/post_service.dart';
 import '../theme/home_feed_tokens.dart';
 import '../widgets/studio_loading.dart';
+import '../theme/app_fonts.dart';
 
 class EditScenePage extends StatefulWidget {
   const EditScenePage({super.key, required this.post});
@@ -102,7 +102,7 @@ class _EditScenePageState extends State<EditScenePage> {
           elevation: 0,
           title: Text(
             'Edit scene',
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 18,
               fontWeight: FontWeight.w600,
               color: HomeFeedTokens.textPrimary,
@@ -113,7 +113,7 @@ class _EditScenePageState extends State<EditScenePage> {
               onPressed: _saving ? null : _save,
               child: Text(
                 'Save',
-                style: GoogleFonts.inter(
+                style: AppFonts.inter(
                   fontWeight: FontWeight.w600,
                   color: HomeFeedTokens.textPrimary,
                 ),
@@ -126,7 +126,7 @@ class _EditScenePageState extends State<EditScenePage> {
           children: [
             Text(
               'Caption',
-              style: GoogleFonts.inter(
+              style: AppFonts.inter(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
                 color: HomeFeedTokens.textPrimary.withValues(alpha: 0.6),
@@ -156,7 +156,7 @@ class _EditScenePageState extends State<EditScenePage> {
               const SizedBox(height: 12),
               Text(
                 _error!,
-                style: GoogleFonts.inter(fontSize: 12, color: Colors.red.shade700),
+                style: AppFonts.inter(fontSize: 12, color: Colors.red.shade700),
               ),
             ],
           ],
@@ -182,7 +182,7 @@ class _PiecePicker extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             child: Text(
               'Link to piece',
-              style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600),
+              style: AppFonts.inter(fontSize: 16, fontWeight: FontWeight.w600),
             ),
           ),
           ListTile(

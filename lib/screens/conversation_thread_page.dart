@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../models/chat_message.dart';
@@ -15,7 +14,8 @@ import '../theme/chat_tokens.dart';
 import '../theme/home_feed_tokens.dart';
 import '../widgets/accept_decline_buttons.dart';
 import '../widgets/home_feed/home_feed_widgets.dart';
-import '../widgets/studio_loading.dart';
+import '../widgets/loading/app_skeletons.dart';
+import '../theme/app_fonts.dart';
 
 /// A single 1:1 chat thread — real-time via [ChatSocketService], with REST
 /// ([ChatService]) as the source of truth for history and pagination.
@@ -534,7 +534,7 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
                       children: [
                         Text(
                           widget.otherPartyName,
-                          style: GoogleFonts.inter(
+                          style: AppFonts.inter(
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
                             color: HomeFeedTokens.textPrimary,
@@ -543,7 +543,7 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
                         if (_otherTyping)
                           Text(
                             'typing…',
-                            style: GoogleFonts.inter(
+                            style: AppFonts.inter(
                               fontSize: 12,
                               color: AppColors.slate500,
                             ),
@@ -551,7 +551,7 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
                         else if (_displayUsername.isNotEmpty)
                           Text(
                             _displayUsername,
-                            style: GoogleFonts.inter(
+                            style: AppFonts.inter(
                               fontSize: 12,
                               color: ChatTokens.username,
                             ),
@@ -563,8 +563,11 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
               ),
             ),
             Expanded(
-              child: _loading
-                  ? const StudioLoadingBody()
+              // Header (avatar, name, presence) and the composer stay
+              // put; only the message history placeholds, and only while
+              // there is none to show.
+              child: _loading && _messages.isEmpty
+                  ? const ChatThreadSkeleton()
                   : showEmptyState
                   ? _NewChatEmptyState(
                       avatarUrl: widget.otherPartyAvatarUrl,
@@ -630,7 +633,7 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
                         controller: _textController,
                         minLines: 1,
                         maxLines: 4,
-                        style: GoogleFonts.inter(
+                        style: AppFonts.inter(
                           fontSize: 14,
                           color: AppColors.slate900,
                         ),
@@ -696,7 +699,7 @@ class _DateSeparator extends StatelessWidget {
           ),
           child: Text(
             label,
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 12,
               fontWeight: FontWeight.w500,
               color: AppColors.slate600,
@@ -764,7 +767,7 @@ class _NewChatEmptyState extends StatelessWidget {
             Text(
               name,
               textAlign: TextAlign.center,
-              style: GoogleFonts.inter(
+              style: AppFonts.inter(
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
                 color: HomeFeedTokens.textPrimary,
@@ -775,7 +778,7 @@ class _NewChatEmptyState extends StatelessWidget {
               Text(
                 username,
                 textAlign: TextAlign.center,
-                style: GoogleFonts.inter(
+                style: AppFonts.inter(
                   fontSize: 14,
                   color: ChatTokens.username,
                 ),
@@ -786,7 +789,7 @@ class _NewChatEmptyState extends StatelessWidget {
               Text(
                 stats,
                 textAlign: TextAlign.center,
-                style: GoogleFonts.inter(
+                style: AppFonts.inter(
                   fontSize: 13,
                   color: ChatTokens.emptyStats,
                 ),
@@ -796,7 +799,7 @@ class _NewChatEmptyState extends StatelessWidget {
             Text(
               'Message $name',
               textAlign: TextAlign.center,
-              style: GoogleFonts.inter(
+              style: AppFonts.inter(
                 fontSize: 13,
                 color: ChatTokens.emptyStats,
               ),
@@ -860,7 +863,7 @@ class _MessageBubble extends StatelessWidget {
                       )
                     : Text(
                         message.body ?? '',
-                        style: GoogleFonts.inter(
+                        style: AppFonts.inter(
                           fontSize: 14,
                           color: isMine ? AppColors.white : AppColors.slate800,
                         ),
@@ -873,7 +876,7 @@ class _MessageBubble extends StatelessWidget {
               children: [
                 Text(
                   _formatTime(message.createdAt),
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 11,
                     color: ChatTokens.timestamp,
                   ),

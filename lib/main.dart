@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
+import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'services/auth_session.dart';
@@ -12,15 +14,19 @@ import 'services/chat_socket_service.dart';
 import 'services/deep_link_service.dart';
 import 'services/device_service.dart';
 import 'services/permission_service.dart';
+import 'services/push_router_service.dart';
 import 'services/main_nav_service.dart';
 import 'services/reels_tab_service.dart';
 import 'services/saved_content_store.dart';
 import 'services/user_service.dart';
 import 'utils/app_routes.dart';
 import 'utils/app_state_store.dart';
+import 'utils/open_at_top_observer.dart';
 import 'utils/profile_navigation.dart';
 import 'theme/app_theme.dart';
+import 'theme/app_text_scale.dart';
 import 'widgets/bottom_nav.dart' show BottomNav, BottomNavIndex;
+import 'widgets/post_share_type_sheet.dart';
 import 'screens/login_page.dart';
 import 'screens/signup_page.dart';
 import 'screens/forgot_password_page.dart';
@@ -30,8 +36,10 @@ import 'screens/home_feed_page.dart';
 import 'screens/explore_page.dart';
 import 'screens/reels_page.dart';
 import 'screens/saved_page.dart';
+import 'screens/event_page.dart';
 import 'screens/profile_page.dart';
 import 'screens/post_page.dart';
+import 'screens/scene_post_page.dart';
 import 'screens/inbox_page.dart';
 import 'screens/onboarding/onboarding_page.dart';
 import 'screens/edit_profile_page.dart';
@@ -43,7 +51,9 @@ import 'screens/change_password_page.dart';
 import 'screens/change_email_page.dart';
 import 'screens/notification_preferences_page.dart';
 import 'screens/blocked_users_page.dart';
+import 'screens/my_reports_page.dart';
 import 'screens/privacy_settings_page.dart';
+import 'screens/payout_setup_page.dart';
 import 'models/auth_user.dart';
 import 'models/feed_item.dart';
 import 'theme/home_feed_tokens.dart';
@@ -51,8 +61,33 @@ import 'utils/scrolls_to_top_on_double_tap.dart';
 import 'utils/snappy_page_physics.dart';
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  final widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+  // Keeps the native/web launch splash on screen through the async setup
+  // below — without this, the generated splash (see web/index.html's
+  // #splash element) never gets its removal signal on web, and just
+  // sits there forever even once the app underneath is fully interactive.
+  FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
   await dotenv.load(fileName: '.env');
+
+  // Publishable key only — it is safe to ship, and it is what lets the Stripe
+  // SDK talk to Stripe directly so card data never reaches our backend. Absent
+  // key just means checkout is unavailable, not a crash on launch.
+  //
+  // flutter_stripe only ships platform channel implementations for
+  // android/ios/web — on desktop (Windows/macOS/Linux) applySettings() throws
+  // MissingPluginException. Uncaught, that exception happens before runApp(),
+  // so the app never gets past the launch splash. Caught here the same way
+  // Firebase's init is below: checkout just becomes unavailable on desktop
+  // instead of hanging the whole app on launch.
+  final stripeKey = dotenv.env['STRIPE_PUBLISHABLE_KEY']?.trim() ?? '';
+  if (stripeKey.isNotEmpty) {
+    try {
+      Stripe.publishableKey = stripeKey;
+      await Stripe.instance.applySettings();
+    } catch (e) {
+      debugPrint('Stripe unavailable on this platform: $e');
+    }
+  }
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
   ]);
@@ -72,32 +107,55 @@ Future<void> main() async {
   } catch (e) {
     debugPrint('Firebase unavailable (no config yet?): $e');
   }
-  await _preloadInterFont();
+  await _loadBundledFonts();
   runApp(const Studio3App());
+  FlutterNativeSplash.remove();
 }
 
-/// Requests every Inter weight the app uses and waits for them to finish
-/// loading before the first frame paints — otherwise the very first time
-/// each weight is used in a session (e.g. Home's header right after login),
-/// Flutter briefly paints a fallback system font whose slightly different
-/// metrics can trip a `RenderFlex` overflow in tightly-fitted layouts (see
-/// `_UnderlinedFilterTab` in `widgets/home_feed/home_feed_widgets.dart`).
-/// Bounded by a timeout so a genuinely offline first launch can't hang
-/// startup — it just falls back to the system font for that session.
-Future<void> _preloadInterFont() async {
+/// Loads every Inter/Geist weight the app uses from the asset bundle
+/// before the first frame paints.
+///
+/// Two reasons this has to happen up front. The first is metrics: the very
+/// first use of a weight in a session would otherwise paint in a fallback
+/// system font whose slightly different metrics can trip a `RenderFlex`
+/// overflow in tightly-fitted layouts (see `_FeedTypeDropdown` in
+/// `widgets/home_feed/home_feed_widgets.dart`). The second is latency —
+/// and it is why [GoogleFonts.config.allowRuntimeFetching] is off.
+///
+/// With runtime fetching enabled and nothing bundled (how this used to
+/// work), `google_fonts` downloads each family+weight from
+/// fonts.gstatic.com the first time a widget asks for it. The preload here
+/// gave up after 3 seconds, so on a cold or slow network most weights were
+/// still missing when the app started, and every screen that later
+/// introduced a new weight paid for that download mid-interaction — the
+/// Tickets step revealing its "Ticket Tiers" section on tapping "Yes" being
+/// the worst of them, at several seconds before the tap looked like it had
+/// registered.
+///
+/// The fonts now ship in `assets/google_fonts/`, so this resolves from disk
+/// and no text in the app ever waits on the network. Disabling runtime
+/// fetching is what keeps it honest: a weight that isn't bundled throws
+/// here rather than quietly reintroducing the stall.
+Future<void> _loadBundledFonts() async {
+  GoogleFonts.config.allowRuntimeFetching = false;
   for (final weight in const [
     FontWeight.w300,
     FontWeight.w400,
     FontWeight.w500,
     FontWeight.w600,
     FontWeight.w700,
+    FontWeight.w800,
   ]) {
     GoogleFonts.inter(fontWeight: weight);
+    GoogleFonts.geist(fontWeight: weight);
   }
   try {
-    await GoogleFonts.pendingFonts().timeout(const Duration(seconds: 3));
-  } catch (_) {
-    // Offline/slow first launch — proceed with the fallback font.
+    await GoogleFonts.pendingFonts();
+  } catch (e) {
+    // Asset loads don't hit the network, so this only fires if a weight is
+    // missing from the bundle — surface it rather than shipping a silent
+    // fallback-font regression.
+    debugPrint('Bundled font load failed: $e');
   }
 }
 
@@ -111,8 +169,24 @@ class Studio3App extends StatelessWidget {
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       themeMode: ThemeMode.light,
+      // Defense in depth for emoji rendering (see theme/app_fonts.dart for the actual
+      // fix): AppFonts.inter/.geist already carry the fallback themselves, but this
+      // still covers a Text widget with no style at all, or one built from
+      // GoogleFonts directly rather than AppFonts — Text.build() merges its own style
+      // onto this ambient one, keeping this fallback for any field the widget's own
+      // style leaves unset.
+      builder: (context, child) {
+        final media = MediaQuery.of(context);
+        return MediaQuery(
+          data: media.copyWith(textScaler: AppTextScale.scalerOf(media)),
+          child: DefaultTextStyle.merge(
+            style: const TextStyle(fontFamilyFallback: AppTheme.emojiFallback),
+            child: child!,
+          ),
+        );
+      },
       initialRoute: resolveInitialRoute(),
-      navigatorObservers: [routeObserver],
+      navigatorObservers: [routeObserver, OpenAtTopObserver()],
       routes: {
         '/': (context) => const AuthGate(
               child: MainShell(),
@@ -128,6 +202,7 @@ class Studio3App extends StatelessWidget {
           );
         },
         '/profile-settings': (context) => const ProfileSettingsPage(),
+        '/payout-setup': (context) => const PayoutSetupPage(),
         '/manage-series': (context) => const ManageSeriesPage(),
         '/edit-profile': (context) => const EditProfilePage(),
         '/addresses': (context) => const AddressListPage(),
@@ -138,6 +213,7 @@ class Studio3App extends StatelessWidget {
         '/notification-preferences': (context) => const NotificationPreferencesPage(),
         '/privacy-settings': (context) => const PrivacySettingsPage(),
         '/blocked-users': (context) => const BlockedUsersPage(),
+        '/my-reports': (context) => const MyReportsPage(),
         '/profile': (context) {
           final args = parseProfileRouteArgs(
             ModalRoute.of(context)?.settings.arguments,
@@ -148,7 +224,12 @@ class Studio3App extends StatelessWidget {
             viewerMode: args.viewerMode,
           );
         },
-        '/post': (context) => const PostPage(),
+        '/post': (context) {
+          final type = ModalRoute.of(context)?.settings.arguments as String?;
+          if (type == 'scene') return const ScenePostPage();
+          return const PostPage();
+        },
+        '/saved': (context) => const SavedPage(),
         // Inquiries deferred to v2 — legacy /chat route redirects to Conversations inbox.
         '/chat': (context) => const InboxPage(initialTab: InboxTab.chats),
         '/inbox': (context) {
@@ -187,6 +268,7 @@ class _AuthGateState extends State<AuthGate> {
   void dispose() {
     AuthSession.instance.removeListener(_onSessionChanged);
     DeepLinkService.instance.dispose();
+    PushRouterService.instance.dispose();
     super.dispose();
   }
 
@@ -197,8 +279,14 @@ class _AuthGateState extends State<AuthGate> {
     final session = AuthSession.instance;
     if (session.isLoggedIn && !_deviceRegistered) {
       _deviceRegistered = true;
-      DeviceService.instance.registerCurrentDevice();
-      PermissionService.instance.requestNotifications();
+      // Permission first, registration second — and that order matters on iOS. Asking APNs
+      // for a token before the user has authorised notifications returns null, so
+      // registerCurrentDevice() silently did nothing on a first install and the device
+      // stayed unregistered until the app was launched a second time.
+      PermissionService.instance.requestNotifications().whenComplete(() {
+        DeviceService.instance.registerCurrentDevice();
+      });
+      PushRouterService.instance.start(context);
       ChatSocketService.instance.connect();
       ConnectivityService.instance.addReconnectHook(() async {
         ChatSocketService.instance.connect();
@@ -249,17 +337,13 @@ class MainShell extends StatefulWidget {
 }
 
 class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
-  // Page indices for the single swipeable Home/Discover/Reels/Saved
-  // sequence. Home is one page (its "All"/"Available" tabs switch by
-  // tapping only, entirely within that page — see `HomePage`), so a
-  // left/right swipe flows continuously between these 4 top-level
-  // sections. Profile is deliberately NOT one of these pages — it's shown
-  // as a tap-only overlay (see `_showProfile`) so it can never be swiped
-  // into or out of.
+  // Page indices for the swipeable Home / Explore / Event sequence.
+  // Post opens as a pushed route; Profile is a tap-only overlay so it
+  // can never be swiped into. Reels stay as an overlay opened from
+  // video content, not a bottom-nav tab.
   static const _kHomePage = 0;
   static const _kDiscoverPage = 1;
-  static const _kReelsPage = 2;
-  static const _kSavedPage = 3;
+  static const _kEventPage = 2;
 
   // How long after a nav-icon tap a second tap on the same (already active)
   // icon still counts as a double-tap → scroll-to-top-and-refresh.
@@ -273,9 +357,9 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   // auth-session change via the shared setState scope).
   final ValueNotifier<int> _selectedNavIndex =
       ValueNotifier(BottomNavIndex.home);
-  late final ValueNotifier<bool> _reelsActive =
-      ValueNotifier(_selectedNavIndex.value == BottomNavIndex.reels);
+  late final ValueNotifier<bool> _reelsActive = ValueNotifier(false);
   final ValueNotifier<bool> _showProfile = ValueNotifier(false);
+  final ValueNotifier<bool> _showReels = ValueNotifier(false);
   final ValueNotifier<ReelsJumpRequest?> _reelsJumpRequest = ValueNotifier(
     null,
   );
@@ -295,7 +379,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   final GlobalKey<State<StatefulWidget>> _homeKey = GlobalKey();
   final GlobalKey<State<StatefulWidget>> _exploreKey = GlobalKey();
   final GlobalKey<State<StatefulWidget>> _reelsKey = GlobalKey();
-  final GlobalKey<State<StatefulWidget>> _savedKey = GlobalKey();
+  final GlobalKey<State<StatefulWidget>> _eventKey = GlobalKey();
   final GlobalKey<State<StatefulWidget>> _profileKey = GlobalKey();
 
   // Built once — every page widget is `const` where possible so this list
@@ -303,12 +387,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   late final List<Widget> _pages = [
     HomePage(key: _homeKey, store: _homeFeedStore),
     ExplorePage(key: _exploreKey),
-    ReelsPage(
-      key: _reelsKey,
-      activeListenable: _reelsActive,
-      jumpRequests: _reelsJumpRequest,
-    ),
-    SavedPage(key: _savedKey),
+    EventPage(key: _eventKey),
   ];
 
   @override
@@ -332,6 +411,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     _selectedNavIndex.dispose();
     _reelsActive.dispose();
     _showProfile.dispose();
+    _showReels.dispose();
     _reelsJumpRequest.dispose();
     _pageController.dispose();
     _homeFeedStore.dispose();
@@ -345,7 +425,9 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   void _openReelsTab(List<FeedItem> items, int index) {
     Navigator.of(context).popUntil((route) => route.isFirst);
     _reelsJumpRequest.value = ReelsJumpRequest(items: items, index: index);
-    _onNavTap(BottomNavIndex.reels);
+    _showProfile.value = false;
+    _showReels.value = true;
+    _reelsActive.value = true;
   }
 
   void _goHome() {
@@ -362,7 +444,9 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   }
 
   void _onNavIndexChanged() {
-    _reelsActive.value = _selectedNavIndex.value == BottomNavIndex.reels;
+    if (!_showReels.value) {
+      _reelsActive.value = false;
+    }
   }
 
   void _onSessionChanged() {
@@ -389,17 +473,17 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
         return BottomNavIndex.home;
       case _kDiscoverPage:
         return BottomNavIndex.discover;
-      case _kReelsPage:
-        return BottomNavIndex.reels;
-      case _kSavedPage:
+      case _kEventPage:
       default:
-        return BottomNavIndex.bookmark;
+        return BottomNavIndex.event;
     }
   }
 
   void _onPageChanged(int page) {
     // Covers swipe-to-switch too, not just bottom-nav taps (see _onNavTap).
     FocusManager.instance.primaryFocus?.unfocus();
+    _showReels.value = false;
+    _reelsActive.value = false;
     _currentPage = page;
     final navIndex = _navIndexForPage(page);
     _selectedNavIndex.value = navIndex;
@@ -430,6 +514,14 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       return;
     }
 
+    if (navIndex == BottomNavIndex.post) {
+      PostShareTypeSheet.showAndOpenPost(context);
+      return;
+    }
+
+    _showReels.value = false;
+    _reelsActive.value = false;
+
     if (navIndex == BottomNavIndex.profile) {
       _showProfile.value = true;
       _selectedNavIndex.value = BottomNavIndex.profile;
@@ -441,8 +533,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     final targetPage = switch (navIndex) {
       BottomNavIndex.home => _kHomePage,
       BottomNavIndex.discover => _kDiscoverPage,
-      BottomNavIndex.reels => _kReelsPage,
-      BottomNavIndex.bookmark => _kSavedPage,
+      BottomNavIndex.event => _kEventPage,
       _ => _currentPage,
     };
     _selectedNavIndex.value = navIndex;
@@ -460,8 +551,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     final key = switch (navIndex) {
       BottomNavIndex.home => _homeKey,
       BottomNavIndex.discover => _exploreKey,
-      BottomNavIndex.reels => _reelsKey,
-      BottomNavIndex.bookmark => _savedKey,
+      BottomNavIndex.event => _eventKey,
       BottomNavIndex.profile => _profileKey,
       _ => null,
     };
@@ -485,6 +575,20 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
           // Offstage (not a conditional widget swap) so ProfilePage stays
           // mounted the whole session — its own data/scroll state survives
           // being hidden, same as it did as an IndexedStack child before.
+          Positioned.fill(
+            child: ValueListenableBuilder<bool>(
+              valueListenable: _showReels,
+              builder: (context, show, child) => Offstage(
+                offstage: !show,
+                child: child,
+              ),
+              child: ReelsPage(
+                key: _reelsKey,
+                activeListenable: _reelsActive,
+                jumpRequests: _reelsJumpRequest,
+              ),
+            ),
+          ),
           Positioned.fill(
             child: ValueListenableBuilder<bool>(
               valueListenable: _showProfile,

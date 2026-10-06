@@ -5,7 +5,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:photo_manager/photo_manager.dart';
 
 import '../data/post_media_assets.dart';
 import '../models/post_image_transform.dart';
@@ -14,6 +14,11 @@ import '../utils/crop_cover_math.dart'
     show CropAspectRatio, CropCoverMath, CropFitMode;
 import '../utils/image_adjust_math.dart';
 import '../widgets/post_crop_preview.dart';
+import 'piece_scene_style_editor.dart';
+import '../theme/app_fonts.dart';
+
+part 'post_image_editor_page.dart';
+
 /// Image edit step — posting flow (Figma 1961:1453 / 1973:1223 / 1986:1416).
 class PostEditPage extends StatefulWidget {
   const PostEditPage({
@@ -23,6 +28,7 @@ class PostEditPage extends StatefulWidget {
     this.initialImageIndex = 0,
     this.initialTransforms,
     this.onClose,
+    this.onPickMore,
     this.onNext,
   });
 
@@ -31,11 +37,19 @@ class PostEditPage extends StatefulWidget {
   final int initialImageIndex;
   final List<PostImageTransform>? initialTransforms;
   final VoidCallback? onClose;
+
+  /// Piece flow only — "+" tile on the cover-reorder strip. Given how many
+  /// more images can still be picked, returns the full updated asset
+  /// selection (or null if the user cancelled) — the cover screen then
+  /// merges it into the existing images without losing any edits already
+  /// made (Figma 2716:5774).
+  final Future<List<AssetEntity>?> Function(int remainingSlots)? onPickMore;
   final void Function(
     List<String> imagePaths,
     List<PostImageTransform> transforms,
     int previewImageIndex,
-  )? onNext;
+  )?
+  onNext;
 
   @override
   State<PostEditPage> createState() => _PostEditPageState();
@@ -86,13 +100,17 @@ class _PostEditPageState extends State<PostEditPage> {
   void initState() {
     super.initState();
     _imagePaths = List<String>.from(widget.customImagePaths ?? const []);
-    _transforms = widget.initialTransforms != null &&
+    _transforms =
+        widget.initialTransforms != null &&
             widget.initialTransforms!.length == _imagePaths.length
         ? widget.initialTransforms!.map((t) => t.copy()).toList()
         : List.generate(
             _imagePaths.length,
-            (_) => PostImageTransform(),
+            (_) => PostImageTransform(aspectRatio: CropAspectRatio.ratio3x4),
           );
+    for (final t in _transforms) {
+      t.aspectRatio = CropAspectRatio.ratio3x4;
+    }
     _activeImageIndex = widget.initialImageIndex.clamp(
       0,
       _imagePaths.length - 1,
@@ -108,9 +126,7 @@ class _PostEditPageState extends State<PostEditPage> {
       ui.Image? decoded;
       if (path.startsWith('assets/')) {
         final data = await rootBundle.load(path);
-        final codec = await ui.instantiateImageCodec(
-          data.buffer.asUint8List(),
-        );
+        final codec = await ui.instantiateImageCodec(data.buffer.asUint8List());
         final frame = await codec.getNextFrame();
         decoded = frame.image;
       } else {
@@ -242,8 +258,7 @@ class _PostEditPageState extends State<PostEditPage> {
       _editTool = 'crop';
       if (tool == CropSubTool.rotate) {
         _activeCropSubTool = CropSubTool.rotate;
-        _showRotationValue =
-            _currentTransform.rotationDegrees.abs() > 0.01;
+        _showRotationValue = _currentTransform.rotationDegrees.abs() > 0.01;
         return;
       }
       if (tool == CropSubTool.flipHorizontal) {
@@ -282,7 +297,10 @@ class _PostEditPageState extends State<PostEditPage> {
       widget.onNext!(
         List<String>.from(_imagePaths),
         _transforms.map((t) => t.copy()).toList(),
-        _activeImageIndex,
+        // Pieces always publish the whole gallery with index 0 as the cover
+        // (see "Set your cover", Figma 2716:5774) — the preview index isn't
+        // "whatever the user was last looking at", it's always the cover.
+        widget.postType == 'piece' ? 0 : _activeImageIndex,
       );
       return;
     }
@@ -314,7 +332,11 @@ class _PostEditPageState extends State<PostEditPage> {
   /// — Fill shows the true filled-edge-to-edge output (pannable/pinchable
   /// in crop mode), Fit shows the true letterboxed output (never
   /// interactive) — see `PostCropPreview.buildTransformedContent`.
-  Size _cropFrameSize(double maxWidth, double maxHeight, CropAspectRatio ratio) {
+  Size _cropFrameSize(
+    double maxWidth,
+    double maxHeight,
+    CropAspectRatio ratio,
+  ) {
     var width = maxWidth;
     var height = width / ratio.value;
     if (height > maxHeight) {
@@ -324,8 +346,20 @@ class _PostEditPageState extends State<PostEditPage> {
     return Size(width, height);
   }
 
+  void _reorderImages(int oldIndex, int newIndex) {
+    setState(() {
+      if (newIndex > oldIndex) newIndex -= 1;
+      final activePath = _imagePaths[_activeImageIndex];
+      _imagePaths.insert(newIndex, _imagePaths.removeAt(oldIndex));
+      _transforms.insert(newIndex, _transforms.removeAt(oldIndex));
+      _activeImageIndex = _imagePaths.indexOf(activePath);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (widget.postType == 'piece') return _buildPieceCoverFlow(context);
+
     final topInset = MediaQuery.paddingOf(context).top;
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     final hasMultiple = _imagePaths.length > 1;
@@ -340,11 +374,14 @@ class _PostEditPageState extends State<PostEditPage> {
     // `PostImageTransform.resolvedCropRect`), and outside crop mode this
     // just shows the real, non-interactive result.
     final isInteractive = isFillMode && _isCropMode;
-    final viewportSize =
-        _cropFrameSize(maxCropWidth, maxCropHeight, _currentTransform.aspectRatio);
+    final viewportSize = _cropFrameSize(
+      maxCropWidth,
+      maxCropHeight,
+      _currentTransform.aspectRatio,
+    );
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: HomeFeedTokens.background,
       body: Column(
         children: [
           _EditBanner(
@@ -438,7 +475,7 @@ class _PostEditPageState extends State<PostEditPage> {
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(
                           color: active
-                              ? HomeFeedTokens.textInverse
+                              ? HomeFeedTokens.textPrimary
                               : Colors.transparent,
                           width: 2,
                         ),
@@ -538,7 +575,9 @@ class _PostEditPageState extends State<PostEditPage> {
               const SizedBox(height: 8),
               Center(
                 child: _AdjustDial(
-                  value: _currentTransform.adjustValueFor(_activeAdjustSubTool!),
+                  value: _currentTransform.adjustValueFor(
+                    _activeAdjustSubTool!,
+                  ),
                   onChanged: _onAdjustValueChanged,
                   onDragEnd: _onAdjustDragEnd,
                 ),
@@ -571,6 +610,185 @@ class _PostEditPageState extends State<PostEditPage> {
       ),
     );
   }
+
+  static const _piecesMaxSelection = 5;
+
+  Future<void> _openImageEditor() async {
+    final path = _imagePaths[_activeImageIndex];
+    final result = await Navigator.push<PostImageTransform>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PieceSceneStyleEditor(
+          imagePath: path,
+          transform: _transforms[_activeImageIndex],
+          imageAspect: _aspectForPath(path),
+        ),
+      ),
+    );
+    if (result != null && mounted) {
+      setState(() => _transforms[_activeImageIndex] = result);
+    }
+  }
+
+  /// Piece cover-selection step: all picked photos, reorder, then the
+  /// pencil opens Fit/Fill · Crop · Adjust for that image.
+  Widget _buildPieceCoverFlow(BuildContext context) {
+    final topInset = MediaQuery.paddingOf(context).top;
+
+    return Scaffold(
+      backgroundColor: HomeFeedTokens.background,
+      body: Column(
+        children: [
+          _SetCoverBanner(
+            topInset: topInset,
+            onBack: widget.onClose ?? () => Navigator.pop(context),
+            onNext: _openCreatePage,
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(24, 36, 24, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(_previewRadius),
+                    child: AspectRatio(
+                      aspectRatio: 3 / 4,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          IgnorePointer(
+                            child: PostCropPreview.buildTransformedContent(
+                              imagePath: _imagePaths[_activeImageIndex],
+                              transform: _currentTransform,
+                              imageAspect:
+                                  _aspectForPath(_imagePaths[_activeImageIndex]),
+                            ),
+                          ),
+                          if (_activeImageIndex == 0)
+                            const Positioned(
+                              left: 8,
+                              top: 8,
+                              child: _CoverPillBadge(
+                                text: 'Cover',
+                                opacity: 0.6,
+                              ),
+                            ),
+                          Positioned(
+                            right: 8,
+                            bottom: 8,
+                            child: _CoverPillBadge(
+                              text:
+                                  '${_activeImageIndex + 1}/${_imagePaths.length}',
+                              opacity: 0.3,
+                            ),
+                          ),
+                          Positioned(
+                            top: 8,
+                            right: 8,
+                            child: GestureDetector(
+                              onTap: _openImageEditor,
+                              behavior: HitTestBehavior.opaque,
+                              child: Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.4),
+                                  shape: BoxShape.circle,
+                                ),
+                                alignment: Alignment.center,
+                                child: SvgPicture.asset(
+                                  PostMediaAssets.createPencilIcon,
+                                  width: 14,
+                                  height: 14,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Drag to reorder',
+                    style: AppFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                      color: HomeFeedTokens.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: 76,
+                    child: _CoverReorderStrip(
+                      imagePaths: _imagePaths,
+                      transforms: _transforms,
+                      activeIndex: _activeImageIndex,
+                      onTapImage: (index) => setState(() {
+                        _activeImageIndex = index;
+                      }),
+                      onReorder: _reorderImages,
+                      onAddMore: _imagePaths.length < _piecesMaxSelection
+                          ? _pickMoreImages
+                          : null,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Merges newly-picked assets into the existing gallery by resolved file
+  /// path — images still present keep their existing (and possibly edited)
+  /// transform and relative order; only genuinely new picks get a fresh
+  /// [PostImageTransform] (Figma 2716:5774's "+" tile).
+  Future<void> _pickMoreImages() async {
+    final onPickMore = widget.onPickMore;
+    if (onPickMore == null) return;
+    final remaining = _piecesMaxSelection - _imagePaths.length;
+    if (remaining <= 0) return;
+    final assets = await onPickMore(remaining);
+    if (assets == null || !mounted) return;
+
+    final newPaths = <String>[];
+    for (final asset in assets) {
+      final file = await asset.file;
+      if (file != null) newPaths.add(file.path);
+    }
+    if (!mounted) return;
+
+    final activePath = _imagePaths.isNotEmpty
+        ? _imagePaths[_activeImageIndex]
+        : null;
+    final oldPaths = List<String>.from(_imagePaths);
+    final oldTransforms = List<PostImageTransform>.from(_transforms);
+    final mergedTransforms = newPaths.map((path) {
+      final existingIndex = oldPaths.indexOf(path);
+      return existingIndex >= 0
+          ? oldTransforms[existingIndex]
+          : PostImageTransform(aspectRatio: CropAspectRatio.ratio3x4);
+    }).toList();
+
+    setState(() {
+      _imagePaths
+        ..clear()
+        ..addAll(newPaths);
+      _transforms
+        ..clear()
+        ..addAll(mergedTransforms);
+      _activeImageIndex = activePath != null && _imagePaths.contains(activePath)
+          ? _imagePaths.indexOf(activePath)
+          : 0;
+    });
+    for (final path in newPaths.toSet()) {
+      _loadImageAspect(path);
+    }
+  }
 }
 
 class _CenteredThumbStrip extends StatelessWidget {
@@ -586,7 +804,8 @@ class _CenteredThumbStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final contentWidth = itemCount * _PostEditPageState._thumbSize +
+        final contentWidth =
+            itemCount * _PostEditPageState._thumbSize +
             (itemCount - 1) * _PostEditPageState._thumbGap;
 
         if (contentWidth <= constraints.maxWidth) {
@@ -595,7 +814,8 @@ class _CenteredThumbStrip extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 for (var index = 0; index < itemCount; index++) ...[
-                  if (index > 0) const SizedBox(width: _PostEditPageState._thumbGap),
+                  if (index > 0)
+                    const SizedBox(width: _PostEditPageState._thumbGap),
                   itemBuilder(context, index),
                 ],
               ],
@@ -617,10 +837,7 @@ class _CenteredThumbStrip extends StatelessWidget {
 }
 
 class _EditResetDoneRow extends StatelessWidget {
-  const _EditResetDoneRow({
-    required this.onReset,
-    required this.onDone,
-  });
+  const _EditResetDoneRow({required this.onReset, required this.onDone});
 
   static const _errorRed = Color(0xFFC03030);
 
@@ -637,7 +854,7 @@ class _EditResetDoneRow extends StatelessWidget {
           behavior: HitTestBehavior.opaque,
           child: Text(
             'RESET',
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 11,
               fontWeight: FontWeight.w500,
               color: _errorRed,
@@ -650,7 +867,7 @@ class _EditResetDoneRow extends StatelessWidget {
           behavior: HitTestBehavior.opaque,
           child: Text(
             'DONE',
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 11,
               fontWeight: FontWeight.w500,
               color: HomeFeedTokens.textInverse,
@@ -664,10 +881,7 @@ class _EditResetDoneRow extends StatelessWidget {
 }
 
 class _EditThumbPreview extends StatelessWidget {
-  const _EditThumbPreview({
-    required this.assetPath,
-    required this.transform,
-  });
+  const _EditThumbPreview({required this.assetPath, required this.transform});
 
   final String assetPath;
   final PostImageTransform transform;
@@ -701,10 +915,7 @@ class _EditThumbPreview extends StatelessWidget {
 /// for the mode a tap would switch *to* (Fit mode shows the Fill icon, and
 /// vice versa) — no existing custom SVG for this, so plain Material icons.
 class _FitFillToggleButton extends StatelessWidget {
-  const _FitFillToggleButton({
-    required this.fitMode,
-    required this.onTap,
-  });
+  const _FitFillToggleButton({required this.fitMode, required this.onTap});
 
   final CropFitMode fitMode;
   final VoidCallback onTap;
@@ -724,7 +935,9 @@ class _FitFillToggleButton extends StatelessWidget {
           border: Border.all(color: Colors.white24, width: 1),
         ),
         child: Icon(
-          switchingToFill ? Icons.fullscreen_rounded : Icons.fit_screen_outlined,
+          switchingToFill
+              ? Icons.fullscreen_rounded
+              : Icons.fit_screen_outlined,
           color: Colors.white,
           size: 20,
         ),
@@ -749,7 +962,7 @@ class _PreviewValueOverlay extends StatelessWidget {
         ),
         child: Text(
           text,
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 28,
             fontWeight: FontWeight.w500,
             color: HomeFeedTokens.textInverse,
@@ -878,10 +1091,7 @@ class _AdjustToolButton extends StatelessWidget {
 }
 
 class _CropAspectSelector extends StatelessWidget {
-  const _CropAspectSelector({
-    required this.selected,
-    required this.onSelected,
-  });
+  const _CropAspectSelector({required this.selected, required this.onSelected});
 
   static const _selectorBg = Color(0xE6231F1B);
 
@@ -901,14 +1111,16 @@ class _CropAspectSelector extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            for (final ratio in CropAspectRatio.values) ...[
+            for (final ratio in const [
+              CropAspectRatio.ratio3x4,
+              CropAspectRatio.ratio16x9,
+            ]) ...[
               _CropAspectChip(
                 label: ratio.label,
                 selected: selected == ratio,
                 onTap: () => onSelected(ratio),
               ),
-              if (ratio != CropAspectRatio.values.last)
-                const SizedBox(width: 4),
+              if (ratio != CropAspectRatio.ratio16x9) const SizedBox(width: 4),
             ],
           ],
         ),
@@ -945,7 +1157,7 @@ class _CropAspectChip extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 15,
             fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
             color: selected ? HomeFeedTokens.textInverse : _textSecondary,
@@ -1173,70 +1385,70 @@ class _EditBanner extends StatelessWidget {
     required this.topInset,
     required this.onClose,
     required this.onNext,
+    this.nextLabel = 'Next',
   });
 
   static const _bannerHeight = 64.0;
-  static const _neutral300 = Color(0xFFC8C5BC);
 
   final double topInset;
   final VoidCallback onClose;
   final VoidCallback onNext;
+  final String nextLabel;
 
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: Colors.black,
+      color: HomeFeedTokens.background,
       child: Padding(
         padding: EdgeInsets.only(top: topInset),
         child: SizedBox(
           height: _bannerHeight,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-            child: Row(
+            child: Stack(
+              alignment: Alignment.center,
               children: [
-                GestureDetector(
-                  onTap: onClose,
-                  behavior: HitTestBehavior.opaque,
-                  child: SvgPicture.asset(
-                    PostMediaAssets.closeIcon,
-                    width: 14,
-                    height: 14,
-                  ),
-                ),
-                Expanded(
-                  child: Center(
-                    child: Text(
-                      'Edit',
-                      style: GoogleFonts.inter(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: HomeFeedTokens.textInverse,
-                      ),
-                    ),
-                  ),
-                ),
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: onNext,
-                    borderRadius: BorderRadius.circular(100),
-                    child: Container(
-                      width: 76,
-                      height: 40,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: _neutral300,
-                        borderRadius: BorderRadius.circular(100),
-                      ),
-                      child: Text(
-                        'Next',
-                        style: GoogleFonts.inter(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: HomeFeedTokens.textPrimary,
+                Row(
+                  children: [
+                    GestureDetector(
+                      onTap: onClose,
+                      behavior: HitTestBehavior.opaque,
+                      child: SvgPicture.asset(
+                        PostMediaAssets.closeIcon,
+                        width: 14,
+                        height: 14,
+                        colorFilter: const ColorFilter.mode(
+                          HomeFeedTokens.textPrimary,
+                          BlendMode.srcIn,
                         ),
                       ),
                     ),
+                    const Spacer(),
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: onNext,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: Text(
+                            nextLabel,
+                            style: AppFonts.inter(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: HomeFeedTokens.textPrimary,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                Text(
+                  'Edit',
+                  style: AppFonts.inter(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: HomeFeedTokens.textPrimary,
                   ),
                 ),
               ],
@@ -1249,10 +1461,7 @@ class _EditBanner extends StatelessWidget {
 }
 
 class _EditToolSelector extends StatelessWidget {
-  const _EditToolSelector({
-    required this.editTool,
-    required this.onChanged,
-  });
+  const _EditToolSelector({required this.editTool, required this.onChanged});
 
   static const _selectorBg = Color(0xE6231F1B);
 
@@ -1309,7 +1518,7 @@ class _EditToolTab extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       child: Text(
         label,
-        style: GoogleFonts.inter(
+        style: AppFonts.inter(
           fontSize: 15,
           fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
           color: selected ? HomeFeedTokens.textInverse : _textSecondary,
@@ -1317,4 +1526,244 @@ class _EditToolTab extends StatelessWidget {
       ),
     );
   }
+}
+
+class _SetCoverBanner extends StatelessWidget {
+  const _SetCoverBanner({
+    required this.topInset,
+    required this.onBack,
+    required this.onNext,
+  });
+
+  static const _bannerHeight = 64.0;
+
+  final double topInset;
+  final VoidCallback onBack;
+  final VoidCallback onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: HomeFeedTokens.background,
+      child: Padding(
+        padding: EdgeInsets.only(top: topInset),
+        child: SizedBox(
+          height: _bannerHeight,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Row(
+                  children: [
+                    GestureDetector(
+                      onTap: onBack,
+                      behavior: HitTestBehavior.opaque,
+                      child: SvgPicture.asset(
+                        PostMediaAssets.chevronBack,
+                        width: 8,
+                        height: 14,
+                        colorFilter: const ColorFilter.mode(
+                          HomeFeedTokens.textPrimary,
+                          BlendMode.srcIn,
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: onNext,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: Text(
+                            'Next',
+                            style: AppFonts.inter(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: HomeFeedTokens.textPrimary,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                Text(
+                  'Set your cover',
+                  style: AppFonts.inter(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: HomeFeedTokens.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CoverPillBadge extends StatelessWidget {
+  const _CoverPillBadge({required this.text, required this.opacity});
+
+  final String text;
+  final double opacity;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: HomeFeedTokens.textPrimary.withValues(alpha: opacity),
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: Text(
+        text,
+        style: AppFonts.inter(
+          fontSize: 11,
+          fontWeight: FontWeight.w400,
+          color: HomeFeedTokens.textInverse,
+        ),
+      ),
+    );
+  }
+}
+
+/// Drag-to-reorder strip of picked images plus a trailing "add more" tile —
+/// the first image is always the post's cover (Figma 2716:5774/5973).
+class _CoverReorderStrip extends StatelessWidget {
+  const _CoverReorderStrip({
+    required this.imagePaths,
+    required this.transforms,
+    required this.activeIndex,
+    required this.onTapImage,
+    required this.onReorder,
+    required this.onAddMore,
+  });
+
+  static const _tileWidth = 60.0;
+  static const _tileHeight = 76.0;
+  static const _gap = 8.0;
+
+  final List<String> imagePaths;
+  final List<PostImageTransform> transforms;
+  final int activeIndex;
+  final ValueChanged<int> onTapImage;
+  final void Function(int oldIndex, int newIndex) onReorder;
+  final VoidCallback? onAddMore;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: ReorderableListView.builder(
+            scrollDirection: Axis.horizontal,
+            proxyDecorator: (child, index, animation) =>
+                Material(color: Colors.transparent, child: child),
+            itemCount: imagePaths.length,
+            onReorder: onReorder,
+            itemBuilder: (context, index) {
+              final path = imagePaths[index];
+              final active = index == activeIndex;
+              return Padding(
+                key: ValueKey(path),
+                padding: EdgeInsets.only(
+                  right: index == imagePaths.length - 1 ? 0 : _gap,
+                ),
+                child: GestureDetector(
+                  onTap: () => onTapImage(index),
+                  child: Container(
+                    width: _tileWidth,
+                    height: _tileHeight,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: active
+                            ? HomeFeedTokens.textPrimary
+                            : Colors.transparent,
+                        width: 2,
+                      ),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: _EditThumbPreview(
+                        assetPath: path,
+                        transform: transforms[index],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        if (onAddMore != null) ...[
+          const SizedBox(width: _gap),
+          GestureDetector(
+            onTap: onAddMore,
+            behavior: HitTestBehavior.opaque,
+            child: CustomPaint(
+              painter: const _DashedRoundedBorderPainter(
+                color: HomeFeedTokens.textSecondary,
+              ),
+              child: SizedBox(
+                width: _tileWidth,
+                height: _tileHeight,
+                child: Center(
+                  child: SvgPicture.asset(
+                    PostMediaAssets.coverAddIcon,
+                    width: 22,
+                    height: 22,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// Dashed rounded-rect border for the "add more" tile — Flutter's
+/// [BoxDecoration] has no dashed-border support, so this walks the rect's
+/// path in fixed-length segments (Figma 2716:5978).
+class _DashedRoundedBorderPainter extends CustomPainter {
+  const _DashedRoundedBorderPainter({required this.color});
+
+  final Color color;
+
+  static const _radius = 8.0;
+  static const _dashWidth = 4.0;
+  static const _dashGap = 3.0;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rrect = RRect.fromRectAndRadius(
+      Offset.zero & size,
+      const Radius.circular(_radius),
+    );
+    final path = Path()..addRRect(rrect);
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+
+    for (final metric in path.computeMetrics()) {
+      var distance = 0.0;
+      while (distance < metric.length) {
+        final next = math.min(distance + _dashWidth, metric.length);
+        canvas.drawPath(metric.extractPath(distance, next), paint);
+        distance = next + _dashGap;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DashedRoundedBorderPainter oldDelegate) =>
+      oldDelegate.color != color;
 }

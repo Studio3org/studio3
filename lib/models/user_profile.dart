@@ -9,6 +9,11 @@ class UserProfile {
     this.bio,
     this.location,
     this.pronouns,
+    this.website,
+    this.instagram,
+    this.twitter,
+    this.category,
+    this.tags = const [],
     this.latitude,
     this.longitude,
     this.profilePhotoUrl,
@@ -44,6 +49,11 @@ class UserProfile {
   final String? bio;
   final String? location;
   final String? pronouns;
+  final String? website;
+  final String? instagram;
+  final String? twitter;
+  final String? category;
+  final List<String> tags;
   final double? latitude;
   final double? longitude;
   final String? profilePhotoUrl;
@@ -96,6 +106,11 @@ class UserProfile {
       bio: json['bio'] as String?,
       location: json['location'] as String?,
       pronouns: json['pronouns'] as String?,
+      website: json['website'] as String?,
+      instagram: json['instagram'] as String?,
+      twitter: json['twitter'] as String?,
+      category: json['category'] as String?,
+      tags: (json['tags'] as List?)?.whereType<String>().toList() ?? const [],
       latitude: (json['latitude'] as num?)?.toDouble(),
       longitude: (json['longitude'] as num?)?.toDouble(),
       profilePhotoUrl: json['profilePhotoUrl'] as String?,
@@ -146,6 +161,11 @@ class UserProfile {
       bio: bio,
       location: location,
       pronouns: pronouns,
+      website: website,
+      instagram: instagram,
+      twitter: twitter,
+      category: category,
+      tags: tags,
       latitude: latitude,
       longitude: longitude,
       profilePhotoUrl: profilePhotoUrl,

@@ -15,12 +15,17 @@ abstract final class CollectDetailTokens {
   static const Color sheetBackground = Color(0xFFFAFAF7);
   static const Color sheetCardFill = Color(0x33C8C5BC);
   static const Color textDisabled = Color(0xFFC8C5BC);
+  static const Color statusError = Color(0xFFC03030);
 
   static const double frameWidth = 390;
   static const double heroHeight = 844;
   static const double heroAspectRatio = frameWidth / heroHeight;
 
+  static const double pagePadding = 10;
   static const double horizontalPadding = 16;
+  static const Color hairline = Color(0xFFC4C4C4);
+  static const Color titleHairline = Color(0xFFC8C5BC);
+  static const double collectCtaRadius = 8;
   static const double sectionGap = 16;
 
   static const double titleSize = 24;

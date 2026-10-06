@@ -20,6 +20,9 @@ class AuthSession {
   AuthUser? user;
   bool sellerEnabled = false;
 
+  /// In-memory only — listing permission comes from GET /artists/connect/status.
+  bool? canListForSale;
+
   final List<VoidCallback> _listeners = [];
 
   void addListener(VoidCallback listener) => _listeners.add(listener);
@@ -105,8 +108,13 @@ class AuthSession {
     await updateUser(merged);
   }
 
+  void setCanListForSale(bool? value) {
+    canListForSale = value;
+  }
+
   Future<void> setSellerEnabled(bool enabled) async {
     sellerEnabled = enabled;
+    if (!enabled) canListForSale = null;
     await _prefs?.setBool(_sellerKey, enabled);
     if (user != null) {
       await updateUser(user!.copyWith(sellerEnabled: enabled));
@@ -130,6 +138,7 @@ class AuthSession {
     accessToken = null;
     user = null;
     sellerEnabled = false;
+    canListForSale = null;
     await _prefs?.remove(_tokenKey);
     await _prefs?.remove(_userKey);
     await _prefs?.remove(_sellerKey);

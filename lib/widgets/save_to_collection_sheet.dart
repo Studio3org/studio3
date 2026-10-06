@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../services/saved_content_store.dart';
 import '../theme/home_feed_tokens.dart';
 import 'collection_name_sheet.dart';
+import '../theme/app_fonts.dart';
 
 /// Where a save action resolved to: the default "Saved" bucket (no
 /// collection) or a specific collection.
@@ -87,7 +87,7 @@ class SaveToCollectionSheet extends StatelessWidget {
                 alignment: Alignment.centerLeft,
                 child: Text(
                   'Save in',
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                     color: HomeFeedTokens.textPrimary,
@@ -99,7 +99,7 @@ class SaveToCollectionSheet extends StatelessWidget {
               leading: const Icon(Icons.bookmark_outline),
               title: Text(
                 'Saved',
-                style: GoogleFonts.inter(
+                style: AppFonts.inter(
                   fontSize: 16,
                   color: HomeFeedTokens.textPrimary,
                 ),
@@ -111,14 +111,14 @@ class SaveToCollectionSheet extends StatelessWidget {
                 leading: const Icon(Icons.folder_outlined),
                 title: Text(
                   collection.name,
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 16,
                     color: HomeFeedTokens.textPrimary,
                   ),
                 ),
                 trailing: Text(
                   '${collection.entryIds.length}',
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 13,
                     color: HomeFeedTokens.textSecondary,
                   ),
@@ -133,7 +133,7 @@ class SaveToCollectionSheet extends StatelessWidget {
               leading: const Icon(Icons.add),
               title: Text(
                 'Create new collection',
-                style: GoogleFonts.inter(
+                style: AppFonts.inter(
                   fontSize: 16,
                   color: HomeFeedTokens.textPrimary,
                 ),

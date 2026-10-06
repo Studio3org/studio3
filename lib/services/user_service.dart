@@ -50,6 +50,19 @@ class UserService {
     );
   }
 
+  /// Synchronous own-profile cache read, for seeding a screen's initial
+  /// state in `initState` — settings and edit screens paint their real
+  /// values on the first frame instead of a skeleton whenever the profile
+  /// has already been fetched, and the cached fetch above then refreshes
+  /// them silently.
+  UserProfile? peekMeCached() {
+    return CacheService.instance.peekCache<UserProfile>(
+      key: 'user.me',
+      parse: (json) =>
+          UserProfile.fromJson(_api.extractData(json) as Map<String, dynamic>),
+    );
+  }
+
   Future<UserProfile> getPublicProfile(String username) async {
     final json = await _api.get('/api/user/$username');
     final data = _api.extractData(json) as Map<String, dynamic>;
@@ -61,6 +74,11 @@ class UserService {
     String? bio,
     String? location,
     String? pronouns,
+    String? website,
+    String? instagram,
+    String? twitter,
+    String? category,
+    List<String>? tags,
     String? profilePhotoUrl,
     String? coverPhotoUrl,
     double? latitude,
@@ -80,6 +98,11 @@ class UserService {
     if (bio != null) body['bio'] = bio;
     if (location != null) body['location'] = location;
     if (pronouns != null) body['pronouns'] = pronouns;
+    if (website != null) body['website'] = website;
+    if (instagram != null) body['instagram'] = instagram;
+    if (twitter != null) body['twitter'] = twitter;
+    if (category != null) body['category'] = category;
+    if (tags != null) body['tags'] = tags;
     if (profilePhotoUrl != null) body['profilePhotoUrl'] = profilePhotoUrl;
     if (coverPhotoUrl != null) body['coverPhotoUrl'] = coverPhotoUrl;
     if (latitude != null) body['latitude'] = latitude;

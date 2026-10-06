@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/feed_preview_item.dart';
 import '../../theme/home_feed_tokens.dart';
 import '../../utils/profile_navigation.dart';
 import '../follow_button.dart';
 import '../home_feed/home_feed_widgets.dart';
+import '../../theme/app_fonts.dart';
 
 class PieceArtistRow extends StatelessWidget {
   const PieceArtistRow({
@@ -46,7 +46,7 @@ class PieceArtistRow extends StatelessWidget {
                 children: [
                   Text(
                     item.displayName,
-                    style: GoogleFonts.inter(
+                    style: AppFonts.inter(
                       fontSize: 12,
                       fontWeight: FontWeight.w400,
                       color: HomeFeedTokens.textPrimary,
@@ -54,7 +54,7 @@ class PieceArtistRow extends StatelessWidget {
                   ),
                   Text(
                     item.handle,
-                    style: GoogleFonts.inter(
+                    style: AppFonts.inter(
                       fontSize: 10,
                       fontWeight: FontWeight.w400,
                       color: HomeFeedTokens.textSecondary,

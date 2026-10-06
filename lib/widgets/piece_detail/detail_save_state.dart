@@ -163,6 +163,12 @@ mixin DetailLikeState<T extends StatefulWidget> on State<T> {
     }
   }
 
+  /// Instagram-style double-tap: like if not already liked. Never unlikes.
+  Future<void> likeFromDoubleTap() async {
+    if (liked) return;
+    await toggleLike();
+  }
+
   Future<void> toggleLike() async {
     if (_likeBusy) return;
     final item = likeItem;

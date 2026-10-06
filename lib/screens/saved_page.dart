@@ -1,21 +1,25 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../models/feed_item.dart';
 import '../models/feed_preview_item.dart';
+import '../screens/event_detail_page.dart';
 import '../services/post_service.dart';
 import '../services/social_service.dart';
 import '../services/user_service.dart';
 import '../screens/available_piece_detail_page.dart';
 import '../screens/piece_detail_page.dart';
+import '../services/api_exception.dart';
+import '../services/event_service.dart';
 import '../services/saved_content_store.dart';
 import '../theme/home_feed_tokens.dart';
 import '../utils/reels_route.dart';
 import '../widgets/collection_name_sheet.dart';
+import '../widgets/delete_confirmation_dialog.dart';
 import '../widgets/home_feed/home_feed_widgets.dart';
 import '../utils/scrolls_to_top_on_double_tap.dart';
+import '../theme/app_fonts.dart';
 
 class SavedPage extends StatefulWidget {
   const SavedPage({super.key});
@@ -134,7 +138,7 @@ class _SavedPageState extends State<SavedPage>
                 leading: const Icon(Icons.edit_outlined),
                 title: Text(
                   'Rename',
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 16,
                     color: HomeFeedTokens.textPrimary,
                   ),
@@ -145,7 +149,7 @@ class _SavedPageState extends State<SavedPage>
                 leading: const Icon(Icons.delete_outline, color: Colors.red),
                 title: Text(
                   'Delete',
-                  style: GoogleFonts.inter(fontSize: 16, color: Colors.red),
+                  style: AppFonts.inter(fontSize: 16, color: Colors.red),
                 ),
                 onTap: () => Navigator.pop(context, 'delete'),
               ),
@@ -173,7 +177,7 @@ class _SavedPageState extends State<SavedPage>
           backgroundColor: HomeFeedTokens.background,
           title: Text(
             'Delete "${collection.name}"?',
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 17,
               fontWeight: FontWeight.w600,
               color: HomeFeedTokens.textPrimary,
@@ -181,7 +185,7 @@ class _SavedPageState extends State<SavedPage>
           ),
           content: Text(
             'Saved items inside will stay in Saved — only this folder is removed.',
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 14,
               color: HomeFeedTokens.textSecondary,
             ),
@@ -191,14 +195,14 @@ class _SavedPageState extends State<SavedPage>
               onPressed: () => Navigator.pop(context, false),
               child: Text(
                 'Cancel',
-                style: GoogleFonts.inter(color: HomeFeedTokens.textSecondary),
+                style: AppFonts.inter(color: HomeFeedTokens.textSecondary),
               ),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context, true),
               child: Text(
                 'Delete',
-                style: GoogleFonts.inter(
+                style: AppFonts.inter(
                   fontWeight: FontWeight.w600,
                   color: Colors.red,
                 ),
@@ -224,7 +228,7 @@ class _SavedPageState extends State<SavedPage>
             iconTheme: const IconThemeData(color: HomeFeedTokens.textPrimary),
             title: Text(
               title,
-              style: GoogleFonts.inter(
+              style: AppFonts.inter(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
                 color: HomeFeedTokens.textPrimary,
@@ -256,13 +260,22 @@ class _SavedPageState extends State<SavedPage>
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+              padding: const EdgeInsets.fromLTRB(8, 12, 8, 8),
               child: Row(
                 children: [
+                  if (Navigator.of(context).canPop())
+                    IconButton(
+                      icon: const Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        size: 18,
+                        color: HomeFeedTokens.textPrimary,
+                      ),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
                   Expanded(
                     child: Text(
                       'Saved',
-                      style: GoogleFonts.inter(
+                      style: AppFonts.inter(
                         fontSize: 22,
                         fontWeight: FontWeight.w700,
                         color: HomeFeedTokens.textPrimary,
@@ -349,7 +362,30 @@ class _SavedItemsViewState extends State<_SavedItemsView> {
         : _store.entriesForCollection(collectionId, filter: _filter);
   }
 
-  void _openEntry(SavedEntry entry) {
+  Future<void> _openEntry(SavedEntry entry) async {
+    if (entry.kind == SavedContentKind.event) {
+      // Cached from when it was saved. Entries written before events had a payload have
+      // none, so those are fetched rather than substituted — the old fallback returned the
+      // *featured* event for any id it did not recognise, which opened somebody else's
+      // event from your own saved list.
+      final cached = entry.event;
+      if (cached != null) {
+        openEventDetail(context, cached);
+        return;
+      }
+      try {
+        final event = await EventService.instance.getById(entry.id);
+        if (!mounted) return;
+        openEventDetail(context, event);
+      } catch (_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('That event is no longer available.')),
+        );
+      }
+      return;
+    }
+
     if (entry.isVideoScene && entry.feedItem != null) {
       final videoItems = _store.videoSceneFeedItems;
       final index = videoItems.indexWhere((item) => item.id == entry.id);
@@ -402,7 +438,7 @@ class _SavedItemsViewState extends State<_SavedItemsView> {
                 leading: const Icon(Icons.bookmark_remove_outlined),
                 title: Text(
                   'Remove from saved',
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 16,
                     color: HomeFeedTokens.textPrimary,
                   ),
@@ -418,7 +454,7 @@ class _SavedItemsViewState extends State<_SavedItemsView> {
       try {
         if (entry.kind == SavedContentKind.scene) {
           await SocialService.instance.unsavePost(entry.id);
-        } else {
+        } else if (entry.kind == SavedContentKind.piece) {
           await SocialService.instance.unsavePiece(entry.id);
         }
       } catch (_) {
@@ -428,14 +464,37 @@ class _SavedItemsViewState extends State<_SavedItemsView> {
     }
   }
 
+  /// A host deleting an event of their own — the three-dot menu, same as a piece or scene
+  /// gets on the profile grid, rather than the long-press "Remove from saved" every other
+  /// tile here has. Deleting is the host's action on the event itself, not a bookmark toggle.
+  Future<void> _deleteEvent(SavedEntry entry) async {
+    final confirmed = await showDeleteConfirmationDialog(
+      context,
+      itemLabel: 'event',
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      await EventService.instance.delete(entry.id);
+    } catch (e) {
+      if (!mounted) return;
+      final message = e is ApiException ? e.message : 'Failed to delete event';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      return;
+    }
+    if (!mounted) return;
+    _store.unsave(entry.id);
+  }
+
   String _emptyMessage() {
     switch (_filter) {
       case SavedContentFilter.all:
-        return 'Saved pieces and scenes will appear here';
+        return 'Saved pieces, scenes, and events will appear here';
       case SavedContentFilter.piece:
         return 'No saved pieces yet';
       case SavedContentFilter.scene:
         return 'No saved scenes yet';
+      case SavedContentFilter.event:
+        return 'No saved events yet';
     }
   }
 
@@ -448,29 +507,39 @@ class _SavedItemsViewState extends State<_SavedItemsView> {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              FeedFilterTab(
-                label: 'All',
-                active: _filter == SavedContentFilter.all,
-                onTap: () => setState(() => _filter = SavedContentFilter.all),
-              ),
-              const SizedBox(width: 24),
-              FeedFilterTab(
-                label: 'Piece',
-                active: _filter == SavedContentFilter.piece,
-                onTap: () =>
-                    setState(() => _filter = SavedContentFilter.piece),
-              ),
-              const SizedBox(width: 24),
-              FeedFilterTab(
-                label: 'Scene',
-                active: _filter == SavedContentFilter.scene,
-                onTap: () =>
-                    setState(() => _filter = SavedContentFilter.scene),
-              ),
-            ],
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                FeedFilterTab(
+                  label: 'All',
+                  active: _filter == SavedContentFilter.all,
+                  onTap: () => setState(() => _filter = SavedContentFilter.all),
+                ),
+                const SizedBox(width: 24),
+                FeedFilterTab(
+                  label: 'Piece',
+                  active: _filter == SavedContentFilter.piece,
+                  onTap: () =>
+                      setState(() => _filter = SavedContentFilter.piece),
+                ),
+                const SizedBox(width: 24),
+                FeedFilterTab(
+                  label: 'Scene',
+                  active: _filter == SavedContentFilter.scene,
+                  onTap: () =>
+                      setState(() => _filter = SavedContentFilter.scene),
+                ),
+                const SizedBox(width: 24),
+                FeedFilterTab(
+                  label: 'Event',
+                  active: _filter == SavedContentFilter.event,
+                  onTap: () =>
+                      setState(() => _filter = SavedContentFilter.event),
+                ),
+              ],
+            ),
           ),
         ),
         Expanded(
@@ -485,7 +554,7 @@ class _SavedItemsViewState extends State<_SavedItemsView> {
                       Center(
                         child: Text(
                           _emptyMessage(),
-                          style: GoogleFonts.inter(
+                          style: AppFonts.inter(
                             fontSize: 14,
                             color: HomeFeedTokens.textSecondary,
                           ),
@@ -514,6 +583,10 @@ class _SavedItemsViewState extends State<_SavedItemsView> {
                         entry: entry,
                         onTap: () => _openEntry(entry),
                         onLongPress: () => _confirmUnsave(entry),
+                        onDeleteEvent: entry.kind == SavedContentKind.event &&
+                                entry.event?.isHost == true
+                            ? () => _deleteEvent(entry)
+                            : null,
                       );
                     },
                   ),
@@ -529,11 +602,53 @@ class _SavedGridCard extends StatelessWidget {
     required this.entry,
     required this.onTap,
     required this.onLongPress,
+    this.onDeleteEvent,
   });
 
   final SavedEntry entry;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
+
+  /// Set only for an event this viewer hosts — the three-dot "Delete" menu piece and scene
+  /// tiles get on the profile grid. Null for everything else, including an event saved from
+  /// someone else, which still only offers the long-press "Remove from saved".
+  final VoidCallback? onDeleteEvent;
+
+  void _showEventActions(BuildContext context) {
+    final delete = onDeleteEvent;
+    if (delete == null) return;
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A1A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(
+                Icons.delete_outline,
+                color: Color(0xFFE05252),
+              ),
+              title: const Text(
+                'Delete',
+                style: TextStyle(
+                  color: Color(0xFFE05252),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                delete();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -571,6 +686,29 @@ class _SavedGridCard extends StatelessWidget {
                 ),
               ),
             ],
+            if (onDeleteEvent != null)
+              Positioned(
+                top: 6,
+                right: 6,
+                child: GestureDetector(
+                  onTap: () => _showEventActions(context),
+                  behavior: HitTestBehavior.opaque,
+                  child: Container(
+                    width: 26,
+                    height: 26,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.45),
+                      shape: BoxShape.circle,
+                    ),
+                    alignment: Alignment.center,
+                    child: const Icon(
+                      Icons.more_horiz,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -709,7 +847,7 @@ class _SavedFolderTile extends StatelessWidget {
                         title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.inter(
+                        style: AppFonts.inter(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: HomeFeedTokens.textPrimary,
@@ -720,7 +858,7 @@ class _SavedFolderTile extends StatelessWidget {
                       const SizedBox(width: 6),
                       Text(
                         '$count',
-                        style: GoogleFonts.inter(
+                        style: AppFonts.inter(
                           fontSize: 12,
                           color: HomeFeedTokens.textSecondary,
                         ),

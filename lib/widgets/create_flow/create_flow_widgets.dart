@@ -2,11 +2,11 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../data/post_media_assets.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/home_feed_tokens.dart';
+import '../../theme/app_fonts.dart';
 
 /// Shared horizontal inset for create / listing flow dividers.
 const double createFlowHorizontalInset = 15.0;
@@ -17,20 +17,24 @@ class CreateFlowBanner extends StatelessWidget {
     required this.topInset,
     required this.title,
     required this.onClose,
+    this.useBackChevron = false,
+    this.height = 64,
   });
 
   final double topInset;
   final String title;
   final VoidCallback onClose;
+  final bool useBackChevron;
+  final double height;
 
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: Colors.black,
+      color: HomeFeedTokens.background,
       child: Padding(
         padding: EdgeInsets.only(top: topInset),
         child: SizedBox(
-          height: 64,
+          height: height,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
             child: Stack(
@@ -38,22 +42,47 @@ class CreateFlowBanner extends StatelessWidget {
               children: [
                 Align(
                   alignment: Alignment.centerLeft,
+                  // The icon itself is tiny (7x14 / 14x14) — sizing the tap
+                  // target to just that was easy to miss on a real touch
+                  // screen, which read as "the back button doesn't work"
+                  // rather than "it's hard to hit". 44x44 is the standard
+                  // minimum touch target, centered on the same icon.
                   child: GestureDetector(
                     onTap: onClose,
                     behavior: HitTestBehavior.opaque,
-                    child: SvgPicture.asset(
-                      PostMediaAssets.createCloseIcon,
-                      width: 14,
-                      height: 14,
+                    child: SizedBox(
+                      width: 44,
+                      height: 44,
+                      child: Center(
+                        child: useBackChevron
+                            ? SvgPicture.asset(
+                                PostMediaAssets.createBannerBack,
+                                width: 7,
+                                height: 14,
+                                colorFilter: const ColorFilter.mode(
+                                  HomeFeedTokens.textPrimary,
+                                  BlendMode.srcIn,
+                                ),
+                              )
+                            : SvgPicture.asset(
+                                PostMediaAssets.createCloseIcon,
+                                width: 14,
+                                height: 14,
+                                colorFilter: const ColorFilter.mode(
+                                  HomeFeedTokens.textPrimary,
+                                  BlendMode.srcIn,
+                                ),
+                              ),
+                      ),
                     ),
                   ),
                 ),
                 Text(
                   title,
-                  style: GoogleFonts.inter(
+                  style: AppFonts.geist(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
-                    color: HomeFeedTokens.textInverse,
+                    color: HomeFeedTokens.textPrimary,
                   ),
                 ),
               ],
@@ -119,7 +148,7 @@ class CreateFlowDivider extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: 0.5,
-      color: const Color(0xFF2E2C28),
+      color: HomeFeedTokens.skeletonBase,
     );
   }
 }
@@ -137,9 +166,9 @@ class CreateFlowTextField extends StatelessWidget {
     this.prefixText,
   });
 
-  static const _textDim = Color(0x80FFFFFF);
-  static const _border = Color(0x26FFFFFF);
-  static const _borderFocus = Color(0x55FFFFFF);
+  static const _textDim = Color(0x998C8880);
+  static const _border = Color(0x26231F1B);
+  static const _borderFocus = Color(0x55231F1B);
 
   final TextEditingController controller;
   final String hint;
@@ -152,20 +181,20 @@ class CreateFlowTextField extends StatelessWidget {
   InputDecoration _decoration({required bool multiline}) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: GoogleFonts.inter(
+      hintStyle: AppFonts.inter(
         fontSize: 15,
         fontWeight: FontWeight.w400,
         color: _textDim,
         height: multiline ? 1.35 : null,
       ),
       prefixText: prefixText,
-      prefixStyle: GoogleFonts.inter(
+      prefixStyle: AppFonts.inter(
         fontSize: 15,
         fontWeight: FontWeight.w500,
-        color: HomeFeedTokens.textInverse,
+        color: HomeFeedTokens.textPrimary,
       ),
       filled: true,
-      fillColor: Colors.black.withValues(alpha: 0.35),
+      fillColor: HomeFeedTokens.detailBackground,
       contentPadding: EdgeInsets.symmetric(
         horizontal: 16,
         vertical: multiline ? 14 : 0,
@@ -193,15 +222,15 @@ class CreateFlowTextField extends StatelessWidget {
       maxLines: maxLines,
       minLines: minLines,
       keyboardType: keyboardType,
-      style: GoogleFonts.inter(
+      style: AppFonts.inter(
         fontSize: 15,
         fontWeight: style == CreateFlowTextFieldStyle.title
             ? FontWeight.w500
             : FontWeight.w400,
-        color: HomeFeedTokens.textInverse,
+        color: HomeFeedTokens.textPrimary,
         height: multiline ? 1.35 : null,
       ),
-      cursorColor: HomeFeedTokens.textInverse,
+      cursorColor: HomeFeedTokens.textPrimary,
       decoration: _decoration(multiline: multiline),
     );
 
@@ -256,22 +285,26 @@ class CreateFlowMetadataRow extends StatelessWidget {
               iconAsset,
               width: iconWidth,
               height: iconHeight,
+              colorFilter: const ColorFilter.mode(
+                HomeFeedTokens.textPrimary,
+                BlendMode.srcIn,
+              ),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
                 label,
-                style: GoogleFonts.inter(
+                style: AppFonts.inter(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
-                  color: HomeFeedTokens.textInverse,
+                  color: HomeFeedTokens.textPrimary,
                 ),
               ),
             ),
             if (trailing != null) ...[
               Text(
                 trailing!,
-                style: GoogleFonts.inter(
+                style: AppFonts.inter(
                   fontSize: 11,
                   fontWeight: FontWeight.w400,
                   color: _textSecondary,
@@ -285,15 +318,15 @@ class CreateFlowMetadataRow extends StatelessWidget {
                 height: 20,
                 alignment: Alignment.center,
                 decoration: const BoxDecoration(
-                  color: Colors.white,
+                  color: HomeFeedTokens.textPrimary,
                   shape: BoxShape.circle,
                 ),
                 child: Text(
                   '$countBadge',
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 11,
                     fontWeight: FontWeight.w500,
-                    color: HomeFeedTokens.textPrimary,
+                    color: HomeFeedTokens.textInverse,
                   ),
                 ),
               ),
@@ -339,7 +372,7 @@ class CreateFlowLocationChip extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 9,
             fontWeight: FontWeight.w400,
             color: _textSecondary,
@@ -387,16 +420,20 @@ class CreateFlowToggleRow extends StatelessWidget {
               iconAsset!,
               width: iconWidth,
               height: iconHeight,
+              colorFilter: const ColorFilter.mode(
+                HomeFeedTokens.textPrimary,
+                BlendMode.srcIn,
+              ),
             ),
             const SizedBox(width: 8),
           ],
           Expanded(
             child: Text(
               label,
-              style: GoogleFonts.inter(
+              style: AppFonts.inter(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
-                color: HomeFeedTokens.textInverse,
+                color: HomeFeedTokens.textPrimary,
               ),
             ),
           ),
@@ -449,6 +486,7 @@ class CreateFlowBottomButton extends StatelessWidget {
     required this.textColor,
     required this.onTap,
     this.width,
+    this.height = 32,
     this.child,
   });
 
@@ -457,6 +495,7 @@ class CreateFlowBottomButton extends StatelessWidget {
   final Color textColor;
   final VoidCallback? onTap;
   final double? width;
+  final double height;
   final Widget? child;
 
   @override
@@ -468,7 +507,7 @@ class CreateFlowBottomButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         child: Ink(
           width: width,
-          height: 32,
+          height: height,
           decoration: BoxDecoration(
             color: backgroundColor,
             borderRadius: BorderRadius.circular(8),
@@ -477,7 +516,7 @@ class CreateFlowBottomButton extends StatelessWidget {
             child: child ??
                 Text(
                   label,
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                     color: textColor,

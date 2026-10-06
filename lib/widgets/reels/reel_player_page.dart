@@ -1,10 +1,8 @@
-import 'dart:io' show Platform;
-
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../models/feed_item.dart';
+import '../../utils/video_view_type.dart';
 import '../feed_skeleton.dart';
 import 'reel_overlay.dart';
 
@@ -69,15 +67,6 @@ class _ReelPlayerPageState extends State<ReelPlayerPage> {
     super.dispose();
   }
 
-  /// Android Impeller + texture-backed video often produces green macroblock
-  /// tearing on MediaTek/Mali devices. Platform views avoid that path.
-  static VideoViewType get _viewType {
-    if (kIsWeb) return VideoViewType.textureView;
-    return Platform.isAndroid
-        ? VideoViewType.platformView
-        : VideoViewType.textureView;
-  }
-
   Future<void> _initController() async {
     final url = widget.item.mediaUrl;
     if (url == null || url.isEmpty) {
@@ -92,7 +81,7 @@ class _ReelPlayerPageState extends State<ReelPlayerPage> {
     final controller = VideoPlayerController.networkUrl(
       Uri.parse(url),
       formatHint: VideoFormat.other,
-      viewType: _viewType,
+      viewType: resolveVideoViewType(),
     );
     try {
       await controller.initialize();

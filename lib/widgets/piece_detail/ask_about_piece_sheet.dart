@@ -1,27 +1,44 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../services/api_exception.dart';
-import '../../services/inquiry_service.dart';
+import '../../services/chat_service.dart';
 import '../../theme/collect_detail_tokens.dart';
+import '../../theme/app_fonts.dart';
 
-/// Compose sheet for starting a new inquiry about a piece.
+/// Compose sheet for messaging an artist about one of their pieces.
 ///
-/// Deferred to v2 with the inquiries API. Detail pages keep the Ask entry
-/// commented; launch messaging uses Conversations instead.
+/// Goes through Conversations, not the inquiries API: that blueprint is deliberately
+/// unregistered on the server, so every send from here used to 404. Inquiries were a
+/// piece-scoped DM; general conversations replaced them, which is why this takes the
+/// artist's username and mentions the piece in the opening message instead.
 class AskAboutPieceSheet extends StatefulWidget {
-  const AskAboutPieceSheet({super.key, required this.pieceId});
+  const AskAboutPieceSheet({
+    super.key,
+    required this.artistUsername,
+    required this.pieceTitle,
+  });
 
-  final String pieceId;
+  /// Who the message goes to. Conversations are between people, not about objects.
+  final String artistUsername;
 
-  static Future<bool?> show(BuildContext context, {required String pieceId}) {
+  /// Named in the opening message so the artist knows which work is meant.
+  final String pieceTitle;
+
+  static Future<bool?> show(
+    BuildContext context, {
+    required String artistUsername,
+    required String pieceTitle,
+  }) {
     return showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.2),
-      builder: (context) => AskAboutPieceSheet(pieceId: pieceId),
+      builder: (context) => AskAboutPieceSheet(
+        artistUsername: artistUsername,
+        pieceTitle: pieceTitle,
+      ),
     );
   }
 
@@ -48,7 +65,11 @@ class _AskAboutPieceSheetState extends State<AskAboutPieceSheet> {
       _error = null;
     });
     try {
-      await InquiryService.instance.createInquiry(widget.pieceId, message);
+      // The piece is named in the body because a conversation has no piece field — the
+      // artist would otherwise get a bare message with no idea which work it refers to.
+      final title = widget.pieceTitle.trim();
+      final body = title.isEmpty ? message : 'Re: $title\n\n$message';
+      await ChatService.instance.startConversation(widget.artistUsername, body);
       if (!mounted) return;
       Navigator.pop(context, true);
     } catch (e) {
@@ -81,7 +102,7 @@ class _AskAboutPieceSheetState extends State<AskAboutPieceSheet> {
               children: [
                 Text(
                   'Ask about this piece',
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
                     color: CollectDetailTokens.textPrimary,
@@ -93,13 +114,13 @@ class _AskAboutPieceSheetState extends State<AskAboutPieceSheet> {
                   autofocus: true,
                   maxLines: 4,
                   minLines: 3,
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 14,
                     color: CollectDetailTokens.textPrimary,
                   ),
                   decoration: InputDecoration(
                     hintText: 'Ask the artist a question…',
-                    hintStyle: GoogleFonts.inter(
+                    hintStyle: AppFonts.inter(
                       fontSize: 14,
                       color: CollectDetailTokens.textSecondary,
                     ),
@@ -115,7 +136,7 @@ class _AskAboutPieceSheetState extends State<AskAboutPieceSheet> {
                   const SizedBox(height: 8),
                   Text(
                     _error!,
-                    style: GoogleFonts.inter(fontSize: 12, color: Colors.red.shade300),
+                    style: AppFonts.inter(fontSize: 12, color: Colors.red.shade300),
                   ),
                 ],
                 const SizedBox(height: 16),
@@ -146,7 +167,7 @@ class _AskAboutPieceSheetState extends State<AskAboutPieceSheet> {
                               )
                             : Text(
                                 'Send',
-                                style: GoogleFonts.inter(
+                                style: AppFonts.inter(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w400,
                                   color: CollectDetailTokens.textInverse,

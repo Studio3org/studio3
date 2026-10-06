@@ -3,11 +3,11 @@ import 'dart:io';
 import 'package:easy_video_editor/easy_video_editor.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:video_player/video_player.dart';
 
 import '../data/post_media_assets.dart';
 import '../theme/home_feed_tokens.dart';
+import '../theme/app_fonts.dart';
 
 /// Video "edit" step — select which part of the clip to upload (trim) and
 /// whether to upload it without audio. Mirrors `PostEditPage`'s crop step
@@ -121,7 +121,7 @@ class _PostVideoEditPageState extends State<PostVideoEditPage> {
     final ready = _controller != null && _controller!.value.isInitialized;
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: HomeFeedTokens.background,
       body: Column(
         children: [
           _VideoEditBanner(
@@ -140,10 +140,12 @@ class _PostVideoEditPageState extends State<PostVideoEditPage> {
                   : _failed
                   ? const Icon(
                       Icons.videocam_off_outlined,
-                      color: Colors.white54,
+                      color: HomeFeedTokens.textSecondary,
                       size: 48,
                     )
-                  : const CircularProgressIndicator(color: Colors.white),
+                  : const CircularProgressIndicator(
+                      color: HomeFeedTokens.textSecondary,
+                    ),
             ),
           ),
           if (ready) ...[
@@ -154,18 +156,18 @@ class _PostVideoEditPageState extends State<PostVideoEditPage> {
                 children: [
                   Text(
                     _formatMs(_range.start),
-                    style: GoogleFonts.inter(
+                    style: AppFonts.inter(
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
-                      color: HomeFeedTokens.textInverse,
+                      color: HomeFeedTokens.textPrimary,
                     ),
                   ),
                   Text(
                     _formatMs(_range.end),
-                    style: GoogleFonts.inter(
+                    style: AppFonts.inter(
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
-                      color: HomeFeedTokens.textInverse,
+                      color: HomeFeedTokens.textPrimary,
                     ),
                   ),
                 ],
@@ -173,10 +175,10 @@ class _PostVideoEditPageState extends State<PostVideoEditPage> {
             ),
             SliderTheme(
               data: SliderTheme.of(context).copyWith(
-                activeTrackColor: HomeFeedTokens.textInverse,
-                inactiveTrackColor: const Color(0xFF4A4843),
-                thumbColor: HomeFeedTokens.textInverse,
-                overlayColor: Colors.white24,
+                activeTrackColor: HomeFeedTokens.textPrimary,
+                inactiveTrackColor: HomeFeedTokens.skeletonBase,
+                thumbColor: HomeFeedTokens.textPrimary,
+                overlayColor: HomeFeedTokens.textPrimary.withValues(alpha: 0.14),
                 rangeThumbShape: const RoundRangeSliderThumbShape(
                   enabledThumbRadius: 8,
                 ),
@@ -195,17 +197,17 @@ class _PostVideoEditPageState extends State<PostVideoEditPage> {
               children: [
                 Icon(
                   _muted ? Icons.volume_off : Icons.volume_up,
-                  color: Colors.white,
+                  color: HomeFeedTokens.textPrimary,
                   size: 20,
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     'Upload without audio',
-                    style: GoogleFonts.inter(
+                    style: AppFonts.inter(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
-                      color: HomeFeedTokens.textInverse,
+                      color: HomeFeedTokens.textPrimary,
                     ),
                   ),
                 ),
@@ -213,7 +215,7 @@ class _PostVideoEditPageState extends State<PostVideoEditPage> {
                   value: _muted,
                   onChanged: (value) => setState(() => _muted = value),
                   activeThumbColor: Colors.white,
-                  activeTrackColor: const Color(0xFF3B82F6),
+                  activeTrackColor: HomeFeedTokens.sky600,
                 ),
               ],
             ),
@@ -243,7 +245,7 @@ class _VideoEditBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: Colors.black,
+      color: HomeFeedTokens.background,
       child: Padding(
         padding: EdgeInsets.only(top: topInset),
         child: SizedBox(
@@ -259,16 +261,20 @@ class _VideoEditBanner extends StatelessWidget {
                     PostMediaAssets.closeIcon,
                     width: 14,
                     height: 14,
+                    colorFilter: const ColorFilter.mode(
+                      HomeFeedTokens.textPrimary,
+                      BlendMode.srcIn,
+                    ),
                   ),
                 ),
                 Expanded(
                   child: Center(
                     child: Text(
                       'Trim',
-                      style: GoogleFonts.inter(
+                      style: AppFonts.inter(
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
-                        color: HomeFeedTokens.textInverse,
+                        color: HomeFeedTokens.textPrimary,
                       ),
                     ),
                   ),
@@ -294,7 +300,7 @@ class _VideoEditBanner extends StatelessWidget {
                             )
                           : Text(
                               'Next',
-                              style: GoogleFonts.inter(
+                              style: AppFonts.inter(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w500,
                                 color: HomeFeedTokens.textPrimary,

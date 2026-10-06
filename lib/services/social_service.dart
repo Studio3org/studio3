@@ -5,6 +5,7 @@ import '../models/comment_page.dart';
 import '../models/feed_item.dart';
 import '../models/follow_request.dart';
 import '../models/follow_user_summary.dart';
+import '../models/user_report.dart';
 import 'api_client.dart';
 import 'auth_session.dart';
 import 'cache_service.dart';
@@ -135,6 +136,35 @@ class SocialService {
 
   Future<void> unblockUser(String username) async {
     await _api.delete('/api/users/$username/block');
+  }
+
+  Future<void> reportPiece(String id, String reason, {String? details}) async {
+    await _api.post(
+      '/api/pieces/$id/report',
+      body: {'reason': reason, 'details': ?details},
+      auth: true,
+    );
+  }
+
+  Future<void> reportPost(String id, String reason, {String? details}) async {
+    await _api.post(
+      '/api/posts/$id/report',
+      body: {'reason': reason, 'details': ?details},
+      auth: true,
+    );
+  }
+
+  Future<void> reportUser(String username, String reason, {String? details}) async {
+    await _api.post(
+      '/api/users/$username/report',
+      body: {'reason': reason, 'details': ?details},
+      auth: true,
+    );
+  }
+
+  Future<List<UserReport>> listMyReports() async {
+    final json = await _api.get('/api/reports/mine', auth: true);
+    return _api.extractList(json).map(UserReport.fromJson).toList();
   }
 
   Future<EngagementToggleResult> likePiece(String id) async {

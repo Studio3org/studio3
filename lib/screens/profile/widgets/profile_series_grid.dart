@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../../../theme/home_feed_tokens.dart';
+import '../../../widgets/feed_skeleton.dart';
 import '../models/profile_series_data.dart';
 import '../profile_constants.dart';
 
@@ -9,18 +10,17 @@ class ProfileSeriesGrid extends StatelessWidget {
     super.key,
     required this.items,
     this.loading = false,
+    this.onSeriesTap,
   });
 
   final List<ProfileSeriesData> items;
   final bool loading;
+  final void Function(ProfileSeriesData series)? onSeriesTap;
 
   @override
   Widget build(BuildContext context) {
     if (loading && items.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 40),
-        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-      );
+      return const ProfileGridSkeleton();
     }
 
     if (items.isEmpty) {
@@ -53,18 +53,19 @@ class ProfileSeriesGrid extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(child: _SeriesColumn(series: left)),
+        Expanded(child: _SeriesColumn(series: left, onSeriesTap: onSeriesTap)),
         const SizedBox(width: kProfileGutter),
-        Expanded(child: _SeriesColumn(series: right)),
+        Expanded(child: _SeriesColumn(series: right, onSeriesTap: onSeriesTap)),
       ],
     );
   }
 }
 
 class _SeriesColumn extends StatelessWidget {
-  const _SeriesColumn({required this.series});
+  const _SeriesColumn({required this.series, this.onSeriesTap});
 
   final List<ProfileSeriesData> series;
+  final void Function(ProfileSeriesData series)? onSeriesTap;
 
   @override
   Widget build(BuildContext context) {
@@ -73,7 +74,7 @@ class _SeriesColumn extends StatelessWidget {
       children: [
         for (var i = 0; i < series.length; i++) ...[
           if (i > 0) const SizedBox(height: 18),
-          _SeriesGridCard(data: series[i]),
+          _SeriesGridCard(data: series[i], onTap: onSeriesTap),
         ],
       ],
     );
@@ -81,15 +82,16 @@ class _SeriesColumn extends StatelessWidget {
 }
 
 class _SeriesGridCard extends StatelessWidget {
-  const _SeriesGridCard({required this.data});
+  const _SeriesGridCard({required this.data, this.onTap});
 
   final ProfileSeriesData data;
+  final void Function(ProfileSeriesData series)? onTap;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        return Column(
+        final card = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _StackedSeriesCovers(data: data, maxWidth: constraints.maxWidth),
@@ -107,6 +109,12 @@ class _SeriesGridCard extends StatelessWidget {
               ),
             ),
           ],
+        );
+        if (onTap == null || data.id == null) return card;
+        return GestureDetector(
+          onTap: () => onTap!(data),
+          behavior: HitTestBehavior.opaque,
+          child: card,
         );
       },
     );

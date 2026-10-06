@@ -40,6 +40,28 @@ class AppTheme {
   /// Inter for all app text (via [GoogleFonts]).
   static String get _interFamily => GoogleFonts.inter().fontFamily!;
 
+  /// Where to look for a glyph Inter does not have — emoji, above all.
+  ///
+  /// Flutter only resolves a glyph outside the primary font if it is told where to
+  /// look, and Inter carries no emoji glyphs at all. On Android the OS's own font
+  /// fallback chain papers over this, so the gap only ever showed up on iOS: content
+  /// with an emoji in it — a chat message, a caption, a bio — rendered blank there,
+  /// though it was stored and sent identically on both platforms; nothing was lost,
+  /// there was just nothing to draw it with. Same fix on both platforms, since nothing
+  /// here is iOS-specific except the symptom.
+  ///
+  /// [TextStyle.merge] keeps a base style's `fontFamilyFallback` whenever the style
+  /// merged on top leaves it unset — true of every ad-hoc `GoogleFonts.inter(...)`
+  /// call in this app, none of which set it — so setting this once here on the
+  /// theme's TextTheme (which TextField merges onto) and on the app-root
+  /// DefaultTextStyle (which Text merges onto, see main.dart) reaches every plain
+  /// Text widget and every TextField without editing any of those call sites.
+  static const List<String> emojiFallback = [
+    'Apple Color Emoji',
+    'Noto Color Emoji',
+    'Segoe UI Emoji',
+  ];
+
   static ThemeData get light {
     final base = ThemeData.light(useMaterial3: true);
     final textTheme = GoogleFonts.interTextTheme(base.textTheme).copyWith(
@@ -83,7 +105,7 @@ class AppTheme {
         fontWeight: FontWeight.w400,
         color: AppColors.slate400,
       ),
-    );
+    ).apply(fontFamilyFallback: emojiFallback);
 
     return ThemeData(
       useMaterial3: true,
@@ -102,7 +124,7 @@ class AppTheme {
           fontSize: 20,
           fontWeight: FontWeight.w600,
           color: AppColors.slate900,
-        ),
+        ).copyWith(fontFamilyFallback: emojiFallback),
       ),
       textTheme: textTheme,
       filledButtonTheme: FilledButtonThemeData(
@@ -138,10 +160,14 @@ class AppTheme {
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
-        labelStyle: GoogleFonts.inter(color: AppColors.slate500),
-        hintStyle: GoogleFonts.inter(color: AppColors.slate400),
-        helperStyle: GoogleFonts.inter(fontSize: 12, color: AppColors.slate500),
-        errorStyle: GoogleFonts.inter(fontSize: 12, color: AppColors.slate700),
+        labelStyle: GoogleFonts.inter(color: AppColors.slate500)
+            .copyWith(fontFamilyFallback: emojiFallback),
+        hintStyle: GoogleFonts.inter(color: AppColors.slate400)
+            .copyWith(fontFamilyFallback: emojiFallback),
+        helperStyle: GoogleFonts.inter(fontSize: 12, color: AppColors.slate500)
+            .copyWith(fontFamilyFallback: emojiFallback),
+        errorStyle: GoogleFonts.inter(fontSize: 12, color: AppColors.slate700)
+            .copyWith(fontFamilyFallback: emojiFallback),
       ),
     );
   }
@@ -164,7 +190,7 @@ class AppTheme {
         fontWeight: FontWeight.w400,
         color: const Color(0xFFC8C5BC),
       ),
-    );
+    ).apply(fontFamilyFallback: emojiFallback);
 
     return ThemeData(
       useMaterial3: true,
@@ -185,7 +211,7 @@ class AppTheme {
           fontSize: 20,
           fontWeight: FontWeight.w600,
           color: const Color(0xFFFAFAF7),
-        ),
+        ).copyWith(fontFamilyFallback: emojiFallback),
       ),
       textTheme: textTheme,
     );

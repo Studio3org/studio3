@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../data/post_picker_options.dart';
@@ -15,6 +14,7 @@ import '../../widgets/permission_denied_sheet.dart';
 import '../../widgets/profile_avatar.dart';
 import '../../widgets/profile_cover_image.dart';
 import '../../widgets/studio_loading.dart';
+import '../../theme/app_fonts.dart';
 
 /// Multi-step onboarding: role → preferences → photos → complete.
 class OnboardingPage extends StatefulWidget {
@@ -174,7 +174,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
         elevation: 0,
         title: Text(
           'Set up your profile',
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 17,
             fontWeight: FontWeight.w600,
             color: HomeFeedTokens.textPrimary,
@@ -234,7 +234,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
       children: [
         Text(
           'What brings you to Studio 3?',
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 22,
             fontWeight: FontWeight.w700,
             color: HomeFeedTokens.textPrimary,
@@ -261,7 +261,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
       children: [
         Text(
           'Your taste',
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 22,
             fontWeight: FontWeight.w700,
             color: HomeFeedTokens.textPrimary,
@@ -270,7 +270,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
         const SizedBox(height: 8),
         Text(
           'Pick at least 3 mediums, styles, and themes.',
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 14,
             color: HomeFeedTokens.textPrimary.withValues(alpha: 0.55),
           ),
@@ -340,7 +340,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
       children: [
         Text(
           'Profile photos',
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 22,
             fontWeight: FontWeight.w700,
             color: HomeFeedTokens.textPrimary,
@@ -349,7 +349,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
         const SizedBox(height: 8),
         Text(
           'Add a profile photo and cover image, or tap Finish to skip for now.',
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 14,
             color: HomeFeedTokens.textPrimary.withValues(alpha: 0.55),
             height: 1.5,
@@ -370,7 +370,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   _profilePhotoUrl == null
                       ? 'Add profile photo'
                       : 'Profile photo added',
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
                     color: HomeFeedTokens.textPrimary,
@@ -411,7 +411,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                       _coverPhotoUrl == null
                           ? 'Add cover photo'
                           : 'Cover photo added',
-                      style: GoogleFonts.inter(
+                      style: AppFonts.inter(
                         fontSize: 15,
                         fontWeight: FontWeight.w500,
                         color: HomeFeedTokens.textPrimary,
@@ -471,7 +471,7 @@ class _RoleCard extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: GoogleFonts.inter(
+                style: AppFonts.inter(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                   color: HomeFeedTokens.textPrimary,
@@ -480,7 +480,7 @@ class _RoleCard extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 subtitle,
-                style: GoogleFonts.inter(
+                style: AppFonts.inter(
                   fontSize: 13,
                   color: HomeFeedTokens.textPrimary.withValues(alpha: 0.55),
                 ),
@@ -515,7 +515,7 @@ class _ChipSection extends StatelessWidget {
       children: [
         Text(
           title,
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontSize: 15,
             fontWeight: FontWeight.w600,
             color: HomeFeedTokens.textPrimary,

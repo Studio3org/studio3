@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../services/api_exception.dart';
 import '../services/auth_service.dart';
 import '../utils/auth_validators.dart';
 import '../widgets/auth_ui.dart';
 import '../widgets/studio_loading.dart';
+import '../theme/app_fonts.dart';
 
 enum _SignUpStep {
   name,
@@ -453,7 +453,7 @@ class _SignUpPageState extends State<SignUpPage> {
               onPressed: (_loading || _resendCooldown > 0) ? null : _resendOtp,
               child: Text(
                 'Resend code',
-                style: GoogleFonts.inter(
+                style: AppFonts.inter(
                   fontSize: 13,
                   color: _resendCooldown > 0
                       ? AuthColors.textMuted.withValues(alpha: 0.5)
@@ -466,7 +466,7 @@ class _SignUpPageState extends State<SignUpPage> {
               const SizedBox(width: 4),
               Text(
                 '(${_formatCooldown(_resendCooldown)})',
-                style: GoogleFonts.inter(fontSize: 13, color: AuthColors.textMuted),
+                style: AppFonts.inter(fontSize: 13, color: AuthColors.textMuted),
               ),
             ],
           ],
@@ -494,14 +494,14 @@ class _SignUpPageState extends State<SignUpPage> {
         if (_checkingUsername)
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Text('Checking availability…', style: GoogleFonts.inter(fontSize: 12, color: AuthColors.textDim)),
+            child: Text('Checking availability…', style: AppFonts.inter(fontSize: 12, color: AuthColors.textDim)),
           )
         else if (_usernameAvailable == true)
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Text(
               _usernameApiMessage ?? 'Username is available',
-              style: GoogleFonts.inter(fontSize: 12, color: AuthColors.success),
+              style: AppFonts.inter(fontSize: 12, color: AuthColors.success),
             ),
           )
         else if (_usernameAvailable == false)
@@ -509,7 +509,7 @@ class _SignUpPageState extends State<SignUpPage> {
             padding: const EdgeInsets.only(top: 8),
             child: Text(
               _usernameApiMessage ?? 'Username is taken',
-              style: GoogleFonts.inter(fontSize: 12, color: AuthColors.error),
+              style: AppFonts.inter(fontSize: 12, color: AuthColors.error),
             ),
           ),
         if (_usernameSuggestions.isNotEmpty) ...[
@@ -519,7 +519,7 @@ class _SignUpPageState extends State<SignUpPage> {
             runSpacing: 8,
             children: _usernameSuggestions.map((s) {
               return ActionChip(
-                label: Text(s, style: GoogleFonts.inter(fontSize: 12, color: AuthColors.textPrimary)),
+                label: Text(s, style: AppFonts.inter(fontSize: 12, color: AuthColors.textPrimary)),
                 backgroundColor: AuthColors.surfaceElevated,
                 side: BorderSide(color: AuthColors.border),
                 onPressed: () {

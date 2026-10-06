@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../models/follow_user_summary.dart';
 import '../services/api_exception.dart';
@@ -9,8 +8,10 @@ import '../theme/home_feed_tokens.dart';
 import '../utils/profile_navigation.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/home_feed/home_feed_widgets.dart';
+import '../widgets/loading/app_skeletons.dart';
 import '../widgets/offline_state.dart';
 import 'profile/widgets/profile_locked_placeholder.dart';
+import '../theme/app_fonts.dart';
 
 enum FollowListTab { followers, following }
 
@@ -38,7 +39,7 @@ class FollowListPage extends StatelessWidget {
           elevation: 0,
           title: Text(
             '@$username',
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 16,
               fontWeight: FontWeight.w600,
               color: HomeFeedTokens.textPrimary,
@@ -48,7 +49,7 @@ class FollowListPage extends StatelessWidget {
             labelColor: HomeFeedTokens.textPrimary,
             unselectedLabelColor: HomeFeedTokens.textSecondary,
             indicatorColor: HomeFeedTokens.textPrimary,
-            labelStyle: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600),
+            labelStyle: AppFonts.inter(fontSize: 14, fontWeight: FontWeight.w600),
             tabs: const [
               Tab(text: 'Followers'),
               Tab(text: 'Following'),
@@ -171,13 +172,13 @@ class _FollowListTabViewState extends State<_FollowListTabView> {
     if (_locked) return const ProfileLockedPlaceholder();
     if (_showOfflineState) return OfflineState(onRetry: _load);
     if (_loading && _items.isEmpty) {
-      return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+      return const UserListSkeleton(trailingAction: true);
     }
     if (_items.isEmpty) {
       return Center(
         child: Text(
           widget.emptyMessage,
-          style: GoogleFonts.inter(fontSize: 14, color: AppColors.slate400),
+          style: AppFonts.inter(fontSize: 14, color: AppColors.slate400),
         ),
       );
     }
@@ -218,7 +219,7 @@ class _FollowListTabViewState extends State<_FollowListTabView> {
                         children: [
                           Text(
                             user.name,
-                            style: GoogleFonts.inter(
+                            style: AppFonts.inter(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
                               color: HomeFeedTokens.textPrimary,
@@ -226,7 +227,7 @@ class _FollowListTabViewState extends State<_FollowListTabView> {
                           ),
                           Text(
                             '@${user.username}',
-                            style: GoogleFonts.inter(
+                            style: AppFonts.inter(
                               fontSize: 12,
                               color: AppColors.slate500,
                             ),

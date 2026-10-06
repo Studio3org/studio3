@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../services/api_exception.dart';
+import '../../../services/payout_service.dart';
 import '../../../services/user_service.dart';
 import '../../../theme/home_feed_tokens.dart';
+import '../../../theme/app_fonts.dart';
 
 /// Enables/disables seller mode without interrupting the profile flow.
 Future<bool?> toggleSellerMode({
@@ -16,7 +17,10 @@ Future<bool?> toggleSellerMode({
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Switch to artist profile?'),
-        content: const Text('Listed pieces will be delisted automatically.'),
+        content: const Text(
+          'Remove any active listings and finish or cancel in-progress '
+          'sales first. Seller mode cannot be turned off while those are open.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -39,30 +43,52 @@ Future<bool?> toggleSellerMode({
     }
   }
 
+  // Backend skips the location 400 when useProfileLocation is true, even if
+  // the profile location is empty — check here so seller doesn't turn on
+  // without one.
+  if ((profileLocation ?? '').trim().isEmpty) {
+    if (context.mounted) _showLocationRequired(context);
+    return null;
+  }
+
   try {
     await UserService.instance.enableSeller(
-      location: profileLocation?.trim() ?? '',
+      location: profileLocation!.trim(),
       useProfileLocation: true,
     );
-    return true;
   } catch (e) {
     if (!context.mounted) return null;
     final message = e is ApiException ? e.message : e.toString();
     if (message.toLowerCase().contains('location')) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Add a location in Edit profile first, then switch to seller mode.',
-            ),
-          ),
-        );
+      _showLocationRequired(context);
     } else {
       _showError(context, e);
     }
     return null;
   }
+
+  if (!context.mounted) return true;
+  try {
+    final status = await PayoutService.instance.getStatus();
+    if (status.needsAction && context.mounted) {
+      await Navigator.pushNamed(context, '/payout-setup');
+    }
+  } catch (_) {
+    // Seller is on; setup can be finished from Settings.
+  }
+  return true;
+}
+
+void _showLocationRequired(BuildContext context) {
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Add a location in Edit profile first, then switch to seller mode.',
+        ),
+      ),
+    );
 }
 
 void _showError(BuildContext context, Object e) {
@@ -118,7 +144,7 @@ class _InsightCell extends StatelessWidget {
         children: [
           Text(
             value,
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 16,
               fontWeight: FontWeight.w700,
               color: HomeFeedTokens.textPrimary,
@@ -127,7 +153,7 @@ class _InsightCell extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             label,
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 11,
               fontWeight: FontWeight.w400,
               color: HomeFeedTokens.textPrimary.withValues(alpha: 0.5),

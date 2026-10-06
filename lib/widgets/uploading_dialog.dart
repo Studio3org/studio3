@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/app_theme.dart';
 import '../theme/home_feed_tokens.dart';
 import 'studio_loading.dart';
+import '../theme/app_fonts.dart';
 
 /// Shows a centered, non-dismissible "Uploading…" card that blocks the
 /// screen until [hideUploadingDialog] is called. Callers must always pair
@@ -40,7 +40,7 @@ Future<void> showUploadingDialog(
                 const SizedBox(height: 16),
                 Text(
                   message,
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                     color: HomeFeedTokens.textPrimary,

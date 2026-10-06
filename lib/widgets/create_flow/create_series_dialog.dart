@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../theme/home_feed_tokens.dart';
+import '../../theme/app_fonts.dart';
 
 /// Prompt for a new series name. Returns trimmed name or null if cancelled.
 class CreateSeriesDialog extends StatefulWidget {
@@ -59,7 +59,7 @@ class _CreateSeriesDialogState extends State<CreateSeriesDialog> {
       backgroundColor: HomeFeedTokens.background,
       title: Text(
         widget.title,
-        style: GoogleFonts.inter(
+        style: AppFonts.inter(
           fontSize: 18,
           fontWeight: FontWeight.w600,
           color: HomeFeedTokens.textPrimary,
@@ -80,14 +80,14 @@ class _CreateSeriesDialogState extends State<CreateSeriesDialog> {
           onPressed: () => Navigator.pop(context),
           child: Text(
             'Cancel',
-            style: GoogleFonts.inter(color: HomeFeedTokens.textSecondary),
+            style: AppFonts.inter(color: HomeFeedTokens.textSecondary),
           ),
         ),
         TextButton(
           onPressed: _submit,
           child: Text(
             'Create',
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontWeight: FontWeight.w600,
               color: HomeFeedTokens.textPrimary,
             ),

@@ -10,8 +10,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 abstract final class ApiConfig {
   static const int port = 9000;
 
-  static const String _deployedBaseUrl =
-      'https://studio3-backend.onrender.com';
+  static const String _deployedBaseUrl = 'https://api.studio-3.co';
 
   /// Full URL override, e.g. `--dart-define=API_BASE_URL=https://api.example.com`
   static const String _baseUrlOverride =

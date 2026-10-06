@@ -32,24 +32,49 @@ class SeriesSummary {
     required this.id,
     required this.name,
     required this.pieceCount,
+    this.description,
+    this.coverUrl,
+    this.authorName,
+    this.authorUsername,
+    this.authorAvatarUrl,
     this.previewPieces = const [],
     this.pieceIds = const [],
+    this.pieces = const [],
   });
 
   final String id;
   final String name;
   final int pieceCount;
+  final String? description;
+  final String? coverUrl;
+  final String? authorName;
+  final String? authorUsername;
+  final String? authorAvatarUrl;
   final List<SeriesPreviewPiece> previewPieces;
   final List<String> pieceIds;
+  final List<PieceSummary> pieces;
 
   factory SeriesSummary.fromJson(Map<String, dynamic> json) {
     final previews = json['previewPieces'];
     final pieceIds = json['pieceIds'];
+    final piecesJson = json['pieces'];
+    final author = json['author'] as Map<String, dynamic>?;
     return SeriesSummary(
       id: json['id'] as String? ?? '',
       name: json['name'] as String? ?? '',
+      description: json['description'] as String?,
+      coverUrl: json['coverUrl'] as String?,
+      authorName: author?['name'] as String? ?? json['authorName'] as String?,
+      authorUsername:
+          author?['username'] as String? ?? json['authorUsername'] as String?,
+      authorAvatarUrl: author?['profilePhotoUrl'] as String? ??
+          json['authorAvatarUrl'] as String?,
       pieceCount: _intFrom(json['pieceCount']) ??
-          (pieceIds is List ? pieceIds.length : previews is List ? previews.length : 0),
+          (pieceIds is List
+              ? pieceIds.length
+              : previews is List
+                  ? previews.length
+                  : 0),
       previewPieces: previews is List
           ? previews
               .whereType<Map<String, dynamic>>()
@@ -58,6 +83,12 @@ class SeriesSummary {
           : const [],
       pieceIds: pieceIds is List
           ? pieceIds.map((e) => e.toString()).toList(growable: false)
+          : const [],
+      pieces: piecesJson is List
+          ? piecesJson
+              .whereType<Map<String, dynamic>>()
+              .map(PieceSummary.fromJson)
+              .toList(growable: false)
           : const [],
     );
   }

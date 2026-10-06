@@ -62,3 +62,22 @@ abstract final class PostStyleOptions {
     return null;
   }
 }
+
+abstract final class EventCategoryOptions {
+  EventCategoryOptions._();
+
+  static const all = <PostPickerOption>[
+    PostPickerOption(id: 'workshop', name: 'Workshop'),
+    PostPickerOption(id: 'gallery_walk', name: 'Gallery Walk'),
+    PostPickerOption(id: 'exhibition', name: 'Exhibition'),
+    PostPickerOption(id: 'talks_panels', name: 'Talks & Panels'),
+    PostPickerOption(id: 'demos_performances', name: 'Demos & Performances'),
+  ];
+
+  static PostPickerOption? byId(String id) {
+    for (final option in all) {
+      if (option.id == id) return option;
+    }
+    return null;
+  }
+}

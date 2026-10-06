@@ -1,7 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:shimmer/shimmer.dart';
 
 import '../../data/nav_assets.dart';
 import '../../models/feed_preview_item.dart';
@@ -11,86 +11,72 @@ import '../../services/notification_service.dart';
 import '../../services/social_service.dart';
 import '../../theme/home_feed_tokens.dart';
 import '../../utils/profile_navigation.dart';
-import '../studio_logo.dart';
+import '../../theme/app_fonts.dart';
 
 class FeedHomeHeader extends StatelessWidget {
   const FeedHomeHeader({
     super.key,
     required this.filter,
     required this.onFilterChanged,
-    required this.onAddTap,
-    this.hasAvailableItems = false,
+    required this.onSavedTap,
   });
 
-  final FeedAvailabilityFilter filter;
-  final ValueChanged<FeedAvailabilityFilter> onFilterChanged;
-  final VoidCallback onAddTap;
+  final HomeFeedContentFilter filter;
+  final ValueChanged<HomeFeedContentFilter> onFilterChanged;
+  final VoidCallback onSavedTap;
 
-  /// Shows a small green dot beside "Available" when there's at least one
-  /// item currently available to purchase.
-  final bool hasAvailableItems;
-
-  static const _headerHeight = 52.0;
+  String get _filterLabel => switch (filter) {
+        HomeFeedContentFilter.all => 'All',
+        HomeFeedContentFilter.piece => 'Piece',
+        HomeFeedContentFilter.scene => 'Scene',
+      };
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: _headerHeight,
-      child: Stack(
-        alignment: Alignment.center,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+      child: Row(
         children: [
-          Positioned(
-            left: 16,
-            top: 0,
-            bottom: 0,
-            child: Center(
-              child: Image.asset(
-                StudioLogoPaths.iconBlack,
-                width: 29,
-                height: 27,
-                fit: BoxFit.contain,
+          _FeedTypeDropdown(
+            label: _filterLabel,
+            selected: filter,
+            onSelected: onFilterChanged,
+          ),
+          Expanded(
+            child: Text(
+              'studio 3',
+              textAlign: TextAlign.center,
+              style: AppFonts.geist(
+                fontSize: 28,
+                fontWeight: FontWeight.w800,
+                color: Colors.black,
+                height: 1,
               ),
             ),
           ),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _UnderlinedFilterTab(
-                label: 'All',
-                active: filter == FeedAvailabilityFilter.all,
-                onTap: () => onFilterChanged(FeedAvailabilityFilter.all),
-              ),
-              const SizedBox(width: 24),
-              _UnderlinedFilterTab(
-                label: 'Available',
-                active: filter == FeedAvailabilityFilter.available,
-                onTap: () =>
-                    onFilterChanged(FeedAvailabilityFilter.available),
-                showDot: hasAvailableItems,
-              ),
-            ],
-          ),
-          Positioned(
-            right: 12,
-            top: 0,
-            bottom: 0,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+          SizedBox(
+            width: 64,
+            height: 22,
+            child: Stack(
+              clipBehavior: Clip.none,
               children: [
-                GestureDetector(
-                  onTap: onAddTap,
-                  behavior: HitTestBehavior.opaque,
-                  child: Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: SvgPicture.asset(
-                      NavAssets.plusIcon,
-                      width: 16,
-                      height: 16,
-                    ),
-                  ),
+                SvgPicture.asset(
+                  NavAssets.headerActions,
+                  width: 64,
+                  height: 22,
+                  fit: BoxFit.fill,
                 ),
-                const SizedBox(width: 4),
-                const _InboxMenuButton(),
+                Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: onSavedTap,
+                        behavior: HitTestBehavior.opaque,
+                      ),
+                    ),
+                    const Expanded(child: _InboxMenuButton()),
+                  ],
+                ),
               ],
             ),
           ),
@@ -100,56 +86,68 @@ class FeedHomeHeader extends StatelessWidget {
   }
 }
 
-/// Home header's "All"/"Available" tab — a gap between the label (plus an
-/// optional trailing "available" dot) and its active-state underline,
-/// matching the Inbox page's tab treatment, instead of a text-decoration
-/// underline flush against the label.
-class _UnderlinedFilterTab extends StatelessWidget {
-  const _UnderlinedFilterTab({
+class _FeedTypeDropdown extends StatelessWidget {
+  const _FeedTypeDropdown({
     required this.label,
-    required this.active,
-    required this.onTap,
-    this.showDot = false,
+    required this.selected,
+    required this.onSelected,
   });
 
   final String label;
-  final bool active;
-  final VoidCallback onTap;
-  final bool showDot;
+  final HomeFeedContentFilter selected;
+  final ValueChanged<HomeFeedContentFilter> onSelected;
 
   @override
   Widget build(BuildContext context) {
-    return IntrinsicWidth(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              FeedFilterTab(
-                label: label,
-                active: active,
-                onTap: onTap,
-                underline: false,
+    return PopupMenuButton<HomeFeedContentFilter>(
+      padding: EdgeInsets.zero,
+      tooltip: 'Filter feed',
+      offset: const Offset(0, 36),
+      color: HomeFeedTokens.background,
+      style: const ButtonStyle(
+        padding: WidgetStatePropertyAll(EdgeInsets.zero),
+        minimumSize: WidgetStatePropertyAll(Size.zero),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        visualDensity: VisualDensity.compact,
+      ),
+      onSelected: onSelected,
+      itemBuilder: (context) => [
+        for (final option in HomeFeedContentFilter.values)
+          PopupMenuItem(
+            value: option,
+            child: Text(
+              switch (option) {
+                HomeFeedContentFilter.all => 'All',
+                HomeFeedContentFilter.piece => 'Piece',
+                HomeFeedContentFilter.scene => 'Scene',
+              },
+              style: AppFonts.geist(
+                fontSize: 16,
+                fontWeight: option == selected
+                    ? FontWeight.w600
+                    : FontWeight.w400,
+                color: HomeFeedTokens.textPrimary,
               ),
-              if (showDot) ...[
-                const SizedBox(width: 6),
-                Container(
-                  width: HomeFeedTokens.dotSize,
-                  height: HomeFeedTokens.dotSize,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.green.shade500,
-                  ),
-                ),
-              ],
-            ],
+            ),
           ),
-          const SizedBox(height: 6),
-          Container(
-            height: 1.5,
-            color: active ? HomeFeedTokens.textPrimary : Colors.transparent,
+      ],
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: AppFonts.geist(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: HomeFeedTokens.textPrimary,
+              height: 1.1,
+            ),
+          ),
+          const SizedBox(width: 4),
+          SvgPicture.asset(
+            NavAssets.chevronDown,
+            width: 8,
+            height: 4,
           ),
         ],
       ),
@@ -223,45 +221,37 @@ class _InboxMenuButtonState extends State<_InboxMenuButton> {
 
   @override
   Widget build(BuildContext context) {
-    return Builder(
-      builder: (context) => GestureDetector(
-        onTap: () => _openInbox(context),
-        behavior: HitTestBehavior.opaque,
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Icon(
-                Icons.inbox_outlined,
-                size: 20,
-                color: HomeFeedTokens.textPrimary,
-              ),
-              if (_badgeCount > 0)
-                Positioned(
-                  top: -2,
-                  right: -2,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFE05252),
-                      shape: BoxShape.circle,
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      _badgeCount > 9 ? '9+' : '$_badgeCount',
-                      style: GoogleFonts.inter(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
+    return GestureDetector(
+      onTap: () => _openInbox(context),
+      behavior: HitTestBehavior.opaque,
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.center,
+        children: [
+          const SizedBox.expand(),
+          if (_badgeCount > 0)
+            Positioned(
+              top: -4,
+              right: -2,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFE05252),
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  _badgeCount > 9 ? '9+' : '$_badgeCount',
+                  style: AppFonts.geist(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
                   ),
                 ),
-            ],
-          ),
-        ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -290,7 +280,7 @@ class FeedFilterTab extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       child: Text(
         label,
-        style: GoogleFonts.inter(
+        style: AppFonts.inter(
           fontSize: fontSize,
           fontWeight: FontWeight.w400,
           color: active
@@ -394,7 +384,7 @@ class _InitialsAvatar extends StatelessWidget {
       alignment: Alignment.center,
       child: Text(
         initial,
-        style: GoogleFonts.inter(
+        style: AppFonts.inter(
           fontSize: size * 0.42,
           fontWeight: FontWeight.w600,
           color: HomeFeedTokens.textInverse,
@@ -428,7 +418,7 @@ class FeedCardArtistStrip extends StatelessWidget {
         authorUsername != null && authorUsername!.trim().isNotEmpty;
 
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         GestureDetector(
           onTap: canNavigate ? () => _onAvatarTap(context) : null,
@@ -440,7 +430,7 @@ class FeedCardArtistStrip extends StatelessWidget {
             size: HomeFeedTokens.avatarSize,
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 10),
         Expanded(
           child: GestureDetector(
             onTap: canNavigate ? () => _onAvatarTap(context) : null,
@@ -455,7 +445,7 @@ class FeedCardArtistStrip extends StatelessWidget {
                   name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.inter(
+                  style: AppFonts.geist(
                     fontSize: 12,
                     fontWeight: FontWeight.w400,
                     color: HomeFeedTokens.textInverse,
@@ -466,9 +456,9 @@ class FeedCardArtistStrip extends StatelessWidget {
                     medium!,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.inter(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w300,
+                    style: AppFonts.geist(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w400,
                       color: HomeFeedTokens.textInverse.withValues(alpha: 0.6),
                     ),
                   ),
@@ -489,12 +479,21 @@ class FeedApiCardOverlay extends StatelessWidget {
     required this.name,
     this.medium,
     this.authorUsername,
+    this.showAvailable = false,
+    this.showAuction = false,
+    this.showCollected = false,
   });
 
   final String? avatarUrl;
   final String name;
   final String? medium;
   final String? authorUsername;
+  final bool showAvailable;
+
+  /// Bidding is open. Distinct from [showAvailable] because the price on an
+  /// auction card is a starting bid, not a purchase price.
+  final bool showAuction;
+  final bool showCollected;
 
   @override
   Widget build(BuildContext context) {
@@ -503,17 +502,79 @@ class FeedApiCardOverlay extends StatelessWidget {
       children: [
         const FeedCardBottomScrim(),
         Positioned(
-          left: 8,
-          right: 8,
-          bottom: 8,
-          child: FeedCardArtistStrip(
-            avatarUrl: avatarUrl,
-            name: name,
-            medium: medium,
-            authorUsername: authorUsername,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: 56,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: FeedCardArtistStrip(
+                    avatarUrl: avatarUrl,
+                    name: name,
+                    medium: medium,
+                    authorUsername: authorUsername,
+                  ),
+                ),
+                if (showAvailable)
+                  const _StatusPill(
+                    label: 'Available',
+                    iconAsset: NavAssets.availableDot,
+                  )
+                else if (showAuction)
+                  const _StatusPill(
+                    label: 'Bidding open',
+                    iconAsset: NavAssets.availableDot,
+                  )
+                else if (showCollected)
+                  const _StatusPill(
+                    label: 'Collected',
+                    iconAsset: NavAssets.collectedMark,
+                  ),
+              ],
+            ),
           ),
         ),
       ],
+    );
+  }
+}
+
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.label, required this.iconAsset});
+
+  final String label;
+  final String iconAsset;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0x99231F1B),
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SvgPicture.asset(
+            iconAsset,
+            width: 8,
+            height: 8,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: AppFonts.geist(
+              fontSize: 11,
+              fontWeight: FontWeight.w400,
+              color: HomeFeedTokens.textInverse,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -543,13 +604,17 @@ class FeedPicsumImage extends StatelessWidget {
           width: double.infinity,
           height: double.infinity,
           memCacheWidth: cacheWidth,
-          progressIndicatorBuilder: (context, child, progress) => Container(
-            color: Colors.grey.shade300,
-            alignment: Alignment.center,
-            child: const SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(strokeWidth: 2),
+          // Animated left-to-right wave instead of a static gray box +
+          // spinner, so an individual piece/post image loading in mid-scroll
+          // reads the same "loading" way the initial feed skeleton does.
+          progressIndicatorBuilder: (context, child, progress) =>
+              Shimmer.fromColors(
+            baseColor: HomeFeedTokens.skeletonBase,
+            highlightColor: Colors.white,
+            period: const Duration(milliseconds: 1100),
+            direction: ShimmerDirection.ltr,
+            child: const DecoratedBox(
+              decoration: BoxDecoration(color: HomeFeedTokens.skeletonBase),
             ),
           ),
           errorWidget: (context, error, stackTrace) => Container(
@@ -575,7 +640,7 @@ class FeedCardBottomScrim extends StatelessWidget {
       left: 0,
       right: 0,
       bottom: 0,
-      height: 88,
+      height: 56,
       child: DecoratedBox(
         decoration: BoxDecoration(
           gradient: LinearGradient(

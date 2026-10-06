@@ -1,45 +1,39 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
+import '../models/auction_summary.dart';
 import '../models/feed_preview_item.dart';
 import '../services/api_exception.dart';
+import '../services/bid_service.dart';
 import '../services/auth_session.dart';
 import '../services/piece_service.dart';
 import '../theme/collect_detail_tokens.dart';
 import '../utils/content_detail_loader.dart';
 import 'edit_piece_page.dart';
 import '../widgets/piece_detail/ask_about_piece_sheet.dart';
-import '../widgets/piece_detail/available_collect_bar.dart';
-import '../widgets/piece_detail/collect_artist_row.dart';
+import '../widgets/piece_detail/bid_card_picker_sheet.dart';
 import '../widgets/piece_detail/collect_piece_sheet.dart';
 import '../widgets/piece_detail/detail_follow_state.dart';
+import '../widgets/piece_detail/manage_auction_sheet.dart';
 import '../widgets/piece_detail/detail_hero_image.dart';
 import '../widgets/piece_detail/detail_save_state.dart';
 import '../widgets/piece_detail/detail_scroll_handoff.dart';
-import '../widgets/piece_detail/materials_sheet.dart';
-import '../widgets/piece_detail/piece_action_bar.dart';
-import '../widgets/piece_detail/piece_comment_sheet.dart';
-import '../widgets/piece_detail/piece_location_row.dart';
-import '../widgets/piece_detail/piece_related_scenes_row.dart';
+import '../widgets/piece_detail/double_tap_like_hint.dart';
+import '../widgets/piece_detail/piece_figma_detail_body.dart';
+import '../widgets/piece_detail/piece_hero_overlay.dart';
+import '../widgets/piece_detail/piece_more_sheet.dart';
 import '../widgets/piece_detail/piece_share_sheet.dart';
-import '../widgets/piece_detail/piece_series_row.dart';
+import '../widgets/piece_detail/place_bid_sheet.dart';
 
-/// Collect / buy detail for available pieces (Figma 2302-1554).
+/// Collect / buy detail for available pieces (Figma 2707:3548).
 class AvailablePieceDetailPage extends StatefulWidget {
   const AvailablePieceDetailPage({
     super.key,
     required this.item,
     this.initialImageIndex = 0,
-    this.tappedIndex = 0,
-    this.filter = FeedAvailabilityFilter.all,
-    this.onWillAdvance,
   });
 
   final FeedPreviewItem item;
   final int initialImageIndex;
-  final int tappedIndex;
-  final FeedAvailabilityFilter filter;
-  final void Function(int nextIndex)? onWillAdvance;
 
   @override
   State<AvailablePieceDetailPage> createState() =>
@@ -47,15 +41,17 @@ class AvailablePieceDetailPage extends StatefulWidget {
 }
 
 class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
-    with DetailSaveState, DetailLikeState, DetailFollowState {
+    with
+        TickerProviderStateMixin,
+        DetailSaveState,
+        DetailLikeState,
+        DetailFollowState {
   late FeedPreviewItem _item;
+  late final AnimationController _hintController;
+  late final AnimationController _burstController;
 
   @override
   FeedPreviewItem get saveItem => _item;
-
-  @override
-  double get saveToastBottomMargin =>
-      AvailableCollectBar.totalHeight(context) + 16;
 
   @override
   FeedPreviewItem get likeItem => _item;
@@ -71,11 +67,30 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
   @override
   void initState() {
     _item = engagementStore.applyToPreview(widget.item);
+    _hintController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2200),
+    );
+    _burstController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
     super.initState();
     liked = _item.isLiked;
     likeCount = _item.likeCount;
     applyFollowState(_item);
     _loadDetail();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || liked) return;
+      _hintController.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _hintController.dispose();
+    _burstController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadDetail() async {
@@ -87,20 +102,101 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
     applyFollowState(loaded);
   }
 
-  void _onCollect() {
-    CollectPieceSheet.show(context, item: item);
+  Future<void> _onCollect() async {
+    final collected = await CollectPieceSheet.show(context, item: item);
+    if (!mounted || !collected) return;
+    // The bar behind the sheet still shows "Collect" — the piece just sold, and nothing
+    // else on this page knew that without asking the server again.
+    await _loadDetail();
   }
 
+  Future<void> _onPlaceBid() async {
+    final placed = await PlaceBidSheet.show(context, item: item);
+    if (!mounted || !placed) return;
+    // The bar behind the sheet is still showing the pre-bid figures — current bid, bid
+    // count, and whether this viewer leads — all three of which the bid just changed.
+    await _loadDetail();
+  }
+
+  Future<void> _onCompletePurchase() async {
+    final collected = await CollectPieceSheet.show(
+      context,
+      item: item,
+      // The hammer price, and the amount already captured — not the highest active bid,
+      // which is empty once the auction has closed.
+      winningBidCents: item.auction?.winningBidCents ?? item.highestBidCents,
+      prepaidCents: item.auction?.winningBidCents,
+    );
+    if (!mounted || !collected) return;
+    await _loadDetail();
+  }
+
+  /// The winner replacing a card that was declined when the auction closed.
+  ///
+  /// Goes straight to the card picker rather than to a confirmation step: the window is as
+  /// little as ten minutes for an event auction, and every screen between them and a working
+  /// card is a screen they might not get through in time.
+  Future<void> _onFixWinnerPayment() async {
+    final card = await BidCardPickerSheet.show(context);
+    if (!mounted || card == null) return;
+    try {
+      await BidService.instance.retryWinnerPayment(item.id, paymentMethodId: card.id);
+      if (!mounted) return;
+      await _loadDetail();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Payment received. Add your delivery details to finish.'),
+        ),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      // The auction may have moved on entirely — the deadline can pass mid-request.
+      await _loadDetail();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not complete payment. Please try again.')),
+      );
+    }
+  }
+
+  Future<void> _onManageAuction() async {
+    final auction = item.auction;
+    if (auction == null) return;
+    final changed = await ManageAuctionSheet.show(
+      context,
+      pieceId: item.id,
+      auction: auction,
+    );
+    if (!mounted || !changed) return;
+    await _loadDetail();
+  }
+
+  /// What the bar says once an auction is over, for whoever is looking at it.
+  String _auctionEndedLabel(AuctionSummary? auction) {
+    if (auction == null) return _statusLabel(item.status);
+    if (auction.needsPaymentFix) return 'Update card';
+    if (auction.needsCheckout) return 'Complete purchase';
+    if (auction.status == 'closed_no_bids') return 'Auction ended — no bids';
+    if (auction.needsSellerDecision) return 'Auction ended';
+    if (auction.status == 'cancelled') return 'Auction cancelled';
+    return 'Auction ended';
+  }
+
+  /// Whether the viewer is the artist whose piece this is.
+  ///
+  /// Checked against both author fields because a preview built from a feed row carries
+  /// only [FeedPreviewItem.handle] while one built from a piece response carries
+  /// `authorUsername` — matching on one alone left the other case looking like a stranger,
+  /// which is how the owner ended up being offered their own piece to buy.
   bool get _isOwner {
-    final viewerUsername = AuthSession.instance.user?.username;
+    final viewerUsername = AuthSession.instance.user?.username.toLowerCase();
     if (viewerUsername == null || viewerUsername.isEmpty) return false;
-    return viewerUsername.toLowerCase() == _authorHandle.toLowerCase();
-  }
-
-  bool get _canAskAboutPiece {
-    final viewerUsername = AuthSession.instance.user?.username;
-    if (viewerUsername == null || viewerUsername.isEmpty) return false;
-    return viewerUsername.toLowerCase() != _authorHandle.toLowerCase();
+    final author = item.authorUsername?.toLowerCase();
+    if (author != null && author.isNotEmpty && author == viewerUsername) return true;
+    return viewerUsername == _authorHandle.toLowerCase();
   }
 
   Future<void> _onEdit() async {
@@ -124,12 +220,31 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
   }
 
   Future<void> _onAskAboutPiece() async {
-    final sent = await AskAboutPieceSheet.show(context, pieceId: item.id);
+    final username = item.authorUsername;
+    if (username == null || username.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("We couldn't find this artist's profile.")),
+      );
+      return;
+    }
+    final sent = await AskAboutPieceSheet.show(
+      context,
+      artistUsername: username,
+      pieceTitle: item.title,
+    );
     if (sent == true && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Message sent to the artist')),
       );
     }
+  }
+
+  Future<void> _onDoubleTapLike() async {
+    _hintController.stop();
+    _hintController.value = 1;
+    await likeFromDoubleTap();
+    if (!mounted) return;
+    _burstController.forward(from: 0);
   }
 
   String _statusLabel(String? status) {
@@ -140,6 +255,8 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
         return 'Reserved';
       case 'delisted':
         return 'Not for sale';
+      case 'auction_won':
+        return 'Auction ended';
       default:
         return 'Unavailable';
     }
@@ -147,236 +264,93 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
 
   @override
   Widget build(BuildContext context) {
-    final collectBarHeight = AvailableCollectBar.totalHeight(context);
     final price = formatCollectPrice(item.priceCents);
     final isLive = item.isLive;
+    final isAuction = item.isAuction;
+    final auction = item.auction;
+    // Read from the server's stored winner, not from `isHighestBidder`. That field means
+    // "leads the live bidding" and is necessarily false once the auction closes — using it
+    // here meant no winner was ever offered the checkout. It also cannot express a cascade,
+    // where the winner is whichever bidder's card actually worked.
+    final isOwner = _isOwner;
+    // An artist cannot buy or bid on their own work — the server answers 400 to a self-bid —
+    // so the bar offers them the auction they are running instead of a purchase they can
+    // never complete.
+    final wonByMeAwaitingCheckout = !isOwner && (auction?.needsCheckout ?? false);
+    final wonByMeNeedsNewCard = !isOwner && (auction?.needsPaymentFix ?? false);
 
     return Scaffold(
       backgroundColor: CollectDetailTokens.background,
-      body: Stack(
-        children: [
-          DetailScrollHandoff(
-            tappedIndex: widget.tappedIndex,
-            filter: widget.filter,
-            onWillAdvance: widget.onWillAdvance,
-            collectBarHeight: collectBarHeight,
-            slivers: [
-              SliverToBoxAdapter(
-                child: Stack(
-                  children: [
-                    AspectRatio(
-                      aspectRatio: item.aspectRatioValue,
-                      child: DetailHeroImage(
-                        item: item,
-                        initialImageIndex: widget.initialImageIndex,
-                      ),
+      body: DetailScrollHandoff(
+        bottomPadding: 0,
+        slivers: [
+          SliverToBoxAdapter(
+            child: AspectRatio(
+              aspectRatio: 3 / 4,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  DetailHeroImage(
+                    item: item,
+                    initialImageIndex: widget.initialImageIndex,
+                    onDoubleTap: _onDoubleTapLike,
+                  ),
+                  PieceHeroOverlay(
+                    saved: saved,
+                    onBack: () => Navigator.pop(context),
+                    onSave: toggleSave,
+                    onShare: () => PieceShareSheet.show(
+                      context,
+                      item,
+                      imageIndex: widget.initialImageIndex,
                     ),
-                    Positioned(
-                      top: MediaQuery.paddingOf(context).top + 8,
-                      left: 8,
-                      child: IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.arrow_back_ios_new_rounded),
-                        color: CollectDetailTokens.textPrimary,
-                        style: IconButton.styleFrom(
-                          backgroundColor: CollectDetailTokens.background
-                              .withValues(alpha: 0.7),
-                        ),
-                      ),
-                    ),
-                    if (_isOwner)
-                      Positioned(
-                        top: MediaQuery.paddingOf(context).top + 8,
-                        right: 8,
-                        child: IconButton(
-                          onPressed: _onEdit,
-                          icon: const Icon(Icons.edit_outlined),
-                          color: CollectDetailTokens.textPrimary,
-                          style: IconButton.styleFrom(
-                            backgroundColor: CollectDetailTokens.background
-                                .withValues(alpha: 0.7),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    PieceActionBar(
-                      liked: liked,
-                      saved: saved,
-                      onLike: toggleLike,
-                      onComment: () => PieceCommentSheet.show(
-                        context,
-                        contentId: item.id,
-                        isScene: item.isScene,
-                      ),
-                      onShare: () => PieceShareSheet.show(
-                        context,
-                        item,
-                        imageIndex: widget.initialImageIndex,
-                      ),
-                      onSave: toggleSave,
-                    ),
-                    const Divider(
-                      height: 1,
-                      thickness: 1,
-                      color: CollectDetailTokens.divider,
-                    ),
-                    CollectArtistRow(
+                    onMore: () => PieceMoreSheet.show(
+                      context,
                       item: item,
-                      followState: followState,
-                      followBusy: followBusy,
-                      onFollowToggle: toggleFollow,
+                      isOwner: isOwner,
+                      onEdit: isOwner ? _onEdit : null,
+                      onManageAuction:
+                          isOwner && item.auction != null ? _onManageAuction : null,
+                      imageIndex: widget.initialImageIndex,
                     ),
-                    // "Ask about this piece" (piece-anchored inquiries) deferred to v2 in favor
-                    // of general-purpose chat. Left commented out rather than removed.
-                    // if (_canAskAboutPiece)
-                    //   Padding(
-                    //     padding: const EdgeInsets.fromLTRB(
-                    //       CollectDetailTokens.horizontalPadding,
-                    //       8,
-                    //       CollectDetailTokens.horizontalPadding,
-                    //       0,
-                    //     ),
-                    //     child: OutlinedButton(
-                    //       onPressed: _onAskAboutPiece,
-                    //       child: const Text('Ask about this piece'),
-                    //     ),
-                    //   ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        CollectDetailTokens.horizontalPadding,
-                        CollectDetailTokens.sectionGap,
-                        CollectDetailTokens.horizontalPadding,
-                        8,
-                      ),
-                      child: Text(
-                        item.title,
-                        style: GoogleFonts.inter(
-                          fontSize: CollectDetailTokens.titleSize,
-                          fontWeight: FontWeight.w400,
-                          height:
-                              CollectDetailTokens.titleLineHeight /
-                              CollectDetailTokens.titleSize,
-                          color: CollectDetailTokens.textPrimary,
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: CollectDetailTokens.horizontalPadding,
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  '${item.medium} · ${item.year}',
-                                  style: GoogleFonts.inter(
-                                    fontSize: CollectDetailTokens.metaSize,
-                                    fontWeight: FontWeight.w400,
-                                    height:
-                                        CollectDetailTokens.metaLineHeight /
-                                        CollectDetailTokens.metaSize,
-                                    color: CollectDetailTokens.textSecondary,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  item.dimensions,
-                                  style: GoogleFonts.inter(
-                                    fontSize: CollectDetailTokens.metaSize,
-                                    fontWeight: FontWeight.w400,
-                                    height:
-                                        CollectDetailTokens.metaLineHeight /
-                                        CollectDetailTokens.metaSize,
-                                    color: CollectDetailTokens.textSecondary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (item.materials.isNotEmpty)
-                            GestureDetector(
-                              onTap: () =>
-                                  showMaterialsSheet(context, item.materials),
-                              child: Text(
-                                'View Materials →',
-                                style: GoogleFonts.inter(
-                                  fontSize: CollectDetailTokens.linkSize,
-                                  fontWeight: FontWeight.w400,
-                                  height: 15.6 / CollectDetailTokens.linkSize,
-                                  color: CollectDetailTokens.link,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    PieceLocationRow(location: item.location),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        CollectDetailTokens.horizontalPadding,
-                        CollectDetailTokens.sectionGap,
-                        CollectDetailTokens.horizontalPadding,
-                        CollectDetailTokens.sectionGap,
-                      ),
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: CollectDetailTokens.storyCardFill,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Text(
-                            item.story,
-                            style: GoogleFonts.inter(
-                              fontSize: CollectDetailTokens.storySize,
-                              fontWeight: FontWeight.w400,
-                              height:
-                                  CollectDetailTokens.storyLineHeight /
-                                  CollectDetailTokens.storySize,
-                              color: CollectDetailTokens.textPrimary,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const Divider(
-                      height: 1,
-                      thickness: 1,
-                      color: CollectDetailTokens.divider,
-                    ),
-                    const SizedBox(height: CollectDetailTokens.sectionGap),
-                    PieceSeriesRow(
-                      seriesName: item.seriesName,
-                      thumbSeeds: item.seriesThumbs,
-                      thumbUrls: item.seriesThumbUrls,
-                    ),
-                    const SizedBox(height: 24),
-                    const Divider(
-                      height: 1,
-                      thickness: 1,
-                      color: CollectDetailTokens.divider,
-                    ),
-                    const SizedBox(height: CollectDetailTokens.sectionGap),
-                    PieceRelatedScenesRow(scenes: item.relatedScenes),
-                  ],
-                ),
+                  ),
+                  if (!liked || _hintController.isAnimating)
+                    DoubleTapLikeHint(animation: _hintController),
+                  DoubleTapLikeBurst(animation: _burstController),
+                ],
               ),
-            ],
+            ),
           ),
-          AvailableCollectBar(
-            priceDisplay: price,
-            onCollect: isLive ? _onCollect : null,
-            statusLabel: isLive ? null : _statusLabel(item.status),
+          SliverToBoxAdapter(
+            child: PieceFigmaDetailBody(
+              item: item,
+              followState: followState,
+              followBusy: followBusy,
+              onFollowToggle: toggleFollow,
+              showCollect: true,
+              isOwner: isOwner,
+              collectPrice: price,
+              onCollect: (!isOwner && !isAuction && isLive) ? _onCollect : null,
+              // The owner gets the seller's action in the slot where a collector would get
+              // "Place a bid", rather than a button greyed out against them.
+              onPlaceBid: !isAuction || !isLive
+                  ? null
+                  : (isOwner
+                      ? (auction != null ? _onManageAuction : null)
+                      : _onPlaceBid),
+              onCompletePurchase:
+                  wonByMeAwaitingCheckout ? _onCompletePurchase : null,
+              onFixPayment: wonByMeNeedsNewCard ? _onFixWinnerPayment : null,
+              collectStatusLabel: isAuction
+                  ? (isLive
+                      ? (isOwner ? 'Manage auction' : null)
+                      : _auctionEndedLabel(auction))
+                  : (isLive
+                      ? (isOwner ? 'Your piece' : null)
+                      : _statusLabel(item.status)),
+              onMessage: isOwner ? null : _onAskAboutPiece,
+              bottomInset: MediaQuery.paddingOf(context).bottom,
+            ),
           ),
         ],
       ),

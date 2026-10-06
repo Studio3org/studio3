@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/home_feed_tokens.dart';
+import '../theme/app_fonts.dart';
 
 /// Shared Accept/Decline button pair for follow-requests and inquiry
 /// message-requests rows.
@@ -26,7 +26,7 @@ class AcceptDeclineButtons extends StatelessWidget {
         child: CircularProgressIndicator(strokeWidth: 2),
       );
     }
-    final textStyle = GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600);
+    final textStyle = AppFonts.inter(fontSize: 13, fontWeight: FontWeight.w600);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [

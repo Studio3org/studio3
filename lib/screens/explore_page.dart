@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../models/chat_message.dart';
 import '../models/explore_feed_block.dart';
@@ -28,6 +27,7 @@ import '../widgets/feed_skeleton.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/home_feed/home_feed_widgets.dart';
 import '../utils/scrolls_to_top_on_double_tap.dart';
+import '../theme/app_fonts.dart';
 
 class ExplorePage extends StatefulWidget {
   const ExplorePage({super.key});
@@ -51,6 +51,13 @@ class _ExplorePageState extends State<ExplorePage>
   String _searchQuery = '';
   int _visibleCycleCount = 2;
 
+  /// Set when a load failed and left nothing on screen — drives the
+  /// retry state instead of the "nothing here" copy, which reads as "the
+  /// app is empty" when the truth is "the request didn't land".
+  bool _loadFailed = false;
+  int _loadAttempts = 0;
+  Timer? _retryTimer;
+
   Timer? _userSearchDebounce;
   List<MessageableUser> _userResults = [];
   bool _userSearchLoading = false;
@@ -61,7 +68,22 @@ class _ExplorePageState extends State<ExplorePage>
     super.initState();
     _scrollController.addListener(_onScroll);
     ConnectivityService.instance.addReconnectHook(_onReconnected);
+    _seedFromCache();
     _loadData();
+  }
+
+  /// Paints the last-seen Explore grid on the first frame. Without this the
+  /// tab starts empty on every open and depends entirely on the live
+  /// request landing.
+  void _seedFromCache() {
+    final cached = FeedService.instance.peekExploreCached();
+    if (cached == null || cached.items.isEmpty) return;
+    _allItems = cached.items;
+    _nextCursor = cached.nextCursor;
+    _featured = ExploreFeaturedRanker.pickFeatured(
+      _filterItems(_allItems, _category),
+      profile: _profile,
+    );
   }
 
   @override
@@ -70,6 +92,7 @@ class _ExplorePageState extends State<ExplorePage>
     _scrollController.dispose();
     _searchController.dispose();
     _userSearchDebounce?.cancel();
+    _retryTimer?.cancel();
     ConnectivityService.instance.removeReconnectHook(_onReconnected);
     super.dispose();
   }
@@ -116,6 +139,7 @@ class _ExplorePageState extends State<ExplorePage>
         }
       }
       if (!mounted) return;
+      _loadAttempts = 0;
       setState(() {
         if (append) {
           _allItems.addAll(page.items);
@@ -126,6 +150,7 @@ class _ExplorePageState extends State<ExplorePage>
         _profile = profile;
         _loading = false;
         _loadingMore = false;
+        _loadFailed = false;
       });
       if (!append) {
         final filtered = _filterItems(_allItems, _category);
@@ -141,16 +166,37 @@ class _ExplorePageState extends State<ExplorePage>
       }
     } catch (_) {
       if (!mounted) return;
+      // Deliberately keeps whatever is already on screen. This used to
+      // clear `_allItems`, so a single failed request — and the deployed
+      // backend spins down on idle, taking 30-60s to wake, so failures
+      // here are routine — permanently replaced a populated Explore with
+      // "Nothing to explore yet." until the user thought to pull down.
       setState(() {
-        if (!append) {
-          _allItems = [];
-          _featured = null;
-          _nextCursor = null;
-        }
         _loading = false;
         _loadingMore = false;
+        _loadFailed = _allItems.isEmpty;
       });
+      if (!append && _allItems.isEmpty) _scheduleRetry();
     }
+  }
+
+  /// Retries a failed first load a few times with backoff, mirroring
+  /// `ProfilePage._loadProfileShell`. A cold backend is the common case and
+  /// nothing else would otherwise retry for the user.
+  void _scheduleRetry() {
+    if (_loadAttempts >= 3) return;
+    _loadAttempts++;
+    _retryTimer?.cancel();
+    _retryTimer = Timer(Duration(seconds: 2 * _loadAttempts), () {
+      if (!mounted || _allItems.isNotEmpty) return;
+      _loadData(refresh: true);
+    });
+  }
+
+  Future<void> _retryNow() {
+    _loadAttempts = 0;
+    _retryTimer?.cancel();
+    return _loadData(refresh: true);
   }
 
   /// Applies a page fetched silently in the background (see
@@ -318,6 +364,8 @@ class _ExplorePageState extends State<ExplorePage>
                       child: ExploreFeedSkeleton(),
                     ),
                   )
+                else if (_loadFailed)
+                  SliverToBoxAdapter(child: _ExploreLoadFailed(onRetry: _retryNow))
                 else
                   SliverToBoxAdapter(
                     child: ExploreFeedSection(
@@ -348,7 +396,7 @@ class _ExplorePageState extends State<ExplorePage>
           child: Text(
             'Search failed: $_userSearchError',
             textAlign: TextAlign.center,
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 14,
               color: ExploreTokens.textSecondary,
             ),
@@ -362,7 +410,7 @@ class _ExplorePageState extends State<ExplorePage>
         child: Center(
           child: Text(
             'No users found for "$_searchQuery"',
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               fontSize: 14,
               color: ExploreTokens.textSecondary,
             ),
@@ -401,7 +449,7 @@ class _ExplorePageState extends State<ExplorePage>
                             children: [
                               Text(
                                 user.displayName,
-                                style: GoogleFonts.inter(
+                                style: AppFonts.inter(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
                                   color: AppColors.slate900,
@@ -409,7 +457,7 @@ class _ExplorePageState extends State<ExplorePage>
                               ),
                               Text(
                                 '@${user.username}',
-                                style: GoogleFonts.inter(
+                                style: AppFonts.inter(
                                   fontSize: 13,
                                   color: AppColors.slate500,
                                 ),
@@ -423,6 +471,60 @@ class _ExplorePageState extends State<ExplorePage>
                 ),
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Shown when Explore has nothing *because the request failed*, as opposed
+/// to there genuinely being nothing to show — the two used to render the
+/// same "Nothing to explore yet." copy, which made a transient backend
+/// hiccup look like an empty app and gave the user nothing to act on.
+class _ExploreLoadFailed extends StatelessWidget {
+  const _ExploreLoadFailed({required this.onRetry});
+
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: ExploreTokens.sideMargin,
+        vertical: 48,
+      ),
+      child: Column(
+        children: [
+          Text(
+            "Couldn't load Explore",
+            textAlign: TextAlign.center,
+            style: AppFonts.inter(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: ExploreTokens.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Check your connection and try again.',
+            textAlign: TextAlign.center,
+            style: AppFonts.inter(
+              fontSize: 13,
+              color: ExploreTokens.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 16),
+          OutlinedButton(
+            onPressed: onRetry,
+            child: Text(
+              'Try again',
+              style: AppFonts.inter(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: ExploreTokens.textPrimary,
+              ),
+            ),
+          ),
         ],
       ),
     );

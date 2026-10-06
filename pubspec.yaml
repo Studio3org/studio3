@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+2
+version: 1.0.0+5
 
 environment:
   sdk: ^3.9.2
@@ -45,6 +45,8 @@ dependencies:
   photo_manager: ^3.6.0
   shared_preferences: ^2.3.3
   video_player: ^2.9.2
+  video_thumbnail: ^0.5.6
+  visibility_detector: ^0.4.0+2
   cached_network_image: ^3.4.1
   geolocator: ^14.0.3
   firebase_core: ^4.12.1
@@ -60,12 +62,25 @@ dependencies:
   shimmer: ^3.0.0
   app_links: ^7.2.1
   socket_io_client: ^3.1.2
+  # Stripe PaymentSheet. Card details go straight from the SDK to Stripe and
+  # never touch our servers, which is what keeps PCI scope minimal.
+  # NOTE: requires FlutterFragmentActivity + an AppCompat/MaterialComponents
+  # theme on Android (see MainActivity.kt and res/values*/styles.xml).
+  flutter_stripe: ^14.1.0
   # Pub.dev 0.1.6 is missing `import Foundation` in OperationManager.swift,
   # which breaks iOS compilation. Pin the upstream commit containing the fix.
   easy_video_editor:
     git:
       url: https://github.com/iawtk2302/easy_video_editor.git
       ref: 17989b573f88442e49243820d7dbb7889e9cb15e
+  mobile_scanner: ^7.4.2
+  qr_flutter: ^4.1.0
+  pdf: ^3.13.1
+  printing: ^5.15.1
+  # Must live in regular dependencies (not dev_dependencies) because
+  # FlutterNativeSplash.preserve()/.remove() are called from lib/main.dart
+  # and need to ship in release builds, not just be available at dev time.
+  flutter_native_splash: ^2.4.4
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -76,7 +91,6 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
-  flutter_native_splash: ^2.4.4
   flutter_launcher_icons: ^0.14.3
   # Used by tool/generate_brand_assets.dart to derive app_icon.png / splash_icon.png
   image: ^4.8.0
@@ -134,8 +148,21 @@ flutter:
     - assets/post/crop/
     - assets/post/adjust/
     - assets/post/create/
+    - assets/post/scene/
     - assets/nav/
     - assets/profile/
+    - assets/piece/
+    - assets/event/
+    # Inter + Geist, in the exact weights the app uses, under the filenames
+    # `google_fonts` looks for in the asset bundle (`<Family>-<Variant>.ttf`).
+    # With these present the package never touches the network: it resolves
+    # every GoogleFonts.inter()/geist() call from here. Without them each
+    # family+weight is downloaded from fonts.gstatic.com the first time a
+    # screen uses it, which shows up as multi-second stalls when a new
+    # section appears. `GoogleFonts.config.allowRuntimeFetching = false` in
+    # `main.dart` keeps it that way — a weight that isn't bundled throws in
+    # debug instead of silently going back to fetching at runtime.
+    - assets/google_fonts/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

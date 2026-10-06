@@ -1,15 +1,18 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/notification_item.dart';
 import '../../services/chat_socket_service.dart';
 import '../../services/connectivity_service.dart';
 import '../../services/notification_service.dart';
+import '../../utils/app_destination.dart';
 import '../../theme/app_theme.dart';
 import '../feed_skeleton.dart';
 import '../glass_card.dart';
 import '../home_feed/home_feed_widgets.dart';
 import '../offline_state.dart';
+import '../../theme/app_fonts.dart';
 
 /// Notifications list content for the Inbox page's "Notifications" tab —
 /// extracted from the former standalone NotificationsPage, minus its own
@@ -98,8 +101,10 @@ class NotificationsBodyState extends State<NotificationsBody> {
       });
     } catch (_) {
       if (!mounted) return;
+      // A failed refresh must not wipe what the user is already looking
+      // at — keep the current page and let them retry (pull-to-refresh or
+      // the next focus load) instead of blanking the list.
       setState(() {
-        if (!append) _items.clear();
         _loading = false;
         _loadingMore = false;
         _showOfflineState =
@@ -118,6 +123,18 @@ class NotificationsBodyState extends State<NotificationsBody> {
   }
 
   Future<void> _onTap(NotificationItem item) async {
+    // Navigate first, and regardless of read state. This used to return early for an
+    // already-read row, which meant the only way to reach the thing a notification was about
+    // was to get there before tapping it twice — and for an unread one it marked it read and
+    // went nowhere at all.
+    final destination = AppDestination.fromTarget(
+      item.targetType,
+      item.targetId,
+      actorUsername: item.actorUsername,
+    );
+    if (destination.isKnown) {
+      unawaited(openDestination(context, destination));
+    }
     if (item.read) return;
     setState(() {
       final index = _items.indexWhere((n) => n.id == item.id);
@@ -165,7 +182,7 @@ class NotificationsBodyState extends State<NotificationsBody> {
       return Center(
         child: Text(
           'No activity yet',
-          style: GoogleFonts.inter(fontSize: 14, color: AppColors.slate400),
+          style: AppFonts.inter(fontSize: 14, color: AppColors.slate400),
         ),
       );
     }
@@ -224,7 +241,7 @@ class _SectionLabel extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
       child: Text(
         label,
-        style: GoogleFonts.inter(
+        style: AppFonts.inter(
           fontSize: 12,
           fontWeight: FontWeight.w500,
           color: AppColors.slate400,
@@ -258,29 +275,42 @@ class _ActivityCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            UserAvatar(
-              url: item.actorAvatarUrl,
-              name: item.actorDisplayName,
-              size: 36,
-            ),
+            item.hasActor
+                ? UserAvatar(
+                    url: item.actorAvatarUrl,
+                    name: item.actorDisplayName,
+                    size: 36,
+                  )
+                // A system notification (a bid result, an auction closing, an event
+                // cancelled) has no one to put a face to — a fake "Someone" avatar here
+                // was as misleading as the fake name next to it.
+                : const _SystemNotificationIcon(size: 36),
             const SizedBox(width: 12),
             Expanded(
               child: Wrap(
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  Text(
-                    '${item.actorDisplayName} ',
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.slate900,
+                  if (item.hasActor)
+                    Text(
+                      '${item.actorDisplayName} ',
+                      style: AppFonts.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.slate900,
+                      ),
                     ),
-                  ),
                   Text(
                     item.displayText,
-                    style: GoogleFonts.inter(
+                    style: AppFonts.inter(
                       fontSize: 14,
-                      color: AppColors.slate700,
+                      // A system message reads as its own sentence rather than the tail
+                      // end of one that starts with a name, so it gets the same emphasis
+                      // an actor-led one puts on the name.
+                      fontWeight:
+                          item.hasActor ? FontWeight.w400 : FontWeight.w600,
+                      color: item.hasActor
+                          ? AppColors.slate700
+                          : AppColors.slate900,
                     ),
                   ),
                   if (item.isInquiry) ...[
@@ -317,10 +347,37 @@ class _ActivityCard extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               _timeAgo(item.createdAt),
-              style: GoogleFonts.inter(fontSize: 11, color: AppColors.slate400),
+              style: AppFonts.inter(fontSize: 11, color: AppColors.slate400),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Stand-in for [UserAvatar] on a notification nobody sent — a bid result, an auction
+/// closing, an event cancelled. A neutral bell rather than an initials circle, so it reads
+/// as "the app telling you something" and not as a person whose name just failed to load.
+class _SystemNotificationIcon extends StatelessWidget {
+  const _SystemNotificationIcon({required this.size});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: const BoxDecoration(
+        color: AppColors.slate100,
+        shape: BoxShape.circle,
+      ),
+      alignment: Alignment.center,
+      child: Icon(
+        Icons.notifications_rounded,
+        size: size * 0.55,
+        color: AppColors.slate600,
       ),
     );
   }
@@ -349,7 +406,7 @@ class _Pill extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: GoogleFonts.inter(
+        style: AppFonts.inter(
           fontSize: 11,
           fontWeight: bold ? FontWeight.w600 : FontWeight.w400,
           color: textColor,
