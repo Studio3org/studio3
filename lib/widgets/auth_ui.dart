@@ -728,3 +728,109 @@ void showAuthError(BuildContext context, Object error) {
   };
   showAuthSnackBar(context, message, isError: true);
 }
+
+/// Required Terms of Use (EULA) agreement on the sign-up and login forms
+/// (App Store guideline 1.2). "Terms of Use" opens the full text in-app.
+class AuthTermsCheckbox extends StatelessWidget {
+  const AuthTermsCheckbox({
+    super.key,
+    required this.value,
+    required this.onChanged,
+    this.showError = false,
+  });
+
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  /// Highlights the row after a submit attempt without the box ticked.
+  final bool showError;
+
+  @override
+  Widget build(BuildContext context) {
+    final base = GoogleFonts.inter(
+      fontSize: 12,
+      height: 1.45,
+      color: showError && !value ? AuthColors.error : AuthColors.textMuted,
+    );
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 22,
+          height: 22,
+          child: Checkbox(
+            value: value,
+            onChanged: (v) => onChanged(v ?? false),
+            activeColor: AuthColors.accent,
+            checkColor: AuthColors.backgroundDeep,
+            side: BorderSide(
+              color: showError && !value
+                  ? AuthColors.error
+                  : Colors.white.withValues(alpha: 0.35),
+            ),
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: VisualDensity.compact,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: GestureDetector(
+            onTap: () => onChanged(!value),
+            child: Text.rich(
+              TextSpan(
+                style: base,
+                children: [
+                  const TextSpan(text: 'I agree to the '),
+                  WidgetSpan(
+                    alignment: PlaceholderAlignment.baseline,
+                    baseline: TextBaseline.alphabetic,
+                    child: GestureDetector(
+                      onTap: () => Navigator.pushNamed(context, '/terms'),
+                      child: Text(
+                        'Terms of Use (EULA)',
+                        style: base.copyWith(
+                          color: AuthColors.textPrimary,
+                          fontWeight: FontWeight.w600,
+                          decoration: TextDecoration.underline,
+                          decorationColor: AuthColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const TextSpan(
+                    text: '. Studio3 has zero tolerance for objectionable '
+                        'content or abusive users.',
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// "Browse without an account" — App Store guideline 5.1.1(v): browsing
+/// isn't an account feature, so the auth screens always offer a way out.
+class AuthGuestLink extends StatelessWidget {
+  const AuthGuestLink({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton(
+      onPressed: () =>
+          Navigator.pushNamedAndRemoveUntil(context, '/', (_) => false),
+      style: TextButton.styleFrom(foregroundColor: AuthColors.textMuted),
+      child: Text(
+        'Browse without an account',
+        style: GoogleFonts.inter(
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          decoration: TextDecoration.underline,
+          decorationColor: AuthColors.textMuted,
+        ),
+      ),
+    );
+  }
+}

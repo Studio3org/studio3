@@ -4,10 +4,14 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../models/comment_page.dart';
 import '../../models/feed_item.dart';
 import '../../services/auth_session.dart';
+import '../../services/blocked_authors_store.dart';
 import '../../services/chat_socket_service.dart';
+import '../../services/report_service.dart';
 import '../../services/social_service.dart';
 import '../../theme/home_feed_tokens.dart';
 import '../../utils/profile_navigation.dart';
+import '../../utils/require_login.dart';
+import '../content_actions_sheet.dart';
 import '../profile_avatar.dart';
 
 /// Instagram-style comment list + add-comment bottom sheet for a piece or
@@ -76,7 +80,21 @@ class _PieceCommentSheetState extends State<PieceCommentSheet> {
       targetId: widget.contentId,
     );
     ChatSocketService.instance.onCommentNew(_onLiveComment);
+    BlockedAuthorsStore.instance.addListener(_onAuthorBlocked);
     _loadInitial();
+  }
+
+  void _onAuthorBlocked() {
+    if (mounted) setState(() {});
+  }
+
+  /// Comments from accounts blocked this session are hidden immediately;
+  /// the backend leaves them out of later fetches.
+  List<CommentSummary> get _visibleComments {
+    final blocked = BlockedAuthorsStore.instance;
+    return _comments
+        .where((c) => !blocked.isBlocked(c.authorUsername))
+        .toList();
   }
 
   @override
@@ -87,6 +105,7 @@ class _PieceCommentSheetState extends State<PieceCommentSheet> {
       targetId: widget.contentId,
     );
     ChatSocketService.instance.offCommentNew();
+    BlockedAuthorsStore.instance.removeListener(_onAuthorBlocked);
     _textController.dispose();
     super.dispose();
   }
@@ -164,6 +183,7 @@ class _PieceCommentSheetState extends State<PieceCommentSheet> {
   Future<void> _submit() async {
     final body = _textController.text.trim();
     if (body.isEmpty || _sending) return;
+    if (!await requireLogin(context)) return;
     final user = AuthSession.instance.user;
     final tempId = 'local-${DateTime.now().microsecondsSinceEpoch}';
     final optimistic = CommentSummary(
@@ -257,7 +277,7 @@ class _PieceCommentSheetState extends State<PieceCommentSheet> {
         ),
       );
     }
-    if (_comments.isEmpty) {
+    if (_visibleComments.isEmpty) {
       return Center(
         child: Text(
           'No comments yet',
@@ -265,12 +285,13 @@ class _PieceCommentSheetState extends State<PieceCommentSheet> {
         ),
       );
     }
+    final comments = _visibleComments;
     return ListView.builder(
       controller: widget.scrollController,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      itemCount: _comments.length + (_loadingMore ? 1 : 0),
+      itemCount: comments.length + (_loadingMore ? 1 : 0),
       itemBuilder: (context, index) {
-        if (index >= _comments.length) {
+        if (index >= comments.length) {
           return const Padding(
             padding: EdgeInsets.symmetric(vertical: 16),
             child: Center(
@@ -282,7 +303,7 @@ class _PieceCommentSheetState extends State<PieceCommentSheet> {
             ),
           );
         }
-        return _CommentTile(comment: _comments[index]);
+        return _CommentTile(comment: comments[index]);
       },
     );
   }
@@ -303,6 +324,15 @@ class _PieceCommentSheetState extends State<PieceCommentSheet> {
               controller: _textController,
               minLines: 1,
               maxLines: 4,
+              // Guests can read the thread; tapping to write asks them to
+              // log in instead of opening the keyboard.
+              readOnly: !AuthSession.instance.isLoggedIn,
+              onTap: AuthSession.instance.isLoggedIn
+                  ? null
+                  : () => requireLogin(
+                        context,
+                        message: 'Log in or create a free account to comment.',
+                      ),
               textInputAction: TextInputAction.send,
               onSubmitted: (_) => _submit(),
               style: GoogleFonts.inter(
@@ -310,7 +340,9 @@ class _PieceCommentSheetState extends State<PieceCommentSheet> {
                 color: HomeFeedTokens.textPrimary,
               ),
               decoration: InputDecoration(
-                hintText: 'Add a comment…',
+                hintText: AuthSession.instance.isLoggedIn
+                    ? 'Add a comment…'
+                    : 'Log in to comment',
                 hintStyle: GoogleFonts.inter(
                   fontSize: 14,
                   color: HomeFeedTokens.textSecondary,
@@ -354,6 +386,11 @@ class _CommentTile extends StatelessWidget {
     final canNavigate = comment.authorUsername != null &&
         comment.authorUsername!.trim().isNotEmpty;
     void onTapAuthor() => openUserProfile(context, comment.authorUsername);
+    final me = AuthSession.instance.user?.username.toLowerCase();
+    // Only real (server-saved) comments by someone else can be reported.
+    final canReport = comment.id.isNotEmpty &&
+        !comment.id.startsWith('local-') &&
+        (me == null || comment.authorUsername?.toLowerCase() != me);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -412,6 +449,19 @@ class _CommentTile extends StatelessWidget {
               ],
             ),
           ),
+          if (canReport)
+            IconButton(
+              tooltip: 'More',
+              visualDensity: VisualDensity.compact,
+              iconSize: 18,
+              color: HomeFeedTokens.textSecondary,
+              icon: const Icon(Icons.more_horiz_rounded),
+              onPressed: () => showContentActionsSheet(
+                context,
+                target: ReportTarget.comment(comment.id),
+                authorUsername: comment.authorUsername,
+              ),
+            ),
         ],
       ),
     );

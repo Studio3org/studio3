@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../models/feed_item.dart';
+import '../../services/auth_session.dart';
 import '../feed_skeleton.dart';
 import 'reel_overlay.dart';
 
@@ -42,6 +43,9 @@ class _ReelPlayerPageState extends State<ReelPlayerPage> {
 
   void _onDoubleTap() {
     _overlayKey.currentState?.likeIfNotAlready();
+    // A guest's double-tap just asks them to log in — no heart for a like
+    // that never happens.
+    if (!AuthSession.instance.isLoggedIn) return;
     setState(() => _showHeart = true);
     Future<void>.delayed(const Duration(milliseconds: 700), () {
       if (mounted) setState(() => _showHeart = false);

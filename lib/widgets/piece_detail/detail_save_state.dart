@@ -4,6 +4,7 @@ import '../../models/feed_preview_item.dart';
 import '../../services/engagement_store.dart';
 import '../../services/saved_content_store.dart';
 import '../../services/social_service.dart';
+import '../../utils/require_login.dart';
 import '../collection_saved_toast.dart';
 import '../save_to_collection_sheet.dart';
 
@@ -62,6 +63,14 @@ mixin DetailSaveState<T extends StatefulWidget> on State<T> {
 
   Future<void> toggleSave() async {
     if (_saveBusy) return;
+    if (!await requireLogin(
+      context,
+      message: 'Log in or create a free account to save art to your '
+          'collections.',
+    )) {
+      return;
+    }
+    if (!mounted) return;
     final item = saveItem;
     final nextSaved = !saved;
 
@@ -165,6 +174,13 @@ mixin DetailLikeState<T extends StatefulWidget> on State<T> {
 
   Future<void> toggleLike() async {
     if (_likeBusy) return;
+    if (!await requireLogin(
+      context,
+      message: 'Log in or create a free account to like pieces and scenes.',
+    )) {
+      return;
+    }
+    if (!mounted) return;
     final item = likeItem;
     if (!item.isApiBacked) {
       final nextLiked = !liked;

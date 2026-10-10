@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/feed_item.dart';
+import '../../services/auth_session.dart';
 import '../../services/social_service.dart';
 import '../../utils/profile_navigation.dart';
+import '../../utils/require_login.dart';
 import '../follow_button.dart';
 import '../profile_avatar.dart';
 
@@ -78,6 +80,7 @@ class _ReelDescriptionSheetState extends State<ReelDescriptionSheet> {
     final postId = widget.item.post?.id;
     final body = _textController.text.trim();
     if (postId == null || body.isEmpty || _sending) return;
+    if (!await requireLogin(context)) return;
     setState(() => _sending = true);
     try {
       await SocialService.instance.commentOnPost(postId, body);
@@ -228,6 +231,15 @@ class _ReelDescriptionSheetState extends State<ReelDescriptionSheet> {
               controller: _textController,
               minLines: 1,
               maxLines: 4,
+              // Guests can read the caption but tapping to comment asks them
+              // to log in instead of opening the keyboard.
+              readOnly: !AuthSession.instance.isLoggedIn,
+              onTap: AuthSession.instance.isLoggedIn
+                  ? null
+                  : () => requireLogin(
+                        context,
+                        message: 'Log in or create a free account to comment.',
+                      ),
               textInputAction: TextInputAction.send,
               onSubmitted: (_) => _submit(),
               style: GoogleFonts.inter(fontSize: 14, color: Colors.white),

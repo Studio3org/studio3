@@ -4,8 +4,11 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../models/feed_item.dart';
 import '../../services/engagement_store.dart';
 import '../../services/saved_content_store.dart';
+import '../../services/report_service.dart';
 import '../../services/social_service.dart';
 import '../../utils/profile_navigation.dart';
+import '../../utils/require_login.dart';
+import '../content_actions_sheet.dart';
 import '../collection_saved_toast.dart';
 import '../follow_button.dart';
 import '../piece_detail/detail_follow_state.dart';
@@ -125,6 +128,13 @@ class ReelOverlayState extends State<ReelOverlay>
   Future<void> _toggleLike() async {
     final postId = widget.item.post?.id;
     if (postId == null || _likeBusy) return;
+    if (!await requireLogin(
+      context,
+      message: 'Log in or create a free account to like scenes.',
+    )) {
+      return;
+    }
+    if (!mounted) return;
     final nextLiked = !_liked;
     final generation = ++_likeGeneration;
     setState(() {
@@ -159,6 +169,15 @@ class ReelOverlayState extends State<ReelOverlay>
   Future<void> _openComments() async {
     final postId = widget.item.post?.id;
     if (postId == null) return;
+    // The sheet is compose-only and autofocuses its field, so a guest is
+    // asked to log in before it opens rather than after typing.
+    if (!await requireLogin(
+      context,
+      message: 'Log in or create a free account to comment.',
+    )) {
+      return;
+    }
+    if (!mounted) return;
     final posted = await SceneVideoCommentSheet.show(
       context,
       postId: postId,
@@ -203,6 +222,13 @@ class ReelOverlayState extends State<ReelOverlay>
   Future<void> _toggleSave() async {
     final postId = widget.item.post?.id;
     if (postId == null || _saveBusy) return;
+    if (!await requireLogin(
+      context,
+      message: 'Log in or create a free account to save scenes.',
+    )) {
+      return;
+    }
+    if (!mounted) return;
     final nextSaved = !_saved;
 
     String? collectionId;
@@ -387,6 +413,21 @@ class ReelOverlayState extends State<ReelOverlay>
                 muted: widget.muted,
                 onTap: widget.onToggleMute,
               ),
+              if (widget.item.post?.id != null) ...[
+                const SizedBox(height: 18),
+                _ActionButton(
+                  icon: Icons.more_horiz_rounded,
+                  iconColor: Colors.white,
+                  label: 'More',
+                  // Blocking removes this reel (and the rest of the
+                  // author's) from ReelsPage via BlockedAuthorsStore.
+                  onTap: () => showContentActionsSheet(
+                    context,
+                    target: ReportTarget.post(widget.item.post!.id),
+                    authorUsername: widget.item.authorUsername,
+                  ),
+                ),
+              ],
             ],
           ),
         ],

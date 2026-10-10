@@ -50,8 +50,19 @@ class UserService {
     );
   }
 
+  /// Records agreement to the current Terms of Use (EULA) for an account
+  /// that signed up before the terms existed or before they last changed.
+  Future<void> acceptTerms() async {
+    final json = await _api.post('/api/user/me/accept-terms', auth: true);
+    final data = _api.extractData(json) as Map<String, dynamic>;
+    await _session.updateUserFromJson(data);
+  }
+
   Future<UserProfile> getPublicProfile(String username) async {
-    final json = await _api.get('/api/user/$username');
+    final json = await _api.get(
+      '/api/user/$username',
+      auth: AuthSession.instance.isLoggedIn,
+    );
     final data = _api.extractData(json) as Map<String, dynamic>;
     return UserProfile.fromJson(data);
   }
@@ -335,6 +346,8 @@ class UserService {
       role: profile.role,
       sellerEnabled: profile.sellerEnabled,
       profilePhotoUrl: profile.profilePhotoUrl,
+      termsVersion: data['termsVersion'] as String?,
+      currentTermsVersion: data['currentTermsVersion'] as String?,
     ));
     await _session.setSellerEnabled(profile.sellerEnabled);
   }

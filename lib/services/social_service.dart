@@ -7,6 +7,7 @@ import '../models/follow_request.dart';
 import '../models/follow_user_summary.dart';
 import 'api_client.dart';
 import 'auth_session.dart';
+import 'blocked_authors_store.dart';
 import 'cache_service.dart';
 
 /// Result of like/unlike or save/unsave toggles (counts when the API returns them).
@@ -131,10 +132,16 @@ class SocialService {
 
   Future<void> blockUser(String username) async {
     await _api.post('/api/users/$username/block', auth: true);
+    // Cached feed/profile pages still contain this account's content; drop
+    // them so the next read comes from the (now block-filtered) backend,
+    // and tell on-screen feeds to remove it right away.
+    await CacheService.instance.clearAll();
+    BlockedAuthorsStore.instance.add(username);
   }
 
   Future<void> unblockUser(String username) async {
     await _api.delete('/api/users/$username/block');
+    BlockedAuthorsStore.instance.remove(username);
   }
 
   Future<EngagementToggleResult> likePiece(String id) async {

@@ -5,12 +5,14 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../data/nav_assets.dart';
 import '../../models/feed_preview_item.dart';
+import '../../services/auth_session.dart';
 import '../../services/chat_service.dart';
 import '../../services/chat_socket_service.dart';
 import '../../services/notification_service.dart';
 import '../../services/social_service.dart';
 import '../../theme/home_feed_tokens.dart';
 import '../../utils/profile_navigation.dart';
+import '../../utils/require_login.dart';
 import '../studio_logo.dart';
 
 class FeedHomeHeader extends StatelessWidget {
@@ -193,6 +195,8 @@ class _InboxMenuButtonState extends State<_InboxMenuButton> {
   }
 
   Future<void> _refreshCounts() async {
+    // Every count below is per-account; a guest has none to fetch.
+    if (!AuthSession.instance.isLoggedIn) return;
     final results = await Future.wait<int>([
       NotificationService.instance
           .getUnreadCount()
@@ -214,6 +218,13 @@ class _InboxMenuButtonState extends State<_InboxMenuButton> {
   }
 
   Future<void> _openInbox(BuildContext context) async {
+    if (!await requireLogin(
+      context,
+      message: 'Log in to see your notifications and messages.',
+    )) {
+      return;
+    }
+    if (!context.mounted) return;
     await Navigator.pushNamed(context, '/inbox');
     if (context.mounted) _refreshCounts();
   }
