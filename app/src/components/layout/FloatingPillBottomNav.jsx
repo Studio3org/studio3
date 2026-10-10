@@ -35,11 +35,11 @@ const ICON_MAP = {
 };
 
 const ARIA_LABEL = {
-  more: 'More',
+  more: 'Settings',
   home: 'Home',
   compass: 'Discover',
   plus: 'Create',
-  bookmark: 'Bookmarks',
+  bookmark: 'Saved',
   bell: 'Notifications',
 };
 

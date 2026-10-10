@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { FloatingPillBottomNav } from './FloatingPillBottomNav';
+import { useSession } from '../../lib/session';
 
 /** @param {string} pathname */
 function activeTabFromPath(pathname) {
@@ -9,17 +10,19 @@ function activeTabFromPath(pathname) {
   if (pathname.startsWith('/post')) return 'plus';
   if (pathname.startsWith('/notifications')) return 'bell';
   if (pathname.startsWith('/profile')) return 'profile';
-  if (pathname.startsWith('/chat')) return 'bookmark';
+  if (pathname.startsWith('/saved')) return 'bookmark';
+  if (pathname.startsWith('/settings')) return 'more';
   return 'home';
 }
 
 /**
  * @param {object} [props]
- * @param {string} [props.avatarSrc]
  * @param {string} [props.avatarAlt]
  */
-export function BottomNav({ avatarSrc, avatarAlt } = {}) {
+export function BottomNav({ avatarAlt } = {}) {
   const location = useLocation();
+  const { user } = useSession();
+  const avatarSrc = user?.profilePhotoUrl ?? undefined;
   const navigate = useNavigate();
 
   const activeTab = useMemo(
@@ -35,6 +38,7 @@ export function BottomNav({ avatarSrc, avatarAlt } = {}) {
       onActiveTabChange={(id) => {
         switch (id) {
           case 'more':
+            navigate('/settings');
             break;
           case 'home':
             navigate('/home');
@@ -46,7 +50,7 @@ export function BottomNav({ avatarSrc, avatarAlt } = {}) {
             navigate('/post');
             break;
           case 'bookmark':
-            navigate('/chat');
+            navigate('/saved');
             break;
           case 'bell':
             navigate('/notifications');

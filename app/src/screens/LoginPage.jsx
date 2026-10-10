@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
+import { login } from '../lib/api';
+import { TermsCheckbox } from '../components/moderation/TermsCheckbox';
 import { GlassCard } from '../components/design/GlassCard';
 import { PillInput, PillInputWithToggle } from '../components/inputs/PillInput';
 import { PrimaryButton } from '../components/buttons/PrimaryButton';
-import { SafeArea } from '../components/layout/SafeArea';
+import { useSession } from '../lib/session';
 
 const bgStyle = {
   minHeight: '100vh',
@@ -18,8 +20,37 @@ const bgStyle = {
 };
 
 export function LoginPage() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [agreed, setAgreed] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const { loggedIn } = useSession();
+
+  // Only same-site paths — never bounce to an arbitrary URL after login.
+  const nextParam = searchParams.get('next');
+  const next = nextParam && nextParam.startsWith('/') && !nextParam.startsWith('//')
+    ? nextParam
+    : '/home';
+  const canSubmit = email.trim() && password && agreed && !loading;
+
+  // Already signed in (or just signed in) — go where the user was headed.
+  if (loggedIn) return <Navigate to={next} replace />;
+
+  const signIn = async () => {
+    if (!canSubmit) return;
+    setLoading(true);
+    setError(null);
+    try {
+      await login(email, password);
+      navigate(next, { replace: true });
+    } catch (e) {
+      setError(e.message);
+      setLoading(false);
+    }
+  };
 
   return (
     <div style={bgStyle}>
@@ -35,8 +66,9 @@ export function LoginPage() {
       <GlassCard style={{ width: '100%', maxWidth: 343, padding: 28 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <PillInput
-            type="email"
-            placeholder="Email"
+            type="text"
+            placeholder="Username or email"
+            autoComplete="username"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
@@ -44,43 +76,18 @@ export function LoginPage() {
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && signIn()}
           />
-          <PrimaryButton>Sign In</PrimaryButton>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8 }}>
-            <div style={{ flex: 1, height: 1, background: 'var(--slate-200)' }} />
-            <span style={{ fontSize: 12, color: 'var(--slate-400)' }}>or</span>
-            <div style={{ flex: 1, height: 1, background: 'var(--slate-200)' }} />
-          </div>
-
-          <button
-            style={{
-              height: 52,
-              borderRadius: 9999,
-              border: '1.5px solid var(--slate-200)',
-              background: 'var(--white)',
-              color: 'var(--slate-700)',
-              fontSize: 15,
-              fontWeight: 500,
-            }}
-          >
-            Continue with Google
-          </button>
-          <button
-            style={{
-              height: 52,
-              borderRadius: 9999,
-              background: 'var(--slate-900)',
-              color: 'var(--white)',
-              fontSize: 15,
-              fontWeight: 500,
-            }}
-          >
-            Continue with Apple
-          </button>
+          <TermsCheckbox checked={agreed} onChange={setAgreed} />
+          {error && (
+            <div style={{ fontSize: 13, color: '#E05252' }} role="alert">{error}</div>
+          )}
+          <PrimaryButton disabled={!canSubmit} onClick={signIn}>
+            {loading ? 'Signing in…' : 'Sign In'}
+          </PrimaryButton>
 
           <div style={{ textAlign: 'right' }}>
-            <Link to="/login" style={{ fontSize: 12, color: 'var(--slate-500)' }}>
+            <Link to="/forgot-password" style={{ fontSize: 12, color: 'var(--slate-500)' }}>
               Forgot password?
             </Link>
           </div>
@@ -90,6 +97,9 @@ export function LoginPage() {
       <p style={{ marginTop: 24, fontSize: 14, color: 'var(--slate-600)' }}>
         Don't have an account? <Link to="/signup" style={{ fontWeight: 600, color: 'var(--slate-900)' }}>Sign Up</Link>
       </p>
+      <Link to="/home" style={{ marginTop: 12, fontSize: 14, color: 'var(--slate-500)', textDecoration: 'underline' }}>
+        Browse without an account
+      </Link>
     </div>
   );
 }
