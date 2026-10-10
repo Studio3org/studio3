@@ -44,11 +44,14 @@ import 'screens/change_email_page.dart';
 import 'screens/notification_preferences_page.dart';
 import 'screens/blocked_users_page.dart';
 import 'screens/privacy_settings_page.dart';
+import 'screens/terms_page.dart';
 import 'models/auth_user.dart';
 import 'models/feed_item.dart';
 import 'theme/home_feed_tokens.dart';
 import 'utils/scrolls_to_top_on_double_tap.dart';
 import 'utils/snappy_page_physics.dart';
+import 'utils/require_login.dart';
+import 'widgets/terms_acceptance_dialog.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -138,6 +141,7 @@ class Studio3App extends StatelessWidget {
         '/notification-preferences': (context) => const NotificationPreferencesPage(),
         '/privacy-settings': (context) => const PrivacySettingsPage(),
         '/blocked-users': (context) => const BlockedUsersPage(),
+        '/terms': (context) => const TermsPage(),
         '/profile': (context) {
           final args = parseProfileRouteArgs(
             ModalRoute.of(context)?.settings.arguments,
@@ -160,7 +164,9 @@ class Studio3App extends StatelessWidget {
   }
 }
 
-/// Redirects unauthenticated or non-onboarded users.
+/// Lets signed-out guests browse (App Store guideline 5.1.1(v)) but sends a
+/// session that just ended back to /login, routes non-onboarded accounts to
+/// onboarding, and makes accounts agree to the current Terms of Use.
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key, required this.child});
 
@@ -172,6 +178,8 @@ class AuthGate extends StatefulWidget {
 
 class _AuthGateState extends State<AuthGate> {
   bool _deviceRegistered = false;
+  late bool _wasLoggedIn = AuthSession.instance.isLoggedIn;
+  bool _termsPromptOpen = false;
 
   @override
   void initState() {
@@ -207,8 +215,25 @@ class _AuthGateState extends State<AuthGate> {
     if (!session.isLoggedIn) {
       _deviceRegistered = false;
       ChatSocketService.instance.disconnect();
-      Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
+      // Starting signed out is fine — that's a guest browsing. Only a
+      // session that ends while the app is open (logout, revoked refresh
+      // token, account deletion) goes back to the login screen.
+      if (_wasLoggedIn) {
+        _wasLoggedIn = false;
+        Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
+      }
       return;
+    }
+    _wasLoggedIn = true;
+    if (session.isOnboarded &&
+        (session.user?.needsTermsAcceptance ?? false) &&
+        !_termsPromptOpen) {
+      _termsPromptOpen = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        await showTermsAcceptanceDialog(context);
+        _termsPromptOpen = false;
+      });
     }
     if (!session.isOnboarded) {
       if (kDebugMode) {
@@ -374,6 +399,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   }
 
   Future<void> _loadProfilePhoto() async {
+    if (!AuthSession.instance.isLoggedIn) return;
     try {
       await UserService.instance.getMe();
     } catch (_) {
@@ -431,6 +457,14 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     }
 
     if (navIndex == BottomNavIndex.profile) {
+      if (!AuthSession.instance.isLoggedIn) {
+        requireLogin(
+          context,
+          message: 'Log in or create a free account to set up your profile, '
+              'post your work, and collect art.',
+        );
+        return;
+      }
       _showProfile.value = true;
       _selectedNavIndex.value = BottomNavIndex.profile;
       AppStateStore.instance.saveNavIndex(navIndex);
@@ -485,16 +519,20 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
           // Offstage (not a conditional widget swap) so ProfilePage stays
           // mounted the whole session — its own data/scroll state survives
           // being hidden, same as it did as an IndexedStack child before.
-          Positioned.fill(
-            child: ValueListenableBuilder<bool>(
-              valueListenable: _showProfile,
-              builder: (context, show, child) => Offstage(
-                offstage: !show,
-                child: child,
+          // Guests have no own profile to keep mounted (tapping the avatar
+          // asks them to log in instead), and signing in replaces this whole
+          // shell, so it's safe to decide this once per build.
+          if (AuthSession.instance.isLoggedIn)
+            Positioned.fill(
+              child: ValueListenableBuilder<bool>(
+                valueListenable: _showProfile,
+                builder: (context, show, child) => Offstage(
+                  offstage: !show,
+                  child: child,
+                ),
+                child: ProfilePage(key: _profileKey),
               ),
-              child: ProfilePage(key: _profileKey),
             ),
-          ),
           ValueListenableBuilder<int>(
             valueListenable: _selectedNavIndex,
             builder: (context, index, _) => BottomNav(

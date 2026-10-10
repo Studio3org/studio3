@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/auth_user.dart';
+import 'blocked_authors_store.dart';
 import 'cache_service.dart';
 import 'engagement_store.dart';
 import 'saved_content_store.dart';
@@ -14,6 +15,7 @@ class AuthSession {
   static const _userKey = 'auth_user';
   static const _rememberedUsernameKey = 'remembered_username';
   static const _sellerKey = 'seller_enabled';
+  static const _termsAgreedKey = 'terms_agreed_version';
 
   SharedPreferences? _prefs;
   String? accessToken;
@@ -41,6 +43,10 @@ class AuthSession {
   }
 
   bool get isLoggedIn => accessToken != null && accessToken!.isNotEmpty;
+
+  /// Signed-out visitor browsing public content (App Store guideline
+  /// 5.1.1(v)) — account-only actions route through `requireLogin` instead.
+  bool get isGuest => !isLoggedIn;
 
   bool get isOnboarded => user?.onboardingComplete ?? false;
 
@@ -101,6 +107,9 @@ class AuthSession {
           current.sellerEnabled,
       profilePhotoUrl:
           json['profilePhotoUrl'] as String? ?? current.profilePhotoUrl,
+      termsVersion: json['termsVersion'] as String? ?? current.termsVersion,
+      currentTermsVersion: json['currentTermsVersion'] as String? ??
+          current.currentTermsVersion,
     );
     await updateUser(merged);
   }
@@ -122,6 +131,15 @@ class AuthSession {
   Future<void> saveRememberedLoginIdentifier(String identifier) =>
       saveRememberedUsername(identifier);
 
+  /// Terms version last agreed to on this device's login/sign-up form, so a
+  /// returning user finds the box already ticked. The server-side record
+  /// (per account) is what's actually enforced.
+  String? get termsAgreedOnDevice => _prefs?.getString(_termsAgreedKey);
+
+  Future<void> saveTermsAgreedOnDevice(String version) async {
+    await _prefs?.setString(_termsAgreedKey, version);
+  }
+
   Future<void> clearRememberedUsername() async {
     await _prefs?.remove(_rememberedUsernameKey);
   }
@@ -138,6 +156,7 @@ class AuthSession {
     await CacheService.instance.clearAll();
     await SavedContentStore.instance.clearLocal();
     EngagementStore.instance.clear();
+    BlockedAuthorsStore.instance.clear();
     notifyListeners();
   }
 }

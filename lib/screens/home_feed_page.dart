@@ -6,10 +6,12 @@ import '../models/feed_page.dart';
 import '../models/feed_preview_item.dart' show FeedAvailabilityFilter;
 import '../theme/home_feed_tokens.dart';
 import '../utils/explore_detail_route.dart';
+import '../utils/require_login.dart';
 import '../utils/image_aspect_ratio_resolver.dart';
 import '../widgets/feed_skeleton.dart';
 import '../widgets/home_feed/home_feed_widgets.dart';
 import '../widgets/offline_state.dart';
+import '../services/blocked_authors_store.dart';
 import '../services/connectivity_service.dart';
 import '../services/feed_service.dart';
 import '../utils/scrolls_to_top_on_double_tap.dart';
@@ -49,13 +51,24 @@ class HomeFeedStore extends ChangeNotifier {
       loading = false;
     }
     ConnectivityService.instance.addReconnectHook(_onReconnected);
+    BlockedAuthorsStore.instance.addListener(_onAuthorBlocked);
     loadFeed();
   }
 
   @override
   void dispose() {
     ConnectivityService.instance.removeReconnectHook(_onReconnected);
+    BlockedAuthorsStore.instance.removeListener(_onAuthorBlocked);
     super.dispose();
+  }
+
+  /// A block takes the account's work off the feed immediately; the backend
+  /// already leaves it out of every later fetch.
+  void _onAuthorBlocked() {
+    final store = BlockedAuthorsStore.instance;
+    final before = apiItems.length;
+    apiItems.removeWhere((item) => store.isBlocked(item.authorUsername));
+    if (apiItems.length != before) notifyListeners();
   }
 
   Future<void> _onReconnected() => loadFeed(refresh: true);
@@ -241,7 +254,16 @@ class _HomePageState extends State<HomePage>
               child: FeedHomeHeader(
                 filter: filter,
                 onFilterChanged: _onFilterTap,
-                onAddTap: () => Navigator.pushNamed(context, '/post'),
+                onAddTap: () async {
+                  if (!await requireLogin(
+                    context,
+                    message: 'Log in or create a free account to post '
+                        'your work.',
+                  )) {
+                    return;
+                  }
+                  if (context.mounted) Navigator.pushNamed(context, '/post');
+                },
                 hasAvailableItems: store.availableItems.isNotEmpty,
               ),
             ),

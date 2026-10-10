@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../models/feed_item.dart';
 import '../models/feed_page.dart';
+import '../services/blocked_authors_store.dart';
 import '../services/connectivity_service.dart';
 import '../services/feed_service.dart';
 import '../services/reels_tab_service.dart';
@@ -70,7 +71,26 @@ class _ReelsPageState extends State<ReelsPage>
     widget.jumpRequests?.addListener(_onJumpRequest);
     _pageController = PageController(initialPage: widget.initialIndex);
     ConnectivityService.instance.addReconnectHook(_onReconnected);
+    BlockedAuthorsStore.instance.addListener(_onAuthorBlocked);
     _loadItems();
+  }
+
+  /// Drops a just-blocked account's reels in place — including the one on
+  /// screen when the block came from its own "More" menu.
+  void _onAuthorBlocked() {
+    if (!mounted) return;
+    final store = BlockedAuthorsStore.instance;
+    final kept =
+        _items.where((item) => !store.isBlocked(item.authorUsername)).toList();
+    if (kept.length == _items.length) return;
+    final nextIndex = kept.isEmpty ? 0 : _currentIndex.clamp(0, kept.length - 1);
+    setState(() {
+      _items = kept;
+      _currentIndex = nextIndex;
+    });
+    if (_pageController.hasClients && kept.isNotEmpty) {
+      _pageController.jumpToPage(nextIndex);
+    }
   }
 
   void _onActiveChanged() {
@@ -119,6 +139,7 @@ class _ReelsPageState extends State<ReelsPage>
     widget.jumpRequests?.removeListener(_onJumpRequest);
     _pageController.dispose();
     ConnectivityService.instance.removeReconnectHook(_onReconnected);
+    BlockedAuthorsStore.instance.removeListener(_onAuthorBlocked);
     super.dispose();
   }
 

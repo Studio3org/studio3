@@ -5,9 +5,12 @@ import '../models/feed_preview_item.dart';
 import '../services/api_exception.dart';
 import '../services/auth_session.dart';
 import '../services/piece_service.dart';
+import '../services/report_service.dart';
 import '../theme/collect_detail_tokens.dart';
 import '../utils/content_detail_loader.dart';
+import '../utils/require_login.dart';
 import 'edit_piece_page.dart';
+import '../widgets/content_actions_sheet.dart';
 import '../widgets/piece_detail/ask_about_piece_sheet.dart';
 import '../widgets/piece_detail/available_collect_bar.dart';
 import '../widgets/piece_detail/collect_artist_row.dart';
@@ -87,8 +90,30 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
     applyFollowState(loaded);
   }
 
-  void _onCollect() {
+  Future<void> _onCollect() async {
+    if (!await requireLogin(
+      context,
+      message: 'Log in or create a free account to collect this piece.',
+    )) {
+      return;
+    }
+    if (!mounted) return;
     CollectPieceSheet.show(context, item: item);
+  }
+
+  /// Report the piece/scene or block its artist (App Store guideline 1.2).
+  void _onMore() {
+    showContentActionsSheet(
+      context,
+      target: item.isScene
+          ? ReportTarget.post(item.id)
+          : ReportTarget.piece(item.id),
+      authorUsername: _authorHandle,
+      // Everything from this artist is hidden now, including this page.
+      onBlocked: () {
+        if (mounted) Navigator.of(context).maybePop();
+      },
+    );
   }
 
   bool get _isOwner {
@@ -191,6 +216,21 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
                         child: IconButton(
                           onPressed: _onEdit,
                           icon: const Icon(Icons.edit_outlined),
+                          color: CollectDetailTokens.textPrimary,
+                          style: IconButton.styleFrom(
+                            backgroundColor: CollectDetailTokens.background
+                                .withValues(alpha: 0.7),
+                          ),
+                        ),
+                      )
+                    else
+                      Positioned(
+                        top: MediaQuery.paddingOf(context).top + 8,
+                        right: 8,
+                        child: IconButton(
+                          onPressed: _onMore,
+                          tooltip: 'More',
+                          icon: const Icon(Icons.more_horiz_rounded),
                           color: CollectDetailTokens.textPrimary,
                           style: IconButton.styleFrom(
                             backgroundColor: CollectDetailTokens.background

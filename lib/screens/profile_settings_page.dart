@@ -228,6 +228,11 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
               label: 'Blocked accounts',
               onTap: () => Navigator.pushNamed(context, '/blocked-users'),
             ),
+            SettingsTile(
+              icon: Icons.gavel_outlined,
+              label: 'Terms of Use (EULA)',
+              onTap: () => Navigator.pushNamed(context, '/terms'),
+            ),
 
             const _SectionHeader('Login & security'),
             SettingsTile(

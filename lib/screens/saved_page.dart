@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../models/feed_item.dart';
 import '../models/feed_preview_item.dart';
+import '../services/auth_session.dart';
 import '../services/post_service.dart';
 import '../services/social_service.dart';
 import '../services/user_service.dart';
@@ -15,6 +16,7 @@ import '../theme/home_feed_tokens.dart';
 import '../utils/reels_route.dart';
 import '../widgets/collection_name_sheet.dart';
 import '../widgets/home_feed/home_feed_widgets.dart';
+import '../utils/require_login.dart';
 import '../utils/scrolls_to_top_on_double_tap.dart';
 
 class SavedPage extends StatefulWidget {
@@ -32,6 +34,9 @@ class _SavedPageState extends State<SavedPage>
   @override
   void initState() {
     super.initState();
+    // Saved items and collections are per-account; a guest sees a login
+    // prompt instead (and signing in rebuilds this page from scratch).
+    if (!AuthSession.instance.isLoggedIn) return;
     // Seed before attaching the listener so populating the store here can't
     // trigger a setState via _onStoreChanged before the first build.
     _seedFromCache();
@@ -47,6 +52,7 @@ class _SavedPageState extends State<SavedPage>
 
   @override
   void scrollToTopAndRefresh() {
+    if (!AuthSession.instance.isLoggedIn) return;
     if (_scrollController.hasClients) {
       _scrollController.animateTo(
         0,
@@ -248,6 +254,14 @@ class _SavedPageState extends State<SavedPage>
 
   @override
   Widget build(BuildContext context) {
+    if (!AuthSession.instance.isLoggedIn) {
+      return const GuestAccountPlaceholder(
+        icon: Icons.bookmark_border_rounded,
+        title: 'Save art you love',
+        message: 'Log in or create a free account to save pieces and scenes '
+            'into collections.',
+      );
+    }
     return Scaffold(
       backgroundColor: HomeFeedTokens.background,
       body: SafeArea(

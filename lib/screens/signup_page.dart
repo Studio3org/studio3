@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/api_exception.dart';
 import '../services/auth_service.dart';
+import '../services/auth_session.dart';
 import '../utils/auth_validators.dart';
 import '../widgets/auth_ui.dart';
 import '../widgets/studio_loading.dart';
+import 'terms_page.dart';
 
 enum _SignUpStep {
   name,
@@ -33,6 +35,8 @@ class _SignUpPageState extends State<SignUpPage> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
+  bool _agreedToTerms =
+      AuthSession.instance.termsAgreedOnDevice == kTermsVersion;
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
   bool _submitted = false;
@@ -119,7 +123,7 @@ class _SignUpPageState extends State<SignUpPage> {
 
   Future<void> _continueName() async {
     setState(() => _submitted = true);
-    if (_nameError() != null) return;
+    if (_nameError() != null || !_agreedToTerms) return;
     setState(() {
       _submitted = false;
       _step = _SignUpStep.email;
@@ -305,8 +309,16 @@ class _SignUpPageState extends State<SignUpPage> {
             ? null
             : _phoneController.text.trim(),
       );
+      await AuthSession.instance.saveTermsAgreedOnDevice(kTermsVersion);
       if (!mounted) return;
-      Navigator.pushReplacementNamed(context, '/welcome', arguments: user);
+      // Clear the whole stack so a guest MainShell that pushed login/sign-up
+      // doesn't survive underneath the new account's shell.
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/welcome',
+        (_) => false,
+        arguments: user,
+      );
     } catch (e) {
       if (mounted) showAuthError(context, e);
     } finally {
@@ -348,6 +360,8 @@ class _SignUpPageState extends State<SignUpPage> {
               actionLabel: 'Sign in',
               onTap: () => Navigator.pushNamed(context, '/login'),
             ),
+            const SizedBox(height: 8),
+            const AuthGuestLink(),
           ],
         ],
       ),
@@ -390,10 +404,18 @@ class _SignUpPageState extends State<SignUpPage> {
           onSubmitted: (_) => _continueName(),
           onChanged: (_) => setState(() {}),
         ),
+        const SizedBox(height: 18),
+        AuthTermsCheckbox(
+          value: _agreedToTerms,
+          showError: _submitted,
+          onChanged: (v) => setState(() => _agreedToTerms = v),
+        ),
         const SizedBox(height: 24),
         AuthPrimaryButton(
           label: 'Continue',
-          enabled: _firstNameController.text.trim().isNotEmpty && _lastNameController.text.trim().isNotEmpty,
+          enabled: _firstNameController.text.trim().isNotEmpty &&
+              _lastNameController.text.trim().isNotEmpty &&
+              _agreedToTerms,
           onPressed: _continueName,
         ),
       ],

@@ -2,6 +2,7 @@ import '../models/auth_user.dart';
 import 'api_client.dart';
 import 'api_exception.dart';
 import 'auth_session.dart';
+import 'cache_service.dart';
 
 class AuthService {
   AuthService._();
@@ -56,6 +57,9 @@ class AuthService {
       'email': email.trim(),
       'password': password,
       'otp': otp,
+      // The sign-up form won't submit until the Terms of Use checkbox is
+      // ticked, so reaching here always means the user agreed.
+      'acceptedTerms': true,
     };
     final trimmedPhone = phone?.trim();
     if (trimmedPhone != null && trimmedPhone.isNotEmpty) {
@@ -72,6 +76,7 @@ class AuthService {
     final json = await _api.post('/api/auth/login', body: {
       'username': identifier.trim(),
       'password': password,
+      'acceptedTerms': true,
     });
     return _persistAuthResponse(json);
   }
@@ -116,6 +121,9 @@ class AuthService {
       throw ApiException('Invalid auth response from server');
     }
     final user = AuthUser.fromJson(userJson);
+    // Anything cached while browsing as a guest (feeds without this
+    // account's likes/saves/follows) must not be served to the new session.
+    await CacheService.instance.clearAll();
     await _session.saveSession(token: token, authUser: user);
     return user;
   }

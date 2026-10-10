@@ -6,10 +6,12 @@ import '../services/api_exception.dart';
 import '../services/auth_session.dart';
 import '../services/piece_service.dart';
 import '../services/post_service.dart';
+import '../services/report_service.dart';
 import '../theme/home_feed_tokens.dart';
 import '../utils/content_detail_loader.dart';
 import 'edit_piece_page.dart';
 import 'edit_scene_page.dart';
+import '../widgets/content_actions_sheet.dart';
 import '../widgets/piece_detail/ask_about_piece_sheet.dart';
 import '../widgets/piece_detail/detail_hero_image.dart';
 import '../widgets/piece_detail/detail_follow_state.dart';
@@ -61,6 +63,21 @@ class _PieceDetailPageState extends State<PieceDetailPage>
 
   @override
   String get followUsername => _authorHandle;
+
+  /// Report the piece/scene or block its artist (App Store guideline 1.2).
+  void _onMore() {
+    showContentActionsSheet(
+      context,
+      target: item.isScene
+          ? ReportTarget.post(item.id)
+          : ReportTarget.piece(item.id),
+      authorUsername: _authorHandle,
+      // Everything from this artist is hidden now, including this page.
+      onBlocked: () {
+        if (mounted) Navigator.of(context).maybePop();
+      },
+    );
+  }
 
   bool get _isOwner {
     final viewerUsername = AuthSession.instance.user?.username;
@@ -175,6 +192,21 @@ class _PieceDetailPageState extends State<PieceDetailPage>
                     child: IconButton(
                       onPressed: _onEdit,
                       icon: const Icon(Icons.edit_outlined),
+                      color: HomeFeedTokens.textPrimary,
+                      style: IconButton.styleFrom(
+                        backgroundColor: HomeFeedTokens.detailBackground
+                            .withValues(alpha: 0.7),
+                      ),
+                    ),
+                  )
+                else
+                  Positioned(
+                    top: MediaQuery.paddingOf(context).top + 8,
+                    right: 8,
+                    child: IconButton(
+                      onPressed: _onMore,
+                      tooltip: 'More',
+                      icon: const Icon(Icons.more_horiz_rounded),
                       color: HomeFeedTokens.textPrimary,
                       style: IconButton.styleFrom(
                         backgroundColor: HomeFeedTokens.detailBackground

@@ -10,6 +10,8 @@ import '../models/feed_page.dart';
 import '../models/user_profile.dart';
 import '../services/chat_service.dart';
 import '../services/connectivity_service.dart';
+import '../services/auth_session.dart';
+import '../services/blocked_authors_store.dart';
 import '../services/feed_service.dart';
 import '../services/user_service.dart';
 import '../theme/app_theme.dart';
@@ -61,6 +63,7 @@ class _ExplorePageState extends State<ExplorePage>
     super.initState();
     _scrollController.addListener(_onScroll);
     ConnectivityService.instance.addReconnectHook(_onReconnected);
+    BlockedAuthorsStore.instance.addListener(_onAuthorBlocked);
     _loadData();
   }
 
@@ -71,6 +74,7 @@ class _ExplorePageState extends State<ExplorePage>
     _searchController.dispose();
     _userSearchDebounce?.cancel();
     ConnectivityService.instance.removeReconnectHook(_onReconnected);
+    BlockedAuthorsStore.instance.removeListener(_onAuthorBlocked);
     super.dispose();
   }
 
@@ -108,7 +112,7 @@ class _ExplorePageState extends State<ExplorePage>
               onBackgroundUpdate: _mergeBackgroundPage,
             );
       UserProfile? profile = _profile;
-      if (!append) {
+      if (!append && AuthSession.instance.isLoggedIn) {
         try {
           profile = await UserService.instance.getMeCached();
         } catch (_) {
@@ -172,9 +176,27 @@ class _ExplorePageState extends State<ExplorePage>
     });
   }
 
-  List<FeedItem> get _sourceItems => _allItems;
+  // Blocked-this-session accounts are hidden at read time, so a block from
+  // anywhere in the app clears them off Explore without a refetch.
+  List<FeedItem> get _sourceItems {
+    final blocked = BlockedAuthorsStore.instance;
+    return _allItems
+        .where((item) => !blocked.isBlocked(item.authorUsername))
+        .toList();
+  }
 
-  FeedItem? get _effectiveFeatured => _featured;
+  FeedItem? get _effectiveFeatured {
+    final featured = _featured;
+    if (featured == null ||
+        BlockedAuthorsStore.instance.isBlocked(featured.authorUsername)) {
+      return null;
+    }
+    return featured;
+  }
+
+  void _onAuthorBlocked() {
+    if (mounted) setState(() {});
+  }
 
   List<FeedItem> _filterItems(List<FeedItem> items, ExploreCategory category) {
     return filterExploreItems(items, category);

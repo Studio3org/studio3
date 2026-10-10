@@ -8,12 +8,14 @@ import '../services/auth_session.dart';
 import '../services/main_nav_service.dart';
 import '../services/piece_service.dart';
 import '../services/post_service.dart';
+import '../services/report_service.dart';
 import '../services/series_service.dart';
 import '../services/social_service.dart';
 import '../services/user_service.dart';
 import '../theme/home_feed_tokens.dart';
 import 'conversation_thread_page.dart';
 import 'follow_list_page.dart';
+import '../widgets/content_actions_sheet.dart';
 import '../widgets/delete_confirmation_dialog.dart';
 import '../widgets/profile_avatar_preview_sheet.dart';
 import 'profile/models/profile_series_data.dart';
@@ -26,6 +28,7 @@ import 'profile/widgets/profile_tab_content.dart';
 import 'profile/widgets/profile_tabs.dart';
 import 'profile/widgets/profile_viewer_mode_capsule.dart';
 import 'reels_page.dart' show routeObserver;
+import '../utils/require_login.dart';
 import '../utils/scrolls_to_top_on_double_tap.dart';
 
 /// Artist profile — own tab or pushed public profile by [username].
@@ -425,13 +428,20 @@ class _ProfilePageState extends State<ProfilePage>
     );
   }
 
-  void _onMessageTap() {
+  Future<void> _onMessageTap() async {
     if (widget.viewerMode) {
       _showViewerModePreviewSnackBar();
       return;
     }
     final target = _profile;
     if (target == null) return;
+    if (!await requireLogin(
+      context,
+      message: 'Log in or create a free account to message artists.',
+    )) {
+      return;
+    }
+    if (!mounted) return;
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -444,12 +454,18 @@ class _ProfilePageState extends State<ProfilePage>
     );
   }
 
-  void _onFollowTap() {
+  Future<void> _onFollowTap() async {
     if (widget.viewerMode) {
       _showViewerModePreviewSnackBar();
       return;
     }
-    _toggleFollow();
+    if (!await requireLogin(
+      context,
+      message: 'Log in or create a free account to follow artists.',
+    )) {
+      return;
+    }
+    if (mounted) _toggleFollow();
   }
 
   Future<void> _deletePiece(PieceSummary piece) async {
@@ -568,6 +584,26 @@ class _ProfilePageState extends State<ProfilePage>
             const SizedBox(height: 8),
             ListTile(
               leading: const Icon(
+                Icons.flag_outlined,
+                color: Color(0xFFE05252),
+              ),
+              title: Text(
+                'Report ${profile.handle}',
+                style: const TextStyle(
+                  color: Color(0xFFE05252),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                showReportSheet(
+                  context,
+                  target: ReportTarget.user(profile.username),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(
                 Icons.block_outlined,
                 color: Color(0xFFE05252),
               ),
@@ -580,7 +616,13 @@ class _ProfilePageState extends State<ProfilePage>
               ),
               onTap: () {
                 Navigator.pop(sheetContext);
-                _confirmBlockUser(profile);
+                confirmBlockUser(
+                  context,
+                  username: profile.username,
+                  onBlocked: () {
+                    if (mounted) Navigator.pop(context);
+                  },
+                );
               },
             ),
             const SizedBox(height: 8),
@@ -588,42 +630,6 @@ class _ProfilePageState extends State<ProfilePage>
         ),
       ),
     );
-  }
-
-  Future<void> _confirmBlockUser(UserProfile profile) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text('Block ${profile.handle}?'),
-        content: const Text(
-          "They won't be notified. You can unblock anytime from Settings.",
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text(
-              'Block',
-              style: TextStyle(color: Color(0xFFE05252)),
-            ),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-    try {
-      await SocialService.instance.blockUser(profile.username);
-      if (!mounted) return;
-      Navigator.pop(context);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to block user: $e')));
-    }
   }
 
   void _onBackToHome() {

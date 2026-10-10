@@ -48,7 +48,7 @@ class FeedService {
     final json = await _api.get(
       '/api/feed/for-you',
       query: _query(cursor: cursor, limit: limit),
-      auth: true,
+      auth: AuthSession.instance.isLoggedIn,
     );
     return _parseFeedPage(json);
   }
@@ -77,7 +77,7 @@ class FeedService {
         return _api.get(
           '/api/feed/for-you',
           query: _query(),
-          auth: true,
+          auth: AuthSession.instance.isLoggedIn,
         );
       },
       parse: _parseFeedPage,

@@ -55,7 +55,11 @@ class ApiClient {
       onError: (error, handler) async {
         final status = error.response?.statusCode;
         final path = error.requestOptions.path;
+        // A guest never had a session, so a 401 just means "this needs an
+        // account" — attempting a refresh would fail and `clear()` would
+        // then fire a pointless signed-out transition.
         if (status == 401 &&
+            AuthSession.instance.isLoggedIn &&
             error.requestOptions.extra['retried'] != true &&
             !path.contains('/api/auth/refresh') &&
             !path.contains('/api/auth/login') &&
