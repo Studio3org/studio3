@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -10,12 +8,14 @@ import '../services/auth_session.dart';
 import '../services/main_nav_service.dart';
 import '../services/piece_service.dart';
 import '../services/post_service.dart';
+import '../services/report_service.dart';
 import '../services/series_service.dart';
 import '../services/social_service.dart';
 import '../services/user_service.dart';
 import '../theme/home_feed_tokens.dart';
 import 'conversation_thread_page.dart';
 import 'follow_list_page.dart';
+import '../widgets/content_actions_sheet.dart';
 import '../widgets/delete_confirmation_dialog.dart';
 import '../widgets/profile_avatar_preview_sheet.dart';
 import 'profile/models/profile_series_data.dart';
@@ -27,8 +27,8 @@ import 'profile/widgets/profile_locked_placeholder.dart';
 import 'profile/widgets/profile_tab_content.dart';
 import 'profile/widgets/profile_tabs.dart';
 import 'profile/widgets/profile_viewer_mode_capsule.dart';
-import 'series_view_page.dart';
 import 'reels_page.dart' show routeObserver;
+import '../utils/require_login.dart';
 import '../utils/scrolls_to_top_on_double_tap.dart';
 
 /// Artist profile — own tab or pushed public profile by [username].
@@ -164,32 +164,6 @@ class _ProfilePageState extends State<ProfilePage>
     _loadActiveTab(force: true);
   }
 
-  /// The marketplace view of this profile: every piece that carries a
-  /// listing state — available, live auction, or sold/collected.
-  ///
-  /// Merged from two sources on purpose. `/pieces/for-sale` is the
-  /// authoritative listing feed, but it is a *separate* request that can
-  /// fail, lag, or (depending on how the server scopes it) return only
-  /// what is still buyable — which would leave the "Sold" filter
-  /// permanently empty and, when the request comes back empty, leave the
-  /// whole tab blank even though the Pieces tab is visibly showing work
-  /// that is for sale. The pieces list is already in memory for the Pieces
-  /// tab and carries `isForSale`/`listingType`/`status`, so folding it in
-  /// means a piece the user can see listed under Pieces can never go
-  /// missing from Collect. Entries from the listing feed win on conflict —
-  /// it has the fresher price/bid fields.
-  List<PieceSummary> get _collectPieces {
-    final merged = <String, PieceSummary>{};
-    for (final piece in _listedPieces) {
-      merged[piece.id] = piece;
-    }
-    for (final piece in _pieces) {
-      if (!piece.hasListingBadge) continue;
-      merged.putIfAbsent(piece.id, () => piece);
-    }
-    return merged.values.toList();
-  }
-
   void _resetTabCache() {
     _piecesLoaded = false;
     _scenesLoaded = false;
@@ -268,7 +242,7 @@ class _ProfilePageState extends State<ProfilePage>
     final hasVisibleData = switch (tab) {
       'pieces' => _pieces.isNotEmpty,
       'scenes' => _scenes.isNotEmpty,
-      'collect' => _collectPieces.isNotEmpty,
+      'collect' => _listedPieces.isNotEmpty,
       'series' => _series.isNotEmpty,
       _ => false,
     };
@@ -306,10 +280,6 @@ class _ProfilePageState extends State<ProfilePage>
           _tabContentLoading = false;
         });
       } else if (tab == 'collect' && profile.sellerEnabled) {
-        // Kicked off alongside, not awaited: Collect merges the pieces
-        // list in, and landing straight on Collect (seller mode does
-        // exactly that) means the Pieces tab may never have loaded it.
-        unawaited(_ensurePiecesLoaded(profile));
         final listedPieces = await _loadListedPieces(profile, force: force);
         if (!mounted) return;
         setState(() {
@@ -354,26 +324,6 @@ class _ProfilePageState extends State<ProfilePage>
         setState(() => _listedPieces = fresh);
       },
     );
-  }
-
-  /// Loads the pieces list without switching tabs — see [_collectPieces]
-  /// for why Collect needs it.
-  Future<void> _ensurePiecesLoaded(UserProfile profile) async {
-    if (_piecesLoaded) return;
-    try {
-      final pieces = await PieceService.instance.getUserPiecesCached(
-        profile.username,
-        onBackgroundUpdate: (fresh) {
-          if (!mounted) return;
-          setState(() => _pieces = fresh);
-        },
-      );
-      if (!mounted) return;
-      setState(() {
-        _pieces = pieces;
-        _piecesLoaded = true;
-      });
-    } catch (_) {}
   }
 
   Future<void> _prefetchListedPieces(UserProfile profile) async {
@@ -478,13 +428,20 @@ class _ProfilePageState extends State<ProfilePage>
     );
   }
 
-  void _onMessageTap() {
+  Future<void> _onMessageTap() async {
     if (widget.viewerMode) {
       _showViewerModePreviewSnackBar();
       return;
     }
     final target = _profile;
     if (target == null) return;
+    if (!await requireLogin(
+      context,
+      message: 'Log in or create a free account to message artists.',
+    )) {
+      return;
+    }
+    if (!mounted) return;
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -497,12 +454,18 @@ class _ProfilePageState extends State<ProfilePage>
     );
   }
 
-  void _onFollowTap() {
+  Future<void> _onFollowTap() async {
     if (widget.viewerMode) {
       _showViewerModePreviewSnackBar();
       return;
     }
-    _toggleFollow();
+    if (!await requireLogin(
+      context,
+      message: 'Log in or create a free account to follow artists.',
+    )) {
+      return;
+    }
+    if (mounted) _toggleFollow();
   }
 
   Future<void> _deletePiece(PieceSummary piece) async {
@@ -621,6 +584,26 @@ class _ProfilePageState extends State<ProfilePage>
             const SizedBox(height: 8),
             ListTile(
               leading: const Icon(
+                Icons.flag_outlined,
+                color: Color(0xFFE05252),
+              ),
+              title: Text(
+                'Report ${profile.handle}',
+                style: const TextStyle(
+                  color: Color(0xFFE05252),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                showReportSheet(
+                  context,
+                  target: ReportTarget.user(profile.username),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(
                 Icons.block_outlined,
                 color: Color(0xFFE05252),
               ),
@@ -633,7 +616,13 @@ class _ProfilePageState extends State<ProfilePage>
               ),
               onTap: () {
                 Navigator.pop(sheetContext);
-                _confirmBlockUser(profile);
+                confirmBlockUser(
+                  context,
+                  username: profile.username,
+                  onBlocked: () {
+                    if (mounted) Navigator.pop(context);
+                  },
+                );
               },
             ),
             const SizedBox(height: 8),
@@ -641,42 +630,6 @@ class _ProfilePageState extends State<ProfilePage>
         ),
       ),
     );
-  }
-
-  Future<void> _confirmBlockUser(UserProfile profile) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text('Block ${profile.handle}?'),
-        content: const Text(
-          "They won't be notified. You can unblock anytime from Settings.",
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text(
-              'Block',
-              style: TextStyle(color: Color(0xFFE05252)),
-            ),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-    try {
-      await SocialService.instance.blockUser(profile.username);
-      if (!mounted) return;
-      Navigator.pop(context);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to block user: $e')));
-    }
   }
 
   void _onBackToHome() {
@@ -771,8 +724,8 @@ class _ProfilePageState extends State<ProfilePage>
                       piecesCount: profile?.piecesCount ?? _pieces.length,
                       scenesCount: _scenes.length,
                       savesCount: profile?.savesCount,
-                      availableCount: _collectPieces
-                          .where((p) => p.isAvailableListing || p.isAuctionLive)
+                      availableCount: _listedPieces
+                          .where((p) => p.isForSale && p.status != 'sold')
                           .length,
                       collectedCount: profile?.collectedCount,
                       rating: profile?.rating,
@@ -824,7 +777,7 @@ class _ProfilePageState extends State<ProfilePage>
                         seriesItems: _series,
                         pieces: _pieces,
                         scenes: _scenes,
-                        listedPieces: _collectPieces,
+                        listedPieces: _listedPieces,
                         collectSegment: _collectSegment,
                         sellerMode: sellerEnabled,
                         loading: _tabContentLoading,
@@ -835,25 +788,6 @@ class _ProfilePageState extends State<ProfilePage>
                         onPublishScene: _publishScene,
                         sceneFilter: _sceneFilter,
                         onSceneFilterChanged: _onSceneFilterChanged,
-                        onSeriesTap: (series) {
-                          final id = series.id;
-                          if (id == null || id.isEmpty) return;
-                          Navigator.of(context).push<void>(
-                            MaterialPageRoute<void>(
-                              builder: (_) => SeriesViewPage(
-                                seriesId: id,
-                                initialName: series.name,
-                                initialPieceCount: series.pieceCount,
-                                initialCoverUrl: series.stackUrls.isNotEmpty
-                                    ? series.stackUrls.first
-                                    : null,
-                                authorName: profile?.name,
-                                authorUsername: profile?.username,
-                                isOwner: isOwnProfile && !widget.viewerMode,
-                              ),
-                            ),
-                          );
-                        },
                       ),
                     ),
                   ],

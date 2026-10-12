@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../services/api_exception.dart';
 import '../services/auth_service.dart';
+import '../services/auth_session.dart';
 import '../utils/auth_validators.dart';
 import '../widgets/auth_ui.dart';
 import '../widgets/studio_loading.dart';
-import '../theme/app_fonts.dart';
+import 'terms_page.dart';
 
 enum _SignUpStep {
   name,
@@ -33,6 +35,8 @@ class _SignUpPageState extends State<SignUpPage> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
+  bool _agreedToTerms =
+      AuthSession.instance.termsAgreedOnDevice == kTermsVersion;
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
   bool _submitted = false;
@@ -119,7 +123,7 @@ class _SignUpPageState extends State<SignUpPage> {
 
   Future<void> _continueName() async {
     setState(() => _submitted = true);
-    if (_nameError() != null) return;
+    if (_nameError() != null || !_agreedToTerms) return;
     setState(() {
       _submitted = false;
       _step = _SignUpStep.email;
@@ -305,8 +309,16 @@ class _SignUpPageState extends State<SignUpPage> {
             ? null
             : _phoneController.text.trim(),
       );
+      await AuthSession.instance.saveTermsAgreedOnDevice(kTermsVersion);
       if (!mounted) return;
-      Navigator.pushReplacementNamed(context, '/welcome', arguments: user);
+      // Clear the whole stack so a guest MainShell that pushed login/sign-up
+      // doesn't survive underneath the new account's shell.
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/welcome',
+        (_) => false,
+        arguments: user,
+      );
     } catch (e) {
       if (mounted) showAuthError(context, e);
     } finally {
@@ -348,6 +360,8 @@ class _SignUpPageState extends State<SignUpPage> {
               actionLabel: 'Sign in',
               onTap: () => Navigator.pushNamed(context, '/login'),
             ),
+            const SizedBox(height: 8),
+            const AuthGuestLink(),
           ],
         ],
       ),
@@ -390,10 +404,18 @@ class _SignUpPageState extends State<SignUpPage> {
           onSubmitted: (_) => _continueName(),
           onChanged: (_) => setState(() {}),
         ),
+        const SizedBox(height: 18),
+        AuthTermsCheckbox(
+          value: _agreedToTerms,
+          showError: _submitted,
+          onChanged: (v) => setState(() => _agreedToTerms = v),
+        ),
         const SizedBox(height: 24),
         AuthPrimaryButton(
           label: 'Continue',
-          enabled: _firstNameController.text.trim().isNotEmpty && _lastNameController.text.trim().isNotEmpty,
+          enabled: _firstNameController.text.trim().isNotEmpty &&
+              _lastNameController.text.trim().isNotEmpty &&
+              _agreedToTerms,
           onPressed: _continueName,
         ),
       ],
@@ -453,7 +475,7 @@ class _SignUpPageState extends State<SignUpPage> {
               onPressed: (_loading || _resendCooldown > 0) ? null : _resendOtp,
               child: Text(
                 'Resend code',
-                style: AppFonts.inter(
+                style: GoogleFonts.inter(
                   fontSize: 13,
                   color: _resendCooldown > 0
                       ? AuthColors.textMuted.withValues(alpha: 0.5)
@@ -466,7 +488,7 @@ class _SignUpPageState extends State<SignUpPage> {
               const SizedBox(width: 4),
               Text(
                 '(${_formatCooldown(_resendCooldown)})',
-                style: AppFonts.inter(fontSize: 13, color: AuthColors.textMuted),
+                style: GoogleFonts.inter(fontSize: 13, color: AuthColors.textMuted),
               ),
             ],
           ],
@@ -494,14 +516,14 @@ class _SignUpPageState extends State<SignUpPage> {
         if (_checkingUsername)
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Text('Checking availability…', style: AppFonts.inter(fontSize: 12, color: AuthColors.textDim)),
+            child: Text('Checking availability…', style: GoogleFonts.inter(fontSize: 12, color: AuthColors.textDim)),
           )
         else if (_usernameAvailable == true)
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Text(
               _usernameApiMessage ?? 'Username is available',
-              style: AppFonts.inter(fontSize: 12, color: AuthColors.success),
+              style: GoogleFonts.inter(fontSize: 12, color: AuthColors.success),
             ),
           )
         else if (_usernameAvailable == false)
@@ -509,7 +531,7 @@ class _SignUpPageState extends State<SignUpPage> {
             padding: const EdgeInsets.only(top: 8),
             child: Text(
               _usernameApiMessage ?? 'Username is taken',
-              style: AppFonts.inter(fontSize: 12, color: AuthColors.error),
+              style: GoogleFonts.inter(fontSize: 12, color: AuthColors.error),
             ),
           ),
         if (_usernameSuggestions.isNotEmpty) ...[
@@ -519,7 +541,7 @@ class _SignUpPageState extends State<SignUpPage> {
             runSpacing: 8,
             children: _usernameSuggestions.map((s) {
               return ActionChip(
-                label: Text(s, style: AppFonts.inter(fontSize: 12, color: AuthColors.textPrimary)),
+                label: Text(s, style: GoogleFonts.inter(fontSize: 12, color: AuthColors.textPrimary)),
                 backgroundColor: AuthColors.surfaceElevated,
                 side: BorderSide(color: AuthColors.border),
                 onPressed: () {

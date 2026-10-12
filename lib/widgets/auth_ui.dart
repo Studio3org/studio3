@@ -2,11 +2,11 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../services/api_exception.dart';
 import '../theme/app_theme.dart';
 import '../widgets/studio_logo.dart';
-import '../theme/app_fonts.dart';
 
 /// Dark premium palette — black & grey glass auth.
 abstract final class AuthColors {
@@ -195,7 +195,7 @@ class AuthScaffold extends StatelessWidget {
                           Text(
                             'Discover Art. Collect Stories.',
                             textAlign: TextAlign.center,
-                            style: AppFonts.inter(fontSize: 13, color: AuthColors.textDim),
+                            style: GoogleFonts.inter(fontSize: 13, color: AuthColors.textDim),
                           ),
                           const SizedBox(height: 28),
                         ] else
@@ -275,13 +275,13 @@ class AuthPageTitle extends StatelessWidget {
       children: [
         Text(
           title,
-          style: AppFonts.inter(fontSize: 28, fontWeight: FontWeight.w600, color: AuthColors.textPrimary),
+          style: GoogleFonts.inter(fontSize: 28, fontWeight: FontWeight.w600, color: AuthColors.textPrimary),
         ),
         if (subtitle != null) ...[
           const SizedBox(height: 6),
           Text(
             subtitle!,
-            style: AppFonts.inter(fontSize: 14, color: AuthColors.textDim),
+            style: GoogleFonts.inter(fontSize: 14, color: AuthColors.textDim),
           ),
         ],
       ],
@@ -335,11 +335,11 @@ class AuthIconInput extends StatelessWidget {
             obscureText: obscureText,
             keyboardType: keyboardType,
             textInputAction: textInputAction,
-            style: AppFonts.inter(fontSize: 15, color: AuthColors.textPrimary),
+            style: GoogleFonts.inter(fontSize: 15, color: AuthColors.textPrimary),
             cursorColor: AuthColors.textPrimary,
             decoration: InputDecoration(
               hintText: placeholder,
-              hintStyle: AppFonts.inter(color: AuthColors.textDim),
+              hintStyle: GoogleFonts.inter(color: AuthColors.textDim),
               filled: true,
               fillColor: Colors.black.withValues(alpha: 0.35),
               contentPadding: const EdgeInsets.symmetric(horizontal: 16),
@@ -376,7 +376,7 @@ class AuthIconInput extends StatelessWidget {
         ),
         if (errorText != null) ...[
           const SizedBox(height: 6),
-          Text(errorText!, style: AppFonts.inter(fontSize: 12, color: AuthColors.error)),
+          Text(errorText!, style: GoogleFonts.inter(fontSize: 12, color: AuthColors.error)),
         ],
       ],
     );
@@ -416,7 +416,7 @@ class AuthPrimaryButton extends StatelessWidget {
           disabledForegroundColor: useAccentStyle ? AuthColors.backgroundDeep : AuthColors.textDim,
           overlayColor: AuthColors.backgroundDeep.withValues(alpha: 0.08),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          textStyle: AppFonts.inter(fontSize: 15, fontWeight: FontWeight.w600),
+          textStyle: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600),
         ),
         child: loading
             ? const SizedBox(
@@ -447,7 +447,7 @@ class AuthGhostButton extends StatelessWidget {
           foregroundColor: AuthColors.textPrimary,
           side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          textStyle: AppFonts.inter(fontSize: 14, fontWeight: FontWeight.w500),
+          textStyle: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500),
         ),
         child: Text(label),
       ),
@@ -487,7 +487,7 @@ class AuthRememberRow extends StatelessWidget {
         const SizedBox(width: 8),
         GestureDetector(
           onTap: () => onChanged(!value),
-          child: Text('Remember me', style: AppFonts.inter(fontSize: 12, color: AuthColors.textMuted)),
+          child: Text('Remember me', style: GoogleFonts.inter(fontSize: 12, color: AuthColors.textMuted)),
         ),
         const Spacer(),
         if (onForgot != null)
@@ -499,7 +499,7 @@ class AuthRememberRow extends StatelessWidget {
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
-            child: Text('Forgot login?', style: AppFonts.inter(fontSize: 12, fontWeight: FontWeight.w500)),
+            child: Text('Forgot login?', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500)),
           ),
       ],
     );
@@ -518,7 +518,7 @@ class AuthDivider extends StatelessWidget {
         Expanded(child: Divider(color: AuthColors.border)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text(label, style: AppFonts.inter(fontSize: 12, color: AuthColors.textDim)),
+          child: Text(label, style: GoogleFonts.inter(fontSize: 12, color: AuthColors.textDim)),
         ),
         Expanded(child: Divider(color: AuthColors.border)),
       ],
@@ -545,12 +545,12 @@ class AuthLinkFooter extends StatelessWidget {
       child: RichText(
         textAlign: TextAlign.center,
         text: TextSpan(
-          style: AppFonts.inter(fontSize: 14, color: AuthColors.textMuted),
+          style: GoogleFonts.inter(fontSize: 14, color: AuthColors.textMuted),
           children: [
             TextSpan(text: prompt),
             TextSpan(
               text: actionLabel,
-              style: AppFonts.inter(
+              style: GoogleFonts.inter(
                 fontWeight: FontWeight.w600,
                 color: AuthColors.textPrimary,
                 decoration: TextDecoration.underline,
@@ -592,7 +592,7 @@ class AuthStepProgress extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           'Step $current of $total',
-          style: AppFonts.inter(fontSize: 11, color: AuthColors.textDim),
+          style: GoogleFonts.inter(fontSize: 11, color: AuthColors.textDim),
         ),
       ],
     );
@@ -670,7 +670,7 @@ class _AuthOtpInputState extends State<AuthOtpInput> {
                 ),
                 child: Text(
                   char,
-                  style: AppFonts.inter(fontSize: 20, fontWeight: FontWeight.w600, color: AuthColors.textPrimary),
+                  style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w600, color: AuthColors.textPrimary),
                 ),
               );
             }),
@@ -697,7 +697,7 @@ class _AuthOtpInputState extends State<AuthOtpInput> {
         ),
         if (widget.errorText != null) ...[
           const SizedBox(height: 8),
-          Text(widget.errorText!, style: AppFonts.inter(fontSize: 12, color: AuthColors.error)),
+          Text(widget.errorText!, style: GoogleFonts.inter(fontSize: 12, color: AuthColors.error)),
         ],
       ],
     );
@@ -707,7 +707,7 @@ class _AuthOtpInputState extends State<AuthOtpInput> {
 void showAuthSnackBar(BuildContext context, String message, {bool isError = false}) {
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
-      content: Text(message, style: AppFonts.inter(color: AuthColors.textPrimary)),
+      content: Text(message, style: GoogleFonts.inter(color: AuthColors.textPrimary)),
       backgroundColor: isError ? const Color(0xFF3D2020) : AuthColors.surfaceElevated,
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -727,4 +727,110 @@ void showAuthError(BuildContext context, Object error) {
     _ => 'Something went wrong',
   };
   showAuthSnackBar(context, message, isError: true);
+}
+
+/// Required Terms of Use (EULA) agreement on the sign-up and login forms
+/// (App Store guideline 1.2). "Terms of Use" opens the full text in-app.
+class AuthTermsCheckbox extends StatelessWidget {
+  const AuthTermsCheckbox({
+    super.key,
+    required this.value,
+    required this.onChanged,
+    this.showError = false,
+  });
+
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  /// Highlights the row after a submit attempt without the box ticked.
+  final bool showError;
+
+  @override
+  Widget build(BuildContext context) {
+    final base = GoogleFonts.inter(
+      fontSize: 12,
+      height: 1.45,
+      color: showError && !value ? AuthColors.error : AuthColors.textMuted,
+    );
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 22,
+          height: 22,
+          child: Checkbox(
+            value: value,
+            onChanged: (v) => onChanged(v ?? false),
+            activeColor: AuthColors.accent,
+            checkColor: AuthColors.backgroundDeep,
+            side: BorderSide(
+              color: showError && !value
+                  ? AuthColors.error
+                  : Colors.white.withValues(alpha: 0.35),
+            ),
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: VisualDensity.compact,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: GestureDetector(
+            onTap: () => onChanged(!value),
+            child: Text.rich(
+              TextSpan(
+                style: base,
+                children: [
+                  const TextSpan(text: 'I agree to the '),
+                  WidgetSpan(
+                    alignment: PlaceholderAlignment.baseline,
+                    baseline: TextBaseline.alphabetic,
+                    child: GestureDetector(
+                      onTap: () => Navigator.pushNamed(context, '/terms'),
+                      child: Text(
+                        'Terms of Use (EULA)',
+                        style: base.copyWith(
+                          color: AuthColors.textPrimary,
+                          fontWeight: FontWeight.w600,
+                          decoration: TextDecoration.underline,
+                          decorationColor: AuthColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const TextSpan(
+                    text: '. Studio3 has zero tolerance for objectionable '
+                        'content or abusive users.',
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// "Browse without an account" — App Store guideline 5.1.1(v): browsing
+/// isn't an account feature, so the auth screens always offer a way out.
+class AuthGuestLink extends StatelessWidget {
+  const AuthGuestLink({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton(
+      onPressed: () =>
+          Navigator.pushNamedAndRemoveUntil(context, '/', (_) => false),
+      style: TextButton.styleFrom(foregroundColor: AuthColors.textMuted),
+      child: Text(
+        'Browse without an account',
+        style: GoogleFonts.inter(
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          decoration: TextDecoration.underline,
+          decorationColor: AuthColors.textMuted,
+        ),
+      ),
+    );
+  }
 }

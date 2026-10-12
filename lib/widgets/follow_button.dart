@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/home_feed_tokens.dart';
-import '../theme/app_fonts.dart';
 
 /// Follow relationship from the viewer to a profile/artist — a private
 /// account yields [pending] instead of jumping straight to [following].
@@ -16,7 +16,6 @@ class FollowButton extends StatelessWidget {
     this.onPressed,
     this.dense = false,
     this.busy = false,
-    this.figmaDetail = false,
   });
 
   final FollowState state;
@@ -30,56 +29,45 @@ class FollowButton extends StatelessWidget {
   /// follow/unfollow request is in flight (e.g. `DetailFollowState.followBusy`).
   final bool busy;
 
-  /// Figma 2707:3564 — 96×28, 6px radius, outlined Follow, Geist 12.
-  final bool figmaDetail;
-
   @override
   Widget build(BuildContext context) {
-    final outlined = figmaDetail || state != FollowState.none;
+    final outlined = state != FollowState.none;
     final label = switch (state) {
       FollowState.none => 'Follow',
       FollowState.pending => 'Requested',
       FollowState.following => 'Following',
     };
-    final labelColor = figmaDetail
-        ? HomeFeedTokens.neutral800.withValues(
+    final labelColor = outlined
+        ? HomeFeedTokens.textPrimary.withValues(
             alpha: state == FollowState.pending ? 0.7 : 1,
           )
-        : outlined
-            ? HomeFeedTokens.textPrimary.withValues(
-                alpha: state == FollowState.pending ? 0.7 : 1,
-              )
-            : HomeFeedTokens.textInverse;
-    final spinnerSize = dense || figmaDetail ? 14.0 : 16.0;
-    final radius = figmaDetail ? 6.0 : HomeFeedTokens.cardRadius;
+        : HomeFeedTokens.textInverse;
+    final spinnerSize = dense ? 14.0 : 16.0;
 
-    final child = Material(
+    return Material(
       color: outlined ? Colors.transparent : HomeFeedTokens.textPrimary,
-      borderRadius: BorderRadius.circular(radius),
+      borderRadius: BorderRadius.circular(HomeFeedTokens.cardRadius),
       child: InkWell(
         onTap: busy ? null : onPressed,
-        borderRadius: BorderRadius.circular(radius),
+        borderRadius: BorderRadius.circular(HomeFeedTokens.cardRadius),
         child: DecoratedBox(
           decoration: outlined
               ? BoxDecoration(
-                  borderRadius: BorderRadius.circular(radius),
+                  borderRadius:
+                      BorderRadius.circular(HomeFeedTokens.cardRadius),
                   border: Border.all(
-                    color: figmaDetail
-                        ? HomeFeedTokens.neutral800
-                        : HomeFeedTokens.textPrimary.withValues(
-                            alpha: state == FollowState.pending ? 0.2 : 0.35,
-                          ),
+                    color: HomeFeedTokens.textPrimary.withValues(
+                      alpha: state == FollowState.pending ? 0.2 : 0.35,
+                    ),
                   ),
                 )
               : const BoxDecoration(),
           child: Padding(
-            padding: figmaDetail
-                ? EdgeInsets.zero
-                : dense
-                    ? const EdgeInsets.symmetric(vertical: 4, horizontal: 14)
-                    : const EdgeInsets.symmetric(vertical: 6, horizontal: 28),
+            padding: dense
+                ? const EdgeInsets.symmetric(vertical: 4, horizontal: 14)
+                : const EdgeInsets.symmetric(vertical: 6, horizontal: 28),
             child: Center(
-              widthFactor: figmaDetail ? null : 1,
+              widthFactor: 1,
               child: busy
                   ? SizedBox(
                       width: spinnerSize,
@@ -91,26 +79,16 @@ class FollowButton extends StatelessWidget {
                     )
                   : Text(
                       label,
-                      style: figmaDetail
-                          ? AppFonts.geist(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w400,
-                              color: labelColor,
-                            )
-                          : AppFonts.inter(
-                              fontSize: dense ? 12 : 15,
-                              fontWeight:
-                                  dense ? FontWeight.w500 : FontWeight.w600,
-                              color: labelColor,
-                            ),
+                      style: GoogleFonts.inter(
+                        fontSize: dense ? 12 : 15,
+                        fontWeight: dense ? FontWeight.w500 : FontWeight.w600,
+                        color: labelColor,
+                      ),
                     ),
             ),
           ),
         ),
       ),
     );
-
-    if (!figmaDetail) return child;
-    return SizedBox(width: 96, height: 28, child: child);
   }
 }

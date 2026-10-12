@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../theme/home_feed_tokens.dart';
 import 'auth_ui.dart';
-import '../theme/app_fonts.dart';
 
 /// Exact Figma geometry for node `2559:1688` ("Logo for loading screen").
 ///
@@ -282,12 +281,7 @@ class StudioLoadingAnimation extends StatelessWidget {
   }
 }
 
-/// Centered bubble mark, for the rare case where a page body is waiting on
-/// something that has no meaningful shape to placehold.
-///
-/// Not for list/grid/form sections: those use the shaped skeletons in
-/// `widgets/loading/app_skeletons.dart`, which show the user what is about
-/// to arrive instead of a generic spinner.
+/// Centered body placeholder for scaffold/page initial loads.
 class StudioLoadingBody extends StatelessWidget {
   const StudioLoadingBody({super.key, this.width = 96, this.color});
 
@@ -351,47 +345,6 @@ class StudioLoadingOverlayDark extends StatelessWidget {
   }
 }
 
-/// Full-page cream overlay used while a scene or piece is publishing.
-class StudioPublishingOverlay extends StatelessWidget {
-  const StudioPublishingOverlay({super.key, required this.message});
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return PopScope(
-      canPop: false,
-      child: ColoredBox(
-        color: HomeFeedTokens.background,
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const StudioBubbleLoader(
-                  width: 88,
-                  color: HomeFeedTokens.textPrimary,
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  message,
-                  textAlign: TextAlign.center,
-                  style: AppFonts.geist(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w500,
-                    color: HomeFeedTokens.textPrimary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// Immersive loading experience used only while the login request completes.
 class StudioLoginLoadingOverlay extends StatelessWidget {
   const StudioLoginLoadingOverlay({super.key});
@@ -417,14 +370,6 @@ class StudioLoginLoadingOverlay extends StatelessWidget {
 }
 
 /// When [loading] is true, covers the entire page with [StudioLoadingOverlay].
-///
-/// **Mutations only.** Pass a flag that tracks a submit / publish / upload
-/// the user must not interrupt — never one that tracks an initial GET.
-/// Blocking the whole page on a read hides static chrome that could have
-/// painted immediately and content that may already be cached; a read
-/// placeholds per section instead, via `SectionLoader` and the skeletons in
-/// `widgets/loading/` (see `loading/skeleton_primitives.dart` for the full
-/// rule).
 class StudioLoadingGate extends StatelessWidget {
   const StudioLoadingGate({
     super.key,
@@ -433,7 +378,6 @@ class StudioLoadingGate extends StatelessWidget {
     this.dark = false,
     this.loginExperience = false,
     this.backgroundColor,
-    this.publishingMessage,
   });
 
   final bool loading;
@@ -441,7 +385,6 @@ class StudioLoadingGate extends StatelessWidget {
   final bool dark;
   final bool loginExperience;
   final Color? backgroundColor;
-  final String? publishingMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -450,9 +393,7 @@ class StudioLoadingGate extends StatelessWidget {
         child,
         if (loading)
           Positioned.fill(
-            child: publishingMessage != null
-                ? StudioPublishingOverlay(message: publishingMessage!)
-                : loginExperience
+            child: loginExperience
                 ? const StudioLoginLoadingOverlay()
                 : dark
                 ? const StudioLoadingOverlayDark()

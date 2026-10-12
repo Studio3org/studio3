@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/address.dart';
 import '../../services/address_service.dart';
 import '../../services/api_exception.dart';
 import '../../screens/address_form_page.dart';
 import '../../theme/collect_detail_tokens.dart';
-import '../loading/app_skeletons.dart';
-import '../../theme/app_fonts.dart';
 
 /// Saved-address picker for checkout — Figma 2371-1692.
 class CollectShippingSheet extends StatefulWidget {
@@ -112,8 +111,8 @@ class _CollectShippingSheetState extends State<CollectShippingSheet> {
   }
 
   Widget _buildBody(double bottomInset) {
-    if (_loading && _addresses.isEmpty) {
-      return const OptionListSkeleton();
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator(strokeWidth: 2));
     }
     if (_error != null && _addresses.isEmpty) {
       return Center(
@@ -122,7 +121,7 @@ class _CollectShippingSheetState extends State<CollectShippingSheet> {
           child: Text(
             _error!,
             textAlign: TextAlign.center,
-            style: AppFonts.inter(
+            style: GoogleFonts.inter(
               fontSize: 13,
               color: CollectDetailTokens.textSecondary,
             ),
@@ -140,7 +139,7 @@ class _CollectShippingSheetState extends State<CollectShippingSheet> {
             child: Text(
               'No saved addresses yet. Add one to continue.',
               textAlign: TextAlign.center,
-              style: AppFonts.inter(
+              style: GoogleFonts.inter(
                 fontSize: 13,
                 color: CollectDetailTokens.textSecondary,
               ),
@@ -174,7 +173,7 @@ class _CollectShippingSheetState extends State<CollectShippingSheet> {
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Text(
               '+ Add new address',
-              style: AppFonts.inter(
+              style: GoogleFonts.inter(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
                 color: CollectDetailTokens.brand,
@@ -201,7 +200,7 @@ class _CollectShippingSheetState extends State<CollectShippingSheet> {
               child: Center(
                 child: Text(
                   'Save and continue',
-                  style: AppFonts.inter(
+                  style: GoogleFonts.inter(
                     fontSize: 16,
                     fontWeight: FontWeight.w400,
                     color: CollectDetailTokens.textInverse,
@@ -251,7 +250,7 @@ class _ShippingHeader extends StatelessWidget {
             ),
             Text(
               'Shipping',
-              style: AppFonts.inter(
+              style: GoogleFonts.inter(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
                 color: CollectDetailTokens.textPrimary,
@@ -304,7 +303,7 @@ class _AddressOption extends StatelessWidget {
                     address.label?.isNotEmpty == true
                         ? address.label!
                         : address.fullName,
-                    style: AppFonts.inter(
+                    style: GoogleFonts.inter(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
                       color: CollectDetailTokens.textPrimary,
@@ -313,7 +312,7 @@ class _AddressOption extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     '${address.line1}, ${address.city}, ${address.state} ${address.zip}',
-                    style: AppFonts.inter(
+                    style: GoogleFonts.inter(
                       fontSize: 12,
                       fontWeight: FontWeight.w400,
                       color: CollectDetailTokens.textSecondary,

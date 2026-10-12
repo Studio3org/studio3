@@ -1,0 +1,4 @@
+2026/09/16-09:37:44.368 36c0 Creating DB d:\studio3\app\.chrome-pd\Default\Sync Data\LevelDB since it was missing.
+2026/09/16-09:37:44.388 36c0 Reusing MANIFEST d:\studio3\app\.chrome-pd\Default\Sync Data\LevelDB/MANIFEST-000001
+2026/09/16-09:37:44.389 36c0 Recovering log #3
+2026/09/16-09:37:44.390 36c0 Reusing old log d:\studio3\app\.chrome-pd\Default\Sync Data\LevelDB/000003.log 

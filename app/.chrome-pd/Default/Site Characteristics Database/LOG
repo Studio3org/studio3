@@ -1,0 +1,4 @@
+2026/09/16-09:37:44.383 2c74 Creating DB d:\studio3\app\.chrome-pd\Default\Site Characteristics Database since it was missing.
+2026/09/16-09:37:44.392 2c74 Reusing MANIFEST d:\studio3\app\.chrome-pd\Default\Site Characteristics Database/MANIFEST-000001
+2026/09/16-09:37:44.393 2c74 Recovering log #3
+2026/09/16-09:37:44.393 2c74 Reusing old log d:\studio3\app\.chrome-pd\Default\Site Characteristics Database/000003.log 

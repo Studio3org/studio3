@@ -1,93 +1,105 @@
 import React, { useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { Lock, User as UserIcon } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
-import { ApiError } from '../services/apiClient';
-import {
-  AuthLinkFooter,
-  AuthPageTitle,
-  AuthPasswordInput,
-  AuthPillInput,
-  AuthPrimaryButton,
-  AuthScaffold,
-} from '../components/auth/AuthUI';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
+import { login } from '../lib/api';
+import { TermsCheckbox } from '../components/moderation/TermsCheckbox';
+import { GlassCard } from '../components/design/GlassCard';
+import { PillInput, PillInputWithToggle } from '../components/inputs/PillInput';
+import { PrimaryButton } from '../components/buttons/PrimaryButton';
+import { useSession } from '../lib/session';
+
+const bgStyle = {
+  minHeight: '100vh',
+  background: 'linear-gradient(180deg, var(--slate-50) 0%, var(--slate-100) 50%, var(--slate-200) 100%)',
+  paddingTop: 44,
+  paddingBottom: 24,
+  paddingLeft: 16,
+  paddingRight: 16,
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+};
 
 export function LoginPage() {
-  const { login } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
-  const [username, setUsername] = useState('');
+  const [searchParams] = useSearchParams();
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [remember, setRemember] = useState(true);
-  const [error, setError] = useState(null);
+  const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const { loggedIn } = useSession();
 
-  const submit = async () => {
-    if (!username || !password || loading) return;
+  // Only same-site paths — never bounce to an arbitrary URL after login.
+  const nextParam = searchParams.get('next');
+  const next = nextParam && nextParam.startsWith('/') && !nextParam.startsWith('//')
+    ? nextParam
+    : '/home';
+  const canSubmit = email.trim() && password && agreed && !loading;
+
+  // Already signed in (or just signed in) — go where the user was headed.
+  if (loggedIn) return <Navigate to={next} replace />;
+
+  const signIn = async () => {
+    if (!canSubmit) return;
     setLoading(true);
     setError(null);
     try {
-      const user = await login(username, password);
-      const redirectTo = location.state?.from?.pathname;
-      if (!user.onboardingComplete) navigate('/onboarding', { replace: true });
-      else navigate(redirectTo || '/home', { replace: true });
+      await login(email, password);
+      navigate(next, { replace: true });
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Could not log in. Please try again.');
-    } finally {
+      setError(e.message);
       setLoading(false);
     }
   };
 
   return (
-    <AuthScaffold compact>
-      <AuthPageTitle title="Login" />
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <AuthPillInput
-          icon={<UserIcon size={20} strokeWidth={1.75} />}
-          placeholder="Username or email"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-        />
-        <AuthPasswordInput
-          icon={<Lock size={20} strokeWidth={1.75} />}
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && submit()}
-        />
-
-        {error && (
-          <p style={{ fontFamily: 'var(--font-inter)', fontSize: 12, color: 'var(--auth-error)', margin: '-6px 2px 0' }}>
-            {error}
-          </p>
-        )}
-
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '0 2px' }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--auth-text-muted)', fontFamily: 'var(--font-inter)', fontSize: 12 }}>
-            <input
-              type="checkbox"
-              checked={remember}
-              onChange={(e) => setRemember(e.target.checked)}
-              style={{ width: 16, height: 16, accentColor: '#fff' }}
-            />
-            Remember me
-          </label>
-          <button style={{ fontFamily: 'var(--font-inter)', fontSize: 12, fontWeight: 500, color: 'var(--auth-text-muted)' }}>
-            Forgot login?
-          </button>
-        </div>
-
-        <div style={{ marginTop: 6 }}>
-          <AuthPrimaryButton disabled={!username || !password} loading={loading} onClick={submit}>
-            Login
-          </AuthPrimaryButton>
-        </div>
+    <div style={bgStyle}>
+      <div style={{ textAlign: 'center', marginBottom: 32 }}>
+        <h1 style={{ fontFamily: 'Inter', fontSize: 28, fontWeight: 700, color: 'var(--slate-900)' }}>
+          Studio 3
+        </h1>
+        <p style={{ fontSize: 13, fontWeight: 400, color: 'var(--slate-400)', marginTop: 4 }}>
+          Discover Art. Collect Stories.
+        </p>
       </div>
 
-      <div style={{ marginTop: 24 }}>
-        <AuthLinkFooter prompt="Don't have an account?" linkLabel="Sign Up" to="/signup" />
-      </div>
-    </AuthScaffold>
+      <GlassCard style={{ width: '100%', maxWidth: 343, padding: 28 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <PillInput
+            type="text"
+            placeholder="Username or email"
+            autoComplete="username"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <PillInputWithToggle
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && signIn()}
+          />
+          <TermsCheckbox checked={agreed} onChange={setAgreed} />
+          {error && (
+            <div style={{ fontSize: 13, color: '#E05252' }} role="alert">{error}</div>
+          )}
+          <PrimaryButton disabled={!canSubmit} onClick={signIn}>
+            {loading ? 'Signing in…' : 'Sign In'}
+          </PrimaryButton>
+
+          <div style={{ textAlign: 'right' }}>
+            <Link to="/forgot-password" style={{ fontSize: 12, color: 'var(--slate-500)' }}>
+              Forgot password?
+            </Link>
+          </div>
+        </div>
+      </GlassCard>
+
+      <p style={{ marginTop: 24, fontSize: 14, color: 'var(--slate-600)' }}>
+        Don't have an account? <Link to="/signup" style={{ fontWeight: 600, color: 'var(--slate-900)' }}>Sign Up</Link>
+      </p>
+      <Link to="/home" style={{ marginTop: 12, fontSize: 14, color: 'var(--slate-500)', textDecoration: 'underline' }}>
+        Browse without an account
+      </Link>
+    </div>
   );
 }

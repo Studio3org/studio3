@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/home_feed_tokens.dart';
-import '../theme/app_fonts.dart';
 
 /// Shared settings-list row: icon + label + trailing chevron, used across
 /// Settings-family screens (promoted out of `profile_settings_page.dart` so
@@ -11,18 +11,14 @@ class SettingsTile extends StatelessWidget {
     super.key,
     required this.icon,
     required this.label,
-    this.onTap,
+    required this.onTap,
     this.destructive = false,
     this.trailing,
   });
 
   final IconData icon;
   final String label;
-
-  /// Null makes the row inert — no ripple, no navigation. Used while a
-  /// row's destination depends on state that hasn't loaded yet, so the
-  /// tile can render without committing to an answer.
-  final VoidCallback? onTap;
+  final VoidCallback onTap;
   final bool destructive;
 
   /// Overrides the trailing chevron (e.g. a pending-count badge).
@@ -47,7 +43,7 @@ class SettingsTile extends StatelessWidget {
               Expanded(
                 child: Text(
                   label,
-                  style: AppFonts.inter(
+                  style: GoogleFonts.inter(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
                     color: color,
@@ -100,7 +96,7 @@ class SettingsToggleTile extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: AppFonts.inter(
+              style: GoogleFonts.inter(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
                 color: HomeFeedTokens.textPrimary,

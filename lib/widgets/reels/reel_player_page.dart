@@ -1,8 +1,11 @@
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../models/feed_item.dart';
-import '../../utils/video_view_type.dart';
+import '../../services/auth_session.dart';
 import '../feed_skeleton.dart';
 import 'reel_overlay.dart';
 
@@ -40,6 +43,9 @@ class _ReelPlayerPageState extends State<ReelPlayerPage> {
 
   void _onDoubleTap() {
     _overlayKey.currentState?.likeIfNotAlready();
+    // A guest's double-tap just asks them to log in — no heart for a like
+    // that never happens.
+    if (!AuthSession.instance.isLoggedIn) return;
     setState(() => _showHeart = true);
     Future<void>.delayed(const Duration(milliseconds: 700), () {
       if (mounted) setState(() => _showHeart = false);
@@ -67,6 +73,15 @@ class _ReelPlayerPageState extends State<ReelPlayerPage> {
     super.dispose();
   }
 
+  /// Android Impeller + texture-backed video often produces green macroblock
+  /// tearing on MediaTek/Mali devices. Platform views avoid that path.
+  static VideoViewType get _viewType {
+    if (kIsWeb) return VideoViewType.textureView;
+    return Platform.isAndroid
+        ? VideoViewType.platformView
+        : VideoViewType.textureView;
+  }
+
   Future<void> _initController() async {
     final url = widget.item.mediaUrl;
     if (url == null || url.isEmpty) {
@@ -81,7 +96,7 @@ class _ReelPlayerPageState extends State<ReelPlayerPage> {
     final controller = VideoPlayerController.networkUrl(
       Uri.parse(url),
       formatHint: VideoFormat.other,
-      viewType: resolveVideoViewType(),
+      viewType: _viewType,
     );
     try {
       await controller.initialize();

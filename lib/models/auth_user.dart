@@ -8,6 +8,8 @@ class AuthUser {
     this.role,
     this.sellerEnabled = false,
     this.profilePhotoUrl,
+    this.termsVersion,
+    this.currentTermsVersion,
   });
 
   final String username;
@@ -19,6 +21,19 @@ class AuthUser {
   final bool sellerEnabled;
   final String? profilePhotoUrl;
 
+  /// Terms of Use (EULA) version this account last agreed to — null for
+  /// accounts that predate the terms.
+  final String? termsVersion;
+
+  /// The version the server currently requires. Null on payloads from an
+  /// older backend, in which case nothing is enforced client-side.
+  final String? currentTermsVersion;
+
+  /// True when the account must (re-)agree to the Terms of Use before using
+  /// account features — see `TermsAcceptanceGate`.
+  bool get needsTermsAcceptance =>
+      currentTermsVersion != null && termsVersion != currentTermsVersion;
+
   AuthUser copyWith({
     String? username,
     String? name,
@@ -28,6 +43,8 @@ class AuthUser {
     String? role,
     bool? sellerEnabled,
     String? profilePhotoUrl,
+    String? termsVersion,
+    String? currentTermsVersion,
   }) {
     return AuthUser(
       username: username ?? this.username,
@@ -38,6 +55,8 @@ class AuthUser {
       role: role ?? this.role,
       sellerEnabled: sellerEnabled ?? this.sellerEnabled,
       profilePhotoUrl: profilePhotoUrl ?? this.profilePhotoUrl,
+      termsVersion: termsVersion ?? this.termsVersion,
+      currentTermsVersion: currentTermsVersion ?? this.currentTermsVersion,
     );
   }
 
@@ -53,6 +72,8 @@ class AuthUser {
           json['isSeller'] as bool? ??
           false,
       profilePhotoUrl: json['profilePhotoUrl'] as String?,
+      termsVersion: json['termsVersion'] as String?,
+      currentTermsVersion: json['currentTermsVersion'] as String?,
     );
   }
 
@@ -65,6 +86,8 @@ class AuthUser {
         'role': role,
         'sellerEnabled': sellerEnabled,
         'profilePhotoUrl': profilePhotoUrl,
+        'termsVersion': termsVersion,
+        'currentTermsVersion': currentTermsVersion,
       };
 }
 

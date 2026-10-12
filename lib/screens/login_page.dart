@@ -5,6 +5,7 @@ import '../services/auth_service.dart';
 import '../services/auth_session.dart';
 import '../utils/auth_validators.dart';
 import '../widgets/auth_ui.dart';
+import 'terms_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -18,6 +19,8 @@ class _LoginPageState extends State<LoginPage> {
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _rememberMe = false;
+  bool _agreedToTerms =
+      AuthSession.instance.termsAgreedOnDevice == kTermsVersion;
   bool _submitted = false;
   bool _loading = false;
 
@@ -48,7 +51,8 @@ class _LoginPageState extends State<LoginPage> {
 
   bool get _canSubmit =>
       AuthValidators.loginIdentifier(_usernameController.text) == null &&
-      _passwordController.text.isNotEmpty;
+      _passwordController.text.isNotEmpty &&
+      _agreedToTerms;
 
   Future<void> _signIn() async {
     if (_loading) return;
@@ -69,8 +73,15 @@ class _LoginPageState extends State<LoginPage> {
       } else {
         await AuthSession.instance.clearRememberedUsername();
       }
+      await AuthSession.instance.saveTermsAgreedOnDevice(kTermsVersion);
       if (!mounted) return;
-      Navigator.pushReplacementNamed(context, resolvePostAuthRoute());
+      // Clear the whole stack: login may have been pushed on top of a guest
+      // MainShell, which must not survive underneath the signed-in one.
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        resolvePostAuthRoute(),
+        (_) => false,
+      );
     } catch (e) {
       if (mounted) showAuthError(context, e);
     } finally {
@@ -82,6 +93,8 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     return AuthScaffold(
       compact: true,
+      // Pushed from a guest's "log in to continue" prompt → let them back out.
+      showBackButton: Navigator.of(context).canPop(),
       child: AuthFormBody(
         child: AbsorbPointer(
           absorbing: _loading,
@@ -119,6 +132,12 @@ class _LoginPageState extends State<LoginPage> {
                 onForgot: () =>
                     Navigator.pushNamed(context, '/forgot-password'),
               ),
+              const SizedBox(height: 16),
+              AuthTermsCheckbox(
+                value: _agreedToTerms,
+                showError: _submitted,
+                onChanged: (v) => setState(() => _agreedToTerms = v),
+              ),
               const SizedBox(height: 20),
               AuthPrimaryButton(
                 label: 'Login',
@@ -132,6 +151,8 @@ class _LoginPageState extends State<LoginPage> {
                 actionLabel: 'Sign Up',
                 onTap: () => Navigator.pushNamed(context, '/signup'),
               ),
+              const SizedBox(height: 8),
+              const AuthGuestLink(),
             ],
           ),
         ),

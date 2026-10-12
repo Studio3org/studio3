@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/chat_message.dart';
 import '../../models/follow_user_summary.dart';
@@ -11,7 +12,6 @@ import '../accept_decline_buttons.dart';
 import '../feed_skeleton.dart';
 import '../glass_card.dart';
 import '../home_feed/home_feed_widgets.dart';
-import '../../theme/app_fonts.dart';
 
 enum _ChatsTab { all, requests }
 
@@ -95,10 +95,8 @@ class _ChatsBodyState extends State<ChatsBody> {
       });
     } catch (_) {
       if (!mounted) return;
-      // A failed refresh must not wipe what the user is already looking
-      // at — keep the current page and let them retry (pull-to-refresh or
-      // the next focus load) instead of blanking the list.
       setState(() {
+        if (!append) _conversations.clear();
         _loading = false;
         _loadingMore = false;
       });
@@ -136,10 +134,8 @@ class _ChatsBodyState extends State<ChatsBody> {
       });
     } catch (_) {
       if (!mounted) return;
-      // A failed refresh must not wipe what the user is already looking
-      // at — keep the current page and let them retry (pull-to-refresh or
-      // the next focus load) instead of blanking the list.
       setState(() {
+        if (!append) _requests.clear();
         _requestsLoading = false;
         _requestsLoadingMore = false;
         _requestsLoaded = true;
@@ -337,7 +333,7 @@ class _ChatsBodyState extends State<ChatsBody> {
           child: TextField(
             controller: _searchController,
             onChanged: _onSearchQueryChanged,
-            style: AppFonts.inter(fontSize: 14, color: AppColors.slate900),
+            style: GoogleFonts.inter(fontSize: 14, color: AppColors.slate900),
             decoration: InputDecoration(
               hintText: 'Search your connections',
               prefixIcon: const Icon(Icons.search),
@@ -391,7 +387,7 @@ class _ChatsBodyState extends State<ChatsBody> {
       return Center(
         child: Text(
           'No matches in your connections',
-          style: AppFonts.inter(fontSize: 14, color: AppColors.slate500),
+          style: GoogleFonts.inter(fontSize: 14, color: AppColors.slate500),
         ),
       );
     }
@@ -423,7 +419,7 @@ class _ChatsBodyState extends State<ChatsBody> {
                         children: [
                           Text(
                             user.name,
-                            style: AppFonts.inter(
+                            style: GoogleFonts.inter(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
                               color: AppColors.slate900,
@@ -431,7 +427,7 @@ class _ChatsBodyState extends State<ChatsBody> {
                           ),
                           Text(
                             '@${user.username}',
-                            style: AppFonts.inter(
+                            style: GoogleFonts.inter(
                               fontSize: 13,
                               color: AppColors.slate500,
                             ),
@@ -450,9 +446,7 @@ class _ChatsBodyState extends State<ChatsBody> {
   }
 
   Widget _buildAllBody() {
-    // Conversations already on screen survive a refresh — the placeholder
-    // is only for a genuinely empty first load.
-    if (_loading && _conversations.isEmpty) {
+    if (_loading) {
       return const FlatListRowSkeleton();
     }
     if (_conversations.isEmpty) {
@@ -464,7 +458,7 @@ class _ChatsBodyState extends State<ChatsBody> {
             const SizedBox(height: AppDims.spaceMd),
             Text(
               'No messages yet',
-              style: AppFonts.inter(fontSize: 14, color: AppColors.slate500),
+              style: GoogleFonts.inter(fontSize: 14, color: AppColors.slate500),
             ),
           ],
         ),
@@ -515,13 +509,13 @@ class _ChatsBodyState extends State<ChatsBody> {
                           children: [
                             Text(
                               conversation.otherPartyDisplayName,
-                              style: AppFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.slate900),
+                              style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.slate900),
                             ),
                             Text(
                               conversation.preview ?? 'No messages yet',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: AppFonts.inter(fontSize: 13, color: AppColors.slate500),
+                              style: GoogleFonts.inter(fontSize: 13, color: AppColors.slate500),
                             ),
                           ],
                         ),
@@ -531,7 +525,7 @@ class _ChatsBodyState extends State<ChatsBody> {
                         children: [
                           Text(
                             _timeAgo(conversation.updatedAt),
-                            style: AppFonts.inter(fontSize: 11, color: AppColors.slate400),
+                            style: GoogleFonts.inter(fontSize: 11, color: AppColors.slate400),
                           ),
                           if (conversation.unread) ...[
                             const SizedBox(height: 4),
@@ -551,7 +545,7 @@ class _ChatsBodyState extends State<ChatsBody> {
   }
 
   Widget _buildRequestsBody() {
-    if (_requestsLoading && _requests.isEmpty) {
+    if (_requestsLoading) {
       return const FlatListRowSkeleton();
     }
     if (_requests.isEmpty) {
@@ -563,7 +557,7 @@ class _ChatsBodyState extends State<ChatsBody> {
             const SizedBox(height: AppDims.spaceMd),
             Text(
               'No message requests',
-              style: AppFonts.inter(fontSize: 14, color: AppColors.slate500),
+              style: GoogleFonts.inter(fontSize: 14, color: AppColors.slate500),
             ),
           ],
         ),
@@ -615,13 +609,13 @@ class _ChatsBodyState extends State<ChatsBody> {
                           children: [
                             Text(
                               conversation.otherPartyDisplayName,
-                              style: AppFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.slate900),
+                              style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.slate900),
                             ),
                             Text(
                               conversation.preview ?? 'No messages yet',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: AppFonts.inter(fontSize: 13, color: AppColors.slate500),
+                              style: GoogleFonts.inter(fontSize: 13, color: AppColors.slate500),
                             ),
                           ],
                         ),

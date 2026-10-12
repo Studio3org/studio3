@@ -1,126 +1,55 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { apiFetch } from '../services/apiClient';
-import { useBreakpoint } from '../hooks/useBreakpoint';
-import { InboxRail } from '../components/layout/InboxRail';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Lock, Share, User } from 'lucide-react';
+import { useRequireLogin, useSession } from '../lib/session';
+import { setFollowing as setFollowingApi, friendlyError } from '../lib/social';
+import { getMe, getProfile, isLockedProfile, listProfileItems, listSeries } from '../lib/profileApi';
+import { MediaThumb } from '../components/content/FeedCard';
+import { ContentActionsMenu } from '../components/moderation/ContentActionsMenu';
+import { GuestPrompt, StateMessage } from '../components/common/StateMessage';
 import './ProfilePage.css';
 
-const FALLBACK_ASSETS = {
-  banner: '/profile/banner.png',
-  avatar: '/profile/avatar.jpg',
+const BACK_ICON = '/profile/icon-back.svg';
+
+const EMPTY_COPY = {
+  pieces: 'No pieces yet.',
+  scenes: 'No scenes yet.',
+  series: 'No series yet.',
+  collect: 'Nothing for sale right now.',
 };
 
-const RATIO = {
-  portrait: '181 / 270',
-  square: '1 / 1',
-  wide: '181 / 113',
-};
-
-// Default fallback items for demo fallback if user hasn't posted items yet
-const DEMO_SCENE_ITEMS = [
-  { id: 's1', src: '/profile/piece-r2.png', title: 'Studio Session', ratio: RATIO.wide, duration: '0:45' },
-  { id: 's2', src: '/profile/piece-r1.png', title: 'Process Reel', ratio: RATIO.square, duration: '1:12' },
-  { id: 's3', src: '/profile/piece-l2.png', title: 'Exhibition', ratio: RATIO.square, duration: '0:30' },
-  { id: 's4', src: '/profile/piece-l1.png', title: 'Painting Details', ratio: RATIO.portrait, duration: '0:58' },
-];
-
-function splitIntoColumns(items, count) {
-  const columns = Array.from({ length: count }, () => []);
-  items.forEach((item, index) => {
-    columns[index % count].push(item);
-  });
-  return columns;
+/// 1234 → "1.2k", matching the app's compact counts.
+function compact(n) {
+  if (n == null) return '–';
+  const v = Number(n);
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1).replace(/\.0$/, '')}m`;
+  if (v >= 1_000) return `${(v / 1_000).toFixed(1).replace(/\.0$/, '')}k`;
+  return String(v);
 }
 
-function toMasonryColumns(pieces, count) {
-  const entries = pieces.map((piece) => ({
-    id: piece.id,
-    src: piece.mediaUrl || piece.coverUrl || piece.imageUrl || '/profile/piece-r1.png',
-    ratio: piece.mediaAspectRatio || RATIO.portrait,
-    title: piece.title || 'Untitled',
-    priceLabel: piece.isForSale && piece.priceCents ? `US$ ${Math.round(piece.priceCents / 100)}` : null,
-    isForSale: piece.isForSale,
-  }));
-  return splitIntoColumns(entries, count);
+function splitColumns(list) {
+  const cols = [[], []];
+  list.forEach((entry, i) => cols[i % 2].push(entry));
+  return cols;
 }
 
-// Chevron SVG helper
-function ChevronIcon({ direction = 'down', width = 10, height = 6, color = 'currentColor' }) {
-  const rotations = { up: 180, down: 0, left: 90, right: 270 };
-  return (
-    <svg
-      width={width}
-      height={height}
-      viewBox="0 0 10 6"
-      fill="none"
-      style={{ transform: `rotate(${rotations[direction]}deg)`, transition: 'transform 0.15s ease' }}
-    >
-      <path d="M1 1L5 5L9 1" stroke={color} strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-// Gear Icon for Settings
-function GearIcon({ size = 18, color = 'currentColor' }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-    </svg>
-  );
-}
-
-// Back Arrow Icon
-function BackIcon({ width = 9, height = 16.5, color = 'currentColor' }) {
-  return (
-    <svg width={width} height={height} viewBox="0 0 9 17" fill="none">
-      <path d="M8.25 1.25L1.25 8.25L8.25 15.25" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-// More Dots Icon
-function MoreIcon({ color = 'currentColor' }) {
-  return (
-    <svg width="18" height="4" viewBox="0 0 18 4" fill="none">
-      <circle cx="2" cy="2" r="2" fill={color} />
-      <circle cx="9" cy="2" r="2" fill={color} />
-      <circle cx="16" cy="2" r="2" fill={color} />
-    </svg>
-  );
-}
-
-function MasonryGrid({ columns, onOpen }) {
-  if (!columns || columns.every((col) => col.length === 0)) {
-    return (
-      <div className="profile-empty">
-        <p className="profile-empty-title">No pieces yet</p>
-        <p className="profile-empty-sub">Artwork shared will appear here</p>
-      </div>
-    );
-  }
-
+function ItemMasonry({ items, showPrice }) {
   return (
     <div className="profile-masonry">
-      {columns.map((column, i) => (
-        <div key={i} className="profile-masonry-col">
-          {column.map((item) => (
-            <button
-              key={item.id || `${item.src}-${item.ratio}`}
-              type="button"
-              className={`profile-card${item.bordered ? ' is-bordered' : ''}`}
-              style={{ aspectRatio: item.ratio, position: 'relative' }}
-              aria-label={item.title || 'Artwork'}
-              onClick={() => item.id && onOpen?.(item.id)}
+      {splitColumns(items).map((col, c) => (
+        <div key={c} className="profile-masonry-col">
+          {col.map((item) => (
+            <Link
+              key={`${item.type}-${item.id}`}
+              to={item.href}
+              className="profile-card"
+              aria-label={item.title}
             >
-              <img src={item.src} alt={item.title || ''} draggable={false} />
-              {item.priceLabel && (
-                <span className="profile-card-price">
-                  {item.priceLabel}
-                </span>
+              <MediaThumb item={item} rounded={6} />
+              {showPrice && (item.isSold || item.priceLabel) && (
+                <span className="profile-card-price">{item.isSold ? 'Collected' : item.priceLabel}</span>
               )}
-            </button>
+            </Link>
           ))}
         </div>
       ))}
@@ -128,66 +57,46 @@ function MasonryGrid({ columns, onOpen }) {
   );
 }
 
-function ScenesGrid({ scenes, onOpen }) {
-  const displayScenes = scenes && scenes.length > 0 ? scenes : DEMO_SCENE_ITEMS;
-
+/// Series cards; tapping opens the series' first piece (the web has no series screen).
+function SeriesMasonry({ series }) {
   return (
-    <div className="profile-scenes-grid">
-      {displayScenes.map((item) => (
-        <div
-          key={item.id}
-          className="profile-scene-card"
-          style={{ aspectRatio: item.ratio || RATIO.square }}
-          onClick={() => onOpen?.(item.id)}
-        >
-          <img src={item.src || item.mediaUrl || item.thumbnailUrl} alt={item.title || ''} draggable={false} />
-          <div className="profile-scene-overlay">
-            <span className="profile-scene-play">
-              <svg width="12" height="14" viewBox="0 0 12 14" fill="none">
-                <path d="M11 7L1 13V1L11 7Z" fill="#FAF3ED" />
-              </svg>
-            </span>
-            {item.duration && <span className="profile-scene-duration">{item.duration}</span>}
-          </div>
-          {item.title && <p className="profile-scene-title">{item.title}</p>}
+    <div className="profile-masonry">
+      {splitColumns(series).map((col, c) => (
+        <div key={c} className="profile-masonry-col">
+          {col.map((s) => {
+            const first = s.previewPieces?.[0]?.id;
+            const cover = s.coverUrl ?? s.previewPieces?.[0]?.mediaUrl;
+            const body = (
+              <>
+                <div className="profile-series-cover">
+                  {cover && <img src={cover} alt="" loading="lazy" draggable={false} />}
+                </div>
+                <p className="profile-series-name">{s.name}</p>
+                <p className="profile-series-count">
+                  {s.pieceCount} {s.pieceCount === 1 ? 'piece' : 'pieces'}
+                </p>
+              </>
+            );
+            return first ? (
+              <Link key={s.id} to={`/piece/${first}`} className="profile-series-card">
+                {body}
+              </Link>
+            ) : (
+              <div key={s.id} className="profile-series-card">
+                {body}
+              </div>
+            );
+          })}
         </div>
       ))}
     </div>
   );
 }
 
-function SeriesGrid({ series, onOpen }) {
-  if (!series || series.length === 0) {
-    return (
-      <div className="profile-empty">
-        <p className="profile-empty-title">No series yet</p>
-        <p className="profile-empty-sub">Curated artwork collections will appear here</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="profile-series-grid">
-      {series.map((item) => (
-        <div key={item.id} className="profile-series-card" onClick={() => onOpen?.(item.id)}>
-          <div className="profile-series-deck">
-            <img src={item.coverUrl || item.mediaUrl || '/profile/piece-r1.png'} alt="" draggable={false} />
-          </div>
-          <div className="profile-series-info">
-            <h4 className="profile-series-title">{item.title || item.name}</h4>
-            <p className="profile-series-count">{item.pieceCount || item.piecesCount || 0} pieces</p>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function ProfileTabs({ tabs, active, onChange, showCollectFilter, collectSegment, onCollectSegmentChange }) {
+function ProfileTabs({ tabs, active, onChange }) {
   const rowRef = useRef(null);
   const labelRefs = useRef({});
   const [indicator, setIndicator] = useState({ left: 10, width: 41 });
-  const [collectMenuOpen, setCollectMenuOpen] = useState(false);
 
   const updateIndicator = useCallback(() => {
     const row = rowRef.current;
@@ -208,273 +117,127 @@ function ProfileTabs({ tabs, active, onChange, showCollectFilter, collectSegment
   }, [updateIndicator, tabs]);
 
   return (
-    <div className="profile-tabs-wrapper">
-      <div className="profile-tabs" ref={rowRef} role="tablist" aria-label="Profile content">
-        {tabs.map((tab) => {
-          const isActive = tab.id === active;
-          if (tab.id === 'collect' && showCollectFilter) {
-            return (
-              <div key={tab.id} className="profile-tab-collect-container">
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={isActive}
-                  className={`profile-tab${isActive ? ' is-active' : ''}`}
-                  onClick={() => onChange(tab.id)}
-                >
-                  <span
-                    ref={(node) => {
-                      labelRefs.current[tab.id] = node;
-                    }}
-                  >
-                    {tab.label}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  className="profile-tab-filter-btn"
-                  onClick={() => setCollectMenuOpen((open) => !open)}
-                  aria-label="Filter collect tab"
-                >
-                  <ChevronIcon direction={collectMenuOpen ? 'up' : 'down'} width={8} height={5} color={isActive ? '#231F1B' : '#8C8880'} />
-                </button>
-                {collectMenuOpen && (
-                  <>
-                    <div className="profile-menu-backdrop" onClick={() => setCollectMenuOpen(false)} />
-                    <div className="profile-collect-menu" role="menu">
-                      {['all', 'available', 'sold'].map((seg) => (
-                        <button
-                          key={seg}
-                          type="button"
-                          className={`profile-collect-menu-item${collectSegment === seg ? ' is-selected' : ''}`}
-                          onClick={() => {
-                            onCollectSegmentChange?.(seg);
-                            onChange('collect');
-                            setCollectMenuOpen(false);
-                          }}
-                        >
-                          {seg.charAt(0).toUpperCase() + seg.slice(1)}
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-            );
-          }
-
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              role="tab"
-              aria-selected={isActive}
-              className={`profile-tab${isActive ? ' is-active' : ''}`}
-              onClick={() => onChange(tab.id)}
+    <div className="profile-tabs" ref={rowRef} role="tablist" aria-label="Profile content">
+      {tabs.map((tab) => {
+        const isActive = tab.id === active;
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={isActive}
+            className={`profile-tab${isActive ? ' is-active' : ''}`}
+            onClick={() => onChange(tab.id)}
+          >
+            <span
+              ref={(node) => {
+                labelRefs.current[tab.id] = node;
+              }}
             >
-              <span
-                ref={(node) => {
-                  labelRefs.current[tab.id] = node;
-                }}
-              >
-                {tab.label}
-              </span>
-            </button>
-          );
-        })}
-        <span
-          className="profile-tab-indicator"
-          style={{ left: indicator.left, width: indicator.width }}
-          aria-hidden
-        />
-      </div>
-    </div>
-  );
-}
-
-// Followers / Following Modal
-function FollowListModal({ isOpen, onClose, username, initialTab = 'followers' }) {
-  const [activeTab, setActiveTab] = useState(initialTab);
-  const [list, setList] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!isOpen || !username) return;
-    setActiveTab(initialTab);
-  }, [isOpen, initialTab, username]);
-
-  useEffect(() => {
-    if (!isOpen || !username) return;
-    setLoading(true);
-    const endpoint = activeTab === 'followers' ? `/api/users/${username}/followers` : `/api/users/${username}/following`;
-    apiFetch(endpoint, { auth: true })
-      .then((data) => {
-        const items = Array.isArray(data) ? data : data?.items || [];
-        setList(items);
-      })
-      .catch(() => setList([]))
-      .finally(() => setLoading(false));
-  }, [isOpen, username, activeTab]);
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="profile-modal-overlay" onClick={onClose}>
-      <div className="profile-modal-box" onClick={(e) => e.stopPropagation()}>
-        <div className="profile-modal-header">
-          <div className="profile-modal-tabs">
-            <button
-              type="button"
-              className={`profile-modal-tab${activeTab === 'followers' ? ' is-active' : ''}`}
-              onClick={() => setActiveTab('followers')}
-            >
-              Followers
-            </button>
-            <button
-              type="button"
-              className={`profile-modal-tab${activeTab === 'following' ? ' is-active' : ''}`}
-              onClick={() => setActiveTab('following')}
-            >
-              Following
-            </button>
-          </div>
-          <button type="button" className="profile-modal-close" onClick={onClose} aria-label="Close">
-            &times;
+              {tab.label}
+            </span>
           </button>
-        </div>
-
-        <div className="profile-modal-body">
-          {loading ? (
-            <div className="profile-modal-loading">
-              <span className="profile-spinner" />
-            </div>
-          ) : list.length === 0 ? (
-            <p className="profile-modal-empty">No {activeTab} yet</p>
-          ) : (
-            <div className="profile-user-list">
-              {list.map((u) => (
-                <div key={u.username || u.id} className="profile-user-row">
-                  <img className="profile-user-avatar" src={u.profilePhotoUrl || u.avatarUrl || FALLBACK_ASSETS.avatar} alt="" />
-                  <div className="profile-user-info">
-                    <p className="profile-user-name">{u.name || u.displayName || u.username}</p>
-                    <p className="profile-user-handle">@{u.username}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+        );
+      })}
+      <span
+        className="profile-tab-indicator"
+        style={{ left: indicator.left, width: indicator.width }}
+        aria-hidden
+      />
     </div>
   );
 }
 
+const EMPTY_LISTS = { pieces: null, scenes: null, series: null, collect: null };
+
+/// One screen for `/profile` (the viewer's own account) and `/u/:username`
+/// (anyone — including the viewer, which is then treated as their own).
 export function ProfilePage() {
+  const { username: routeUsername } = useParams();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const targetUsername = searchParams.get('username') || searchParams.get('user');
+  const location = useLocation();
+  const requireLogin = useRequireLogin();
+  const { loggedIn, user: me } = useSession();
 
-  const { user: currentUser, logout } = useAuth();
-  const [otherUser, setOtherUser] = useState(null);
-  const [loadingProfile, setLoadingProfile] = useState(false);
-  const [pieces, setPieces] = useState(null);
-  const [scenes, setScenes] = useState(null);
-  const [series, setSeries] = useState(null);
+  const myUsername = me?.username?.toLowerCase() ?? null;
+  const isOwn = !routeUsername || (loggedIn && routeUsername.toLowerCase() === myUsername);
+  const lookup = routeUsername ?? me?.username ?? null;
+
+  const [profile, setProfile] = useState(null);
+  const [status, setStatus] = useState('loading'); // loading | ready | notfound | error
+  const [loadError, setLoadError] = useState(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [lists, setLists] = useState(EMPTY_LISTS);
+  const [listErrors, setListErrors] = useState({});
   const [tab, setTab] = useState('pieces');
-  const [collectSegment, setCollectSegment] = useState('all');
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [statsPage, setStatsPage] = useState(0); // 0 = pieces/scenes/saves, 1 = available/collected/rating
+  const [following, setFollowing] = useState(false);
+  const [requested, setRequested] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
-  const [isFollowing, setIsFollowing] = useState(false);
-  const [followModalOpen, setFollowModalOpen] = useState(false);
-  const [followModalTab, setFollowModalTab] = useState('followers');
+  const [actionError, setActionError] = useState(null);
+  const [shareNotice, setShareNotice] = useState(null);
 
-  const isSelf = !targetUsername || (currentUser?.username && targetUsername.toLowerCase() === currentUser.username.toLowerCase());
-  const activeUser = isSelf ? currentUser : otherUser;
-
-  // Fetch target user public profile if viewing another artist
+  // Header.
   useEffect(() => {
-    if (isSelf) {
-      setOtherUser(null);
-      return;
-    }
-    if (!targetUsername) return;
-
+    if (!routeUsername && !loggedIn) return undefined;
     let cancelled = false;
-    setLoadingProfile(true);
-
-    apiFetch(`/api/user/${targetUsername}`, { auth: true })
+    setStatus('loading');
+    setLoadError(null);
+    setProfile(isOwn && me ? me : null);
+    (isOwn ? getMe() : getProfile(lookup))
       .then((data) => {
-        if (!cancelled && data) {
-          setOtherUser({
-            ...data,
-            name: data.name || data.displayName || targetUsername,
-            username: data.username || targetUsername,
-            bio: data.bio || '',
-            coverPhotoUrl: data.coverPhotoUrl || data.bannerUrl,
-            profilePhotoUrl: data.profilePhotoUrl || data.avatarUrl,
-            followersCount: data.followersCount ?? 0,
-            followingCount: data.followingCount ?? 0,
-            isFollowing: data.isFollowing || false,
-          });
-          setIsFollowing(Boolean(data.isFollowing));
+        if (cancelled) return;
+        if (data?.redirectToUsername && routeUsername && data.redirectToUsername !== routeUsername) {
+          navigate(`/u/${data.redirectToUsername}`, { replace: true });
+          return;
         }
+        setProfile(data);
+        setFollowing(Boolean(data?.isFollowing));
+        setRequested(Boolean(data?.followRequestPending));
+        setStatus('ready');
       })
-      .catch(() => {
-        if (!cancelled) {
-          setOtherUser({
-            name: targetUsername,
-            username: targetUsername,
-            bio: 'Artist profile',
-            followersCount: 0,
-            followingCount: 0,
-          });
+      .catch((e) => {
+        if (cancelled) return;
+        if (e.status === 404) setStatus('notfound');
+        else {
+          setLoadError(friendlyError(e));
+          setStatus('error');
         }
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingProfile(false);
       });
-  }, [targetUsername, isSelf]);
-
-  // Fetch artist pieces, scenes, series
-  useEffect(() => {
-    const usernameToFetch = isSelf ? currentUser?.username : targetUsername;
-    if (!usernameToFetch) return;
-    let cancelled = false;
-
-    // Pieces
-    apiFetch(`/api/users/${usernameToFetch}/pieces`, { auth: true })
-      .then((list) => {
-        if (!cancelled) setPieces(Array.isArray(list) ? list : []);
-      })
-      .catch(() => {
-        if (!cancelled) setPieces([]);
-      });
-
-    // Scenes
-    apiFetch(`/api/users/${usernameToFetch}/posts`, { auth: true })
-      .then((list) => {
-        if (!cancelled) setScenes(Array.isArray(list) ? list : []);
-      })
-      .catch(() => {
-        if (!cancelled) setScenes([]);
-      });
-
-    // Series
-    apiFetch(`/api/users/${usernameToFetch}/series`, { auth: true })
-      .then((list) => {
-        if (!cancelled) setSeries(Array.isArray(list) ? list : []);
-      })
-      .catch(() => {
-        if (!cancelled) setSeries([]);
-      });
-
     return () => {
       cancelled = true;
     };
-  }, [currentUser?.username, targetUsername, isSelf]);
+    // `me` is only an instant placeholder for the own profile; refetch on identity change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lookup, isOwn, loggedIn, reloadKey]);
 
-  const showCollect = Boolean(activeUser?.isSeller || activeUser?.sellerEnabled);
+  const locked = status === 'ready' && !isOwn && isLockedProfile(profile);
+  const showCollect = Boolean(profile?.sellerEnabled);
+  const profileUsername = profile?.username ?? lookup;
+
+  // Tab content — fetched together so the scenes count is known up front.
+  useEffect(() => {
+    setLists(EMPTY_LISTS);
+    setListErrors({});
+    if (status !== 'ready' || locked || !profileUsername) return undefined;
+    let cancelled = false;
+    const load = (key, promise) =>
+      promise
+        .then((data) => !cancelled && setLists((prev) => ({ ...prev, [key]: data })))
+        .catch((e) => {
+          if (cancelled) return;
+          setLists((prev) => ({ ...prev, [key]: [] }));
+          setListErrors((prev) => ({ ...prev, [key]: friendlyError(e) }));
+        });
+    load('pieces', listProfileItems(profileUsername, 'pieces', profile));
+    load('scenes', listProfileItems(profileUsername, 'scenes', profile));
+    load('series', listSeries(profileUsername));
+    if (showCollect) load('collect', listProfileItems(profileUsername, 'collect', profile));
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, locked, profileUsername, showCollect]);
+
   const tabs = useMemo(
     () => [
       { id: 'pieces', label: 'Pieces' },
@@ -486,316 +249,253 @@ export function ProfilePage() {
   );
   const activeTab = tabs.some((item) => item.id === tab) ? tab : 'pieces';
 
-  const handleToggleFollow = async () => {
-    if (!activeUser?.username || followBusy) return;
-    setFollowBusy(true);
+  const goBack = () => {
+    // A shared link opened in a fresh tab has no in-app history to go back to.
+    if (location.key === 'default') navigate('/home');
+    else navigate(-1);
+  };
+
+  const handleShare = async () => {
+    const url = `${window.location.origin}/u/${profileUsername}`;
     try {
-      if (isFollowing) {
-        await apiFetch(`/api/users/${activeUser.username}/follow`, { method: 'DELETE', auth: true });
-        setIsFollowing(false);
-        setOtherUser((prev) => prev ? { ...prev, followersCount: Math.max(0, (prev.followersCount || 1) - 1) } : prev);
-      } else {
-        await apiFetch(`/api/users/${activeUser.username}/follow`, { method: 'POST', auth: true });
-        setIsFollowing(true);
-        setOtherUser((prev) => prev ? { ...prev, followersCount: (prev.followersCount || 0) + 1 } : prev);
+      if (navigator.share) {
+        await navigator.share({ title: profile?.name ?? profileUsername, url });
+        return;
       }
     } catch {
-      /* ignore toggle error */
+      return; // user cancelled the share sheet
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      setShareNotice('Profile link copied.');
+      setTimeout(() => setShareNotice(null), 2000);
+    } catch {
+      /* clipboard blocked — nothing else to do */
+    }
+  };
+
+  const toggleFollow = async () => {
+    if (!requireLogin() || followBusy) return;
+    const wasActive = following || requested;
+    setFollowBusy(true);
+    setActionError(null);
+    try {
+      const res = await setFollowingApi(profileUsername, !wasActive);
+      const nowFollowing = Boolean(res?.following);
+      setFollowing(nowFollowing);
+      setRequested(Boolean(res?.requested));
+      if (locked && nowFollowing) {
+        // Approved instantly (e.g. account went public) — load the full profile.
+        setReloadKey((k) => k + 1);
+      } else if (!locked && profile?.followersCount != null && nowFollowing !== following) {
+        setProfile((p) => ({ ...p, followersCount: Math.max(0, p.followersCount + (nowFollowing ? 1 : -1)) }));
+      }
+    } catch (e) {
+      setActionError(friendlyError(e));
     } finally {
       setFollowBusy(false);
     }
   };
 
-  const handleShare = async () => {
-    setMenuOpen(false);
-    const url = activeUser?.username ? `${window.location.origin}/profile?username=${activeUser.username}` : window.location.href;
-    try {
-      if (navigator.share) {
-        await navigator.share({ title: activeUser?.name, url });
-        return;
-      }
-    } catch {
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(url);
-    } catch {
-      /* ignore */
-    }
+  const openMessage = () => {
+    if (!requireLogin()) return;
+    navigate(`/messages/${profileUsername}`);
   };
 
-  const handleLogout = async () => {
-    setMenuOpen(false);
-    await logout();
-    navigate('/login', { replace: true });
-  };
-
-  const handleMessage = () => {
-    if (activeUser?.username) {
-      navigate(`/inbox?user=${activeUser.username}`);
-    }
-  };
-
-  const openFollowModal = (tabName) => {
-    setFollowModalTab(tabName);
-    setFollowModalOpen(true);
-  };
-
-  const { showRail, railLabeled } = useBreakpoint();
-  const masonryColumnCount = railLabeled ? 4 : showRail ? 3 : 2;
-
-  const piecesColumns = useMemo(
-    () => toMasonryColumns(pieces || [], masonryColumnCount),
-    [pieces, masonryColumnCount],
-  );
-
-  const filteredCollectPieces = useMemo(() => {
-    const list = pieces || [];
-    if (collectSegment === 'available') return list.filter((p) => p.isForSale && p.status !== 'sold');
-    if (collectSegment === 'sold') return list.filter((p) => p.status === 'sold');
-    return list.filter((p) => p.isForSale);
-  }, [pieces, collectSegment]);
-
-  const collectColumns = useMemo(
-    () => toMasonryColumns(filteredCollectPieces, masonryColumnCount),
-    [filteredCollectPieces, masonryColumnCount],
-  );
-
-  if (loadingProfile) {
+  if (!routeUsername && !loggedIn) {
     return (
-      <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <span
-          style={{
-            width: 24,
-            height: 24,
-            borderRadius: '50%',
-            border: '2px solid var(--cream-divider)',
-            borderTopColor: 'var(--cream-cta-fill)',
-            animation: 'app-spin 0.7s linear infinite',
-          }}
+      <div className="profile-page">
+        <GuestPrompt
+          title="Your profile"
+          message="Log in to see your pieces, scenes, and saves."
+          next="/profile"
         />
       </div>
     );
   }
 
-  if (!activeUser && !isSelf) return null;
-  const userDisplay = activeUser || { name: targetUsername || 'Artist', username: targetUsername || 'artist' };
+  if (status === 'notfound') {
+    return (
+      <div className="profile-page">
+        <div className="profile-plain-topbar">
+          <button type="button" className="profile-plain-back" aria-label="Back" onClick={goBack}>
+            <img src={BACK_ICON} alt="" width={9} height={16.5} />
+          </button>
+        </div>
+        <StateMessage>This account isn't available.</StateMessage>
+      </div>
+    );
+  }
 
-  // Page 0 stats (standard)
-  const contentStats = [
-    { value: String(userDisplay.piecesCount ?? pieces?.length ?? 0), label: 'pieces' },
-    { value: String(userDisplay.scenesCount ?? scenes?.length ?? 0), label: 'scenes' },
-    { value: String(userDisplay.savesCount ?? 0), label: 'saves' },
+  if (status === 'error' || (status === 'loading' && !profile)) {
+    return (
+      <div className="profile-page">
+        {status === 'error' ? (
+          <StateMessage action="Try again" onAction={() => setReloadKey((k) => k + 1)}>
+            {loadError}
+          </StateMessage>
+        ) : (
+          <StateMessage>Loading profile…</StateMessage>
+        )}
+      </div>
+    );
+  }
+
+  const followLabel = following ? 'Following' : requested ? 'Requested' : 'Follow';
+  const activeItems = lists[activeTab];
+  const stats = [
+    { value: compact(profile.piecesCount), label: 'pieces' },
+    { value: compact(lists.scenes?.length), label: 'scenes' },
+    { value: compact(profile.savesCount), label: 'saves' },
   ];
-
-  // Page 1 stats (seller mode)
-  const sellerStats = [
-    { value: String(userDisplay.availableCount ?? (pieces || []).filter((p) => p.isForSale).length), label: 'available' },
-    { value: String(userDisplay.collectedCount ?? 0), label: 'collected' },
-    { value: userDisplay.rating ? String(userDisplay.rating) : '—', label: 'rating' },
-  ];
-
-  const currentStats = showCollect && statsPage === 1 ? sellerStats : contentStats;
 
   return (
     <div className="profile-page">
-      <div style={{ display: 'flex', gap: 48, maxWidth: railLabeled ? 935 + 320 + 48 : 935, margin: '0 auto' }}>
-      <div className="profile-inner" style={{ margin: 0, flex: 1, minWidth: 0 }}>
-        <div className="profile-hero">
-          <img className="profile-banner" src={userDisplay.coverPhotoUrl || FALLBACK_ASSETS.banner} alt="" draggable={false} />
-          <div className="profile-banner-scrim" />
+      <div className="profile-hero">
+        {profile.coverPhotoUrl ? (
+          <img className="profile-banner" src={profile.coverPhotoUrl} alt="" draggable={false} />
+        ) : (
+          <div className="profile-banner profile-banner-empty" />
+        )}
+        <div className="profile-banner-scrim" />
 
-          <div className="profile-topbar">
-            {!isSelf && (
-              <button
-                type="button"
-                className="profile-icon-hit profile-back"
-                aria-label="Back"
-                onClick={() => navigate(-1)}
-              >
-                <BackIcon color="#FAFAF7" />
+        <div className="profile-topbar">
+          {routeUsername && (
+            <button
+              type="button"
+              className="profile-icon-hit profile-back"
+              aria-label="Back"
+              onClick={goBack}
+            >
+              <img src={BACK_ICON} alt="" width={9} height={16.5} />
+            </button>
+          )}
+          <div className="profile-topbar-right">
+            <button type="button" className="profile-round-btn" aria-label="Share profile" onClick={handleShare}>
+              <Share size={18} />
+            </button>
+            {!isOwn && (
+              <ContentActionsMenu
+                target={{ type: 'user', id: profileUsername }}
+                authorUsername={profileUsername}
+                onBlocked={() => navigate('/home')}
+                buttonStyle={{
+                  width: 34,
+                  height: 34,
+                  background: 'rgba(35, 31, 27, 0.32)',
+                  color: 'var(--profile-inverse)',
+                }}
+              />
+            )}
+          </div>
+        </div>
+
+        {profile.profilePhotoUrl ? (
+          <img
+            className="profile-avatar"
+            src={profile.profilePhotoUrl}
+            alt={profile.name ?? profileUsername}
+            draggable={false}
+          />
+        ) : (
+          <span className="profile-avatar profile-avatar-empty" aria-hidden>
+            <User size={40} strokeWidth={1.5} />
+          </span>
+        )}
+      </div>
+
+      <div className="profile-identity">
+        <h1 className="profile-name">{profile.name || profileUsername}</h1>
+        <div className="profile-handle-block">
+          <p className="profile-handle">@{profileUsername}</p>
+          {!locked && (
+            <p className="profile-follow-line">
+              <Link to={`/u/${profileUsername}/followers`}>{compact(profile.followersCount)} followers</Link>
+              {' · '}
+              <Link to={`/u/${profileUsername}/following`}>{compact(profile.followingCount)} following</Link>
+            </p>
+          )}
+        </div>
+      </div>
+
+      {!locked && profile.bio && <p className="profile-bio">{profile.bio}</p>}
+
+      {!locked && (
+        <div className="profile-stats">
+          {stats.map((stat, index) => (
+            <React.Fragment key={stat.label}>
+              {index > 0 && <div className="profile-stat-divider" />}
+              <div className="profile-stat">
+                <p className="profile-stat-value">{stat.value}</p>
+                <p className="profile-stat-label">{stat.label}</p>
+              </div>
+            </React.Fragment>
+          ))}
+        </div>
+      )}
+
+      <div className="profile-actions">
+        {isOwn ? (
+          <>
+            <button type="button" className="profile-btn profile-btn-message" onClick={() => navigate('/settings/profile')}>
+              Edit profile
+            </button>
+            <button type="button" className="profile-btn profile-btn-message" onClick={() => navigate('/settings')}>
+              Settings
+            </button>
+          </>
+        ) : (
+          <>
+            {!locked && (
+              <button type="button" className="profile-btn profile-btn-message" onClick={openMessage}>
+                Message
               </button>
             )}
             <button
               type="button"
-              className="profile-icon-hit profile-more"
-              aria-label="More options"
-              aria-expanded={menuOpen}
-              onClick={() => setMenuOpen((open) => !open)}
+              className={`profile-btn profile-btn-follow${following || requested ? ' is-following' : ''}`}
+              onClick={toggleFollow}
+              disabled={followBusy}
             >
-              <MoreIcon color="#FAFAF7" />
+              {followLabel}
             </button>
-            {menuOpen && (
-              <>
-                <div
-                  style={{ position: 'fixed', inset: 0, zIndex: 10 }}
-                  onClick={() => setMenuOpen(false)}
-                />
-                <div className="profile-more-menu" role="menu">
-                  {isSelf ? (
-                    <>
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={() => {
-                          setMenuOpen(false);
-                          navigate('/profile/edit');
-                        }}
-                      >
-                        Edit profile
-                      </button>
-                      <button type="button" role="menuitem" onClick={handleShare}>
-                        Share profile
-                      </button>
-                      <button type="button" role="menuitem" onClick={handleLogout}>
-                        Log out
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button type="button" role="menuitem" onClick={handleShare}>
-                        Share profile
-                      </button>
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={() => {
-                          setMenuOpen(false);
-                          alert(`User @${userDisplay.username} reported/blocked`);
-                        }}
-                      >
-                        Block user
-                      </button>
-                    </>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-
-          <img
-            className="profile-avatar"
-            src={userDisplay.profilePhotoUrl || FALLBACK_ASSETS.avatar}
-            alt={userDisplay.name}
-            draggable={false}
-          />
-        </div>
-
-        <div className="profile-identity">
-          <h1 className="profile-name">{userDisplay.name}</h1>
-          <div className="profile-handle-block">
-            <p className="profile-handle">@{userDisplay.username}</p>
-            <p className="profile-follow-line">
-              <span className="profile-follow-stat" onClick={() => openFollowModal('followers')}>
-                {userDisplay.followersCount ?? 0} followers
-              </span>
-              {' · '}
-              <span className="profile-follow-stat" onClick={() => openFollowModal('following')}>
-                {userDisplay.followingCount ?? 0} following
-              </span>
-            </p>
-          </div>
-          {userDisplay.bio && <p className="profile-bio">{userDisplay.bio}</p>}
-
-          {/* Stats Section with optional Seller Pager */}
-          <div className="profile-stats-container">
-            {showCollect && (
-              <button
-                type="button"
-                className="profile-stat-chevron"
-                onClick={() => setStatsPage((p) => (p === 0 ? 1 : 0))}
-                aria-label="Previous stats page"
-              >
-                <ChevronIcon direction="left" width={8} height={5} color={statsPage === 1 ? '#231F1B' : '#8C8880'} />
-              </button>
-            )}
-            <div className="profile-stats">
-              {currentStats.map((stat, i) => (
-                <React.Fragment key={stat.label}>
-                  {i > 0 && <span className="profile-stat-sep" aria-hidden />}
-                  <div className="profile-stat-cell">
-                    <span className="profile-stat-val">{stat.value}</span>
-                    <span className="profile-stat-lbl">{stat.label}</span>
-                  </div>
-                </React.Fragment>
-              ))}
-            </div>
-            {showCollect && (
-              <button
-                type="button"
-                className="profile-stat-chevron"
-                onClick={() => setStatsPage((p) => (p === 0 ? 1 : 0))}
-                aria-label="Next stats page"
-              >
-                <ChevronIcon direction="right" width={8} height={5} color={statsPage === 0 ? '#231F1B' : '#8C8880'} />
-              </button>
-            )}
-          </div>
-
-          {/* Action Row: Own Profile vs Other Artist */}
-          <div className="profile-actions">
-            {isSelf ? (
-              <button
-                type="button"
-                className="profile-btn profile-btn-edit"
-                onClick={() => navigate('/profile/edit')}
-              >
-                Edit profile
-              </button>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  className="profile-btn profile-btn-message"
-                  onClick={handleMessage}
-                >
-                  Message
-                </button>
-                <button
-                  type="button"
-                  className={`profile-btn profile-btn-follow${isFollowing ? ' is-following' : ''}`}
-                  onClick={handleToggleFollow}
-                  disabled={followBusy}
-                >
-                  {followBusy ? '...' : isFollowing ? 'Following' : 'Follow'}
-                </button>
-              </>
-            )}
-          </div>
-
-          <ProfileTabs
-            tabs={tabs}
-            active={activeTab}
-            onChange={setTab}
-            showCollectFilter={showCollect}
-            collectSegment={collectSegment}
-            onCollectSegmentChange={setCollectSegment}
-          />
-        </div>
-
-        {activeTab === 'pieces' && (
-          <MasonryGrid columns={piecesColumns} onOpen={(id) => navigate(`/piece/${id}`)} />
-        )}
-        {activeTab === 'scenes' && (
-          <ScenesGrid scenes={scenes} onOpen={(id) => navigate(`/post`)} />
-        )}
-        {activeTab === 'series' && (
-          <SeriesGrid series={series} onOpen={(id) => navigate(`/series/${id}`)} />
-        )}
-        {activeTab === 'collect' && (
-          <MasonryGrid columns={collectColumns} onOpen={(id) => navigate(`/piece/${id}`)} />
+          </>
         )}
       </div>
-      {railLabeled && <InboxRail />}
-      </div>
+      {actionError && <p className="profile-error">{actionError}</p>}
 
-      <FollowListModal
-        isOpen={followModalOpen}
-        onClose={() => setFollowModalOpen(false)}
-        username={userDisplay.username}
-        initialTab={followModalTab}
-      />
+      {locked ? (
+        <div className="profile-locked">
+          <Lock size={22} strokeWidth={1.5} />
+          <p className="profile-locked-title">This account is private</p>
+          <p className="profile-locked-body">
+            {requested
+              ? 'Your follow request is pending.'
+              : 'Follow this account to see their pieces and scenes.'}
+          </p>
+        </div>
+      ) : (
+        <>
+          <ProfileTabs tabs={tabs} active={activeTab} onChange={setTab} />
+          {activeItems == null ? (
+            <p className="profile-empty">Loading…</p>
+          ) : listErrors[activeTab] ? (
+            <p className="profile-empty">{listErrors[activeTab]}</p>
+          ) : activeItems.length === 0 ? (
+            <p className="profile-empty">{EMPTY_COPY[activeTab]}</p>
+          ) : activeTab === 'series' ? (
+            <SeriesMasonry series={activeItems} />
+          ) : (
+            <ItemMasonry items={activeItems} showPrice={activeTab === 'collect'} />
+          )}
+        </>
+      )}
+
+      {shareNotice && (
+        <div className="profile-toast" role="status">
+          {shareNotice}
+        </div>
+      )}
     </div>
   );
 }
-

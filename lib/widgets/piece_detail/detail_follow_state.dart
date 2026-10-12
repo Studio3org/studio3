@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/feed_preview_item.dart';
 import '../../services/social_service.dart';
+import '../../utils/require_login.dart';
 import '../follow_button.dart';
 
 /// Shared follow-toggle wiring for piece/scene detail pages, mirroring
@@ -24,6 +25,13 @@ mixin DetailFollowState<T extends StatefulWidget> on State<T> {
 
   Future<void> toggleFollow() async {
     if (followBusy || followUsername.isEmpty) return;
+    if (!await requireLogin(
+      context,
+      message: 'Log in or create a free account to follow artists.',
+    )) {
+      return;
+    }
+    if (!mounted) return;
     final wasFollowingOrPending = followState != FollowState.none;
     setState(() => followBusy = true);
     try {

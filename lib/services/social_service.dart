@@ -5,9 +5,9 @@ import '../models/comment_page.dart';
 import '../models/feed_item.dart';
 import '../models/follow_request.dart';
 import '../models/follow_user_summary.dart';
-import '../models/user_report.dart';
 import 'api_client.dart';
 import 'auth_session.dart';
+import 'blocked_authors_store.dart';
 import 'cache_service.dart';
 
 /// Result of like/unlike or save/unsave toggles (counts when the API returns them).
@@ -132,39 +132,16 @@ class SocialService {
 
   Future<void> blockUser(String username) async {
     await _api.post('/api/users/$username/block', auth: true);
+    // Cached feed/profile pages still contain this account's content; drop
+    // them so the next read comes from the (now block-filtered) backend,
+    // and tell on-screen feeds to remove it right away.
+    await CacheService.instance.clearAll();
+    BlockedAuthorsStore.instance.add(username);
   }
 
   Future<void> unblockUser(String username) async {
     await _api.delete('/api/users/$username/block');
-  }
-
-  Future<void> reportPiece(String id, String reason, {String? details}) async {
-    await _api.post(
-      '/api/pieces/$id/report',
-      body: {'reason': reason, 'details': ?details},
-      auth: true,
-    );
-  }
-
-  Future<void> reportPost(String id, String reason, {String? details}) async {
-    await _api.post(
-      '/api/posts/$id/report',
-      body: {'reason': reason, 'details': ?details},
-      auth: true,
-    );
-  }
-
-  Future<void> reportUser(String username, String reason, {String? details}) async {
-    await _api.post(
-      '/api/users/$username/report',
-      body: {'reason': reason, 'details': ?details},
-      auth: true,
-    );
-  }
-
-  Future<List<UserReport>> listMyReports() async {
-    final json = await _api.get('/api/reports/mine', auth: true);
-    return _api.extractList(json).map(UserReport.fromJson).toList();
+    BlockedAuthorsStore.instance.remove(username);
   }
 
   Future<EngagementToggleResult> likePiece(String id) async {

@@ -20,60 +20,6 @@ class OrderItem {
   }
 }
 
-/// Courier tracking for an order, entered by the Studiothree team (there is no
-/// carrier API in this phase, so it is updated manually).
-class OrderShipment {
-  const OrderShipment({
-    required this.courier,
-    required this.trackingNumber,
-    required this.status,
-    this.shipmentDate,
-  });
-
-  final String courier;
-  final String trackingNumber;
-  final String status;
-  final DateTime? shipmentDate;
-
-  bool get isDelivered => status == 'delivered';
-
-  String get statusLabel => switch (status) {
-        'label_created' => 'Label created',
-        'picked_up' => 'Picked up',
-        'in_transit' => 'In transit',
-        'delivered' => 'Delivered',
-        _ => status,
-      };
-
-  factory OrderShipment.fromJson(Map<String, dynamic> json) {
-    return OrderShipment(
-      courier: json['courier'] as String? ?? '',
-      trackingNumber: json['trackingNumber'] as String? ?? '',
-      status: json['status'] as String? ?? 'label_created',
-      shipmentDate: DateTime.tryParse(json['shipmentDate'] as String? ?? ''),
-    );
-  }
-}
-
-/// An open or resolved issue the collector raised on an order.
-class OrderDispute {
-  const OrderDispute({required this.status, required this.reason, this.openedAt});
-
-  final String status;
-  final String reason;
-  final DateTime? openedAt;
-
-  bool get isOpen => status == 'open';
-
-  factory OrderDispute.fromJson(Map<String, dynamic> json) {
-    return OrderDispute(
-      status: json['status'] as String? ?? 'open',
-      reason: json['reason'] as String? ?? '',
-      openedAt: DateTime.tryParse(json['openedAt'] as String? ?? ''),
-    );
-  }
-}
-
 class Order {
   const Order({
     required this.id,
@@ -91,11 +37,7 @@ class Order {
     this.createdAt,
     this.updatedAt,
     this.devMode,
-    this.received = false,
-    this.receivedAt,
-    this.shipment,
-    this.payoutStatus,
-    this.dispute,
+    this.clientSecret,
   });
 
   final String id;
@@ -113,35 +55,7 @@ class Order {
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final bool? devMode;
-  final bool received;
-  final DateTime? receivedAt;
-  final OrderShipment? shipment;
-  final String? payoutStatus;
-  final OrderDispute? dispute;
-
-  /// The artwork has been delivered and is waiting on the collector to confirm
-  /// receipt — the step that releases the artist's payment.
-  bool get awaitingConfirmation => status == 'awaiting_confirmation';
-
-  bool get isDisputed => status == 'disputed';
-
-  /// Whether the collector can still act on this order (confirm or report).
-  bool get canConfirmReceipt => awaitingConfirmation;
-  bool get canReportIssue =>
-      status == 'shipped' || status == 'awaiting_confirmation' || status == 'paid';
-
-  String get statusLabel => switch (status) {
-        'pending_payment' => 'Awaiting payment',
-        'paid' => 'Paid — preparing to ship',
-        'shipped' => 'On its way',
-        'awaiting_confirmation' => 'Delivered — confirm receipt',
-        'completed' => 'Completed',
-        'disputed' => 'Issue reported',
-        'refunded' => 'Refunded',
-        'cancelled' => 'Cancelled',
-        'failed' => 'Payment failed',
-        _ => status,
-      };
+  final String? clientSecret;
 
   factory Order.fromJson(Map<String, dynamic> json) {
     final addressJson = json['shippingAddress'];
@@ -170,15 +84,7 @@ class Order {
       updatedAt:
           DateTime.tryParse(json['updatedAt'] as String? ?? ''),
       devMode: json['devMode'] as bool?,
-      received: json['received'] as bool? ?? false,
-      receivedAt: DateTime.tryParse(json['receivedAt'] as String? ?? ''),
-      shipment: json['shipment'] is Map<String, dynamic>
-          ? OrderShipment.fromJson(json['shipment'] as Map<String, dynamic>)
-          : null,
-      payoutStatus: json['payoutStatus'] as String?,
-      dispute: json['dispute'] is Map<String, dynamic>
-          ? OrderDispute.fromJson(json['dispute'] as Map<String, dynamic>)
-          : null,
+      clientSecret: json['clientSecret'] as String?,
     );
   }
 

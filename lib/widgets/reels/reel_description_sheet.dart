@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/feed_item.dart';
+import '../../services/auth_session.dart';
 import '../../services/social_service.dart';
 import '../../utils/profile_navigation.dart';
+import '../../utils/require_login.dart';
 import '../follow_button.dart';
 import '../profile_avatar.dart';
-import '../../theme/app_fonts.dart';
 
 /// Instagram-style "expand caption" popup for a reel: full caption text plus
 /// a persistent comment box, over a dark scrim matching the reel screen
@@ -78,6 +80,7 @@ class _ReelDescriptionSheetState extends State<ReelDescriptionSheet> {
     final postId = widget.item.post?.id;
     final body = _textController.text.trim();
     if (postId == null || body.isEmpty || _sending) return;
+    if (!await requireLogin(context)) return;
     setState(() => _sending = true);
     try {
       await SocialService.instance.commentOnPost(postId, body);
@@ -145,7 +148,7 @@ class _ReelDescriptionSheetState extends State<ReelDescriptionSheet> {
                           authorName,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: AppFonts.inter(
+                          style: GoogleFonts.inter(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                             color: Colors.white,
@@ -157,7 +160,7 @@ class _ReelDescriptionSheetState extends State<ReelDescriptionSheet> {
                             '@$authorUsername',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: AppFonts.inter(
+                            style: GoogleFonts.inter(
                               fontSize: 12,
                               fontWeight: FontWeight.w400,
                               color: Colors.white.withValues(alpha: 0.6),
@@ -185,7 +188,7 @@ class _ReelDescriptionSheetState extends State<ReelDescriptionSheet> {
                 ? Center(
                     child: Text(
                       'No description',
-                      style: AppFonts.inter(
+                      style: GoogleFonts.inter(
                         fontSize: 13,
                         color: Colors.white.withValues(alpha: 0.6),
                       ),
@@ -196,7 +199,7 @@ class _ReelDescriptionSheetState extends State<ReelDescriptionSheet> {
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
                     child: Text(
                       caption,
-                      style: AppFonts.inter(
+                      style: GoogleFonts.inter(
                         fontSize: 13,
                         fontWeight: FontWeight.w400,
                         color: Colors.white.withValues(alpha: 0.92),
@@ -228,12 +231,21 @@ class _ReelDescriptionSheetState extends State<ReelDescriptionSheet> {
               controller: _textController,
               minLines: 1,
               maxLines: 4,
+              // Guests can read the caption but tapping to comment asks them
+              // to log in instead of opening the keyboard.
+              readOnly: !AuthSession.instance.isLoggedIn,
+              onTap: AuthSession.instance.isLoggedIn
+                  ? null
+                  : () => requireLogin(
+                        context,
+                        message: 'Log in or create a free account to comment.',
+                      ),
               textInputAction: TextInputAction.send,
               onSubmitted: (_) => _submit(),
-              style: AppFonts.inter(fontSize: 14, color: Colors.white),
+              style: GoogleFonts.inter(fontSize: 14, color: Colors.white),
               decoration: InputDecoration(
                 hintText: 'Add a comment…',
-                hintStyle: AppFonts.inter(
+                hintStyle: GoogleFonts.inter(
                   fontSize: 14,
                   color: Colors.white.withValues(alpha: 0.5),
                 ),

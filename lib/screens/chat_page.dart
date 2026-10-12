@@ -3,6 +3,7 @@
 /// `/chat` now redirects to [InboxPage] Conversations. This file is kept only
 /// as reference for the future piece-scoped Ask UX; do not re-route to it.
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../models/inquiry_summary.dart';
 import '../services/auth_session.dart';
@@ -12,8 +13,7 @@ import '../theme/home_feed_tokens.dart';
 import '../widgets/accept_decline_buttons.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/home_feed/home_feed_widgets.dart';
-import '../widgets/loading/app_skeletons.dart';
-import '../theme/app_fonts.dart';
+import '../widgets/studio_loading.dart';
 
 enum _InboxTab { all, requests }
 
@@ -90,10 +90,8 @@ class _ChatPageState extends State<ChatPage> {
       });
     } catch (_) {
       if (!mounted) return;
-      // A failed refresh must not wipe what the user is already looking
-      // at — keep the current page and let them retry (pull-to-refresh or
-      // the next focus load) instead of blanking the list.
       setState(() {
+        if (!append) _inquiries.clear();
         _loading = false;
         _loadingMore = false;
       });
@@ -132,10 +130,8 @@ class _ChatPageState extends State<ChatPage> {
       });
     } catch (_) {
       if (!mounted) return;
-      // A failed refresh must not wipe what the user is already looking
-      // at — keep the current page and let them retry (pull-to-refresh or
-      // the next focus load) instead of blanking the list.
       setState(() {
+        if (!append) _requests.clear();
         _requestsLoading = false;
         _requestsLoadingMore = false;
         _requestsLoaded = true;
@@ -365,7 +361,7 @@ class _ChatPageState extends State<ChatPage> {
                   ),
                   Text(
                     'Inquiries',
-                    style: AppFonts.inter(
+                    style: GoogleFonts.inter(
                       fontSize: 22,
                       fontWeight: FontWeight.w700,
                       color: HomeFeedTokens.textPrimary,
@@ -435,13 +431,8 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Widget _buildAllBody() {
-    // Never placehold over inquiries already on screen — a refresh keeps
-    // them and updates in place.
-    if (_loading && _inquiries.isEmpty) {
-      return const CardListSkeleton(
-        height: 108,
-        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      );
+    if (_loading) {
+      return const StudioLoadingBody();
     }
     if (_inquiries.isEmpty) {
       return Center(
@@ -452,7 +443,7 @@ class _ChatPageState extends State<ChatPage> {
             const SizedBox(height: AppDims.spaceMd),
             Text(
               'No inquiries yet',
-              style: AppFonts.inter(fontSize: 14, color: AppColors.slate500),
+              style: GoogleFonts.inter(fontSize: 14, color: AppColors.slate500),
             ),
           ],
         ),
@@ -502,7 +493,7 @@ class _ChatPageState extends State<ChatPage> {
                           children: [
                             Text(
                               inq.displayTitle,
-                              style: AppFonts.inter(
+                              style: GoogleFonts.inter(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
                                 color: AppColors.slate900,
@@ -512,7 +503,7 @@ class _ChatPageState extends State<ChatPage> {
                               '${inq.otherPartyDisplayName} — ${inq.preview ?? 'No messages yet'}',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: AppFonts.inter(
+                              style: GoogleFonts.inter(
                                 fontSize: 13,
                                 color: AppColors.slate500,
                               ),
@@ -525,7 +516,7 @@ class _ChatPageState extends State<ChatPage> {
                         children: [
                           Text(
                             _timeAgo(inq.updatedAt),
-                            style: AppFonts.inter(
+                            style: GoogleFonts.inter(
                               fontSize: 11,
                               color: AppColors.slate400,
                             ),
@@ -555,11 +546,8 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Widget _buildRequestsBody() {
-    if (_requestsLoading && _requests.isEmpty) {
-      return const CardListSkeleton(
-        height: 108,
-        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      );
+    if (_requestsLoading) {
+      return const StudioLoadingBody();
     }
     if (_requests.isEmpty) {
       return Center(
@@ -574,7 +562,7 @@ class _ChatPageState extends State<ChatPage> {
             const SizedBox(height: AppDims.spaceMd),
             Text(
               'No message requests',
-              style: AppFonts.inter(fontSize: 14, color: AppColors.slate500),
+              style: GoogleFonts.inter(fontSize: 14, color: AppColors.slate500),
             ),
           ],
         ),
@@ -625,7 +613,7 @@ class _ChatPageState extends State<ChatPage> {
                           children: [
                             Text(
                               inq.displayTitle,
-                              style: AppFonts.inter(
+                              style: GoogleFonts.inter(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
                                 color: AppColors.slate900,
@@ -635,7 +623,7 @@ class _ChatPageState extends State<ChatPage> {
                               '${inq.otherPartyDisplayName} — ${inq.preview ?? 'No messages yet'}',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: AppFonts.inter(
+                              style: GoogleFonts.inter(
                                 fontSize: 13,
                                 color: AppColors.slate500,
                               ),
@@ -730,7 +718,7 @@ class _InquiryBottomSheet extends StatelessWidget {
                   children: [
                     Text(
                       thread?.displayTitle ?? 'Inquiry',
-                      style: AppFonts.inter(
+                      style: GoogleFonts.inter(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                         color: AppColors.slate900,
@@ -748,7 +736,7 @@ class _InquiryBottomSheet extends StatelessWidget {
                       ),
                       child: Text(
                         thread?.otherPartyName ?? '',
-                        style: AppFonts.inter(
+                        style: GoogleFonts.inter(
                           fontSize: 12,
                           color: AppColors.slate600,
                         ),
@@ -762,7 +750,10 @@ class _InquiryBottomSheet extends StatelessWidget {
           ),
           const SizedBox(height: AppDims.spaceMd),
           if (loading)
-            const SizedBox(height: 220, child: ChatThreadSkeleton(itemCount: 4))
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+            )
           else
             Flexible(
               child: SingleChildScrollView(
@@ -794,7 +785,7 @@ class _InquiryBottomSheet extends StatelessWidget {
             TextField(
               controller: replyController,
               maxLines: 3,
-              style: AppFonts.inter(fontSize: 14, color: AppColors.slate900),
+              style: GoogleFonts.inter(fontSize: 14, color: AppColors.slate900),
               decoration: InputDecoration(
                 hintText: 'Reply...',
                 border: OutlineInputBorder(
@@ -811,7 +802,7 @@ class _InquiryBottomSheet extends StatelessWidget {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(9999),
                 ),
-                textStyle: AppFonts.inter(
+                textStyle: GoogleFonts.inter(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                 ),
@@ -859,7 +850,7 @@ class _MessageBubble extends StatelessWidget {
           ),
           child: Text(
             message.body,
-            style: AppFonts.inter(
+            style: GoogleFonts.inter(
               fontSize: 14,
               color: isMine ? AppColors.white : AppColors.slate800,
             ),

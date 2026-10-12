@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/home_feed_tokens.dart';
-import '../theme/app_fonts.dart';
 
 /// Search field used in create-post bottom sheets.
 class PostPickerSearchField extends StatelessWidget {
@@ -21,32 +21,39 @@ class PostPickerSearchField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 40,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      height: 32,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: HomeFeedTokens.textPrimary, width: 1),
+        border: Border.all(
+          color: _textSecondary.withValues(alpha: 0.5),
+          width: 0.5,
+        ),
       ),
       child: Row(
         children: [
-          const Icon(Icons.search, size: 16, color: _textSecondary),
+          const Icon(
+            Icons.search,
+            size: 16,
+            color: _textSecondary,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: TextField(
               controller: controller,
               onChanged: onChanged,
-              style: AppFonts.geist(
-                fontSize: 13,
+              style: GoogleFonts.inter(
+                fontSize: 12,
                 fontWeight: FontWeight.w400,
-                color: HomeFeedTokens.textPrimary,
+                color: HomeFeedTokens.textInverse,
               ),
-              cursorColor: HomeFeedTokens.textPrimary,
+              cursorColor: HomeFeedTokens.textInverse,
               decoration: InputDecoration(
                 isDense: true,
                 border: InputBorder.none,
                 hintText: hintText,
-                hintStyle: AppFonts.geist(
-                  fontSize: 13,
+                hintStyle: GoogleFonts.inter(
+                  fontSize: 12,
                   fontWeight: FontWeight.w400,
                   color: _textSecondary,
                 ),

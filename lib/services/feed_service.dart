@@ -48,7 +48,7 @@ class FeedService {
     final json = await _api.get(
       '/api/feed/for-you',
       query: _query(cursor: cursor, limit: limit),
-      auth: true,
+      auth: AuthSession.instance.isLoggedIn,
     );
     return _parseFeedPage(json);
   }
@@ -77,7 +77,7 @@ class FeedService {
         return _api.get(
           '/api/feed/for-you',
           query: _query(),
-          auth: true,
+          auth: AuthSession.instance.isLoggedIn,
         );
       },
       parse: _parseFeedPage,
@@ -127,17 +127,6 @@ class FeedService {
       },
       parse: (json) => _parseFeedPage(json, videoOnly: videoOnly),
       onBackgroundUpdate: onBackgroundUpdate,
-    );
-  }
-
-  /// Synchronous peek at whatever Explore page is already cached — lets
-  /// the Explore tab paint its last-seen grid on the first frame instead
-  /// of a skeleton, and keeps something on screen when a cold backend
-  /// makes the live request fail.
-  FeedPage? peekExploreCached({String? medium, bool videoOnly = false}) {
-    return CacheService.instance.peekCache<FeedPage>(
-      key: 'feed.explore.${videoOnly ? 'video' : (medium ?? 'all')}',
-      parse: (json) => _parseFeedPage(json, videoOnly: videoOnly),
     );
   }
 

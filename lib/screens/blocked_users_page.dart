@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../models/blocked_user.dart';
 import '../services/social_service.dart';
@@ -7,9 +8,8 @@ import '../theme/home_feed_tokens.dart';
 import '../utils/profile_navigation.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/home_feed/home_feed_widgets.dart';
-import '../widgets/loading/app_skeletons.dart';
 import '../widgets/offline_state.dart';
-import '../theme/app_fonts.dart';
+import '../widgets/studio_loading.dart';
 
 class BlockedUsersPage extends StatefulWidget {
   const BlockedUsersPage({super.key});
@@ -94,7 +94,7 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
         elevation: 0,
         title: Text(
           'Blocked accounts',
-          style: AppFonts.inter(
+          style: GoogleFonts.inter(
             fontSize: 18,
             fontWeight: FontWeight.w600,
             color: HomeFeedTokens.textPrimary,
@@ -110,13 +110,13 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
       return OfflineState(onRetry: _load);
     }
     if (_loading && _blocked.isEmpty) {
-      return const UserListSkeleton(trailingAction: true);
+      return const StudioLoadingBody();
     }
     if (_blocked.isEmpty) {
       return Center(
         child: Text(
           'No blocked accounts',
-          style: AppFonts.inter(fontSize: 14, color: AppColors.slate400),
+          style: GoogleFonts.inter(fontSize: 14, color: AppColors.slate400),
         ),
       );
     }
@@ -149,14 +149,14 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
                       children: [
                         Text(
                           user.name,
-                          style: AppFonts.inter(
+                          style: GoogleFonts.inter(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                         Text(
                           '@${user.username}',
-                          style: AppFonts.inter(
+                          style: GoogleFonts.inter(
                             fontSize: 12,
                             color: AppColors.slate500,
                           ),
