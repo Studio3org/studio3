@@ -94,6 +94,12 @@ export default function App() {
   // member side rail next to a tool for resolving disputes, and indent every table
   // by the width of navigation that does not apply to it.
   const isAdminRoute = location.pathname.startsWith('/admin');
+  // The public account-deletion page (Google Play's Data safety link) is a standalone page
+  // for visitors who aren't signed in — no app navigation around it. Signed-in members
+  // still get their usual sidebar / bottom nav.
+  const { status } = useAuth();
+  const isPublicDeletionPage =
+    location.pathname.startsWith('/delete-account') && status !== 'authenticated';
   const showNav = NAV_PREFIXES.some((p) => location.pathname.startsWith(p));
 
   const routes = (
@@ -169,7 +175,7 @@ export default function App() {
     </Routes>
   );
 
-  if (isAuthRoute || isAdminRoute) {
+  if (isAuthRoute || isAdminRoute || isPublicDeletionPage) {
     return routes;
   }
 
