@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../services/api_exception.dart';
 import '../services/auth_service.dart';
 import '../services/auth_session.dart';
 import '../services/device_service.dart';
@@ -56,6 +57,73 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
         _sellerEnabled = AuthSession.instance.sellerEnabled;
         _loadingSeller = false;
       });
+    }
+  }
+
+  Future<void> _confirmDeleteAccount() async {
+    final passwordController = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete your account?'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'This permanently deletes your account and your data — profile, '
+                'pieces, scenes, and listings. This cannot be undone.',
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: passwordController,
+                obscureText: true,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'Confirm your password',
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text(
+              'Delete account',
+              style: TextStyle(color: Color(0xFFE05252)),
+            ),
+          ),
+        ],
+      ),
+    );
+    final password = passwordController.text;
+    passwordController.dispose();
+    if (confirmed != true || !mounted || password.isEmpty) return;
+    try {
+      await DeviceService.instance.unregisterCurrentDevice();
+      await AuthService.instance.deleteAccount(password);
+      if (!mounted) return;
+      Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
+    } on ApiException catch (e) {
+      // e.g. wrong password, or an active listing / in-progress order that has to be
+      // resolved first — the server's message says which.
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(e.message)));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not delete your account. Please try again.'),
+        ),
+      );
     }
   }
 
@@ -288,6 +356,12 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
                   await AuthService.instance.logout();
                 },
               ),
+            ),
+            SettingsTile(
+              icon: Icons.delete_forever_rounded,
+              label: 'Delete account',
+              destructive: true,
+              onTap: _confirmDeleteAccount,
             ),
           ],
         ),

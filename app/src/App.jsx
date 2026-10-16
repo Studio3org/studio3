@@ -23,6 +23,7 @@ import { EditProfilePage } from './screens/EditProfilePage';
 import { BlockedUsersPage } from './screens/BlockedUsersPage';
 import { ChangePasswordPage } from './screens/ChangePasswordPage';
 import { DeleteAccountPage } from './screens/DeleteAccountPage';
+import { AccountDeletionPage } from './screens/AccountDeletionPage';
 import { BottomNav } from './components/layout/BottomNav';
 import { TermsAcceptanceGate } from './components/moderation/TermsAcceptanceGate';
 import { useSession } from './lib/session';
@@ -38,7 +39,7 @@ function WithNav({ children }) {
 }
 
 // Screens a signed-in account may visit before finishing onboarding.
-const PRE_ONBOARDING_PATHS = ['/onboarding', '/login', '/signup', '/forgot-password', '/reset-password'];
+const PRE_ONBOARDING_PATHS = ['/onboarding', '/login', '/signup', '/forgot-password', '/reset-password', '/delete-account'];
 
 /// Mirrors the app's AuthGate: guests browse freely; a signed-in account that
 /// hasn't finished onboarding is sent to /onboarding; the stored profile is
@@ -97,6 +98,9 @@ export default function App() {
         <Route path="/settings/blocked" element={<BlockedUsersPage />} />
         <Route path="/settings/password" element={<ChangePasswordPage />} />
         <Route path="/settings/delete-account" element={<DeleteAccountPage />} />
+        {/* Public — no login, no nav: the account-deletion URL on Google Play's Data
+            safety form. See AccountDeletionPage for why the wording must match the backend. */}
+        <Route path="/delete-account" element={<AccountDeletionPage />} />
 
         <Route path="/" element={<Navigate to="/home" replace />} />
         <Route path="*" element={<Navigate to="/home" replace />} />
