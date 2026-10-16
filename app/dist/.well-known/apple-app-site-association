@@ -1,0 +1,15 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["REPLACE_WITH_TEAM_ID.com.example.studio3"],
+        "components": [
+          {
+            "/": "/piece/*",
+            "comment": "Matches shared piece detail links, e.g. /piece/abc123"
+          }
+        ]
+      }
+    ]
+  }
+}

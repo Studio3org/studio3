@@ -1,6 +1,6 @@
-// Same deployed backend used by the Flutter app's ApiConfig fallback
-// (lib/config/api_config.dart) — this web app has no env-driven config yet.
-export const API_BASE_URL = 'https://studio3-backend.onrender.com';
+// Same production backend the Flutter app's release builds use
+// (lib/config/api_config.dart). Override with VITE_API_URL for local development.
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://api.studio-3.co';
 
 // Terms of Use (EULA), served by the backend so the app, the website, and the
 // App Store listing all point at one copy of the text.
