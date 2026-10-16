@@ -1,133 +1,106 @@
 import React, { useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
-import { GlassCard } from '../components/design/GlassCard';
-import { PillInputWithToggle } from '../components/inputs/PillInput';
-import { PrimaryButton } from '../components/buttons/PrimaryButton';
-import { resetPassword } from '../lib/authApi';
-import { passwordProblem } from '../lib/validators';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { CheckCircle2, Link2Off, Lock } from 'lucide-react';
+import { apiFetch, ApiError } from '../services/apiClient';
+import {
+  AuthMessage,
+  AuthPageTitle,
+  AuthPasswordInput,
+  AuthPrimaryButton,
+  AuthScaffold,
+  passwordError,
+} from '../components/auth/AuthUI';
 
-const bgStyle = {
-  minHeight: '100vh',
-  background: 'linear-gradient(180deg, var(--slate-50) 0%, var(--slate-100) 50%, var(--slate-200) 100%)',
-  paddingTop: 44,
-  paddingBottom: 24,
-  paddingLeft: 16,
-  paddingRight: 16,
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-};
-
-const errorText = { fontSize: 13, color: '#E05252' };
-const linkButton = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  height: 52,
-  borderRadius: 9999,
-  background: 'var(--slate-900)',
-  color: 'var(--white)',
-  fontSize: 15,
-  fontWeight: 600,
-};
-
-/// Landing page for the emailed link: {FRONTEND_URL}/reset-password?token=…
+/** Landing page for the emailed link (`/reset-password?token=...`, built by the backend's
+ * password_reset_service). A missing token, or one the backend rejects as invalid/expired,
+ * swaps to a "Request a new link" state instead of leaving the user stuck on the form. */
 export function ResetPasswordPage() {
-  const [searchParams] = useSearchParams();
-  const token = searchParams.get('token') ?? '';
+  const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const token = (params.get('token') || '').trim();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [done, setDone] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const [state, setState] = useState(token ? 'form' : 'invalid'); // 'form' | 'invalid' | 'done'
 
-  const passwordError = password ? passwordProblem(password) : null;
-  const confirmError = confirm && confirm !== password ? 'Passwords do not match' : null;
-  const canSubmit = Boolean(token) && !passwordProblem(password) && confirm === password && !loading;
+  const pwError = passwordError(password);
+  const mismatch = confirm && confirm !== password;
 
   const submit = async () => {
-    if (!canSubmit) return;
-    setLoading(true);
+    if (pwError || password !== confirm || busy) return;
+    setBusy(true);
     setError(null);
     try {
-      await resetPassword(token, password);
-      setDone(true);
+      await apiFetch('/api/auth/reset-password', { method: 'POST', body: { token, newPassword: password } });
+      setState('done');
     } catch (e) {
-      setError(e.message);
+      // The only 400 that isn't about the password itself is the token being bad/expired.
+      if (e instanceof ApiError && e.status === 400 && !/password must/i.test(e.message || '')) setState('invalid');
+      else setError(e instanceof ApiError ? e.message : 'Could not reset your password. Please try again.');
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
   };
 
-  let body;
-  if (!token) {
-    body = (
-      <>
-        <p style={{ fontSize: 13, color: 'var(--slate-500)', lineHeight: 1.4 }}>
-          This reset link is missing its token. Open the link from your email again, or request a new one.
-        </p>
-        <Link to="/forgot-password" style={linkButton}>Request a new link</Link>
-      </>
+  if (state === 'done') {
+    return (
+      <AuthScaffold compact>
+        <div style={{ textAlign: 'center' }}>
+          <CheckCircle2 size={48} color="#fff" strokeWidth={1.5} style={{ margin: '0 auto 20px' }} />
+          <AuthPageTitle align="center" title="Password updated" subtitle="You can now sign in with your new password." />
+          <AuthPrimaryButton onClick={() => navigate('/login', { replace: true })}>Sign in</AuthPrimaryButton>
+        </div>
+      </AuthScaffold>
     );
-  } else if (done) {
-    body = (
-      <>
-        <p style={{ fontSize: 13, color: 'var(--slate-500)', lineHeight: 1.4 }}>
-          Your password has been reset and you've been signed out on all devices. Sign in with your new password.
-        </p>
-        <Link to="/login" style={linkButton}>Sign In</Link>
-      </>
+  }
+
+  if (state === 'invalid') {
+    return (
+      <AuthScaffold compact>
+        <div style={{ textAlign: 'center' }}>
+          <Link2Off size={48} color="#fff" strokeWidth={1.5} style={{ margin: '0 auto 20px' }} />
+          <AuthPageTitle
+            align="center"
+            title="Link expired"
+            subtitle="This reset link is invalid or has expired. Request a new one to continue."
+          />
+          <AuthPrimaryButton onClick={() => navigate('/forgot-password', { replace: true })}>Request a new link</AuthPrimaryButton>
+        </div>
+      </AuthScaffold>
     );
-  } else {
-    body = (
-      <>
-        <PillInputWithToggle
+  }
+
+  return (
+    <AuthScaffold compact showBackButton onBack={() => navigate('/login')}>
+      <AuthPageTitle title="Set a new password" subtitle="Choose a new password for your Studio 3 account." />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <AuthPasswordInput
+          icon={<Lock size={20} strokeWidth={1.75} />}
           placeholder="New password"
           autoComplete="new-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
-        {passwordError && <div style={errorText}>{passwordError}</div>}
-        <PillInputWithToggle
+        <AuthMessage tone={password && !pwError ? 'success' : password ? 'error' : 'dim'}>
+          {password ? pwError || 'Strong enough' : 'At least 8 characters, with an uppercase letter and a number.'}
+        </AuthMessage>
+        <AuthPasswordInput
+          icon={<Lock size={20} strokeWidth={1.75} />}
           placeholder="Confirm new password"
           autoComplete="new-password"
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && submit()}
+          error={mismatch ? 'Passwords do not match' : null}
         />
-        {confirmError && <div style={errorText}>{confirmError}</div>}
-        {error && (
-          <div style={errorText} role="alert">
-            {error}{' '}
-            <Link to="/forgot-password" style={{ textDecoration: 'underline' }}>Request a new link</Link>
-          </div>
-        )}
-        <PrimaryButton disabled={!canSubmit} onClick={submit}>
-          {loading ? 'Saving…' : 'Reset password'}
-        </PrimaryButton>
-      </>
-    );
-  }
-
-  return (
-    <div style={bgStyle}>
-      <div style={{ textAlign: 'center', marginBottom: 32 }}>
-        <h1 style={{ fontSize: 28, fontWeight: 700, color: 'var(--slate-900)' }}>Studio 3</h1>
-        <p style={{ fontSize: 13, color: 'var(--slate-400)', marginTop: 4 }}>Discover Art. Collect Stories.</p>
-      </div>
-
-      <GlassCard style={{ width: '100%', maxWidth: 343, padding: 28 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 600, color: 'var(--slate-900)' }}>
-            {done ? 'Password updated' : 'Set a new password'}
-          </h2>
-          {body}
+        {error && <AuthMessage>{error}</AuthMessage>}
+        <div style={{ marginTop: 6 }}>
+          <AuthPrimaryButton disabled={Boolean(pwError) || password !== confirm} loading={busy} onClick={submit}>
+            Reset password
+          </AuthPrimaryButton>
         </div>
-      </GlassCard>
-
-      <p style={{ marginTop: 24, fontSize: 14, color: 'var(--slate-600)' }}>
-        <Link to="/login" style={{ fontWeight: 600, color: 'var(--slate-900)' }}>Back to Sign In</Link>
-      </p>
-    </div>
+      </div>
+    </AuthScaffold>
   );
 }

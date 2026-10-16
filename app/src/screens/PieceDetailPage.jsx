@@ -1,424 +1,731 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Bookmark, Heart, MapPin, MessageCircle, Pencil, Share2, Smartphone } from 'lucide-react';
-import { apiFetch, isBlockedAuthor, onAuthorBlocked } from '../lib/api';
-import { normalizeItem, normalizeList } from '../lib/content';
-import { useRequireLogin, useSession } from '../lib/session';
-import { useEngagement } from '../lib/useEngagement';
-import { friendlyError, setFollowing } from '../lib/social';
-import { ContentActionsMenu } from '../components/moderation/ContentActionsMenu';
-import { AuthorLink, MediaThumb, PriceBadge } from '../components/content/FeedCard';
-import { MediaGallery } from '../components/content/MediaGallery';
+
+import { Link2, MessageCircle, Smartphone, Trash2 } from 'lucide-react';
+
+import { useAuth } from '../context/AuthContext';
+import { useRequireLogin } from '../hooks/useRequireLogin';
+import { apiFetch, APP_BASE_URL } from '../services/apiClient';
+import { friendlyError, setFollowing, setLiked as apiSetLiked, setSaved as apiSetSaved } from '../services/socialApi';
+import { profileHref } from '../utils/contentLinks';
+import { ActionSheet, SheetItem } from '../components/common/ActionSheet';
+import { ContentActionsSheet } from '../components/moderation/ContentActions';
 import { CommentsSection } from '../components/content/CommentsSection';
-import { StateMessage } from '../components/common/StateMessage';
+import { EngagementBar } from '../components/content/EngagementBar';
+import './PieceDetailPage.css';
 
-const containerStyle = {
-  maxWidth: 480,
-  margin: '0 auto',
-  minHeight: '100vh',
-  background: 'var(--white)',
-};
+import heroBack from '../assets/piece/hero_back.svg';
+import heroBookmark from '../assets/piece/hero_bookmark.svg';
+import heroBookmarkFill from '../assets/piece/hero_bookmark_fill.svg';
+import heroShare from '../assets/piece/hero_share.svg';
+import heroMore from '../assets/piece/hero_more.svg';
+import detailsChevron from '../assets/piece/details_chevron.svg';
+import seriesChevron from '../assets/piece/series_chevron.svg';
+import messageBtn from '../assets/piece/message_btn.svg';
+import likeHeart from '../assets/piece/like_heart.svg';
 
-const overlayButton = {
-  width: 40,
-  height: 40,
-  borderRadius: '50%',
-  border: 'none',
-  background: 'rgba(255, 255, 255, 0.8)',
-  color: 'var(--slate-900)',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  cursor: 'pointer',
-};
+function formatUsd(cents) {
+  if (cents == null) return '—';
+  const dollars = cents / 100;
+  const whole = Math.trunc(dollars);
+  const frac = Math.abs(cents) % 100;
+  const wholeStr = Math.abs(whole).toLocaleString();
+  const signed = whole < 0 ? '-' : '';
+  if (frac === 0) return `US$ ${signed}${wholeStr}`;
+  return `US$ ${signed}${wholeStr}.${String(frac).padStart(2, '0')}`;
+}
 
-const actionButton = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 5,
-  padding: 4,
-  border: 'none',
-  background: 'none',
-  color: 'var(--slate-700)',
-  fontSize: 14,
-  cursor: 'pointer',
-};
+function formatTimeRemaining(iso) {
+  if (!iso) return null;
+  const diff = new Date(iso).getTime() - Date.now();
+  if (diff <= 0) return null;
+  const days = Math.floor(diff / 86400000);
+  const hours = Math.floor((diff % 86400000) / 3600000);
+  if (days > 0) return `${days}d ${hours}h`;
+  const minutes = Math.floor((diff % 3600000) / 60000);
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return minutes > 0 ? `${minutes}m` : 'Ending soon';
+}
 
-const divider = { height: 1, background: 'var(--slate-100)', border: 'none' };
-const secondaryText = { fontSize: 14, color: 'var(--slate-500)', lineHeight: 1.5 };
-const sectionTitle = { fontSize: 16, fontWeight: 600, color: 'var(--slate-900)' };
+function asList(payload) {
+  if (Array.isArray(payload)) return payload;
+  if (payload && typeof payload === 'object') {
+    for (const key of ['items', 'posts', 'results']) {
+      if (Array.isArray(payload[key])) return payload[key];
+    }
+  }
+  return [];
+}
 
-export const sameUser = (a, b) => Boolean(a) && Boolean(b) && a.toLowerCase() === b.toLowerCase();
+function isVideoMedia(mediaType, mediaUrl) {
+  const type = (mediaType || '').toLowerCase();
+  if (type !== 'video' && type !== 'reel' && type !== 'reels') return false;
+  if (!mediaUrl) return true;
+  const ext = mediaUrl.split('?')[0].split('.').pop()?.toLowerCase();
+  return !['jpg', 'jpeg', 'png', 'webp', 'gif', 'heic', 'heif'].includes(ext);
+}
 
-/// Loads a detail payload (piece or scene). Signed in → the token goes along so
-/// the backend fills isLiked/isSaved/isFollowing and hides blocked accounts.
-export function useDetail(path) {
-  const [state, setState] = useState({ data: null, loading: true, error: null });
+function dash(value) {
+  const text = (value ?? '').toString().trim();
+  return text || '—';
+}
+
+function statusLabel(status) {
+  switch (status) {
+    case 'sold':
+      return 'Sold';
+    case 'reserved':
+      return 'Reserved';
+    case 'delisted':
+      return 'Not for sale';
+    case 'auction_won':
+      return 'Auction ended';
+    default:
+      return 'Unavailable';
+  }
+}
+
+function galleryUrls(piece) {
+  const images = Array.isArray(piece.images) ? [...piece.images] : [];
+  images.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  const urls = images.map((img) => img.mediaUrl).filter(Boolean);
+  if (urls.length) return urls;
+  return piece.mediaUrl ? [piece.mediaUrl] : [];
+}
+
+export function PieceDetailPage() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { user, status } = useAuth();
+  const authenticated = status === 'authenticated';
+
+  const [piece, setPiece] = useState(null);
+  const [scenes, setScenes] = useState([]);
+  const [error, setError] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [imageIndex, setImageIndex] = useState(0);
+  const [detailsOpen, setDetailsOpen] = useState(true);
+  const [materialsOpen, setMaterialsOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [saved, setSaved] = useState(false);
+  const [liked, setLiked] = useState(false);
+  const [likeCount, setLikeCount] = useState(0);
+  const [commentCount, setCommentCount] = useState(0);
+  const [blocked, setBlocked] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState(null);
+  const likeBusy = useRef(false);
+  const commentsRef = useRef(null);
+  const requireLogin = useRequireLogin();
+  const [followState, setFollowState] = useState('none');
+  const [followBusy, setFollowBusy] = useState(false);
+  const [burst, setBurst] = useState(false);
+  const lastTap = useRef(0);
+  const touchX = useRef(null);
+  const toastTimer = useRef(null);
+
+  const showToast = useCallback((text) => {
+    setToast(text);
+    clearTimeout(toastTimer.current);
+    // Report confirmations are a full sentence — give them time to be read.
+    toastTimer.current = setTimeout(() => setToast(null), text.length > 40 ? 3200 : 1800);
+  }, []);
+
+  useEffect(() => () => clearTimeout(toastTimer.current), []);
+
   useEffect(() => {
+    if (status === 'loading') return undefined;
     let cancelled = false;
-    setState({ data: null, loading: true, error: null });
-    apiFetch(path, { auth: true })
-      .then((data) => !cancelled && setState({ data, loading: false, error: null }))
-      .catch((error) => !cancelled && setState({ data: null, loading: false, error }));
+    setLoading(true);
+    setError(false);
+    setImageIndex(0);
+    setBlocked(false);
+
+    (async () => {
+      let embedded = [];
+      try {
+        const json = await apiFetch(`/api/pieces/${id}`, { auth: authenticated });
+        if (cancelled) return;
+        embedded = Array.isArray(json.relatedPosts) ? json.relatedPosts : [];
+        setPiece(json);
+        setSaved(Boolean(json.isSaved));
+        setLiked(Boolean(json.isLiked));
+        setLikeCount(json.likeCount ?? 0);
+        setCommentCount(json.commentCount ?? 0);
+        setFollowState(json.author?.isFollowing || json.authorIsFollowing ? 'following' : 'none');
+      } catch {
+        if (!cancelled) setError(true);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+
+      try {
+        const related = await apiFetch(`/api/pieces/${id}/related-posts`, { auth: authenticated });
+        if (!cancelled) setScenes(asList(related));
+      } catch {
+        // The detail payload embeds the same list — use it if the dedicated call fails.
+        if (!cancelled) setScenes(embedded);
+      }
+    })();
+
     return () => {
       cancelled = true;
     };
-  }, [path]);
-  return state;
-}
+  }, [id, status, authenticated]);
 
-/// True once the author is blocked — from this page's menu or anywhere else
-/// in this tab — so the page swaps to the "you blocked them" state.
-export function useAuthorBlocked(username) {
-  const [blocked, setBlocked] = useState(() => isBlockedAuthor(username));
-  useEffect(() => {
-    setBlocked(isBlockedAuthor(username));
-    return onAuthorBlocked(() => setBlocked(isBlockedAuthor(username)));
-  }, [username]);
-  return [blocked, setBlocked];
-}
+  const urls = useMemo(() => (piece ? galleryUrls(piece) : []), [piece]);
+  const author = piece?.author ?? {};
+  const authorName = author.name || piece?.authorName || 'Artist';
+  const authorHandle = (author.username || piece?.authorUsername || '').replace(/^@/, '');
+  const avatarUrl = author.profilePhotoUrl || piece?.authorAvatarUrl;
+  const viewerHandle = (user?.username || '').toLowerCase();
+  const isOwner = Boolean(viewerHandle && authorHandle && viewerHandle === authorHandle.toLowerCase());
+  const showFollow = Boolean(authorHandle) && !isOwner;
+  const appHref = `studio3://piece/${id}`;
+  const webHref = `${APP_BASE_URL}/piece/${id}`;
 
-/// Back to wherever the visitor came from; a shared link opened cold has no
-/// in-app history, so fall back to the home feed.
-export function BackButton() {
-  const navigate = useNavigate();
+  const metaLine = useMemo(() => {
+    if (!piece) return '';
+    const parts = [
+      (piece.medium || '').trim(),
+      ...(Array.isArray(piece.styleTags) ? piece.styleTags : []),
+    ].filter(Boolean);
+    return parts.join(' · ');
+  }, [piece]);
+
+  const series = piece?.series;
+  const seriesThumbs = (
+    series?.previewPieces?.map((p) => p.mediaUrl)
+    || series?.pieces?.map((p) => p.mediaUrl)
+    || []
+  ).filter(Boolean);
+  const story = (piece?.caption || '').trim();
+  const isAuction = piece?.listingType === 'auction';
+  const isLive = !piece?.status || piece.status === 'live';
+  const isAuctionWonByMe = piece?.status === 'auction_won' && piece?.isHighestBidder;
+  const showCollect = Boolean(piece?.isForSale);
+  const timeRemaining = formatTimeRemaining(piece?.auctionEndsAt);
+
   const goBack = () => {
-    if ((window.history.state?.idx ?? 0) > 0) navigate(-1);
-    else navigate('/home');
+    if (window.history.length > 1) navigate(-1);
+    else navigate(authenticated ? '/home' : '/login');
   };
-  return (
-    <button type="button" aria-label="Back" onClick={goBack} style={overlayButton}>
-      <ArrowLeft size={20} />
-    </button>
-  );
-}
 
-export function DetailState({ children }) {
-  return (
-    <div style={containerStyle}>
-      <div style={{ padding: 12 }}>
-        <BackButton />
-      </div>
-      <StateMessage>
-        {children}
-        <div style={{ marginTop: 16 }}>
-          <Link to="/home" style={{ fontWeight: 600, color: 'var(--slate-900)' }}>Back to Studio3</Link>
-        </div>
-      </StateMessage>
-    </div>
-  );
-}
-
-/// Artist avatar + name, with Follow for anyone else's work (guests go to login).
-export function ArtistRow({ author, subtitle, isMine }) {
-  const requireLogin = useRequireLogin();
-  const [follow, setFollow] = useState({ following: Boolean(author?.isFollowing), requested: false });
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    setFollow({ following: Boolean(author?.isFollowing), requested: false });
-  }, [author?.username, author?.isFollowing]);
-
-  const toggle = async () => {
-    if (!author?.username || busy || !requireLogin()) return;
-    const next = !(follow.following || follow.requested);
-    setBusy(true);
-    setError(null);
+  const toggleSave = async () => {
+    if (!requireLogin()) return;
+    const next = !saved;
+    setSaved(next);
     try {
-      const res = await setFollowing(author.username, next);
-      setFollow({ following: Boolean(res?.following), requested: Boolean(res?.requested) });
+      await apiSetSaved('piece', id, next);
+      showToast(next ? 'Saved' : 'Removed from saved');
     } catch (e) {
-      setError(friendlyError(e));
-    } finally {
-      setBusy(false);
+      setSaved(!next);
+      showToast(friendlyError(e));
     }
   };
 
-  const active = follow.following || follow.requested;
-  const label = follow.following ? 'Following' : follow.requested ? 'Requested' : 'Follow';
+  /// Optimistic like/unlike; the response's likeCount is authoritative.
+  const applyLike = async (next) => {
+    if (likeBusy.current) return;
+    likeBusy.current = true;
+    const prevLiked = liked;
+    const prevCount = likeCount;
+    setLiked(next);
+    setLikeCount((n) => Math.max(0, n + (next ? 1 : -1)));
+    try {
+      const res = await apiSetLiked('piece', id, next);
+      setLiked(Boolean(res?.liked ?? next));
+      if (typeof res?.likeCount === 'number') setLikeCount(res.likeCount);
+    } catch (e) {
+      setLiked(prevLiked);
+      setLikeCount(prevCount);
+      showToast(friendlyError(e));
+    } finally {
+      likeBusy.current = false;
+    }
+  };
 
-  return (
-    <div style={{ padding: '12px 16px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <AuthorLink author={author} subtitle={subtitle} size={40} />
-        {!isMine && author?.username && (
-          <button
-            type="button"
-            onClick={toggle}
-            disabled={busy}
-            style={{
-              padding: '8px 18px',
-              borderRadius: 9999,
-              border: active ? '1px solid var(--slate-200)' : 'none',
-              background: active ? 'var(--white)' : 'var(--slate-900)',
-              color: active ? 'var(--slate-700)' : 'var(--white)',
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: 'pointer',
-              opacity: busy ? 0.6 : 1,
-              flexShrink: 0,
-            }}
-          >
-            {label}
-          </button>
-        )}
-      </div>
-      {error && <p style={{ fontSize: 12, color: '#E05252', marginTop: 6 }}>{error}</p>}
-    </div>
-  );
-}
+  const toggleLike = () => {
+    if (!requireLogin()) return;
+    applyLike(!liked);
+  };
 
-/// Like · comments · share · save, matching the app's PieceActionBar.
-export function EngagementBar({ item, commentCount }) {
-  const { liked, likeCount, saved, toggleLike, toggleSave, error } = useEngagement(item);
-  const [shareNote, setShareNote] = useState(null);
+  /// Double-tap only ever likes, like the app — it never unlikes.
+  const likePiece = () => {
+    if (!requireLogin()) return;
+    setBurst(true);
+    setTimeout(() => setBurst(false), 700);
+    if (!liked) applyLike(true);
+  };
 
-  const share = async () => {
-    const url = `${window.location.origin}${item.href}`;
-    if (navigator.share) {
+  const onMediaTap = () => {
+    const now = Date.now();
+    if (now - lastTap.current < 280) {
+      lastTap.current = 0;
+      likePiece();
+      return;
+    }
+    lastTap.current = now;
+  };
+
+  const shiftImage = (delta) => {
+    setImageIndex((i) => Math.min(urls.length - 1, Math.max(0, i + delta)));
+  };
+
+  const toggleFollow = async () => {
+    if (!requireLogin()) return;
+    if (followBusy || !authorHandle) return;
+    const wasFollowing = followState !== 'none';
+    setFollowBusy(true);
+    try {
+      const result = await setFollowing(authorHandle, !wasFollowing);
+      setFollowState(result?.following ? 'following' : result?.requested ? 'pending' : 'none');
+    } catch (e) {
+      showToast(friendlyError(e));
+    } finally {
+      setFollowBusy(false);
+    }
+  };
+
+  const copyLink = async () => {
+    const text = `${piece?.title || 'Piece'} by ${authorName} on Studio\n\n${webHref}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: piece?.title || 'Studio 3', text, url: webHref });
+      } else {
+        await navigator.clipboard.writeText(text);
+        showToast('Link copied');
+      }
+    } catch (err) {
+      if (err?.name === 'AbortError') return;
       try {
-        await navigator.share({ title: item.title, url });
-        return;
-      } catch (e) {
-        if (e?.name === 'AbortError') return;
+        await navigator.clipboard.writeText(webHref);
+        showToast('Link copied');
+      } catch {
+        showToast('Could not copy link');
       }
     }
-    try {
-      await navigator.clipboard.writeText(url);
-      setShareNote('Link copied');
-    } catch {
-      setShareNote(url);
-    }
-    setTimeout(() => setShareNote(null), 2500);
+    setMoreOpen(false);
   };
 
-  const scrollToComments = () => document.getElementById('comments')?.scrollIntoView({ behavior: 'smooth' });
+  /// Signed-in viewers message on the web (the inbox starts the thread from ?user=);
+  /// guests keep the app deep link.
+  const openMessage = (e) => {
+    if (!authenticated || !authorHandle) return;
+    e?.preventDefault();
+    navigate(`/inbox?user=${encodeURIComponent(authorHandle)}`);
+  };
 
-  return (
-    <div style={{ padding: '8px 12px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', gap: 14 }}>
-          <button type="button" style={actionButton} onClick={toggleLike} aria-label={liked ? 'Unlike' : 'Like'}>
-            <Heart size={22} fill={liked ? '#FF3040' : 'none'} color={liked ? '#FF3040' : 'currentColor'} />
-            {likeCount > 0 && likeCount}
-          </button>
-          <button type="button" style={actionButton} onClick={scrollToComments} aria-label="Comments">
-            <MessageCircle size={22} />
-            {commentCount > 0 && commentCount}
-          </button>
-          <button type="button" style={actionButton} onClick={share} aria-label="Share">
-            <Share2 size={22} />
-          </button>
-        </div>
-        <button type="button" style={actionButton} onClick={toggleSave} aria-label={saved ? 'Unsave' : 'Save'}>
-          <Bookmark size={22} fill={saved ? 'currentColor' : 'none'} />
+  const deletePiece = async () => {
+    if (deleting) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await apiFetch(`/api/pieces/${id}`, { method: 'DELETE', auth: true });
+      setConfirmDelete(false);
+      navigate('/profile', { replace: true });
+    } catch (e) {
+      setDeleteError(friendlyError(e));
+      setDeleting(false);
+    }
+  };
+
+  const sheetItems = [
+    { label: 'Copy link', icon: <Link2 size={18} />, onClick: copyLink },
+    { label: 'Open in app', icon: <Smartphone size={18} />, onClick: () => { window.location.href = appHref; } },
+    ...(authenticated && authorHandle && !isOwner
+      ? [{ label: `Message @${authorHandle}`, icon: <MessageCircle size={18} />, onClick: () => openMessage() }]
+      : []),
+  ];
+
+  if (status === 'loading' || loading) {
+    return <StateScreen text="Loading…" />;
+  }
+  if (error || !piece) {
+    return <StateScreen text="This piece couldn't be found." />;
+  }
+  if (blocked) {
+    return (
+      <div className="piece-detail-state is-column">
+        <p>You blocked @{authorHandle}. Their pieces, scenes and comments are hidden.</p>
+        <button type="button" className="piece-detail-state-btn" onClick={() => navigate('/home')}>
+          Back to home
         </button>
       </div>
-      {shareNote && <p style={{ fontSize: 12, color: 'var(--slate-500)', marginTop: 4, overflowWrap: 'anywhere' }}>{shareNote}</p>}
-      {error && <p style={{ fontSize: 12, color: '#E05252', marginTop: 4 }}>{error}</p>}
-    </div>
-  );
-}
-
-/// Shown instead of a checkout: buying happens in the iOS/Android app only.
-export function AppNotice({ icon: Icon = Smartphone, title, children }) {
-  return (
-    <div
-      style={{
-        display: 'flex',
-        gap: 12,
-        alignItems: 'flex-start',
-        margin: '0 16px',
-        padding: 14,
-        borderRadius: 16,
-        background: 'var(--slate-50)',
-        border: '1px solid var(--slate-200)',
-      }}
-    >
-      <Icon size={20} style={{ flexShrink: 0, color: 'var(--slate-700)', marginTop: 1 }} />
-      <div>
-        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--slate-900)' }}>{title}</div>
-        {children && <div style={{ fontSize: 13, color: 'var(--slate-500)', marginTop: 2, lineHeight: 1.45 }}>{children}</div>}
-      </div>
-    </div>
-  );
-}
-
-const LISTING_LABELS = {
-  available: 'Available',
-  auction_live: 'Auction live',
-  auction_ended: 'Auction ended',
-  collected: 'Collected',
-};
-const STATUS_LABELS = { sold: 'Sold', auction_won: 'Sold', reserved: 'Reserved', delisted: 'Not for sale' };
-
-/// Availability copy, same precedence as the app: sold/collected first, then
-/// the listing state, then other non-live statuses.
-function availabilityFor(item) {
-  if (item.isSold) return 'Collected';
-  if (STATUS_LABELS[item.status]) return STATUS_LABELS[item.status];
-  if (item.listingState && LISTING_LABELS[item.listingState]) return LISTING_LABELS[item.listingState];
-  return item.isForSale ? 'Available' : null;
-}
-
-function isCollectable(item) {
-  return (
-    item.isForSale &&
-    !item.isSold &&
-    item.status === 'live' &&
-    (item.listingState == null || item.listingState === 'available' || item.listingState === 'auction_live')
-  );
-}
-
-/// Web view of a piece (`/piece/:id`) — also what shared links / App Links
-/// open when the Studio3 app isn't installed. Mirrors piece_detail_page.dart
-/// and available_piece_detail_page.dart, minus checkout (app only).
-export function PieceDetailPage() {
-  const { id } = useParams();
-  const { user } = useSession();
-  const { data, loading, error } = useDetail(`/api/pieces/${id}`);
-  const item = useMemo(() => normalizeItem(data, 'piece'), [data]);
-  const related = useMemo(() => normalizeList(data?.relatedPosts, 'post'), [data]);
-  const [commentCount, setCommentCount] = useState(0);
-  const [blocked, setBlocked] = useAuthorBlocked(item?.author?.username);
-
-  useEffect(() => setCommentCount(item?.commentCount ?? 0), [item]);
-
-  if (loading) return <DetailState>Loading…</DetailState>;
-  if (error || !item) {
-    return <DetailState>{error?.status === 404 || !error ? "This piece couldn't be found." : friendlyError(error)}</DetailState>;
+    );
   }
 
-  const author = item.author;
-  if (blocked) {
-    return <DetailState>You blocked @{author?.username}. You won't see their work anymore.</DetailState>;
-  }
-
-  const isMine = sameUser(author?.username, user?.username);
-  const raw = item.raw;
-  const year = raw.yearCreated ? String(raw.yearCreated) : null;
-  const mediumLine = [item.medium, year].filter(Boolean).join(' · ');
-  const materials = Array.isArray(raw.materials) ? raw.materials.filter(Boolean) : [];
-  const availability = availabilityFor(item);
-  const series = raw.series;
-  const seriesThumbs = (series?.previewPieces ?? []).filter((p) => p?.mediaUrl).slice(0, 4);
+  const collectLabel = isAuction
+    ? (isLive ? 'Place a bid' : (isAuctionWonByMe ? 'Complete purchase' : statusLabel(piece.status)))
+    : (isLive ? 'Collect' : statusLabel(piece.status));
+  const collectEnabled = isAuction ? (isLive || isAuctionWonByMe) : isLive;
+  const followLabel = followState === 'following' ? 'Following' : followState === 'pending' ? 'Requested' : 'Follow';
 
   return (
-    <div style={containerStyle}>
-      <div style={{ position: 'relative' }}>
-        <MediaGallery images={item.images} alt={item.title} aspectRatio={item.aspectRatio} />
-        <div style={{ position: 'absolute', top: 12, left: 12 }}>
-          <BackButton />
-        </div>
-        {!isMine && (
-          <div style={{ position: 'absolute', top: 12, right: 12 }}>
-            <ContentActionsMenu
-              target={{ type: 'piece', id: item.id }}
-              authorUsername={author?.username}
-              onBlocked={() => setBlocked(true)}
-            />
-          </div>
-        )}
-      </div>
-
-      <EngagementBar item={item} commentCount={commentCount} />
-      <hr style={divider} />
-      <ArtistRow author={author} isMine={isMine} />
-
-      <div style={{ padding: '4px 16px 16px' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-          <h1 style={{ fontSize: 24, fontWeight: 400, color: 'var(--slate-900)', lineHeight: 1.25 }}>{item.title}</h1>
-          <div style={{ marginTop: 4, flexShrink: 0 }}>
-            <PriceBadge item={item} />
-          </div>
-        </div>
-        {mediumLine && <p style={{ ...secondaryText, marginTop: 6 }}>{mediumLine}</p>}
-        {raw.dimensions && <p style={secondaryText}>{raw.dimensions}</p>}
-        {materials.length > 0 && <p style={secondaryText}>Materials: {materials.join(', ')}</p>}
-        {raw.location && (
-          <p style={{ ...secondaryText, display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
-            <MapPin size={14} /> {raw.location}
-          </p>
-        )}
-        {availability && (
-          <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--slate-700)', marginTop: 8 }}>
-            {availability}
-            {item.priceLabel && !item.isSold && item.isForSale ? ` · ${item.priceLabel}` : ''}
-          </p>
-        )}
-        {item.caption && (
-          <p style={{ fontSize: 16, color: 'var(--slate-900)', lineHeight: 1.45, marginTop: 16, whiteSpace: 'pre-wrap' }}>
-            {item.caption}
-          </p>
-        )}
-      </div>
-
-      {isMine ? (
-        <AppNotice icon={Pencil} title="Edit in the Studio3 app">
-          Editing, pricing and publishing your pieces happens in the app.
-        </AppNotice>
-      ) : (
-        isCollectable(item) && (
-          <AppNotice title="Collect in the Studio3 app">
-            {item.priceLabel ? `${item.priceLabel} · ` : ''}Open this piece in the Studio3 app on iOS or Android to collect it.
-          </AppNotice>
-        )
-      )}
-
-      {series && (
-        <>
-          <hr style={{ ...divider, marginTop: 16 }} />
-          <div style={{ padding: 16 }}>
-            <div style={sectionTitle}>Part of a series</div>
-            <p style={{ ...secondaryText, marginTop: 2 }}>
-              {series.name}
-              {series.pieceCount ? ` · ${series.pieceCount} pieces` : ''}
-            </p>
-            {seriesThumbs.length > 0 && (
-              <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-                {seriesThumbs.map((p) => (
-                  <Link
-                    key={p.id}
-                    to={`/piece/${p.id}`}
-                    aria-label={p.title || 'Series piece'}
-                    style={{
-                      width: 64,
-                      height: 64,
-                      borderRadius: 10,
-                      overflow: 'hidden',
-                      background: 'var(--slate-100)',
-                      outline: p.id === item.id ? '2px solid var(--slate-900)' : 'none',
-                      outlineOffset: 1,
-                    }}
-                  >
-                    <img src={p.mediaUrl} alt={p.title || ''} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                  </Link>
-                ))}
-              </div>
+    <div className="piece-detail-page">
+      <div className="piece-detail-card">
+        <div
+          className="piece-detail-media"
+          onClick={onMediaTap}
+          onTouchStart={(e) => {
+            touchX.current = e.changedTouches[0].clientX;
+          }}
+          onTouchEnd={(e) => {
+            if (touchX.current == null) return;
+            const dx = e.changedTouches[0].clientX - touchX.current;
+            touchX.current = null;
+            if (Math.abs(dx) < 48) return;
+            shiftImage(dx < 0 ? 1 : -1);
+          }}
+        >
+          <div
+            className="piece-detail-carousel"
+            style={{ transform: `translateX(-${imageIndex * 100}%)` }}
+          >
+            {urls.length ? urls.map((url) => (
+              <img key={url} className="piece-detail-slide" src={url} alt={piece.title || ''} />
+            )) : (
+              <div className="piece-detail-slide" />
             )}
           </div>
-        </>
-      )}
 
-      {related.length > 0 && (
-        <>
-          <hr style={{ ...divider, marginTop: series ? 0 : 16 }} />
-          <div style={{ padding: '16px 0' }}>
-            <div style={{ ...sectionTitle, padding: '0 16px' }}>Related scenes</div>
-            <div style={{ display: 'flex', gap: 10, overflowX: 'auto', padding: '10px 16px 4px', scrollbarWidth: 'none' }}>
-              {related.map((scene) => (
-                <Link key={scene.id} to={scene.href} style={{ flex: '0 0 120px', display: 'block' }}>
-                  <MediaThumb item={scene} aspectRatio={3 / 4} rounded={12} />
-                </Link>
-              ))}
+          {urls.length > 1 && (
+            <>
+              {imageIndex > 0 && (
+                <button
+                  type="button"
+                  className="piece-detail-nav is-prev"
+                  aria-label="Previous image"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    shiftImage(-1);
+                  }}
+                >
+                  ‹
+                </button>
+              )}
+              {imageIndex < urls.length - 1 && (
+                <button
+                  type="button"
+                  className="piece-detail-nav is-next"
+                  aria-label="Next image"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    shiftImage(1);
+                  }}
+                >
+                  ›
+                </button>
+              )}
+              <div className="piece-detail-dots">
+                {urls.map((url, i) => (
+                  <span key={url} className={`piece-detail-dot${i === imageIndex ? ' is-active' : ''}`} />
+                ))}
+              </div>
+            </>
+          )}
+
+          <div className="piece-detail-overlay" onClick={(e) => e.stopPropagation()}>
+            <button type="button" className="piece-detail-overlay-hit" style={{ width: 24 }} aria-label="Back" onClick={goBack}>
+              <img src={heroBack} alt="" width={11} height={20} />
+            </button>
+            <div className="piece-detail-overlay-actions">
+              <button type="button" className="piece-detail-overlay-hit" style={{ width: 32 }} aria-label={saved ? 'Unsave' : 'Save'} onClick={toggleSave}>
+                <img src={saved ? heroBookmarkFill : heroBookmark} alt="" width={16} height={20} />
+              </button>
+              <button type="button" className="piece-detail-overlay-hit" style={{ width: 32 }} aria-label="Share" onClick={copyLink}>
+                <img src={heroShare} alt="" width={18} height={22} />
+              </button>
+              <button type="button" className="piece-detail-overlay-hit" style={{ width: 28 }} aria-label="More" onClick={() => setMoreOpen(true)}>
+                <img src={heroMore} alt="" width={21} height={4} />
+              </button>
             </div>
           </div>
-        </>
+
+          {burst && (
+            <div className="piece-detail-heart">
+              <img src={likeHeart} alt="" width={80} height={73} />
+            </div>
+          )}
+        </div>
+
+        <div className="piece-detail-panel">
+          <div className="piece-detail-artist">
+            <div
+              style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', minWidth: 0, flex: 1 }}
+              onClick={() => authorHandle && navigate(profileHref(authorHandle))}
+            >
+              {avatarUrl ? (
+                <img className="piece-detail-avatar" src={avatarUrl} alt={authorName} />
+              ) : (
+                <span className="piece-detail-avatar is-fallback">{authorName.slice(0, 1)}</span>
+              )}
+              <div className="piece-detail-artist-text">
+                <div className="piece-detail-artist-name">{authorName}</div>
+                <div className="piece-detail-artist-handle">@{authorHandle || 'artist'}</div>
+              </div>
+            </div>
+            {showFollow && (
+              <button
+                type="button"
+                className={`piece-detail-follow${followState === 'pending' ? ' is-pending' : ''}`}
+                onClick={toggleFollow}
+                disabled={followBusy}
+              >
+                {followBusy ? '…' : followLabel}
+              </button>
+            )}
+          </div>
+
+          <div className="piece-detail-scroll">
+            <div className="piece-detail-title-block">
+              <h1 className="piece-detail-title">{piece.title}</h1>
+              {metaLine ? <p className="piece-detail-meta">{metaLine}</p> : null}
+              {piece.dimensions ? <p className="piece-detail-dimensions">{piece.dimensions}</p> : null}
+              <button type="button" className="piece-detail-materials" onClick={() => setMaterialsOpen(true)}>
+                View Materials →
+              </button>
+            </div>
+
+            <EngagementBar
+              liked={liked}
+              likeCount={likeCount}
+              onLike={toggleLike}
+              commentCount={commentCount}
+              onComments={() => commentsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+            />
+
+            <div className="piece-detail-details">
+              <button type="button" className="piece-detail-details-toggle" onClick={() => setDetailsOpen((open) => !open)}>
+                <span>Details</span>
+                <img src={detailsChevron} alt="" width={8} height={4} className={detailsOpen ? 'is-open' : ''} />
+              </button>
+              {detailsOpen && (
+                <>
+                  <DetailRow label="Location" value={dash(piece.location)} />
+                  <DetailRow label="Year created" value={piece.yearCreated != null ? String(piece.yearCreated) : '—'} />
+                  <DetailRow label="Framing/mounting" value={dash(piece.framingMounting)} />
+                  <DetailRow
+                    label="Shipping"
+                    value={piece.location?.trim() ? `Ships from ${piece.location.trim()}` : dash(piece.shippingRegion)}
+                  />
+                  <DetailRow label="Handling" value={dash(piece.handlingNotes)} />
+                </>
+              )}
+            </div>
+
+            {(story || scenes.length > 0 || (series?.name && seriesThumbs.length > 0)) && (
+              <div className="piece-detail-story-block">
+                {story ? <p className="piece-detail-story">{story}</p> : null}
+                {scenes.length > 0 && (
+                  <div className={story ? 'piece-detail-scenes' : undefined} style={story ? undefined : { marginTop: 0 }}>
+                    <p className="piece-detail-story-header">The story behind this piece</p>
+                    <div className="piece-detail-scenes-list">
+                      {scenes.map((scene) => (
+                        <Link
+                          key={scene.id || scene.mediaUrl}
+                          to={`/scene/${scene.id}`}
+                          className="piece-detail-scene"
+                          aria-label="Open scene"
+                        >
+                          {scene.thumbnailUrl || (scene.mediaUrl && !isVideoMedia(scene.mediaType, scene.mediaUrl)) ? (
+                            <img src={scene.thumbnailUrl || scene.mediaUrl} alt="" />
+                          ) : scene.mediaUrl ? (
+                            <video src={scene.mediaUrl} muted playsInline preload="metadata" />
+                          ) : null}
+                          {isVideoMedia(scene.mediaType, scene.mediaUrl) && (
+                            <div className="piece-detail-scene-play"><span>▶</span></div>
+                          )}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {series?.name && seriesThumbs.length > 0 && (
+                  <Link
+                    to={`/series/${series.id}`}
+                    className="piece-detail-series"
+                    style={{ marginTop: story || scenes.length ? 32 : 0 }}
+                  >
+                    <p className="piece-detail-story-header">Part of a series</p>
+                    <div className="piece-detail-series-row">
+                      <div
+                        className="piece-detail-series-stack"
+                        style={{ width: 117 + Math.max(0, Math.min(seriesThumbs.length, 3) - 1) * 35 }}
+                      >
+                        {seriesThumbs.slice(0, 3).map((url, i) => (
+                          <img
+                            key={url}
+                            className="piece-detail-series-thumb"
+                            src={url}
+                            alt=""
+                            style={{ left: i * 35, zIndex: i }}
+                          />
+                        ))}
+                      </div>
+                      <div className="piece-detail-series-copy">
+                        <div className="piece-detail-series-name">{series.name}</div>
+                        <div className="piece-detail-series-count">
+                          {(series.pieceCount || series.pieceIds?.length || seriesThumbs.length)}{' '}
+                          {(series.pieceCount || series.pieceIds?.length || seriesThumbs.length) === 1 ? 'piece' : 'pieces'}
+                        </div>
+                      </div>
+                      <img className="piece-detail-series-chevron" src={seriesChevron} alt="" width={11} height={20} />
+                    </div>
+                  </Link>
+                )}
+              </div>
+            )}
+
+            <div ref={commentsRef}>
+              <CommentsSection
+                type="piece"
+                id={id}
+                onCountChange={(delta) => setCommentCount((n) => Math.max(0, n + delta))}
+              />
+            </div>
+
+            {!showCollect && <div className="piece-detail-spacer" />}
+          </div>
+
+          {showCollect ? (
+            <div className="piece-detail-cta">
+              {isAuction ? (
+                <div className="piece-detail-price-row">
+                  <div>
+                    <div className="piece-detail-price-label">
+                      {piece.bidCount > 0 ? `Current bid · ${piece.bidCount} bids` : 'Starting bid'}
+                    </div>
+                    <div className="piece-detail-price">
+                      {formatUsd(piece.highestBidCents ?? piece.priceCents)}
+                    </div>
+                  </div>
+                  {timeRemaining && (
+                    <div style={{ textAlign: 'right' }}>
+                      <div className="piece-detail-price-label">Time remaining</div>
+                      <div className="piece-detail-price is-error">{timeRemaining}</div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="piece-detail-price" style={{ marginTop: 0 }}>{formatUsd(piece.priceCents)}</div>
+              )}
+              <div className="piece-detail-actions">
+                <a
+                  href={appHref}
+                  className={`piece-detail-collect${collectEnabled ? '' : ' is-disabled'}`}
+                >
+                  {collectLabel}
+                </a>
+                {!isOwner && (
+                  <a href={appHref} onClick={openMessage} className="piece-detail-message" aria-label="Message artist">
+                    <img src={messageBtn} alt="" width={40} height={40} />
+                  </a>
+                )}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      {materialsOpen && (
+        <Sheet onClose={() => setMaterialsOpen(false)}>
+          <h2 className="piece-detail-sheet-title">Materials used</h2>
+          {(piece.materials || []).length === 0 ? (
+            <p className="piece-detail-material">No materials listed.</p>
+          ) : (
+            (piece.materials || []).map((material) => (
+              <p key={material} className="piece-detail-material">{material}</p>
+            ))
+          )}
+        </Sheet>
       )}
 
-      <hr style={{ ...divider, marginTop: related.length || series ? 0 : 16 }} />
-      <CommentsSection item={item} onAdded={() => setCommentCount((c) => c + 1)} />
+      {moreOpen && !isOwner && (
+        <ContentActionsSheet
+          target={{ type: 'piece', id }}
+          authorUsername={authorHandle || undefined}
+          items={sheetItems}
+          onClose={() => setMoreOpen(false)}
+          onNotice={showToast}
+          onBlocked={() => setBlocked(true)}
+        />
+      )}
+
+      {/* Own piece: no Report/Block. Editing lives in the app; delete works here too. */}
+      {moreOpen && isOwner && (
+        <ActionSheet subtitle="Edit this piece in the Studio3 app." onClose={() => setMoreOpen(false)}>
+          {sheetItems.map((item) => (
+            <SheetItem
+              key={item.label}
+              icon={item.icon}
+              onClick={() => {
+                setMoreOpen(false);
+                item.onClick();
+              }}
+            >
+              {item.label}
+            </SheetItem>
+          ))}
+          <SheetItem
+            danger
+            icon={<Trash2 size={18} />}
+            onClick={() => {
+              setMoreOpen(false);
+              setDeleteError(null);
+              setConfirmDelete(true);
+            }}
+          >
+            Delete piece
+          </SheetItem>
+        </ActionSheet>
+      )}
+
+      {confirmDelete && (
+        <ActionSheet
+          title="Delete this piece?"
+          subtitle="It will be removed from your profile and series. This can't be undone."
+          onClose={() => !deleting && setConfirmDelete(false)}
+        >
+          {deleteError && <p className="s3-sheet-error">{deleteError}</p>}
+          <div className="s3-sheet-actions">
+            <button type="button" className="s3-sheet-btn s3-sheet-btn--danger" disabled={deleting} onClick={deletePiece}>
+              {deleting ? 'Deleting…' : 'Delete'}
+            </button>
+            <button type="button" className="s3-sheet-btn s3-sheet-btn--ghost" disabled={deleting} onClick={() => setConfirmDelete(false)}>
+              Cancel
+            </button>
+          </div>
+        </ActionSheet>
+      )}
+
+      {toast && <div className="piece-detail-toast">{toast}</div>}
     </div>
   );
+}
+
+function DetailRow({ label, value }) {
+  return (
+    <div className="piece-detail-detail-row">
+      <span className="piece-detail-detail-label">{label}</span>
+      <span className="piece-detail-detail-value">{value}</span>
+    </div>
+  );
+}
+
+function Sheet({ onClose, children }) {
+  return (
+    <div className="piece-detail-sheet-backdrop" onClick={onClose} role="presentation">
+      <div className="piece-detail-sheet" onClick={(e) => e.stopPropagation()} role="dialog">
+        <div className="piece-detail-sheet-handle" />
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function StateScreen({ text }) {
+  return <div className="piece-detail-state">{text}</div>;
 }

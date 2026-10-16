@@ -1,0 +1,174 @@
+/* Admin console — an ops tool, not a consumer surface.
+ *
+ * Deliberately plainer than the rest of the app: dense tables, no imagery, high
+ * contrast. Someone reads this at 2am to find out why an artist has not been
+ * paid, and every pixel spent on atmosphere is one not spent on a number. */
+
+.admin {
+  min-height: 100vh;
+  background: #f6f6f4;
+  color: #16150f;
+  font-family: var(--font-inter, system-ui, sans-serif);
+}
+
+.admin-bar {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 14px 24px;
+  background: #16150f;
+  color: #f6f6f4;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  flex-wrap: wrap;
+}
+
+.admin-bar__brand { font-weight: 600; letter-spacing: -0.01em; }
+.admin-bar__nav { display: flex; gap: 4px; flex: 1; flex-wrap: wrap; }
+
+.admin-bar__link {
+  color: #c8c6bd;
+  text-decoration: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.admin-bar__link:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
+.admin-bar__link--active { background: rgba(255, 255, 255, 0.14); color: #fff; }
+
+/* A queue with work in it has to be visible without opening it. */
+.admin-badge {
+  background: #b4442f;
+  color: #fff;
+  border-radius: 999px;
+  padding: 1px 7px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.admin-badge--quiet { background: rgba(255, 255, 255, 0.22); }
+
+.admin-bar__who { font-size: 13px; color: #c8c6bd; }
+
+.admin-main { max-width: 1180px; margin: 0 auto; padding: 28px 24px 80px; }
+
+.admin-h1 { font-size: 22px; font-weight: 600; margin: 0 0 4px; letter-spacing: -0.01em; }
+.admin-sub { color: #6b6a62; font-size: 14px; margin: 0 0 20px; }
+
+.admin-filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+.admin-chip {
+  border: 1px solid #d9d7cd;
+  background: #fff;
+  color: #4a4940;
+  border-radius: 999px;
+  padding: 5px 13px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.admin-chip--on { background: #16150f; border-color: #16150f; color: #fff; }
+
+.admin-card {
+  background: #fff;
+  border: 1px solid #e4e2d8;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 22px;
+}
+.admin-card__head {
+  padding: 13px 16px;
+  border-bottom: 1px solid #e4e2d8;
+  font-weight: 600;
+  font-size: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.admin-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.admin-table th {
+  text-align: left;
+  font-weight: 500;
+  color: #6b6a62;
+  padding: 9px 16px;
+  border-bottom: 1px solid #e4e2d8;
+  white-space: nowrap;
+}
+.admin-table td { padding: 11px 16px; border-bottom: 1px solid #f0eee6; vertical-align: top; }
+.admin-table tr:last-child td { border-bottom: none; }
+.admin-table a { color: #16150f; font-weight: 500; }
+.admin-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.admin-pill {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  background: #eceade;
+  color: #4a4940;
+  white-space: nowrap;
+}
+.admin-pill--good { background: #dcece0; color: #24603a; }
+.admin-pill--warn { background: #fbeacd; color: #7a5312; }
+.admin-pill--bad  { background: #f7dad4; color: #8d2f1c; }
+
+.admin-empty { padding: 34px 16px; text-align: center; color: #86857c; font-size: 14px; }
+
+.admin-note, .admin-error {
+  padding: 11px 15px;
+  border-radius: 8px;
+  margin-bottom: 18px;
+  font-size: 14px;
+}
+.admin-note  { background: #dcece0; color: #24603a; }
+.admin-error { background: #f7dad4; color: #8d2f1c; }
+
+.admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; align-items: start; }
+@media (max-width: 900px) { .admin-grid { grid-template-columns: 1fr; } }
+
+.admin-dl { margin: 0; padding: 4px 0; }
+.admin-dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 8px 16px;
+  border-bottom: 1px solid #f0eee6;
+}
+.admin-dl div:last-child { border-bottom: none; }
+.admin-dl dt { color: #6b6a62; font-size: 13px; }
+.admin-dl dd { margin: 0; font-size: 13.5px; text-align: right; font-variant-numeric: tabular-nums; }
+
+.admin-form { padding: 16px; display: grid; gap: 11px; }
+.admin-form label { font-size: 13px; color: #6b6a62; display: grid; gap: 5px; }
+.admin-form input, .admin-form select, .admin-form textarea {
+  border: 1px solid #d9d7cd;
+  border-radius: 7px;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 14px;
+  background: #fff;
+  color: #16150f;
+  width: 100%;
+}
+.admin-form textarea { min-height: 62px; resize: vertical; }
+.admin-actions { display: flex; gap: 9px; flex-wrap: wrap; }
+
+.admin-btn {
+  border: 1px solid #16150f;
+  background: #16150f;
+  color: #fff;
+  border-radius: 7px;
+  padding: 8px 15px;
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.admin-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.admin-btn--ghost { background: #fff; color: #16150f; }
+.admin-btn--danger { background: #8d2f1c; border-color: #8d2f1c; }
+
+.admin-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+.admin-muted { color: #86857c; }

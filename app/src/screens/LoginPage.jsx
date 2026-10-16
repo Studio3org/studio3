@@ -1,105 +1,134 @@
 import React, { useState } from 'react';
-import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
-import { login } from '../lib/api';
-import { TermsCheckbox } from '../components/moderation/TermsCheckbox';
-import { GlassCard } from '../components/design/GlassCard';
-import { PillInput, PillInputWithToggle } from '../components/inputs/PillInput';
-import { PrimaryButton } from '../components/buttons/PrimaryButton';
-import { useSession } from '../lib/session';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Lock, User as UserIcon } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { ApiError } from '../services/apiClient';
+import {
+  AuthGuestLink,
+  AuthLinkFooter,
+  AuthPageTitle,
+  AuthPasswordInput,
+  AuthPillInput,
+  AuthPrimaryButton,
+  AuthScaffold,
+  AuthTermsCheckbox,
+  hasAgreedToTerms,
+} from '../components/auth/AuthUI';
 
-const bgStyle = {
-  minHeight: '100vh',
-  background: 'linear-gradient(180deg, var(--slate-50) 0%, var(--slate-100) 50%, var(--slate-200) 100%)',
-  paddingTop: 44,
-  paddingBottom: 24,
-  paddingLeft: 16,
-  paddingRight: 16,
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-};
+/// "Remember me" keeps only the username/email on this device (never the password)
+/// so the next visit's form is prefilled; unticking it forgets the stored value.
+const REMEMBERED_LOGIN_KEY = 'studio3.rememberedLogin';
+
+function readRememberedLogin() {
+  try {
+    return localStorage.getItem(REMEMBERED_LOGIN_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
+function writeRememberedLogin(identifier) {
+  try {
+    if (identifier) localStorage.setItem(REMEMBERED_LOGIN_KEY, identifier);
+    else localStorage.removeItem(REMEMBERED_LOGIN_KEY);
+  } catch {
+    /* storage unavailable — nothing to remember */
+  }
+}
 
 export function LoginPage() {
+  const { login } = useAuth();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const [email, setEmail] = useState('');
+  const location = useLocation();
+  const [username, setUsername] = useState(readRememberedLogin);
   const [password, setPassword] = useState('');
-  const [agreed, setAgreed] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [remember, setRemember] = useState(true);
+  const [agreed, setAgreed] = useState(hasAgreedToTerms);
   const [error, setError] = useState(null);
-  const { loggedIn } = useSession();
+  const [loading, setLoading] = useState(false);
 
-  // Only same-site paths — never bounce to an arbitrary URL after login.
-  const nextParam = searchParams.get('next');
-  const next = nextParam && nextParam.startsWith('/') && !nextParam.startsWith('//')
-    ? nextParam
-    : '/home';
-  const canSubmit = email.trim() && password && agreed && !loading;
+  const canSubmit = Boolean(username.trim() && password && agreed);
 
-  // Already signed in (or just signed in) — go where the user was headed.
-  if (loggedIn) return <Navigate to={next} replace />;
-
-  const signIn = async () => {
-    if (!canSubmit) return;
+  const submit = async () => {
+    if (!canSubmit || loading) return;
     setLoading(true);
     setError(null);
     try {
-      await login(email, password);
-      navigate(next, { replace: true });
+      const identifier = username.trim();
+      const user = await login(identifier, password);
+      writeRememberedLogin(remember ? identifier : null);
+      const from = location.state?.from;
+      const redirectTo = from ? `${from.pathname || ''}${from.search || ''}${from.hash || ''}` : null;
+      if (!user.onboardingComplete) navigate('/onboarding', { replace: true });
+      else navigate(redirectTo || '/home', { replace: true });
     } catch (e) {
-      setError(e.message);
+      setError(e instanceof ApiError ? e.message : 'Could not log in. Please try again.');
+    } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={bgStyle}>
-      <div style={{ textAlign: 'center', marginBottom: 32 }}>
-        <h1 style={{ fontFamily: 'Inter', fontSize: 28, fontWeight: 700, color: 'var(--slate-900)' }}>
-          Studio 3
-        </h1>
-        <p style={{ fontSize: 13, fontWeight: 400, color: 'var(--slate-400)', marginTop: 4 }}>
-          Discover Art. Collect Stories.
-        </p>
+    <AuthScaffold compact>
+      <AuthPageTitle title="Login" />
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <AuthPillInput
+          icon={<UserIcon size={20} strokeWidth={1.75} />}
+          placeholder="Username or email"
+          autoComplete="username"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+        />
+        <AuthPasswordInput
+          icon={<Lock size={20} strokeWidth={1.75} />}
+          placeholder="Password"
+          autoComplete="current-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && submit()}
+        />
+
+        {error && (
+          <p style={{ fontFamily: 'var(--font-inter)', fontSize: 12, color: 'var(--auth-error)', margin: '-6px 2px 0' }}>
+            {error}
+          </p>
+        )}
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '0 2px' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--auth-text-muted)', fontFamily: 'var(--font-inter)', fontSize: 12 }}>
+            <input
+              type="checkbox"
+              checked={remember}
+              onChange={(e) => {
+                setRemember(e.target.checked);
+                if (!e.target.checked) writeRememberedLogin(null);
+              }}
+              style={{ width: 16, height: 16, accentColor: '#fff' }}
+            />
+            Remember me
+          </label>
+          <Link
+            to="/forgot-password"
+            style={{ fontFamily: 'var(--font-inter)', fontSize: 12, fontWeight: 500, color: 'var(--auth-text-muted)' }}
+          >
+            Forgot login?
+          </Link>
+        </div>
+
+        <AuthTermsCheckbox checked={agreed} onChange={setAgreed} />
+
+        <div style={{ marginTop: 6 }}>
+          <AuthPrimaryButton disabled={!canSubmit} loading={loading} onClick={submit}>
+            Login
+          </AuthPrimaryButton>
+        </div>
       </div>
 
-      <GlassCard style={{ width: '100%', maxWidth: 343, padding: 28 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <PillInput
-            type="text"
-            placeholder="Username or email"
-            autoComplete="username"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <PillInputWithToggle
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && signIn()}
-          />
-          <TermsCheckbox checked={agreed} onChange={setAgreed} />
-          {error && (
-            <div style={{ fontSize: 13, color: '#E05252' }} role="alert">{error}</div>
-          )}
-          <PrimaryButton disabled={!canSubmit} onClick={signIn}>
-            {loading ? 'Signing in…' : 'Sign In'}
-          </PrimaryButton>
-
-          <div style={{ textAlign: 'right' }}>
-            <Link to="/forgot-password" style={{ fontSize: 12, color: 'var(--slate-500)' }}>
-              Forgot password?
-            </Link>
-          </div>
-        </div>
-      </GlassCard>
-
-      <p style={{ marginTop: 24, fontSize: 14, color: 'var(--slate-600)' }}>
-        Don't have an account? <Link to="/signup" style={{ fontWeight: 600, color: 'var(--slate-900)' }}>Sign Up</Link>
-      </p>
-      <Link to="/home" style={{ marginTop: 12, fontSize: 14, color: 'var(--slate-500)', textDecoration: 'underline' }}>
-        Browse without an account
-      </Link>
-    </div>
+      <div style={{ marginTop: 24 }}>
+        <AuthLinkFooter prompt="Don't have an account?" linkLabel="Sign Up" to="/signup" />
+        <AuthGuestLink />
+      </div>
+    </AuthScaffold>
   );
 }

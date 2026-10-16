@@ -1,0 +1,112 @@
+/* Scene detail — layered on PieceDetailPage.css (same split card, overlay, artist
+   row, panel and tokens). Only what a scene adds lives here: a video frame sized to
+   the scene's own aspect ratio, the caption block, and the linked-piece card. */
+
+.scene-detail-media {
+  /* Vertical scenes would otherwise run far below the fold on phones. */
+  max-height: 82vh;
+}
+
+.scene-detail-video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+  display: block;
+}
+
+.scene-detail-artist-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
+  color: inherit;
+}
+
+.scene-detail-caption-block {
+  padding: 16px 10px;
+  border-bottom: 1px solid var(--pd-title-line);
+}
+
+.scene-detail-badge {
+  display: inline-block;
+  margin-bottom: 10px;
+  padding: 2px 8px;
+  border: 1px solid var(--pd-hairline);
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--pd-secondary);
+}
+
+.scene-detail-location {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 10px 0 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--pd-secondary);
+}
+
+.scene-detail-location svg {
+  flex-shrink: 0;
+}
+
+.scene-detail-piece {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border: 1px solid var(--pd-hairline);
+  border-radius: 8px;
+  color: inherit;
+}
+
+.scene-detail-piece-thumb {
+  width: 72px;
+  height: 96px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  object-fit: cover;
+  display: block;
+  background: var(--pd-skeleton);
+}
+
+.scene-detail-piece-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.scene-detail-piece-title {
+  font-size: 13px;
+  line-height: 17px;
+  font-weight: 500;
+  color: var(--pd-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scene-detail-piece-meta {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--pd-secondary);
+}
+
+.scene-detail-piece-cta {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--pd-brand);
+}
+
+@media (min-width: 768px) {
+  /* Height comes from the card, as on the piece page. */
+  .scene-detail-media {
+    max-height: none;
+  }
+}
