@@ -1,0 +1,308 @@
+/* Public account-deletion page (/delete-account).
+   Brand tokens from docs/ui-ux-rework-brief.md: cream canvas, warm near-black text,
+   warm greys for secondary copy, Inter, 10px card radius. It's what Google Play reviewers
+   and anyone searching for "delete my Studio3 account" land on, on whatever screen. */
+
+.del-page {
+  --del-bg: #fafaf7;
+  --del-surface: #ffffff;
+  --del-surface-warm: #f5f2ee;
+  --del-text: #231f1b;
+  --del-text-2: #6b6560;
+  --del-text-3: #8c8880;
+  --del-rule: #e7e2da;
+  --del-ink: #352f2a;
+  --del-radius: 10px;
+
+  min-height: 100vh;
+  background: var(--del-bg);
+  color: var(--del-text);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.del-container {
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+/* ---- Header ------------------------------------------------------------------------ */
+
+.del-header {
+  border-bottom: 1px solid var(--del-rule);
+  background: var(--del-bg);
+}
+
+.del-header .del-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+}
+
+/* Same wordmark and size as the Home header (HomeFeedPage) and SideNav. */
+.del-logo {
+  display: block;
+  height: 28px;
+  width: auto;
+}
+
+.del-header-link {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--del-text-2);
+  text-decoration: none;
+}
+
+.del-header-link:hover {
+  color: var(--del-text);
+}
+
+/* ---- Hero -------------------------------------------------------------------------- */
+
+.del-hero {
+  padding: 40px 0 32px;
+}
+
+.del-eyebrow {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--del-text-3);
+  margin: 0 0 12px;
+}
+
+.del-title {
+  font-size: clamp(30px, 5vw, 48px);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin: 0 0 16px;
+}
+
+.del-lede {
+  max-width: 640px;
+  font-size: clamp(16px, 1.6vw, 18px);
+  line-height: 1.6;
+  color: var(--del-text-2);
+  margin: 0;
+}
+
+/* ---- Ways to delete ---------------------------------------------------------------- */
+
+.del-ways {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  padding-bottom: 40px;
+}
+
+.del-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--del-surface);
+  border: 1px solid var(--del-rule);
+  border-radius: var(--del-radius);
+  padding: 24px;
+}
+
+.del-card-step {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--del-surface-warm);
+  color: var(--del-ink);
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.del-card h2 {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 10px;
+}
+
+.del-card .del-actions {
+  margin-top: auto;
+  padding-top: 16px;
+}
+
+/* ---- Details ----------------------------------------------------------------------- */
+
+.del-details {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  padding-bottom: 48px;
+}
+
+.del-section {
+  background: var(--del-surface-warm);
+  border-radius: var(--del-radius);
+  padding: 24px;
+}
+
+.del-section h2 {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 10px;
+}
+
+/* ---- Shared copy ------------------------------------------------------------------- */
+
+.del-page p,
+.del-page li {
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--del-text-2);
+}
+
+.del-page p {
+  margin: 0 0 10px;
+}
+
+.del-page p:last-child {
+  margin-bottom: 0;
+}
+
+.del-page strong {
+  color: var(--del-text);
+  font-weight: 600;
+}
+
+.del-list {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.del-list li + li {
+  margin-top: 6px;
+}
+
+.del-link {
+  color: var(--del-text);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.del-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0 22px;
+  border-radius: 9999px;
+  background: var(--del-text);
+  color: var(--del-bg);
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+
+.del-button:hover {
+  background: var(--del-ink);
+}
+
+.del-button--ghost {
+  background: transparent;
+  color: var(--del-text);
+  border: 1.5px solid var(--del-rule);
+}
+
+.del-button--ghost:hover {
+  background: var(--del-surface-warm);
+}
+
+.del-button:focus-visible,
+.del-link:focus-visible,
+.del-header-link:focus-visible {
+  outline: 2px solid var(--del-text);
+  outline-offset: 3px;
+}
+
+/* ---- Footer ------------------------------------------------------------------------ */
+
+.del-footer {
+  border-top: 1px solid var(--del-rule);
+  padding: 24px 0 40px;
+}
+
+.del-footer .del-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--del-text-3);
+}
+
+.del-footer a {
+  color: var(--del-text-2);
+  white-space: nowrap;
+}
+
+/* ---- Tablet ------------------------------------------------------------------------ */
+
+@media (min-width: 640px) {
+  .del-container {
+    padding: 0 32px;
+  }
+
+  .del-hero {
+    padding: 64px 0 40px;
+  }
+
+  .del-details {
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  .del-footer .del-container {
+    flex-direction: row;
+    justify-content: space-between;
+  }
+}
+
+/* ---- Desktop ----------------------------------------------------------------------- */
+
+@media (min-width: 960px) {
+  .del-container {
+    padding: 0 48px;
+  }
+
+  .del-header .del-container {
+    height: 72px;
+  }
+
+  .del-logo {
+    height: 34px;
+  }
+
+  .del-hero {
+    padding: 88px 0 48px;
+  }
+
+  .del-ways {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    padding-bottom: 56px;
+  }
+
+  .del-card,
+  .del-section {
+    padding: 28px;
+  }
+
+  .del-details {
+    gap: 24px;
+    padding-bottom: 72px;
+  }
+}

@@ -1,0 +1,31 @@
+/* Engagement row (EngagementBar.jsx) — sits between the title block and details. */
+.s3-engagement {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--cream-hairline);
+  font-family: var(--font-geist);
+}
+
+.s3-engagement-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: var(--font-geist);
+  font-size: 13px;
+  line-height: 17px;
+  color: var(--cream-text);
+}
+
+.s3-engagement-btn.is-active svg {
+  color: var(--cream-status-error);
+  fill: var(--cream-status-error);
+}
+
+.s3-engagement-btn:disabled {
+  opacity: 0.7;
+}
