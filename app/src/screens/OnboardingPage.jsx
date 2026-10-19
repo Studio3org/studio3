@@ -1,215 +1,162 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
-import { Camera, ChevronLeft } from 'lucide-react';
-import { GlassCard } from '../components/design/GlassCard';
-import { PrimaryButton } from '../components/buttons/PrimaryButton';
-import { PillChip } from '../components/inputs/PillChip';
-import { useSession } from '../lib/session';
-import {
-  completeOnboarding,
-  setOnboardingPhotos,
-  setOnboardingPreferences,
-  setRole,
-  uploadProfilePhoto,
-} from '../lib/authApi';
-
-const bgStyle = {
-  minHeight: '100vh',
-  background: 'linear-gradient(180deg, var(--slate-50) 0%, var(--slate-100) 50%, var(--slate-200) 100%)',
-  paddingTop: 44,
-  paddingBottom: 24,
-  paddingLeft: 16,
-  paddingRight: 16,
-};
+import React, { useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ChevronRight, ImageIcon, User } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { apiFetch, ApiError } from '../services/apiClient';
+import { uploadMedia } from '../services/postingApi';
 
 const ROLES = [
-  { id: 'artist', title: 'Artist', subtitle: 'Create and share your work' },
-  { id: 'collector', title: 'Collector', subtitle: 'Discover and collect art' },
-  { id: 'enthusiast', title: 'Enthusiast', subtitle: 'Explore and engage with art' },
+  { id: 'artist', title: 'Artist', subtitle: 'I make and share my own work.' },
+  { id: 'collector', title: 'Collector', subtitle: 'I collect and support artists.' },
+  { id: 'enthusiast', title: 'Enthusiast', subtitle: 'I love discovering new art.' },
 ];
 
-/// Mediums and styles are stored by id (same option lists as the app's
-/// post_picker_options.dart); themes are stored by label, like the app.
-const MEDIUMS = [
-  ['acrylic', 'Acrylic'], ['encaustic', 'Encaustic'], ['fresco', 'Fresco'], ['gouache', 'Gouache'],
-  ['oil', 'Oil'], ['tempera', 'Tempera'], ['watercolor', 'Watercolor'], ['ink', 'Ink'],
-  ['charcoal', 'Charcoal'], ['pastel', 'Pastel'], ['mixed_media', 'Mixed media'], ['digital', 'Digital'],
-];
-const STYLES = [
-  ['abstract', 'Abstract'], ['expressionist', 'Expressionist'], ['figurative', 'Figurative'],
-  ['geometric', 'Geometric'], ['landscape', 'Landscape'], ['minimalist', 'Minimalist'],
-  ['portrait', 'Portrait'], ['surrealist', 'Surrealist'], ['realist', 'Realist'],
-  ['conceptual', 'Conceptual'], ['street', 'Street art'], ['pop', 'Pop art'],
-];
-const THEMES = ['Nature', 'Urban', 'Portrait', 'Abstract', 'Memory', 'Identity', 'Landscape', 'Still life', 'Figurative', 'Surreal']
-  .map((t) => [t, t]);
+const MEDIUMS = ['Oil', 'Watercolor', 'Digital', 'Photography', 'Sculpture', 'Mixed Media', 'Ceramics', 'Printmaking'];
+const STYLES = ['Abstract', 'Figurative', 'Landscape', 'Portrait', 'Contemporary', 'Minimalist'];
+const THEMES = ['Nature', 'Urban', 'Identity', 'Surreal', 'Geometric'];
 
-const errorText = { fontSize: 13, color: '#E05252' };
-const sectionLabel = { fontSize: 12, fontWeight: 500, color: 'var(--slate-600)', marginBottom: 8 };
-
-function ChipGroup({ label, options, selected, onToggle }) {
-  return (
-    <>
-      <p style={sectionLabel}>{label} ({selected.length}/3+)</p>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
-        {options.map(([id, name]) => (
-          <PillChip key={id} selected={selected.includes(id)} onClick={() => onToggle(id)}>
-            {name}
-          </PillChip>
-        ))}
-      </div>
-    </>
-  );
-}
-
-/// Pre-fill from preferences already saved (e.g. user left mid-onboarding).
-function savedPrefs(user, key) {
-  const list = user?.tastePreferences?.[key];
-  return Array.isArray(list) ? list : [];
-}
-
+/** Post-signup profile setup — ported from lib/screens/onboarding/onboarding_page.dart.
+ * Light cream palette, unlike the dark auth flow it follows. Role, taste preferences and
+ * photos are all saved for real: chosen photos are uploaded through the media presign flow
+ * (purpose "profile"/"cover") and their URLs posted to onboarding/photos; with none chosen
+ * that step is sent as `{skip:true}`, exactly like the app's "Skip" path. */
 export function OnboardingPage() {
   const navigate = useNavigate();
-  const { loggedIn, user } = useSession();
+  const { refreshUser } = useAuth();
   const [step, setStep] = useState(0);
-  const [role, setRoleChoice] = useState(user?.role ?? null);
-  const [mediums, setMediums] = useState(() => savedPrefs(user, 'mediums'));
-  const [styles, setStyles] = useState(() => savedPrefs(user, 'styles'));
-  const [themes, setThemes] = useState(() => savedPrefs(user, 'themes'));
-  const [photoUrl, setPhotoUrl] = useState(null);
-  const [preview, setPreview] = useState(null);
-  const [uploading, setUploading] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [role, setRole] = useState(null);
+  const [mediums, setMediums] = useState([]);
+  const [styles, setStyles] = useState([]);
+  const [themes, setThemes] = useState([]);
+  const [avatarUrl, setAvatarUrl] = useState(null);
+  const [coverUrl, setCoverUrl] = useState(null);
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [coverFile, setCoverFile] = useState(null);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
-  // Set right before the final navigate so the onboardingComplete redirect
-  // below doesn't race it.
-  const finishing = useRef(false);
-  const fileInput = useRef(null);
+  const avatarInput = useRef(null);
+  const coverInput = useRef(null);
 
-  useEffect(() => () => preview && URL.revokeObjectURL(preview), [preview]);
-
-  if (!loggedIn) return <Navigate to="/login?next=%2Fonboarding" replace />;
-  if (user?.onboardingComplete && !finishing.current) return <Navigate to="/home" replace />;
-
-  const toggle = (set) => (id) =>
-    set((arr) => (arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id]));
-
-  const run = async (fn) => {
-    if (loading || uploading) return;
-    setLoading(true);
-    setError(null);
-    try {
-      await fn();
-    } catch (e) {
-      setError(e.message || 'Something went wrong');
-    } finally {
-      setLoading(false);
-    }
+  const toggle = (list, setList, id) => {
+    setList(list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
   };
 
-  const prefsValid = mediums.length >= 3 && styles.length >= 3 && themes.length >= 3;
+  const canContinue =
+    step === 0 ? Boolean(role) : step === 1 ? mediums.length >= 3 && styles.length >= 3 && themes.length >= 3 : true;
 
-  const next = () => {
-    if (step === 0) {
-      return run(async () => {
-        await setRole(role);
-        setStep(1);
-      });
+  const onFile = (setUrl, setFile) => (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // let the same file be re-picked after an error
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setError('Please choose an image file.');
+      return;
     }
-    if (step === 1) {
-      return run(async () => {
-        await setOnboardingPreferences({ mediums, styles, themes });
-        setStep(2);
-      });
-    }
-    return run(async () => {
-      await setOnboardingPhotos(photoUrl);
-      finishing.current = true;
-      try {
-        await completeOnboarding();
-      } catch (e) {
-        finishing.current = false;
-        throw e;
-      }
-      navigate('/home', { replace: true });
+    setError(null);
+    setFile(file);
+    setUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return URL.createObjectURL(file);
     });
   };
 
-  const pickPhoto = async (e) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
+  const advance = async () => {
+    if (busy) return;
+    setBusy(true);
     setError(null);
-    setUploading(true);
     try {
-      const url = await uploadProfilePhoto(file);
-      setPhotoUrl(url);
-      setPreview(URL.createObjectURL(file));
-    } catch (err) {
-      setError(err.message || 'Upload failed');
+      if (step === 0) {
+        await apiFetch('/api/user/me/role', { method: 'PATCH', auth: true, body: { role } });
+        setStep(1);
+      } else if (step === 1) {
+        await apiFetch('/api/user/me/onboarding/preferences', {
+          method: 'POST',
+          auth: true,
+          body: { mediums, styles, themes },
+        });
+        setStep(2);
+      } else {
+        const photos = {};
+        if (avatarFile) photos.profilePhotoUrl = await uploadMedia(avatarFile, 'profile');
+        if (coverFile) photos.coverPhotoUrl = await uploadMedia(coverFile, 'cover');
+        await apiFetch('/api/user/me/onboarding/photos', {
+          method: 'POST',
+          auth: true,
+          body: Object.keys(photos).length ? photos : { skip: true },
+        });
+        await apiFetch('/api/user/me/onboarding/complete', { method: 'POST', auth: true });
+        // Re-read the full UserMe so every screen sees onboardingComplete + the new photos.
+        await refreshUser();
+        navigate('/home', { replace: true });
+      }
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Something went wrong. Please try again.');
     } finally {
-      setUploading(false);
+      setBusy(false);
     }
   };
 
-  const canContinue = (step === 0 && role) || (step === 1 && prefsValid) || step === 2;
-
   return (
-    <div style={bgStyle}>
-      <div style={{ textAlign: 'center', marginBottom: 24 }}>
-        <h1 style={{ fontSize: 28, fontWeight: 700, color: 'var(--slate-900)' }}>Studio 3</h1>
-        <p style={{ fontSize: 13, color: 'var(--slate-400)', marginTop: 4 }}>Discover Art. Collect Stories.</p>
+    <div
+      style={{
+        background: 'var(--cream-bg)',
+        minHeight: '100vh',
+        width: '100%',
+        display: 'flex',
+        justifyContent: 'center',
+      }}
+    >
+    <div style={{ width: '100%', maxWidth: 480, display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      <header style={{ padding: '16px 16px 12px', textAlign: 'center' }}>
+        <h1 style={{ fontFamily: 'var(--font-inter)', fontSize: 17, fontWeight: 600, color: 'var(--cream-text)' }}>
+          Set up your profile
+        </h1>
+      </header>
+      <div style={{ display: 'flex', gap: 6, padding: '0 20px 20px' }}>
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            style={{
+              flex: 1,
+              height: 3,
+              borderRadius: 2,
+              background: i <= step ? 'var(--cream-text)' : 'rgba(35,31,27,0.15)',
+            }}
+          />
+        ))}
       </div>
 
-      <GlassCard style={{ width: '100%', maxWidth: 343, padding: 28, margin: '0 auto' }}>
-        <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, marginBottom: 24, minHeight: 24 }}>
-          {step > 0 && (
-            <button
-              type="button"
-              onClick={() => { setError(null); setStep(step - 1); }}
-              aria-label="Back"
-              style={{ position: 'absolute', left: -8, color: 'var(--slate-600)', padding: 4, display: 'flex' }}
-            >
-              <ChevronLeft size={22} />
-            </button>
-          )}
-          {[0, 1, 2].map((i) => (
-            <div
-              key={i}
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                background: i <= step ? 'var(--slate-900)' : 'var(--slate-300)',
-              }}
-            />
-          ))}
-        </div>
+      <div style={{ flex: 1, padding: '0 20px', overflowY: 'auto' }}>
+        {error && (
+          <p style={{ fontFamily: 'var(--font-inter)', fontSize: 12, color: 'var(--cream-status-error)', marginBottom: 16 }}>
+            {error}
+          </p>
+        )}
 
         {step === 0 && (
           <>
-            <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 16 }}>What brings you to Studio 3?</h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
+            <h2 style={{ fontFamily: 'var(--font-inter)', fontSize: 22, fontWeight: 700, color: 'var(--cream-text)', marginBottom: 16 }}>
+              What brings you to Studio 3?
+            </h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {ROLES.map((r) => {
                 const selected = role === r.id;
                 return (
                   <button
                     key={r.id}
-                    type="button"
-                    onClick={() => setRoleChoice(r.id)}
-                    aria-pressed={selected}
+                    onClick={() => setRole(r.id)}
                     style={{
                       textAlign: 'left',
-                      padding: '14px 18px',
-                      borderRadius: 16,
-                      border: `1.5px solid ${selected ? 'var(--slate-900)' : 'var(--slate-200)'}`,
-                      background: selected ? 'var(--slate-900)' : 'var(--white)',
-                      color: selected ? 'var(--white)' : 'var(--slate-900)',
-                      transition: 'background 0.2s, color 0.2s, border-color 0.2s',
+                      padding: 16,
+                      borderRadius: 12,
+                      border: `1px solid ${selected ? 'var(--cream-text)' : 'rgba(35,31,27,0.2)'}`,
+                      background: selected ? 'rgba(35,31,27,0.08)' : 'transparent',
                     }}
                   >
-                    <div style={{ fontSize: 15, fontWeight: 600 }}>{r.title}</div>
-                    <div style={{ fontSize: 13, marginTop: 2, color: selected ? 'var(--slate-300)' : 'var(--slate-500)' }}>
+                    <div style={{ fontFamily: 'var(--font-inter)', fontSize: 16, fontWeight: 600, color: 'var(--cream-text)' }}>
+                      {r.title}
+                    </div>
+                    <div style={{ fontFamily: 'var(--font-inter)', fontSize: 13, color: 'rgba(35,31,27,0.55)', marginTop: 2 }}>
                       {r.subtitle}
                     </div>
                   </button>
@@ -221,65 +168,134 @@ export function OnboardingPage() {
 
         {step === 1 && (
           <>
-            <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>What moves you?</h2>
-            <p style={{ fontSize: 13, color: 'var(--slate-500)', marginBottom: 20 }}>
-              Pick at least 3 mediums, styles, and themes to personalize your feed
+            <h2 style={{ fontFamily: 'var(--font-inter)', fontSize: 22, fontWeight: 700, color: 'var(--cream-text)', marginBottom: 4 }}>
+              Your taste
+            </h2>
+            <p style={{ fontFamily: 'var(--font-inter)', fontSize: 13, color: 'var(--cream-text-secondary)', marginBottom: 20 }}>
+              Pick at least 3 mediums, styles, and themes.
             </p>
-            <ChipGroup label="Mediums" options={MEDIUMS} selected={mediums} onToggle={toggle(setMediums)} />
-            <ChipGroup label="Styles" options={STYLES} selected={styles} onToggle={toggle(setStyles)} />
-            <ChipGroup label="Themes" options={THEMES} selected={themes} onToggle={toggle(setThemes)} />
-            <div style={{ height: 8 }} />
+            <ChipSection label="Mediums" count={mediums.length} options={MEDIUMS} selected={mediums} onToggle={(id) => toggle(mediums, setMediums, id)} />
+            <ChipSection label="Styles" count={styles.length} options={STYLES} selected={styles} onToggle={(id) => toggle(styles, setStyles, id)} />
+            <ChipSection label="Themes" count={themes.length} options={THEMES} selected={themes} onToggle={(id) => toggle(themes, setThemes, id)} />
           </>
         )}
 
         {step === 2 && (
           <>
-            <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>Profile photo</h2>
-            <p style={{ fontSize: 13, color: 'var(--slate-500)', marginBottom: 20, lineHeight: 1.4 }}>
-              Add a profile photo, or tap Finish to skip for now.
+            <h2 style={{ fontFamily: 'var(--font-inter)', fontSize: 22, fontWeight: 700, color: 'var(--cream-text)', marginBottom: 4 }}>
+              Profile photos
+            </h2>
+            <p style={{ fontFamily: 'var(--font-inter)', fontSize: 13, color: 'var(--cream-text-secondary)', marginBottom: 20 }}>
+              Add a face and a cover to your profile.
             </p>
-            <input
-              ref={fileInput}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              onChange={pickPhoto}
-              style={{ display: 'none' }}
+            <input ref={avatarInput} type="file" accept="image/*" hidden onChange={onFile(setAvatarUrl, setAvatarFile)} />
+            <input ref={coverInput} type="file" accept="image/*" hidden onChange={onFile(setCoverUrl, setCoverFile)} />
+            <PickerRow
+              onClick={() => avatarInput.current?.click()}
+              icon={
+                avatarUrl ? (
+                  <img src={avatarUrl} alt="" style={{ width: 72, height: 72, borderRadius: '50%', objectFit: 'cover' }} />
+                ) : (
+                  <span style={{ width: 72, height: 72, borderRadius: '50%', background: 'rgba(35,31,27,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <User size={28} color="var(--cream-text-secondary)" />
+                  </span>
+                )
+              }
+              label={avatarUrl ? 'Profile photo added' : 'Add profile photo'}
             />
-            <button
-              type="button"
-              onClick={() => fileInput.current?.click()}
-              disabled={uploading || loading}
-              aria-label="Choose profile photo"
-              style={{
-                width: 96,
-                height: 96,
-                borderRadius: '50%',
-                border: preview ? 'none' : '2px dashed var(--slate-300)',
-                background: 'var(--slate-50)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'var(--slate-400)',
-                margin: '0 auto 12px',
-                overflow: 'hidden',
-                padding: 0,
-              }}
-            >
-              {preview
-                ? <img src={preview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                : <Camera size={26} />}
-            </button>
-            <p style={{ textAlign: 'center', fontSize: 12, color: 'var(--slate-500)', marginBottom: 24 }}>
-              {uploading ? 'Uploading…' : preview ? 'Tap to change' : 'Tap to add a photo'}
+            <div style={{ height: 12 }} />
+            {coverUrl ? (
+              <img
+                src={coverUrl}
+                alt=""
+                onClick={() => coverInput.current?.click()}
+                style={{ width: '100%', height: 120, borderRadius: 12, objectFit: 'cover', marginBottom: 12, cursor: 'pointer' }}
+              />
+            ) : null}
+            <PickerRow
+              onClick={() => coverInput.current?.click()}
+              icon={<ImageIcon size={22} color="var(--cream-text-secondary)" />}
+              label={coverUrl ? 'Cover photo added' : 'Add cover photo'}
+            />
+            <p style={{ fontFamily: 'var(--font-inter)', fontSize: 11, color: 'var(--cream-text-secondary)', marginTop: 16 }}>
+              Optional — you can add or change these later from Edit profile.
             </p>
           </>
         )}
+      </div>
 
-        {error && <div style={{ ...errorText, marginBottom: 12 }} role="alert">{error}</div>}
-        <PrimaryButton disabled={!canContinue || loading || uploading} onClick={next}>
-          {loading ? 'Saving…' : step === 2 ? 'Finish' : 'Continue'}
-        </PrimaryButton>
-      </GlassCard>
+      <div style={{ padding: 20 }}>
+        <button
+          disabled={!canContinue || busy}
+          onClick={advance}
+          style={{
+            width: '100%',
+            height: 52,
+            borderRadius: 14,
+            background: canContinue ? 'var(--cream-cta-fill)' : 'rgba(53,47,42,0.4)',
+            color: 'var(--cream-text-inverse)',
+            fontFamily: 'var(--font-inter)',
+            fontSize: 15,
+            fontWeight: 600,
+          }}
+        >
+          {busy ? (step === 2 && (avatarFile || coverFile) ? 'Uploading…' : 'Please wait…') : step < 2 ? 'Continue' : avatarFile || coverFile ? 'Finish' : 'Skip & finish'}
+        </button>
+      </div>
     </div>
+    </div>
+  );
+}
+
+function ChipSection({ label, count, options, selected, onToggle }) {
+  return (
+    <div style={{ marginBottom: 20 }}>
+      <p style={{ fontFamily: 'var(--font-inter)', fontSize: 15, fontWeight: 600, color: 'var(--cream-text)', marginBottom: 10 }}>
+        {label} ({count}/3+)
+      </p>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+        {options.map((opt) => {
+          const active = selected.includes(opt);
+          return (
+            <button
+              key={opt}
+              onClick={() => onToggle(opt)}
+              style={{
+                padding: '8px 16px',
+                borderRadius: 9999,
+                border: `1px solid ${active ? 'var(--cream-text)' : 'rgba(35,31,27,0.2)'}`,
+                background: active ? 'rgba(35,31,27,0.15)' : 'transparent',
+                color: 'var(--cream-text)',
+                fontFamily: 'var(--font-inter)',
+                fontSize: 13,
+              }}
+            >
+              {opt}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function PickerRow({ onClick, icon, label }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        width: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 14,
+        padding: '4px 0',
+      }}
+    >
+      {icon}
+      <span style={{ flex: 1, textAlign: 'left', fontFamily: 'var(--font-inter)', fontSize: 15, fontWeight: 500, color: 'var(--cream-text)' }}>
+        {label}
+      </span>
+      <ChevronRight size={18} color="rgba(35,31,27,0.35)" />
+    </button>
   );
 }

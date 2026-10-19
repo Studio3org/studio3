@@ -1,389 +1,260 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
-import { ChevronLeft } from 'lucide-react';
-import { GlassCard } from '../components/design/GlassCard';
-import { PillInput, PillInputWithToggle } from '../components/inputs/PillInput';
-import { PrimaryButton } from '../components/buttons/PrimaryButton';
-import { PillChip } from '../components/inputs/PillChip';
-import { TermsCheckbox } from '../components/moderation/TermsCheckbox';
-import { useSession } from '../lib/session';
-import { checkUsername, generateOtp, register, resendOtp, verifyOtp } from '../lib/authApi';
-import { passwordProblem } from '../lib/validators';
+import { useNavigate } from 'react-router-dom';
+import { AtSign, Badge, Lock, Mail, Phone } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { apiFetch, ApiError } from '../services/apiClient';
+import {
+  AuthGhostButton,
+  AuthGuestLink,
+  AuthLinkFooter,
+  AuthMessage,
+  AuthOtpInput,
+  AuthPageTitle,
+  AuthPasswordInput,
+  AuthPillInput,
+  AuthPrimaryButton,
+  AuthScaffold,
+  AuthStepProgress,
+  AuthTermsCheckbox,
+  hasAgreedToTerms,
+  passwordError,
+} from '../components/auth/AuthUI';
 
-const bgStyle = {
-  minHeight: '100vh',
-  background: 'linear-gradient(180deg, var(--slate-50) 0%, var(--slate-100) 50%, var(--slate-200) 100%)',
-  paddingTop: 44,
-  paddingBottom: 24,
-  paddingLeft: 16,
-  paddingRight: 16,
-};
+const TOTAL_STEPS = 6;
+const RESEND_COOLDOWN = 120;
 
-const STEPS = ['name', 'email', 'otp', 'username', 'phone', 'password'];
-const RESEND_COOLDOWN_SECONDS = 120;
-const EMAIL_RE = /^[\w.-]+@([\w-]+\.)+[\w-]{2,}$/;
-const USERNAME_RE = /^[a-zA-Z0-9_.]+$/;
-
-/// Same client-side rules as the app's AuthValidators; the backend has the final say.
-function usernameError(v) {
-  const u = v.trim();
-  if (!u) return 'Username is required';
-  if (u.length < 3) return 'At least 3 characters';
-  if (!USERNAME_RE.test(u)) return 'Letters, numbers, _ and . only';
-  return null;
-}
-
-const errorText = { fontSize: 13, color: '#E05252' };
-const hintText = { fontSize: 12, color: 'var(--slate-500)' };
-
-const skipButton = {
-  height: 52,
-  borderRadius: 9999,
-  border: '1.5px solid var(--slate-300)',
-  background: 'transparent',
-  color: 'var(--slate-600)',
-  fontSize: 15,
-  fontWeight: 500,
-  width: '100%',
-};
-
-function StepHeader({ title, subtitle }) {
-  return (
-    <div style={{ marginBottom: 4 }}>
-      <h2 style={{ fontSize: 18, fontWeight: 600, color: 'var(--slate-900)', marginBottom: 4 }}>{title}</h2>
-      {subtitle && <p style={{ fontSize: 13, color: 'var(--slate-500)', lineHeight: 1.4 }}>{subtitle}</p>}
-    </div>
-  );
+function passwordStrength(pw) {
+  if (!pw) return 0;
+  let score = 0;
+  if (pw.length >= 8) score += 0.34;
+  if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) score += 0.33;
+  if (/\d/.test(pw)) score += 0.33;
+  return Math.min(score, 1);
 }
 
 export function SignUpPage() {
+  const { register } = useAuth();
   const navigate = useNavigate();
-  const { loggedIn, user } = useSession();
-  const [step, setStep] = useState('name');
+  const [step, setStep] = useState(1);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [agreed, setAgreed] = useState(hasAgreedToTerms);
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
+  const [cooldown, setCooldown] = useState(RESEND_COOLDOWN);
   const [username, setUsername] = useState('');
-  const [usernameCheck, setUsernameCheck] = useState(null); // {available, message, suggestions} | 'checking' | null
+  const [usernameStatus, setUsernameStatus] = useState(null); // 'checking' | 'available' | 'taken'
+  const [usernameMessage, setUsernameMessage] = useState(null);
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
-  const [confirm, setConfirm] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [notice, setNotice] = useState(null);
-  const [cooldown, setCooldown] = useState(0);
-  const checkSeq = useRef(0);
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const usernameCheckId = useRef(0);
 
-  // Resend cooldown ticker.
   useEffect(() => {
-    if (cooldown <= 0) return undefined;
+    if (step !== 3 || cooldown <= 0) return;
     const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
     return () => clearTimeout(t);
-  }, [cooldown]);
+  }, [step, cooldown]);
 
-  /// Debounced live availability check. A sequence number drops responses
-  /// that arrive after the user has kept typing.
   useEffect(() => {
-    if (step !== 'username') return undefined;
-    const seq = ++checkSeq.current;
-    if (usernameError(username)) {
-      setUsernameCheck(null);
-      return undefined;
+    if (step !== 4 || !username.trim()) {
+      setUsernameStatus(null);
+      return;
     }
-    setUsernameCheck('checking');
+    const id = ++usernameCheckId.current;
+    setUsernameStatus('checking');
     const t = setTimeout(async () => {
       try {
-        const result = await checkUsername(username);
-        if (seq === checkSeq.current) setUsernameCheck(result);
+        const result = await apiFetch(`/api/auth/username/check?username=${encodeURIComponent(username.trim())}`);
+        if (usernameCheckId.current !== id) return;
+        setUsernameStatus(result.available ? 'available' : 'taken');
+        setUsernameMessage(result.message || null);
       } catch {
-        if (seq === checkSeq.current) setUsernameCheck(null);
+        if (usernameCheckId.current !== id) return;
+        setUsernameStatus(null);
       }
     }, 450);
     return () => clearTimeout(t);
-  }, [username, step]);
-
-  // Already signed in (e.g. a stale /signup tab) — nothing to do here.
-  if (loggedIn) {
-    return <Navigate to={user?.onboardingComplete === false ? '/onboarding' : '/home'} replace />;
-  }
-
-  const go = (next) => {
-    setError(null);
-    setNotice(null);
-    setStep(next);
-  };
+  }, [step, username]);
 
   const goBack = () => {
-    const i = STEPS.indexOf(step);
-    if (i <= 0) navigate(-1);
-    else go(STEPS[i - 1]);
+    setError(null);
+    if (step > 1) setStep(step - 1);
+    else navigate(-1);
   };
 
-  /// Run an async step action with shared loading/error handling.
-  const run = async (fn) => {
-    if (loading) return;
-    setLoading(true);
+  const withBusy = async (fn) => {
+    if (busy) return;
+    setBusy(true);
     setError(null);
     try {
       await fn();
     } catch (e) {
-      setError(e.message || 'Something went wrong');
+      setError(e instanceof ApiError ? e.message : 'Something went wrong. Please try again.');
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
   };
 
-  const nameValid = firstName.trim() && lastName.trim();
-  const emailValid = EMAIL_RE.test(email.trim());
-  const usernameValid = !usernameError(username) && usernameCheck !== 'checking'
-    && usernameCheck?.available !== false;
-  const phoneDigits = phone.replace(/\D/g, '');
-  const passwordError = password ? passwordProblem(password) : null;
-  const confirmError = confirm && confirm !== password ? 'Passwords do not match' : null;
-  const passwordValid = !passwordProblem(password) && confirm === password;
-
-  const sendCode = () => run(async () => {
-    await generateOtp(email);
-    setOtp('');
-    setCooldown(RESEND_COOLDOWN_SECONDS);
-    go('otp');
-    setNotice('Verification code sent to your email');
-  });
-
-  const resend = () => run(async () => {
-    await resendOtp(email);
-    setOtp('');
-    setCooldown(RESEND_COOLDOWN_SECONDS);
-    setNotice('Verification code resent');
-  });
-
-  const verify = () => run(async () => {
-    if (otp.length !== 6) throw new Error('Enter the 6-digit code');
-    await verifyOtp(email, otp);
-    go('username');
-  });
-
-  /// Re-check on submit — the live check may be stale or still in flight.
-  const confirmUsername = () => run(async () => {
-    const result = await checkUsername(username);
-    if (!result.available) {
-      setUsernameCheck(result);
-      return;
-    }
-    go('phone');
-  });
-
-  const continuePhone = (skip) => {
-    if (skip) setPhone('');
-    else if (phone.trim() && phoneDigits.length < 10) {
-      setError('Enter a valid phone number');
-      return;
-    }
-    go('password');
-  };
-
-  const createAccount = () => run(async () => {
-    await register({
-      username,
-      name: `${firstName.trim()} ${lastName.trim()}`,
-      email,
-      password,
-      otp,
-      phone,
+  const sendCode = () =>
+    withBusy(async () => {
+      await apiFetch('/api/auth/otp/generate', { method: 'POST', body: { email } });
+      setCooldown(RESEND_COOLDOWN);
+      setStep(3);
     });
-    navigate('/onboarding', { replace: true });
-  });
 
-  const onEnter = (action, enabled) => (e) => {
-    if (e.key === 'Enter' && enabled) action();
-  };
+  const resendCode = () =>
+    withBusy(async () => {
+      await apiFetch('/api/auth/otp/resend', { method: 'POST', body: { email } });
+      setCooldown(RESEND_COOLDOWN);
+    });
 
-  const stepIndex = STEPS.indexOf(step);
-  const checking = usernameCheck === 'checking';
+  const verifyCode = () =>
+    withBusy(async () => {
+      await apiFetch('/api/auth/otp/verify', { method: 'POST', body: { email, otp } });
+      setStep(4);
+    });
+
+  const createAccount = () =>
+    withBusy(async () => {
+      const user = await register({
+        username: username.trim(),
+        name: `${firstName.trim()} ${lastName.trim()}`.trim(),
+        email,
+        password,
+        otp,
+        phone: phone.trim() || undefined,
+      });
+      navigate('/welcome', { replace: true, state: { onboardingComplete: user.onboardingComplete } });
+    });
+
+  const strength = passwordStrength(password);
+  const pwError = passwordError(password);
+  const strengthColor = strength < 0.4 ? '#FF6B6B' : strength < 0.7 ? '#FFB347' : 'var(--auth-success)';
 
   return (
-    <div style={bgStyle}>
-      <div style={{ textAlign: 'center', marginBottom: 24 }}>
-        <h1 style={{ fontSize: 28, fontWeight: 700, color: 'var(--slate-900)' }}>Studio 3</h1>
-        <p style={{ fontSize: 13, color: 'var(--slate-400)', marginTop: 4 }}>Discover Art. Collect Stories.</p>
+    <AuthScaffold compact showBackButton onBack={goBack}>
+      <div style={{ marginBottom: 24 }}>
+        <AuthStepProgress total={TOTAL_STEPS} current={step} />
       </div>
 
-      <GlassCard style={{ width: '100%', maxWidth: 343, padding: 28, margin: '0 auto' }}>
-        <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, marginBottom: 24, minHeight: 24 }}>
-          <button
-            type="button"
-            onClick={goBack}
-            aria-label="Back"
-            style={{ position: 'absolute', left: -8, color: 'var(--slate-600)', padding: 4, display: 'flex' }}
-          >
-            <ChevronLeft size={22} />
-          </button>
-          {STEPS.map((s, i) => (
-            <div
-              key={s}
+      {error && (
+        <p style={{ fontFamily: 'var(--font-inter)', fontSize: 12, color: 'var(--auth-error)', marginBottom: 12 }}>
+          {error}
+        </p>
+      )}
+
+      {step === 1 && (
+        <StepBody title="What's your name?">
+          <AuthPillInput icon={<Badge size={20} strokeWidth={1.75} />} placeholder="First name" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+          <AuthPillInput icon={<Badge size={20} strokeWidth={1.75} />} placeholder="Last name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
+          <AuthTermsCheckbox checked={agreed} onChange={setAgreed} />
+          <AuthPrimaryButton disabled={!firstName.trim() || !lastName.trim() || !agreed} onClick={() => setStep(2)}>Continue</AuthPrimaryButton>
+        </StepBody>
+      )}
+
+      {step === 2 && (
+        <StepBody title="What's your email?" subtitle="We'll send you a verification code.">
+          <AuthPillInput icon={<Mail size={20} strokeWidth={1.75} />} type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <AuthPrimaryButton disabled={!email} loading={busy} onClick={sendCode}>Send code</AuthPrimaryButton>
+        </StepBody>
+      )}
+
+      {step === 3 && (
+        <StepBody title="Verify your email" subtitle={`We sent a 6-digit code to ${email || 'your email'}.`}>
+          <AuthOtpInput value={otp} onChange={setOtp} />
+          <div style={{ textAlign: 'center', fontFamily: 'var(--font-inter)', fontSize: 12, color: 'var(--auth-text-dim)' }}>
+            {cooldown > 0 ? (
+              <span>Resend code in {String(Math.floor(cooldown / 60)).padStart(2, '0')}:{String(cooldown % 60).padStart(2, '0')}</span>
+            ) : (
+              <button onClick={resendCode} style={{ color: '#fff', fontWeight: 500 }}>Resend code</button>
+            )}
+          </div>
+          <AuthPrimaryButton disabled={otp.length !== 6} loading={busy} onClick={verifyCode}>Verify</AuthPrimaryButton>
+        </StepBody>
+      )}
+
+      {step === 4 && (
+        <StepBody title="Choose a username">
+          <AuthPillInput
+            icon={<AtSign size={20} strokeWidth={1.75} />}
+            placeholder="Username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+          />
+          {usernameStatus && (
+            <p
               style={{
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                background: i <= stepIndex ? 'var(--slate-900)' : 'var(--slate-300)',
+                fontFamily: 'var(--font-inter)',
+                fontSize: 12,
+                color: usernameStatus === 'available' ? 'var(--auth-success)' : usernameStatus === 'taken' ? 'var(--auth-error)' : 'var(--auth-text-dim)',
+                margin: '-6px 2px 0',
               }}
-            />
-          ))}
+            >
+              {usernameStatus === 'checking' && 'Checking availability…'}
+              {usernameStatus === 'available' && 'Username is available'}
+              {usernameStatus === 'taken' && (usernameMessage || 'That username is taken')}
+            </p>
+          )}
+          <AuthPrimaryButton disabled={usernameStatus !== 'available'} onClick={() => setStep(5)}>Continue</AuthPrimaryButton>
+        </StepBody>
+      )}
+
+      {step === 5 && (
+        <StepBody title="Add your phone" subtitle="Optional — helps secure your account.">
+          <AuthPillInput icon={<Phone size={20} strokeWidth={1.75} />} type="tel" placeholder="Phone number" value={phone} onChange={(e) => setPhone(e.target.value)} />
+          <AuthPrimaryButton onClick={() => setStep(6)}>Continue</AuthPrimaryButton>
+          <AuthGhostButton onClick={() => setStep(6)}>Skip for now</AuthGhostButton>
+        </StepBody>
+      )}
+
+      {step === 6 && (
+        <StepBody title="Create a password">
+          <AuthPasswordInput icon={<Lock size={20} strokeWidth={1.75} />} placeholder="Password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          {password && (
+            <div style={{ height: 3, borderRadius: 2, background: 'var(--auth-border)', overflow: 'hidden' }}>
+              <div style={{ width: `${strength * 100}%`, height: '100%', background: strengthColor, transition: 'width 0.2s' }} />
+            </div>
+          )}
+          <AuthMessage tone={password && !pwError ? 'success' : password ? 'error' : 'dim'}>
+            {password ? pwError || 'Strong enough' : 'At least 8 characters, with an uppercase letter and a number.'}
+          </AuthMessage>
+          <AuthPasswordInput
+            icon={<Lock size={20} strokeWidth={1.75} />}
+            placeholder="Confirm password"
+            autoComplete="new-password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            error={confirmPassword && confirmPassword !== password ? 'Passwords do not match' : null}
+          />
+          <AuthPrimaryButton
+            disabled={Boolean(pwError) || password !== confirmPassword}
+            loading={busy}
+            onClick={createAccount}
+          >
+            Create Account
+          </AuthPrimaryButton>
+        </StepBody>
+      )}
+
+      {step === 1 && (
+        <div style={{ marginTop: 24 }}>
+          <AuthLinkFooter prompt="Already have an account?" linkLabel="Sign in" to="/login" />
+          <AuthGuestLink />
         </div>
+      )}
+    </AuthScaffold>
+  );
+}
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {step === 'name' && (
-            <>
-              <StepHeader title="Your name" subtitle="How should we address you?" />
-              <PillInput placeholder="First name" autoComplete="given-name" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-              <PillInput placeholder="Last name" autoComplete="family-name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
-              <TermsCheckbox checked={agreedToTerms} onChange={setAgreedToTerms} />
-              <PrimaryButton disabled={!nameValid || !agreedToTerms} onClick={() => go('email')}>
-                Continue
-              </PrimaryButton>
-            </>
-          )}
-
-          {step === 'email' && (
-            <>
-              <StepHeader title="Your email" subtitle="We'll send a verification code" />
-              <PillInput
-                type="email"
-                placeholder="Email address"
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                onKeyDown={onEnter(sendCode, emailValid && !loading)}
-              />
-              {error && <div style={errorText} role="alert">{error}</div>}
-              <PrimaryButton disabled={!emailValid || loading} onClick={sendCode}>
-                {loading ? 'Sending…' : 'Send code'}
-              </PrimaryButton>
-            </>
-          )}
-
-          {step === 'otp' && (
-            <>
-              <StepHeader title="Verify email" subtitle={`Enter the 6-digit code sent to ${email.trim()}`} />
-              <PillInput
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                placeholder="6-digit code"
-                maxLength={6}
-                value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                onKeyDown={onEnter(verify, otp.length === 6 && !loading)}
-              />
-              {notice && !error && <div style={hintText}>{notice}</div>}
-              {error && <div style={errorText} role="alert">{error}</div>}
-              <PrimaryButton disabled={otp.length !== 6 || loading} onClick={verify}>
-                {loading ? 'Verifying…' : 'Verify'}
-              </PrimaryButton>
-              <div style={{ textAlign: 'center', fontSize: 13 }}>
-                <button
-                  type="button"
-                  onClick={resend}
-                  disabled={cooldown > 0 || loading}
-                  style={{
-                    color: cooldown > 0 ? 'var(--slate-400)' : 'var(--slate-900)',
-                    fontWeight: 600,
-                    cursor: cooldown > 0 ? 'default' : 'pointer',
-                  }}
-                >
-                  Resend code
-                </button>
-                {cooldown > 0 && (
-                  <span style={{ color: 'var(--slate-400)', marginLeft: 6 }}>
-                    ({Math.floor(cooldown / 60)}:{String(cooldown % 60).padStart(2, '0')})
-                  </span>
-                )}
-              </div>
-            </>
-          )}
-
-          {step === 'username' && (
-            <>
-              <StepHeader title="Pick a username" subtitle="This is how others will find you" />
-              <PillInput
-                placeholder="Username"
-                autoComplete="username"
-                autoCapitalize="none"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                onKeyDown={onEnter(confirmUsername, usernameValid && !loading)}
-              />
-              {username && usernameError(username) && <div style={errorText}>{usernameError(username)}</div>}
-              {checking && <div style={hintText}>Checking availability…</div>}
-              {usernameCheck && !checking && (
-                <div style={{ fontSize: 13, color: usernameCheck.available ? '#2E9E5B' : '#E05252' }}>
-                  {usernameCheck.message || (usernameCheck.available ? 'Username is available' : 'Username is taken')}
-                </div>
-              )}
-              {usernameCheck && !checking && !usernameCheck.available && usernameCheck.suggestions.length > 0 && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                  {usernameCheck.suggestions.map((s) => (
-                    <PillChip key={s} onClick={() => setUsername(s)}>{s}</PillChip>
-                  ))}
-                </div>
-              )}
-              {error && <div style={errorText} role="alert">{error}</div>}
-              <PrimaryButton disabled={!usernameValid || loading} onClick={confirmUsername}>
-                {loading ? 'Checking…' : 'Continue'}
-              </PrimaryButton>
-            </>
-          )}
-
-          {step === 'phone' && (
-            <>
-              <StepHeader title="Phone number" subtitle="Optional — for account recovery" />
-              <PillInput
-                type="tel"
-                placeholder="Phone number (optional)"
-                autoComplete="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                onKeyDown={onEnter(() => continuePhone(false), true)}
-              />
-              {error && <div style={errorText} role="alert">{error}</div>}
-              <PrimaryButton onClick={() => continuePhone(false)}>Continue</PrimaryButton>
-              <button type="button" style={skipButton} onClick={() => continuePhone(true)}>
-                Skip for now
-              </button>
-            </>
-          )}
-
-          {step === 'password' && (
-            <>
-              <StepHeader title="Set password" subtitle="8+ characters, with an uppercase letter and a number" />
-              <PillInputWithToggle
-                placeholder="Password"
-                autoComplete="new-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-              {passwordError && <div style={errorText}>{passwordError}</div>}
-              <PillInputWithToggle
-                placeholder="Confirm password"
-                autoComplete="new-password"
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-                onKeyDown={onEnter(createAccount, passwordValid && !loading)}
-              />
-              {confirmError && <div style={errorText}>{confirmError}</div>}
-              {error && <div style={errorText} role="alert">{error}</div>}
-              <PrimaryButton disabled={!passwordValid || loading} onClick={createAccount}>
-                {loading ? 'Creating account…' : 'Create Account'}
-              </PrimaryButton>
-            </>
-          )}
-        </div>
-      </GlassCard>
-
-      <p style={{ marginTop: 24, fontSize: 14, color: 'var(--slate-600)', textAlign: 'center' }}>
-        Already have an account? <Link to="/login" style={{ fontWeight: 600 }}>Sign In</Link>
-      </p>
+function StepBody({ title, subtitle, children }) {
+  return (
+    <div>
+      <AuthPageTitle title={title} subtitle={subtitle} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>{children}</div>
     </div>
   );
 }

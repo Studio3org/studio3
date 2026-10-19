@@ -1,96 +1,85 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { GlassCard } from '../components/design/GlassCard';
-import { PillInput } from '../components/inputs/PillInput';
-import { PrimaryButton } from '../components/buttons/PrimaryButton';
-import { requestPasswordReset } from '../lib/authApi';
-
-const bgStyle = {
-  minHeight: '100vh',
-  background: 'linear-gradient(180deg, var(--slate-50) 0%, var(--slate-100) 50%, var(--slate-200) 100%)',
-  paddingTop: 44,
-  paddingBottom: 24,
-  paddingLeft: 16,
-  paddingRight: 16,
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-};
+import { useNavigate } from 'react-router-dom';
+import { Mail, MailCheck } from 'lucide-react';
+import { apiFetch, ApiError } from '../services/apiClient';
+import {
+  AuthGhostButton,
+  AuthLinkFooter,
+  AuthMessage,
+  AuthPageTitle,
+  AuthPillInput,
+  AuthPrimaryButton,
+  AuthScaffold,
+} from '../components/auth/AuthUI';
 
 const EMAIL_RE = /^[\w.-]+@([\w-]+\.)+[\w-]{2,}$/;
 
+/** "Forgot login?" — emails a reset link. The backend answers 200 whether or not the
+ * address has an account (no account enumeration), so the confirmation copy is the same
+ * either way; only genuine failures (rate limit, network) surface as errors. */
 export function ForgotPasswordPage() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [sent, setSent] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const [sent, setSent] = useState(false);
 
-  const canSubmit = EMAIL_RE.test(email.trim()) && !loading;
+  const valid = EMAIL_RE.test(email.trim());
 
   const submit = async () => {
-    if (!canSubmit) return;
-    setLoading(true);
+    if (!valid || busy) return;
+    setBusy(true);
     setError(null);
     try {
-      await requestPasswordReset(email);
+      await apiFetch('/api/auth/forget-password', { method: 'POST', body: { email: email.trim() } });
       setSent(true);
     } catch (e) {
-      // The backend answers 200 whether or not the account exists; only
-      // network/rate-limit failures land here.
-      setError(e.message);
+      setError(e instanceof ApiError ? e.message : 'Could not send the reset link. Please try again.');
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
   };
 
   return (
-    <div style={bgStyle}>
-      <div style={{ textAlign: 'center', marginBottom: 32 }}>
-        <h1 style={{ fontSize: 28, fontWeight: 700, color: 'var(--slate-900)' }}>Studio 3</h1>
-        <p style={{ fontSize: 13, color: 'var(--slate-400)', marginTop: 4 }}>Discover Art. Collect Stories.</p>
-      </div>
-
-      <GlassCard style={{ width: '100%', maxWidth: 343, padding: 28 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div>
-            <h2 style={{ fontSize: 18, fontWeight: 600, color: 'var(--slate-900)', marginBottom: 4 }}>Forgot password</h2>
-            <p style={{ fontSize: 13, color: 'var(--slate-500)', lineHeight: 1.4 }}>
-              {sent
-                ? "If an account exists for that email, we've emailed a reset link. It expires in an hour."
-                : "Enter your account's email and we'll send you a link to reset your password."}
-            </p>
+    <AuthScaffold compact showBackButton onBack={() => navigate('/login')}>
+      {sent ? (
+        <div style={{ textAlign: 'center' }}>
+          <MailCheck size={48} color="#fff" strokeWidth={1.5} style={{ margin: '0 auto 20px' }} />
+          <AuthPageTitle
+            align="center"
+            title="Check your email"
+            subtitle="If an account exists for that email, we've emailed a reset link."
+          />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <AuthPrimaryButton onClick={() => navigate('/login', { replace: true })}>Back to sign in</AuthPrimaryButton>
+            <AuthGhostButton onClick={() => setSent(false)}>Use a different email</AuthGhostButton>
           </div>
-          {!sent && (
-            <>
-              <PillInput
-                type="email"
-                placeholder="Email address"
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && submit()}
-              />
-              {error && <div style={{ fontSize: 13, color: '#E05252' }} role="alert">{error}</div>}
-              <PrimaryButton disabled={!canSubmit} onClick={submit}>
-                {loading ? 'Sending…' : 'Send reset link'}
-              </PrimaryButton>
-            </>
-          )}
-          {sent && (
-            <button
-              type="button"
-              onClick={() => setSent(false)}
-              style={{ fontSize: 13, color: 'var(--slate-600)', textDecoration: 'underline' }}
-            >
-              Use a different email
-            </button>
-          )}
         </div>
-      </GlassCard>
-
-      <p style={{ marginTop: 24, fontSize: 14, color: 'var(--slate-600)' }}>
-        Remembered it? <Link to="/login" style={{ fontWeight: 600, color: 'var(--slate-900)' }}>Sign In</Link>
-      </p>
-    </div>
+      ) : (
+        <>
+          <AuthPageTitle title="Forgot password?" subtitle="Enter your account email and we'll send you a reset link." />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <AuthPillInput
+              icon={<Mail size={20} strokeWidth={1.75} />}
+              type="email"
+              autoComplete="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && submit()}
+            />
+            {error && <AuthMessage>{error}</AuthMessage>}
+            <div style={{ marginTop: 6 }}>
+              <AuthPrimaryButton disabled={!valid} loading={busy} onClick={submit}>
+                Send reset link
+              </AuthPrimaryButton>
+            </div>
+          </div>
+          <div style={{ marginTop: 24 }}>
+            <AuthLinkFooter prompt="Remembered it?" linkLabel="Sign in" to="/login" />
+          </div>
+        </>
+      )}
+    </AuthScaffold>
   );
 }

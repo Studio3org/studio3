@@ -1,73 +1,121 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Avatar } from '../common/Avatar';
-import { StateMessage } from '../common/StateMessage';
-import { ContentActionsMenu } from '../moderation/ContentActionsMenu';
-import { isBlockedAuthor, onAuthorBlocked } from '../../lib/api';
-import { useRequireLogin, useSession } from '../../lib/session';
-import { useCursorList } from '../../lib/useCursorList';
-import { addComment, friendlyError, listComments } from '../../lib/social';
-import { timeAgo } from '../../lib/content';
+import { MoreHorizontal } from 'lucide-react';
+
+import { useAuth } from '../../context/AuthContext';
+import { useRequireLogin } from '../../hooks/useRequireLogin';
+import { addComment, friendlyError, listComments } from '../../services/socialApi';
+import { isBlockedAuthor, onAuthorBlocked } from '../../services/blockedAuthors';
+import { profileHref } from '../../utils/contentLinks';
+import { formatRelativeTime } from '../../utils/time';
+import { ContentActionsSheet } from '../moderation/ContentActions';
+import { useToast } from '../common/ActionSheet';
+import './CommentsSection.css';
 
 const MAX_LENGTH = 1000;
 
-const pillButton = {
-  padding: '10px 18px',
-  borderRadius: 9999,
-  border: 'none',
-  background: 'var(--slate-900)',
-  color: 'var(--white)',
-  fontSize: 14,
-  fontWeight: 600,
-  cursor: 'pointer',
-  flexShrink: 0,
-};
-
-const sameUser = (a, b) => Boolean(a) && Boolean(b) && a.toLowerCase() === b.toLowerCase();
-
-/// Comments on a piece or scene, newest first like the app's comment sheet.
-/// `onAdded` lets the page bump its comment count after a successful post.
-export function CommentsSection({ item, onAdded }) {
-  const { loggedIn, user } = useSession();
+/**
+ * Comments under a piece or scene, newest first, in the piece page's type and tokens.
+ *
+ * @param {object} props
+ * @param {'piece'|'post'} props.type
+ * @param {string} props.id
+ * @param {(delta: number) => void} [props.onCountChange] — +1 when the viewer posts, so
+ *   the parent's commentCount stays in step without a refetch.
+ */
+export function CommentsSection({ type, id, onCountChange }) {
+  const { user, status } = useAuth();
   const requireLogin = useRequireLogin();
+  const authenticated = status === 'authenticated';
+
+  const [items, setItems] = useState([]);
+  const [nextCursor, setNextCursor] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState(null);
   const [draft, setDraft] = useState('');
   const [posting, setPosting] = useState(false);
   const [postError, setPostError] = useState(null);
+  const [menuFor, setMenuFor] = useState(null);
   const [, setBlockTick] = useState(0);
+  const [toast, showToast] = useToast();
+  const requestRef = useRef(0);
 
-  const fetchPage = useCallback((cursor) => listComments(item, cursor), [item.type, item.id]);
-  const { items, setItems, nextCursor, loading, loadingMore, error, reload, loadMore } = useCursorList(
-    fetchPage,
-    [fetchPage],
-  );
+  // A block elsewhere on the page (or in this list) hides that author's comments at once.
+  useEffect(() => onAuthorBlocked(() => setBlockTick((n) => n + 1)), []);
 
-  // Blocking a commenter from their row's menu hides all of their comments at once.
-  useEffect(() => onAuthorBlocked(() => setBlockTick((t) => t + 1)), []);
+  // Wait for auth to settle — the token decides which blocked authors the backend drops.
+  useEffect(() => {
+    if (status === 'loading' || !id) return;
+    const req = ++requestRef.current;
+    setLoading(true);
+    setError(null);
+    setItems([]);
+    setNextCursor(null);
+    listComments(type, id)
+      .then((page) => {
+        if (req !== requestRef.current) return;
+        setItems(page.items);
+        setNextCursor(page.nextCursor);
+      })
+      .catch((e) => {
+        if (req === requestRef.current) setError(friendlyError(e));
+      })
+      .finally(() => {
+        if (req === requestRef.current) setLoading(false);
+      });
+  }, [type, id, status]);
+
+  const loadMore = useCallback(async () => {
+    if (!nextCursor || loadingMore) return;
+    const req = requestRef.current;
+    setLoadingMore(true);
+    try {
+      const page = await listComments(type, id, nextCursor);
+      if (req !== requestRef.current) return;
+      setItems((prev) => {
+        const seen = new Set(prev.map((c) => c.id));
+        return [...prev, ...page.items.filter((c) => !seen.has(c.id))];
+      });
+      setNextCursor(page.nextCursor);
+    } catch (e) {
+      showToast(friendlyError(e));
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [type, id, nextCursor, loadingMore, showToast]);
 
   const submit = async (e) => {
     e.preventDefault();
+    if (!requireLogin()) return;
     const body = draft.trim();
-    if (!body || posting || !requireLogin()) return;
-    const tempId = `pending-${Date.now()}`;
+    if (!body || posting) return;
+
+    // Optimistic row — the create response has no author object, so it comes from the session.
+    const tempId = `tmp-${Date.now()}`;
     const optimistic = {
       id: tempId,
       body,
       createdAt: new Date().toISOString(),
       author: {
-        username: user?.username ?? null,
-        name: user?.name || user?.username || 'You',
-        profilePhotoUrl: user?.profilePhotoUrl ?? null,
+        username: user?.username,
+        name: user?.name,
+        profilePhotoUrl: user?.profilePhotoUrl,
       },
       pending: true,
     };
-    setPosting(true);
-    setPostError(null);
     setItems((prev) => [optimistic, ...prev]);
     setDraft('');
+    setPosting(true);
+    setPostError(null);
     try {
-      const saved = await addComment(item, body);
-      setItems((prev) => prev.map((c) => (c.id === tempId ? saved : c)));
-      onAdded?.(saved);
+      const created = await addComment(type, id, body);
+      setItems((prev) => prev.map((c) => (
+        c.id === tempId
+          ? { ...optimistic, id: created?.id ?? tempId, createdAt: created?.createdAt ?? optimistic.createdAt, pending: false }
+          : c
+      )));
+      onCountChange?.(1);
     } catch (err) {
       setItems((prev) => prev.filter((c) => c.id !== tempId));
       setDraft(body);
@@ -77,124 +125,109 @@ export function CommentsSection({ item, onAdded }) {
     }
   };
 
+  const viewer = (user?.username || '').toLowerCase();
   const visible = items.filter((c) => !isBlockedAuthor(c.author?.username));
 
   return (
-    <section id="comments" style={{ padding: '16px 16px 32px' }}>
-      <h2 style={{ fontSize: 16, fontWeight: 600, color: 'var(--slate-900)', marginBottom: 12 }}>Comments</h2>
+    <section className="s3-comments" aria-label="Comments">
+      <h2 className="s3-comments-header">Comments</h2>
 
-      {loggedIn ? (
-        <form onSubmit={submit} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <Avatar src={user?.profilePhotoUrl} name={user?.name} size={32} />
-          <input
+      {authenticated ? (
+        <form className="s3-comments-composer" onSubmit={submit}>
+          <Avatar url={user?.profilePhotoUrl} name={user?.name || user?.username} />
+          <textarea
+            className="s3-comments-input"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) submit(e);
+            }}
             maxLength={MAX_LENGTH}
+            rows={1}
             placeholder="Add a comment…"
             aria-label="Add a comment"
-            style={{
-              flex: 1,
-              minWidth: 0,
-              height: 40,
-              padding: '0 14px',
-              borderRadius: 9999,
-              border: '1px solid var(--slate-200)',
-              background: 'var(--slate-50)',
-              fontSize: 14,
-              color: 'var(--slate-900)',
-              outline: 'none',
-            }}
           />
-          <button
-            type="submit"
-            disabled={!draft.trim() || posting}
-            style={{ ...pillButton, opacity: !draft.trim() || posting ? 0.5 : 1 }}
-          >
+          <button type="submit" className="s3-comments-post" disabled={!draft.trim() || posting}>
             Post
           </button>
         </form>
       ) : (
-        <button type="button" onClick={() => requireLogin()} style={{ ...pillButton, width: '100%' }}>
+        <button type="button" className="s3-comments-login" onClick={() => requireLogin()}>
           Log in to comment
         </button>
       )}
-      {postError && <p style={{ fontSize: 12, color: '#E05252', marginTop: 8 }}>{postError}</p>}
+      {postError && <p className="s3-comments-error">{postError}</p>}
 
       {loading ? (
-        <StateMessage style={{ padding: '24px 0' }}>Loading comments…</StateMessage>
+        <p className="s3-comments-state">Loading comments…</p>
       ) : error ? (
-        <StateMessage style={{ padding: '24px 0' }} action="Try again" onAction={reload}>
-          {friendlyError(error)}
-        </StateMessage>
+        <p className="s3-comments-state">{error}</p>
       ) : visible.length === 0 ? (
-        <StateMessage style={{ padding: '24px 0' }}>No comments yet. Be the first to say something.</StateMessage>
+        <p className="s3-comments-state">No comments yet.</p>
       ) : (
-        <ul style={{ listStyle: 'none', marginTop: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {visible.map((c) => (
-            <CommentRow key={c.id} comment={c} mine={sameUser(c.author?.username, user?.username)} />
-          ))}
+        <ul className="s3-comments-list">
+          {visible.map((comment) => {
+            const handle = comment.author?.username;
+            const name = comment.author?.name || handle || 'Studio3 member';
+            const isMine = Boolean(viewer && handle && handle.toLowerCase() === viewer);
+            return (
+              <li key={comment.id} className={`s3-comment${comment.pending ? ' is-pending' : ''}`}>
+                {handle ? (
+                  <Link to={profileHref(handle)} className="s3-comment-avatar-link" aria-label={name}>
+                    <Avatar url={comment.author?.profilePhotoUrl} name={name} />
+                  </Link>
+                ) : (
+                  <Avatar url={null} name={name} />
+                )}
+                <div className="s3-comment-main">
+                  <div className="s3-comment-meta">
+                    {handle ? (
+                      <Link to={profileHref(handle)} className="s3-comment-name">{name}</Link>
+                    ) : (
+                      <span className="s3-comment-name">{name}</span>
+                    )}
+                    <span className="s3-comment-time">
+                      {comment.pending ? 'Posting…' : formatRelativeTime(comment.createdAt)}
+                    </span>
+                  </div>
+                  <p className="s3-comment-body">{comment.body}</p>
+                </div>
+                {!isMine && !comment.pending && (
+                  <button
+                    type="button"
+                    className="s3-comment-more"
+                    aria-label="Comment options"
+                    onClick={() => setMenuFor(comment)}
+                  >
+                    <MoreHorizontal size={16} />
+                  </button>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
 
-      {!loading && !error && nextCursor && (
-        <button
-          type="button"
-          onClick={loadMore}
-          disabled={loadingMore}
-          style={{
-            display: 'block',
-            margin: '16px auto 0',
-            padding: '8px 16px',
-            borderRadius: 9999,
-            border: '1px solid var(--slate-200)',
-            background: 'var(--white)',
-            color: 'var(--slate-700)',
-            fontSize: 13,
-            fontWeight: 600,
-            cursor: 'pointer',
-          }}
-        >
+      {!loading && nextCursor && (
+        <button type="button" className="s3-comments-more" onClick={loadMore} disabled={loadingMore}>
           {loadingMore ? 'Loading…' : 'Load more comments'}
         </button>
       )}
+
+      {menuFor && (
+        <ContentActionsSheet
+          target={{ type: 'comment', id: menuFor.id }}
+          authorUsername={menuFor.author?.username}
+          onClose={() => setMenuFor(null)}
+          onNotice={showToast}
+        />
+      )}
+      {toast}
     </section>
   );
 }
 
-function CommentRow({ comment, mine }) {
-  const author = comment.author;
-  const name = author?.name || author?.username || 'Someone';
-  return (
-    <li style={{ display: 'flex', gap: 10, alignItems: 'flex-start', opacity: comment.pending ? 0.6 : 1 }}>
-      {author?.username ? (
-        <Link to={`/u/${author.username}`}>
-          <Avatar src={author.profilePhotoUrl} name={name} size={32} />
-        </Link>
-      ) : (
-        <Avatar src={author?.profilePhotoUrl} name={name} size={32} />
-      )}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, fontSize: 13 }}>
-          {author?.username ? (
-            <Link to={`/u/${author.username}`} style={{ fontWeight: 600, color: 'var(--slate-900)' }}>{name}</Link>
-          ) : (
-            <span style={{ fontWeight: 600, color: 'var(--slate-900)' }}>{name}</span>
-          )}
-          <span style={{ color: 'var(--slate-400)', fontSize: 12 }}>
-            {comment.pending ? 'Posting…' : timeAgo(comment.createdAt)}
-          </span>
-        </div>
-        <p style={{ fontSize: 14, color: 'var(--slate-700)', lineHeight: 1.45, marginTop: 2, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
-          {comment.body}
-        </p>
-      </div>
-      {!mine && !comment.pending && (
-        <ContentActionsMenu
-          target={{ type: 'comment', id: comment.id }}
-          authorUsername={author?.username}
-          buttonStyle={{ width: 28, height: 28, background: 'transparent', color: 'var(--slate-400)' }}
-        />
-      )}
-    </li>
-  );
+function Avatar({ url, name }) {
+  if (url) return <img className="s3-comment-avatar" src={url} alt="" />;
+  return <span className="s3-comment-avatar is-fallback">{(name || '?').slice(0, 1).toUpperCase()}</span>;
 }

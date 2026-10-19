@@ -1,0 +1,198 @@
+/* Comments — same type scale and hairlines as the piece detail panel
+   (PieceDetailPage.css): Geist, 12–13px body, cream tokens. */
+
+.s3-comments {
+  padding: 24px 10px 8px;
+  font-family: var(--font-geist);
+  color: var(--cream-text);
+}
+
+.s3-comments-header {
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 17px;
+  font-weight: 500;
+  color: var(--cream-text-secondary);
+}
+
+.s3-comments-composer {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--cream-divider);
+}
+
+.s3-comments-input {
+  flex: 1;
+  min-width: 0;
+  min-height: 32px;
+  max-height: 120px;
+  resize: vertical;
+  padding: 7px 10px;
+  border: 1px solid var(--cream-hairline);
+  border-radius: 8px;
+  background: var(--cream-bg);
+  font-family: var(--font-geist);
+  font-size: 13px;
+  line-height: 17px;
+  color: var(--cream-text);
+  outline: none;
+}
+
+.s3-comments-input:focus {
+  border-color: var(--cream-cta-fill);
+}
+
+.s3-comments-post {
+  height: 32px;
+  padding: 0 12px;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 6px;
+  background: var(--cream-cta-fill);
+  color: var(--cream-text-inverse);
+  font-family: var(--font-geist);
+  font-size: 12px;
+}
+
+.s3-comments-post:disabled {
+  opacity: 0.45;
+}
+
+.s3-comments-login {
+  width: 100%;
+  height: 36px;
+  border: 1px solid var(--cream-cta-fill);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--cream-cta-fill);
+  font-family: var(--font-geist);
+  font-size: 13px;
+}
+
+.s3-comments-error {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--cream-status-error);
+}
+
+.s3-comments-state {
+  margin: 0;
+  padding: 16px 0;
+  font-family: var(--font-inter);
+  font-size: 13px;
+  color: var(--cream-text-secondary);
+}
+
+.s3-comments-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.s3-comment {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--cream-divider);
+}
+
+.s3-comment:last-child {
+  border-bottom: 0;
+}
+
+.s3-comment.is-pending {
+  opacity: 0.6;
+}
+
+.s3-comment-avatar-link {
+  flex-shrink: 0;
+  display: block;
+}
+
+.s3-comment-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--cream-skeleton);
+  flex-shrink: 0;
+  display: block;
+}
+
+.s3-comment-avatar.is-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--cream-text-secondary);
+}
+
+.s3-comment-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.s3-comment-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.s3-comment-name {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--cream-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.s3-comment-time {
+  flex-shrink: 0;
+  font-size: 11px;
+  line-height: 14px;
+  color: var(--cream-text-secondary);
+}
+
+.s3-comment-body {
+  margin: 2px 0 0;
+  font-size: 13px;
+  line-height: 17px;
+  color: var(--cream-text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.s3-comment-more {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--cream-text-secondary);
+}
+
+.s3-comments-more {
+  margin-top: 4px;
+  padding: 8px 0;
+  border: 0;
+  background: none;
+  font-family: var(--font-geist);
+  font-size: 12px;
+  color: var(--cream-brand);
+}
+
+.s3-comments-more:disabled {
+  opacity: 0.6;
+}
