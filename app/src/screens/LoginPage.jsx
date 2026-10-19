@@ -11,8 +11,6 @@ import {
   AuthPillInput,
   AuthPrimaryButton,
   AuthScaffold,
-  AuthTermsCheckbox,
-  hasAgreedToTerms,
 } from '../components/auth/AuthUI';
 
 /// "Remember me" keeps only the username/email on this device (never the password)
@@ -43,11 +41,10 @@ export function LoginPage() {
   const [username, setUsername] = useState(readRememberedLogin);
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(true);
-  const [agreed, setAgreed] = useState(hasAgreedToTerms);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const canSubmit = Boolean(username.trim() && password && agreed);
+  const canSubmit = Boolean(username.trim() && password);
 
   const submit = async () => {
     if (!canSubmit || loading) return;
@@ -116,7 +113,6 @@ export function LoginPage() {
           </Link>
         </div>
 
-        <AuthTermsCheckbox checked={agreed} onChange={setAgreed} />
 
         <div style={{ marginTop: 6 }}>
           <AuthPrimaryButton disabled={!canSubmit} loading={loading} onClick={submit}>

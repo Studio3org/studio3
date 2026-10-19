@@ -79,7 +79,9 @@ export function AuthProvider({ children }) {
       const session = await apiFetch('/api/auth/login', {
         method: 'POST',
         // The login/signup screens only enable submit once the EULA box is ticked.
-        body: { username: identifier, password, acceptedTerms: true },
+        // No terms flag on login: agreement is collected at sign-up, and accounts that
+        // predate the terms get TermsAcceptanceGate right after signing in.
+        body: { username: identifier, password },
       });
       applySession(session);
       return session.user;
