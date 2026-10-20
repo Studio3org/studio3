@@ -15,6 +15,7 @@ import 'services/permission_service.dart';
 import 'services/main_nav_service.dart';
 import 'services/reels_tab_service.dart';
 import 'services/saved_content_store.dart';
+import 'services/theme_service.dart';
 import 'services/user_service.dart';
 import 'utils/app_routes.dart';
 import 'utils/app_state_store.dart';
@@ -60,13 +61,8 @@ Future<void> main() async {
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
   ]);
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      systemNavigationBarColor: HomeFeedTokens.background,
-      systemNavigationBarIconBrightness: Brightness.dark,
-    ),
-  );
   await AuthSession.instance.initialize();
+  await ThemeService.instance.initialize();
   await CacheService.instance.init();
   await AppStateStore.instance.initialize();
   await SavedContentStore.instance.load();
@@ -121,59 +117,67 @@ class Studio3App extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Studio 3 Discover',
-      theme: AppTheme.light,
-      darkTheme: AppTheme.dark,
-      themeMode: ThemeMode.system,
-      initialRoute: resolveInitialRoute(),
-      navigatorObservers: [routeObserver],
-      routes: {
-        '/': (context) => const AuthGate(
-              child: MainShell(),
-            ),
-        '/login': (context) => const LoginPage(),
-        '/signup': (context) => const SignUpPage(),
-        '/forgot-password': (context) => const ForgotPasswordPage(),
-        '/onboarding': (context) => const OnboardingPage(),
-        '/welcome': (context) {
-          final user = ModalRoute.of(context)?.settings.arguments as AuthUser?;
-          return WelcomePage(
-            user: user ?? const AuthUser(username: '', name: 'Artist', email: ''),
-          );
-        },
-        '/profile-settings': (context) => const ProfileSettingsPage(),
-        '/manage-series': (context) => const ManageSeriesPage(),
-        '/edit-profile': (context) => const EditProfilePage(),
-        '/addresses': (context) => const AddressListPage(),
-        '/orders': (context) => const MyOrdersPage(),
-        '/sales': (context) => const MySalesPage(),
-        '/change-password': (context) => const ChangePasswordPage(),
-        '/change-email': (context) => const ChangeEmailPage(),
-        '/notification-preferences': (context) => const NotificationPreferencesPage(),
-        '/privacy-settings': (context) => const PrivacySettingsPage(),
-        '/blocked-users': (context) => const BlockedUsersPage(),
-        '/terms': (context) => const TermsPage(),
-        '/profile': (context) {
-          final args = parseProfileRouteArgs(
-            ModalRoute.of(context)?.settings.arguments,
-          );
-          if (args == null) return const ProfilePage();
-          return ProfilePage(
-            username: args.username,
-            viewerMode: args.viewerMode,
-          );
-        },
-        '/post': (context) => const PostPage(),
-        // Inquiries deferred to v2 — legacy /chat route redirects to Conversations inbox.
-        '/chat': (context) => const InboxPage(initialTab: InboxTab.chats),
-        '/inbox': (context) {
-          final tab = ModalRoute.of(context)?.settings.arguments as InboxTab?;
-          return InboxPage(initialTab: tab ?? InboxTab.notifications);
-        },
-        // New-UI component gallery; debug builds only.
-        if (kDebugMode)
-          StudioGalleryPage.routeName: (context) => const StudioGalleryPage(),
+    return ListenableBuilder(
+      listenable: ThemeService.instance,
+      builder: (context, _) {
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: ThemeService.instance.overlay,
+          child: MaterialApp(
+            title: 'Studio 3 Discover',
+            theme: AppTheme.light,
+            darkTheme: AppTheme.dark,
+            themeMode: ThemeService.instance.mode,
+            initialRoute: resolveInitialRoute(),
+            navigatorObservers: [routeObserver],
+            routes: {
+              '/': (context) => const AuthGate(
+                    child: MainShell(),
+                  ),
+              '/login': (context) => const LoginPage(),
+              '/signup': (context) => const SignUpPage(),
+              '/forgot-password': (context) => const ForgotPasswordPage(),
+              '/onboarding': (context) => const OnboardingPage(),
+              '/welcome': (context) {
+                final user = ModalRoute.of(context)?.settings.arguments as AuthUser?;
+                return WelcomePage(
+                  user: user ?? const AuthUser(username: '', name: 'Artist', email: ''),
+                );
+              },
+              '/profile-settings': (context) => const ProfileSettingsPage(),
+              '/manage-series': (context) => const ManageSeriesPage(),
+              '/edit-profile': (context) => const EditProfilePage(),
+              '/addresses': (context) => const AddressListPage(),
+              '/orders': (context) => const MyOrdersPage(),
+              '/sales': (context) => const MySalesPage(),
+              '/change-password': (context) => const ChangePasswordPage(),
+              '/change-email': (context) => const ChangeEmailPage(),
+              '/notification-preferences': (context) => const NotificationPreferencesPage(),
+              '/privacy-settings': (context) => const PrivacySettingsPage(),
+              '/blocked-users': (context) => const BlockedUsersPage(),
+              '/terms': (context) => const TermsPage(),
+              '/profile': (context) {
+                final args = parseProfileRouteArgs(
+                  ModalRoute.of(context)?.settings.arguments,
+                );
+                if (args == null) return const ProfilePage();
+                return ProfilePage(
+                  username: args.username,
+                  viewerMode: args.viewerMode,
+                );
+              },
+              '/post': (context) => const PostPage(),
+              // Inquiries deferred to v2 — legacy /chat route redirects to Conversations inbox.
+              '/chat': (context) => const InboxPage(initialTab: InboxTab.chats),
+              '/inbox': (context) {
+                final tab = ModalRoute.of(context)?.settings.arguments as InboxTab?;
+                return InboxPage(initialTab: tab ?? InboxTab.notifications);
+              },
+              // New-UI component gallery; debug builds only.
+              if (kDebugMode)
+                StudioGalleryPage.routeName: (context) => const StudioGalleryPage(),
+            },
+          ),
+        );
       },
     );
   }

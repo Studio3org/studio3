@@ -8,6 +8,7 @@ import 'api_exception.dart';
 import 'auth_session.dart';
 import 'cache_service.dart';
 import 'connectivity_service.dart';
+import 'theme_service.dart';
 
 class UserService {
   UserService._();
@@ -79,6 +80,7 @@ class UserService {
     String? bannerAutoRule,
     String? messagePermission,
     String? profileVisibility,
+    String? themePreference,
     bool updateBannerTarget = false,
     String? bannerTargetType,
     String? bannerTargetId,
@@ -98,6 +100,7 @@ class UserService {
     if (bannerAutoRule != null) body['bannerAutoRule'] = bannerAutoRule;
     if (messagePermission != null) body['messagePermission'] = messagePermission;
     if (profileVisibility != null) body['profileVisibility'] = profileVisibility;
+    if (themePreference != null) body['themePreference'] = themePreference;
     // Backend requires bannerTargetType/Id sent together (both null clears
     // the manual pin) — only include them when the caller explicitly wants
     // to change the pin, since plain nullable params can't tell "unset" from
@@ -349,6 +352,9 @@ class UserService {
       termsVersion: data['termsVersion'] as String?,
       currentTermsVersion: data['currentTermsVersion'] as String?,
     ));
+    if (data.containsKey('themePreference')) {
+      await ThemeService.instance.applyServerValue(data['themePreference']);
+    }
     await _session.setSellerEnabled(profile.sellerEnabled);
   }
 }

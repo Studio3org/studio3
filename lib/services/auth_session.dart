@@ -6,6 +6,7 @@ import 'blocked_authors_store.dart';
 import 'cache_service.dart';
 import 'engagement_store.dart';
 import 'saved_content_store.dart';
+import 'theme_service.dart';
 
 class AuthSession {
   AuthSession._();
@@ -111,6 +112,9 @@ class AuthSession {
       currentTermsVersion: json['currentTermsVersion'] as String? ??
           current.currentTermsVersion,
     );
+    if (json.containsKey('themePreference')) {
+      await ThemeService.instance.applyServerValue(json['themePreference']);
+    }
     await updateUser(merged);
   }
 

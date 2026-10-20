@@ -6,11 +6,14 @@ import '../services/auth_service.dart';
 import '../services/auth_session.dart';
 import '../services/device_service.dart';
 import '../models/user_profile.dart';
+import '../services/theme_service.dart';
 import '../services/user_service.dart';
-import '../theme/home_feed_tokens.dart';
+import '../theme/studio_colors.dart';
 import '../utils/profile_navigation.dart';
 import '../widgets/feed_skeleton.dart';
 import '../widgets/settings_tile.dart';
+import '../widgets/studio/studio_select_row.dart';
+import '../widgets/studio/studio_toast.dart';
 import '../widgets/studio_loading.dart';
 import 'inbox_page.dart';
 import 'profile/widgets/profile_seller_insights.dart';
@@ -34,6 +37,21 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
   void initState() {
     super.initState();
     _loadSellerStatus();
+  }
+
+  Future<void> _selectAppearance(String value) async {
+    final previous = ThemeService.instance.mode;
+    await ThemeService.instance.setMode(
+      value == 'dark' ? ThemeMode.dark : ThemeMode.light,
+    );
+    if (!AuthSession.instance.isLoggedIn) return;
+    try {
+      await UserService.instance.updateMe(themePreference: value);
+    } catch (_) {
+      await ThemeService.instance.setMode(previous);
+      if (!mounted) return;
+      showStudioToast(context, 'Could not save appearance');
+    }
   }
 
   Future<void> _loadSellerStatus() async {
@@ -186,12 +204,14 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.studio;
+    final dark = ThemeService.instance.isDark;
     return StudioLoadingGate(
       loading: _togglingSeller,
       child: Scaffold(
-        backgroundColor: HomeFeedTokens.background,
+        backgroundColor: colors.background,
         appBar: AppBar(
-          backgroundColor: HomeFeedTokens.background,
+          backgroundColor: colors.background,
           elevation: 0,
           centerTitle: true,
           title: Text(
@@ -199,12 +219,12 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
             style: GoogleFonts.inter(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: HomeFeedTokens.textPrimary,
+              color: colors.textPrimary,
             ),
           ),
           leading: IconButton(
             icon: Icon(Icons.arrow_back_ios_new_rounded,
-                color: HomeFeedTokens.textPrimary, size: 20),
+                color: colors.textPrimary, size: 20),
             onPressed: () => Navigator.pop(context, true),
           ),
         ),
@@ -213,6 +233,27 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
             : ListView(
           padding: const EdgeInsets.all(20),
           children: [
+            const _SectionHeader('Appearance'),
+            StudioSelectRow(
+              title: 'Light',
+              selected: !dark,
+              titleSize: 17,
+              titleLetterSpacing: -0.2,
+              verticalPadding: 16,
+              ruleInset: 14,
+              onTap: dark ? () => _selectAppearance('light') : null,
+            ),
+            StudioSelectRow(
+              title: 'Dark',
+              selected: dark,
+              divider: false,
+              titleSize: 17,
+              titleLetterSpacing: -0.2,
+              verticalPadding: 16,
+              ruleInset: 14,
+              onTap: dark ? null : () => _selectAppearance('dark'),
+            ),
+
             const _SectionHeader('Seller'),
             SettingsToggleTile(
               icon: Icons.storefront_outlined,
@@ -386,7 +427,7 @@ class _SectionHeader extends StatelessWidget {
           fontSize: 13,
           fontWeight: FontWeight.w600,
           letterSpacing: 0.3,
-          color: HomeFeedTokens.textPrimary.withValues(alpha: 0.45),
+          color: context.studio.textSecondary,
         ),
       ),
     );

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../theme/home_feed_tokens.dart';
+import '../theme/studio_colors.dart';
 
 /// Shared settings-list row: icon + label + trailing chevron, used across
 /// Settings-family screens (promoted out of `profile_settings_page.dart` so
@@ -26,8 +26,8 @@ class SettingsTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color =
-        destructive ? const Color(0xFFE05252) : HomeFeedTokens.textPrimary;
+    final colors = context.studio;
+    final color = destructive ? const Color(0xFFE05252) : colors.textPrimary;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -79,19 +79,17 @@ class SettingsToggleTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.studio;
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(
-            color: HomeFeedTokens.textPrimary.withValues(alpha: 0.1),
-          ),
+          bottom: BorderSide(color: colors.line),
         ),
       ),
       child: Row(
         children: [
-          Icon(icon,
-              size: 22, color: HomeFeedTokens.textPrimary.withValues(alpha: 0.75)),
+          Icon(icon, size: 22, color: colors.textSecondary),
           const SizedBox(width: 14),
           Expanded(
             child: Text(
@@ -99,7 +97,7 @@ class SettingsToggleTile extends StatelessWidget {
               style: GoogleFonts.inter(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
-                color: HomeFeedTokens.textPrimary,
+                color: colors.textPrimary,
               ),
             ),
           ),

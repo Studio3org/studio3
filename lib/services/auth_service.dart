@@ -3,6 +3,7 @@ import 'api_client.dart';
 import 'api_exception.dart';
 import 'auth_session.dart';
 import 'cache_service.dart';
+import 'theme_service.dart';
 
 class AuthService {
   AuthService._();
@@ -135,6 +136,9 @@ class AuthService {
     // account's likes/saves/follows) must not be served to the new session.
     await CacheService.instance.clearAll();
     await _session.saveSession(token: token, authUser: user);
+    if (userJson.containsKey('themePreference')) {
+      await ThemeService.instance.applyServerValue(userJson['themePreference']);
+    }
     return user;
   }
 }
