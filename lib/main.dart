@@ -45,6 +45,7 @@ import 'screens/notification_preferences_page.dart';
 import 'screens/blocked_users_page.dart';
 import 'screens/privacy_settings_page.dart';
 import 'screens/terms_page.dart';
+import 'screens/debug/studio_gallery_page.dart';
 import 'models/auth_user.dart';
 import 'models/feed_item.dart';
 import 'theme/home_feed_tokens.dart';
@@ -170,6 +171,9 @@ class Studio3App extends StatelessWidget {
           final tab = ModalRoute.of(context)?.settings.arguments as InboxTab?;
           return InboxPage(initialTab: tab ?? InboxTab.notifications);
         },
+        // New-UI component gallery; debug builds only.
+        if (kDebugMode)
+          StudioGalleryPage.routeName: (context) => const StudioGalleryPage(),
       },
     );
   }

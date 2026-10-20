@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 
 /// Design tokens from Figma node 2302-1554 (Piece detail / collect).
+///
+/// Pre-redesign values, kept unchanged so screens not yet rebuilt don't shift mid-migration.
+/// Rebuilt screens read `context.studio` (`studio_colors.dart`), `StudioType` and
+/// `StudioRadius` / `StudioSpace` instead; this file is deleted in Phase 11 of
+/// docs/new-ui/NEW_UI_EXECUTION_PLAN.md once nothing imports it.
 abstract final class CollectDetailTokens {
   static const Color background = Color(0xFFF5F2EE);
   static const Color textPrimary = Color(0xFF231F1B);
