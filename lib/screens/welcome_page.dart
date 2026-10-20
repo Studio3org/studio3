@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../models/auth_user.dart';
+import '../theme/auth_palette.dart';
 import '../widgets/auth_ui.dart';
 
 class WelcomePage extends StatelessWidget {
@@ -11,6 +11,7 @@ class WelcomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final firstName = user.name.split(' ').first;
+    final c = context.authColors;
 
     return AuthScaffold(
       compact: true,
@@ -18,7 +19,7 @@ class WelcomePage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Icon(Icons.celebration_outlined, color: AuthColors.textPrimary, size: 52),
+            Icon(Icons.celebration_outlined, color: c.textPrimary, size: 52),
             const SizedBox(height: 20),
             AuthPageTitle(
               title: 'Welcome, $firstName!',
@@ -27,7 +28,7 @@ class WelcomePage extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               'Start discovering art, collecting stories, and sharing your creative journey.',
-              style: GoogleFonts.inter(fontSize: 14, color: AuthColors.textDim, height: 1.5),
+              style: geistText(fontSize: 14, color: c.textDim, height: 1.5),
             ),
             const SizedBox(height: 32),
             AuthPrimaryButton(

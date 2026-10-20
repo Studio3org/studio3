@@ -136,6 +136,29 @@ flutter:
     - assets/post/create/
     - assets/nav/
     - assets/profile/
+    - assets/icons/
+    - assets/brand/
+
+  # New UI type (docs/new-ui/NEW_UI_EXECUTION_PLAN.md, HandoffRules "Type"): Geist for all UI
+  # at 400 and 500 only, Geist Mono for facts (dates, counts, dimensions, codes), Outfit 700
+  # for the "studio 3" wordmark only. Bundled (OFL, licences beside the files) so text never
+  # waits on a network fetch or falls back to another font.
+  fonts:
+    - family: Geist
+      fonts:
+        - asset: assets/fonts/Geist-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Geist-Medium.ttf
+          weight: 500
+    - family: GeistMono
+      fonts:
+        - asset: assets/fonts/GeistMono-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/GeistMono-Medium.ttf
+          weight: 500
+    - family: Outfit
+      fonts:
+        - asset: assets/fonts/Outfit-VariableFont_wght.ttf
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

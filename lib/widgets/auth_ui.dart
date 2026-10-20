@@ -6,26 +6,73 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../services/api_exception.dart';
 import '../theme/app_theme.dart';
+import '../theme/auth_palette.dart';
 import '../widgets/studio_logo.dart';
 
-/// Dark premium palette — black & grey glass auth.
-abstract final class AuthColors {
-  static const Color background = Color(0xFF0A0A0A);
-  static const Color backgroundDeep = Color(0xFF000000);
-  static const Color surface = Color(0xFF1A1A1A);
-  static const Color surfaceElevated = Color(0xFF2A2A2A);
-  static const Color greyAccent = Color(0xFF3D3D3D);
-  static const Color border = Color(0x26FFFFFF);
-  static const Color borderFocus = Color(0x55FFFFFF);
-  static const Color textPrimary = Color(0xFFFFFFFF);
-  static const Color textMuted = Color(0xB3FFFFFF);
-  static const Color textDim = Color(0x80FFFFFF);
-  static const Color error = Color(0xFFFF6B6B);
-  static const Color accent = Color(0xFFFFFFFF);
-  static const Color success = Color(0xFF4ADE80);
+/// Thin wrapper so auth screens use the brand's Geist family with an honest
+/// system fallback — matches every `.dc.html` sign-in screen in the design
+/// handoff, which sets `font-family: 'Geist', ... sans-serif` throughout.
+TextStyle geistText({
+  double fontSize = 15,
+  FontWeight fontWeight = FontWeight.w400,
+  Color? color,
+  double? height,
+  double? letterSpacing,
+  TextDecoration? decoration,
+  Color? decorationColor,
+}) {
+  try {
+    return GoogleFonts.getFont(
+      'Geist',
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color,
+      height: height,
+      letterSpacing: letterSpacing,
+      decoration: decoration,
+      decorationColor: decorationColor,
+    );
+  } catch (_) {
+    return TextStyle(
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color,
+      height: height,
+      letterSpacing: letterSpacing,
+      decoration: decoration,
+      decorationColor: decorationColor,
+    );
+  }
+}
+
+/// Geist Mono — used only for the OTP digits, matching the design's
+/// `font-family: 'Geist Mono', ui-monospace, Menlo, monospace`.
+TextStyle geistMono({
+  double fontSize = 15,
+  FontWeight fontWeight = FontWeight.w400,
+  Color? color,
+}) {
+  try {
+    return GoogleFonts.getFont(
+      'Geist Mono',
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color,
+    );
+  } catch (_) {
+    return TextStyle(
+      fontFamily: 'monospace',
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color,
+    );
+  }
 }
 
 /// Black/grey background with sweeping curved lines (reference-inspired).
+/// Deliberately NOT theme-aware — this is the immersive "login in progress"
+/// loader (`StudioLoginLoadingOverlay`), always forced dark regardless of
+/// the device's light/dark setting, so it keeps its own literal colors.
 class AuthBackground extends StatelessWidget {
   const AuthBackground({super.key});
 
@@ -145,6 +192,7 @@ class AuthScaffold extends StatelessWidget {
     this.showBackButton = false,
     this.onBackPressed,
     this.compact = false,
+    this.showLogo = true,
   });
 
   final Widget child;
@@ -152,64 +200,66 @@ class AuthScaffold extends StatelessWidget {
   final VoidCallback? onBackPressed;
   final bool compact;
 
+  /// Hide the logo mark — matches the design, where the brand mark only
+  /// appears on the very first sign-in screen; deeper steps (code, profile,
+  /// intention) show only the back button and progress bar.
+  final bool showLogo;
+
   @override
   Widget build(BuildContext context) {
+    final c = context.authColors;
     final showBack = showBackButton || onBackPressed != null;
+    final brightness = Theme.of(context).brightness;
 
     return Scaffold(
-      backgroundColor: AuthColors.backgroundDeep,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          const AuthBackground(),
-          SafeArea(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                return SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                    child: Column(
+      backgroundColor: c.background,
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: Column(
+                  children: [
+                    Stack(
+                      alignment: Alignment.center,
                       children: [
-                        Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            const Center(child: StudioAuthLogo()),
-                            if (showBack)
-                              Align(
-                                alignment: Alignment.centerLeft,
-                                child: IconButton(
-                                  onPressed: onBackPressed ?? () => Navigator.maybePop(context),
-                                  icon: const Icon(
-                                    Icons.arrow_back_ios_new_rounded,
-                                    color: AuthColors.textMuted,
-                                    size: 20,
-                                  ),
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-                                ),
+                        if (showLogo)
+                          Center(child: StudioAuthLogo(dark: brightness == Brightness.dark)),
+                        if (showBack)
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: IconButton(
+                              onPressed: onBackPressed ?? () => Navigator.maybePop(context),
+                              icon: Icon(
+                                Icons.arrow_back_ios_new_rounded,
+                                color: c.textMuted,
+                                size: 20,
                               ),
-                          ],
-                        ),
-                        if (!compact) ...[
-                          Text(
-                            'Discover Art. Collect Stories.',
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.inter(fontSize: 13, color: AuthColors.textDim),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+                            ),
                           ),
-                          const SizedBox(height: 28),
-                        ] else
-                          const SizedBox(height: 28),
-                        child,
-                        const SizedBox(height: 32),
                       ],
                     ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
+                    if (!compact) ...[
+                      Text(
+                        'Discover art and the people who make it.',
+                        textAlign: TextAlign.center,
+                        style: geistText(fontSize: 13, color: c.textMuted),
+                      ),
+                      const SizedBox(height: 28),
+                    ] else
+                      SizedBox(height: showLogo ? 28 : 12),
+                    child,
+                    const SizedBox(height: 32),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -230,7 +280,7 @@ class AuthGlassCard extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.fromLTRB(28, 32, 28, 28),
           decoration: BoxDecoration(
-            color: AuthColors.surface.withValues(alpha: 0.55),
+            color: Colors.white.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(24),
             border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
             boxShadow: [
@@ -270,18 +320,25 @@ class AuthPageTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.authColors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           title,
-          style: GoogleFonts.inter(fontSize: 28, fontWeight: FontWeight.w600, color: AuthColors.textPrimary),
+          style: geistText(
+            fontSize: 32,
+            fontWeight: FontWeight.w500,
+            color: c.textPrimary,
+            letterSpacing: -0.6,
+            height: 1.1,
+          ),
         ),
         if (subtitle != null) ...[
-          const SizedBox(height: 6),
+          const SizedBox(height: 10),
           Text(
             subtitle!,
-            style: GoogleFonts.inter(fontSize: 14, color: AuthColors.textDim),
+            style: geistText(fontSize: 16, color: c.textMuted, height: 1.45),
           ),
         ],
       ],
@@ -322,61 +379,47 @@ class AuthIconInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.authColors;
+    final lineColor = errorText != null ? c.error : c.border;
+    final focusColor = errorText != null ? c.error : c.borderFocus;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(
-          height: AppDims.pillInputHeight,
-          child: TextField(
-            controller: controller,
-            autofocus: autofocus,
-            onChanged: onChanged,
-            onSubmitted: onSubmitted,
-            obscureText: obscureText,
-            keyboardType: keyboardType,
-            textInputAction: textInputAction,
-            style: GoogleFonts.inter(fontSize: 15, color: AuthColors.textPrimary),
-            cursorColor: AuthColors.textPrimary,
-            decoration: InputDecoration(
-              hintText: placeholder,
-              hintStyle: GoogleFonts.inter(color: AuthColors.textDim),
-              filled: true,
-              fillColor: Colors.black.withValues(alpha: 0.35),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-              prefixIcon: prefixIcon != null
-                  ? Icon(prefixIcon, color: AuthColors.textMuted, size: 20)
-                  : null,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(color: errorText != null ? AuthColors.error : AuthColors.border, width: 1),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(color: errorText != null ? AuthColors.error : AuthColors.border, width: 1),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(
-                  color: errorText != null ? AuthColors.error : AuthColors.borderFocus,
-                  width: 1.2,
-                ),
-              ),
-              suffixIcon: onToggleVisibility != null
-                  ? IconButton(
-                      icon: Icon(
-                        obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                        color: AuthColors.textMuted,
-                        size: 20,
-                      ),
-                      onPressed: onToggleVisibility,
-                    )
-                  : null,
-            ),
+        TextField(
+          controller: controller,
+          autofocus: autofocus,
+          onChanged: onChanged,
+          onSubmitted: onSubmitted,
+          obscureText: obscureText,
+          keyboardType: keyboardType,
+          textInputAction: textInputAction,
+          style: geistText(fontSize: 16, color: c.textPrimary),
+          cursorColor: c.textPrimary,
+          decoration: InputDecoration(
+            labelText: placeholder,
+            floatingLabelBehavior: FloatingLabelBehavior.always,
+            labelStyle: geistText(fontSize: 13, color: c.textMuted),
+            floatingLabelStyle: geistText(fontSize: 13, color: c.textMuted),
+            isDense: true,
+            contentPadding: const EdgeInsets.only(top: 18, bottom: 8),
+            border: UnderlineInputBorder(borderSide: BorderSide(color: lineColor)),
+            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: lineColor)),
+            focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: focusColor, width: 1.5)),
+            suffixIcon: onToggleVisibility != null
+                ? IconButton(
+                    icon: Icon(
+                      obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                      color: c.textMuted,
+                      size: 20,
+                    ),
+                    onPressed: onToggleVisibility,
+                  )
+                : null,
           ),
         ),
         if (errorText != null) ...[
           const SizedBox(height: 6),
-          Text(errorText!, style: GoogleFonts.inter(fontSize: 12, color: AuthColors.error)),
+          Text(errorText!, style: geistText(fontSize: 12, color: c.error)),
         ],
       ],
     );
@@ -402,6 +445,7 @@ class AuthPrimaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.authColors;
     final canPress = enabled && !loading;
     final useAccentStyle = enabled;
     return SizedBox(
@@ -410,19 +454,19 @@ class AuthPrimaryButton extends StatelessWidget {
       child: FilledButton(
         onPressed: canPress ? onPressed : null,
         style: FilledButton.styleFrom(
-          backgroundColor: useAccentStyle ? AuthColors.accent : AuthColors.surfaceElevated,
-          foregroundColor: useAccentStyle ? AuthColors.backgroundDeep : AuthColors.textDim,
-          disabledBackgroundColor: useAccentStyle ? AuthColors.accent : AuthColors.surfaceElevated,
-          disabledForegroundColor: useAccentStyle ? AuthColors.backgroundDeep : AuthColors.textDim,
-          overlayColor: AuthColors.backgroundDeep.withValues(alpha: 0.08),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          textStyle: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600),
+          backgroundColor: useAccentStyle ? c.accent : c.greyAccent,
+          foregroundColor: useAccentStyle ? c.backgroundDeep : c.textDim,
+          disabledBackgroundColor: useAccentStyle ? c.accent : c.greyAccent,
+          disabledForegroundColor: useAccentStyle ? c.backgroundDeep : c.textDim,
+          overlayColor: c.backgroundDeep.withValues(alpha: 0.08),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          textStyle: geistText(fontSize: 15, fontWeight: FontWeight.w500),
         ),
         child: loading
-            ? const SizedBox(
+            ? SizedBox(
                 width: 22,
                 height: 22,
-                child: CircularProgressIndicator(strokeWidth: 2, color: AuthColors.backgroundDeep),
+                child: CircularProgressIndicator(strokeWidth: 2, color: c.backgroundDeep),
               )
             : Text(label),
       ),
@@ -430,6 +474,9 @@ class AuthPrimaryButton extends StatelessWidget {
   }
 }
 
+/// A plain text link, no border — matches the design's "Look around first" /
+/// "Skip for now" treatment. Kept at the same height as [AuthPrimaryButton]
+/// so call sites that stack the two don't need to change spacing.
 class AuthGhostButton extends StatelessWidget {
   const AuthGhostButton({super.key, required this.label, this.onPressed});
 
@@ -438,16 +485,16 @@ class AuthGhostButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.authColors;
     return SizedBox(
       height: AppDims.primaryButtonHeight,
       width: double.infinity,
-      child: OutlinedButton(
+      child: TextButton(
         onPressed: onPressed,
-        style: OutlinedButton.styleFrom(
-          foregroundColor: AuthColors.textPrimary,
-          side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          textStyle: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500),
+        style: TextButton.styleFrom(
+          foregroundColor: c.textMuted,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          textStyle: geistText(fontSize: 14, fontWeight: FontWeight.w500),
         ),
         child: Text(label),
       ),
@@ -469,6 +516,7 @@ class AuthRememberRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.authColors;
     return Row(
       children: [
         SizedBox(
@@ -477,9 +525,9 @@ class AuthRememberRow extends StatelessWidget {
           child: Checkbox(
             value: value,
             onChanged: (v) => onChanged(v ?? false),
-            activeColor: AuthColors.accent,
-            checkColor: AuthColors.backgroundDeep,
-            side: BorderSide(color: Colors.white.withValues(alpha: 0.35)),
+            activeColor: c.accent,
+            checkColor: c.background,
+            side: BorderSide(color: c.border),
             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
             visualDensity: VisualDensity.compact,
           ),
@@ -487,19 +535,19 @@ class AuthRememberRow extends StatelessWidget {
         const SizedBox(width: 8),
         GestureDetector(
           onTap: () => onChanged(!value),
-          child: Text('Remember me', style: GoogleFonts.inter(fontSize: 12, color: AuthColors.textMuted)),
+          child: Text('Remember me', style: geistText(fontSize: 12, color: c.textMuted)),
         ),
         const Spacer(),
         if (onForgot != null)
           TextButton(
             onPressed: onForgot,
             style: TextButton.styleFrom(
-              foregroundColor: AuthColors.textMuted,
+              foregroundColor: c.textMuted,
               padding: EdgeInsets.zero,
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
-            child: Text('Forgot login?', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500)),
+            child: Text('Forgot login?', style: geistText(fontSize: 12, fontWeight: FontWeight.w500)),
           ),
       ],
     );
@@ -513,14 +561,15 @@ class AuthDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.authColors;
     return Row(
       children: [
-        Expanded(child: Divider(color: AuthColors.border)),
+        Expanded(child: Divider(color: c.border)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text(label, style: GoogleFonts.inter(fontSize: 12, color: AuthColors.textDim)),
+          child: Text(label, style: geistText(fontSize: 12, color: c.textDim)),
         ),
-        Expanded(child: Divider(color: AuthColors.border)),
+        Expanded(child: Divider(color: c.border)),
       ],
     );
   }
@@ -540,19 +589,20 @@ class AuthLinkFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.authColors;
     return GestureDetector(
       onTap: onTap,
       child: RichText(
         textAlign: TextAlign.center,
         text: TextSpan(
-          style: GoogleFonts.inter(fontSize: 14, color: AuthColors.textMuted),
+          style: geistText(fontSize: 14, color: c.textMuted),
           children: [
             TextSpan(text: prompt),
             TextSpan(
               text: actionLabel,
-              style: GoogleFonts.inter(
+              style: geistText(
                 fontWeight: FontWeight.w600,
-                color: AuthColors.textPrimary,
+                color: c.textPrimary,
                 decoration: TextDecoration.underline,
               ),
             ),
@@ -571,6 +621,7 @@ class AuthStepProgress extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.authColors;
     return Column(
       children: [
         Row(
@@ -583,7 +634,7 @@ class AuthStepProgress extends StatelessWidget {
                 margin: EdgeInsets.only(right: i < total - 1 ? 5 : 0),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(2),
-                  color: filled ? AuthColors.textPrimary : AuthColors.border,
+                  color: filled ? c.textPrimary : c.border,
                 ),
               ),
             );
@@ -592,7 +643,7 @@ class AuthStepProgress extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           'Step $current of $total',
-          style: GoogleFonts.inter(fontSize: 11, color: AuthColors.textDim),
+          style: geistText(fontSize: 11, color: c.textDim),
         ),
       ],
     );
@@ -629,6 +680,7 @@ class _AuthOtpInputState extends State<AuthOtpInput> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.authColors;
     final code = _controller.text;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -653,24 +705,24 @@ class _AuthOtpInputState extends State<AuthOtpInput> {
               final active = i == code.length && _focusNode.hasFocus;
               return AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
-                width: 44,
-                height: 52,
+                width: 40,
+                height: 56,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.35),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: widget.errorText != null
-                        ? AuthColors.error
-                        : active
-                            ? AuthColors.borderFocus
-                            : AuthColors.border,
-                    width: active ? 1.5 : 1,
+                  border: Border(
+                    bottom: BorderSide(
+                      color: widget.errorText != null
+                          ? c.error
+                          : active
+                              ? c.borderFocus
+                              : c.border,
+                      width: active ? 2 : 1.5,
+                    ),
                   ),
                 ),
                 child: Text(
                   char,
-                  style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w600, color: AuthColors.textPrimary),
+                  style: geistMono(fontSize: 28, color: c.textPrimary),
                 ),
               );
             }),
@@ -697,7 +749,7 @@ class _AuthOtpInputState extends State<AuthOtpInput> {
         ),
         if (widget.errorText != null) ...[
           const SizedBox(height: 8),
-          Text(widget.errorText!, style: GoogleFonts.inter(fontSize: 12, color: AuthColors.error)),
+          Text(widget.errorText!, style: geistText(fontSize: 12, color: c.error)),
         ],
       ],
     );
@@ -705,12 +757,16 @@ class _AuthOtpInputState extends State<AuthOtpInput> {
 }
 
 void showAuthSnackBar(BuildContext context, String message, {bool isError = false}) {
+  final c = context.authColors;
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
-      content: Text(message, style: GoogleFonts.inter(color: AuthColors.textPrimary)),
-      backgroundColor: isError ? const Color(0xFF3D2020) : AuthColors.surfaceElevated,
+      content: Text(
+        message,
+        style: geistText(fontWeight: FontWeight.w500, color: c.backgroundDeep),
+      ),
+      backgroundColor: isError ? c.error : c.textPrimary,
       behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
     ),
   );
 }
@@ -747,10 +803,11 @@ class AuthTermsCheckbox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final base = GoogleFonts.inter(
+    final c = context.authColors;
+    final base = geistText(
       fontSize: 12,
       height: 1.45,
-      color: showError && !value ? AuthColors.error : AuthColors.textMuted,
+      color: showError && !value ? c.error : c.textMuted,
     );
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -761,12 +818,10 @@ class AuthTermsCheckbox extends StatelessWidget {
           child: Checkbox(
             value: value,
             onChanged: (v) => onChanged(v ?? false),
-            activeColor: AuthColors.accent,
-            checkColor: AuthColors.backgroundDeep,
+            activeColor: c.accent,
+            checkColor: c.background,
             side: BorderSide(
-              color: showError && !value
-                  ? AuthColors.error
-                  : Colors.white.withValues(alpha: 0.35),
+              color: showError && !value ? c.error : c.border,
             ),
             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
             visualDensity: VisualDensity.compact,
@@ -789,10 +844,10 @@ class AuthTermsCheckbox extends StatelessWidget {
                       child: Text(
                         'Terms of Use (EULA)',
                         style: base.copyWith(
-                          color: AuthColors.textPrimary,
+                          color: c.textPrimary,
                           fontWeight: FontWeight.w600,
                           decoration: TextDecoration.underline,
-                          decorationColor: AuthColors.textPrimary,
+                          decorationColor: c.textPrimary,
                         ),
                       ),
                     ),
@@ -818,17 +873,18 @@ class AuthGuestLink extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.authColors;
     return TextButton(
       onPressed: () =>
           Navigator.pushNamedAndRemoveUntil(context, '/', (_) => false),
-      style: TextButton.styleFrom(foregroundColor: AuthColors.textMuted),
+      style: TextButton.styleFrom(foregroundColor: c.textMuted),
       child: Text(
         'Browse without an account',
-        style: GoogleFonts.inter(
+        style: geistText(
           fontSize: 14,
           fontWeight: FontWeight.w500,
           decoration: TextDecoration.underline,
-          decorationColor: AuthColors.textMuted,
+          decorationColor: c.textMuted,
         ),
       ),
     );

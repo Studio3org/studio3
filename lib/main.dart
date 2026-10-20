@@ -96,7 +96,18 @@ Future<void> _preloadInterFont() async {
     FontWeight.w700,
   ]) {
     GoogleFonts.inter(fontWeight: weight);
+    // The auth flow (login/signup/welcome/onboarding) uses Geist — preload
+    // it alongside Inter so it doesn't flash a fallback on first paint.
+    try {
+      GoogleFonts.getFont('Geist', fontWeight: weight);
+    } catch (_) {
+      // Unavailable in this google_fonts version — screens fall back to
+      // the system sans stack (see `geistText` in widgets/auth_ui.dart).
+    }
   }
+  try {
+    GoogleFonts.getFont('Geist Mono');
+  } catch (_) {}
   try {
     await GoogleFonts.pendingFonts().timeout(const Duration(seconds: 3));
   } catch (_) {
@@ -113,7 +124,7 @@ class Studio3App extends StatelessWidget {
       title: 'Studio 3 Discover',
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
-      themeMode: ThemeMode.light,
+      themeMode: ThemeMode.system,
       initialRoute: resolveInitialRoute(),
       navigatorObservers: [routeObserver],
       routes: {

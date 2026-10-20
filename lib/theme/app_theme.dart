@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'auth_palette.dart';
+
 /// Studio 3 Discover — design tokens
 class AppColors {
   AppColors._();
@@ -143,6 +145,7 @@ class AppTheme {
         helperStyle: GoogleFonts.inter(fontSize: 12, color: AppColors.slate500),
         errorStyle: GoogleFonts.inter(fontSize: 12, color: AppColors.slate700),
       ),
+      extensions: const [AuthPalette.light],
     );
   }
 
@@ -188,6 +191,7 @@ class AppTheme {
         ),
       ),
       textTheme: textTheme,
+      extensions: const [AuthPalette.dark],
     );
   }
 }

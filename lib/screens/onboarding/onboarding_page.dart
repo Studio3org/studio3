@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../data/post_picker_options.dart';
@@ -9,7 +8,7 @@ import '../../services/api_exception.dart';
 import '../../services/media_service.dart';
 import '../../services/permission_service.dart';
 import '../../services/user_service.dart';
-import '../../theme/home_feed_tokens.dart';
+import '../../theme/auth_palette.dart';
 import '../../widgets/auth_ui.dart';
 import '../../widgets/permission_denied_sheet.dart';
 import '../../widgets/profile_avatar.dart';
@@ -165,19 +164,20 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.authColors;
     return StudioLoadingGate(
       loading: _loading || _uploadingPhoto,
       child: Scaffold(
-        backgroundColor: HomeFeedTokens.background,
+        backgroundColor: c.background,
         appBar: AppBar(
-        backgroundColor: HomeFeedTokens.background,
+        backgroundColor: c.background,
         elevation: 0,
         title: Text(
           'Set up your profile',
-          style: GoogleFonts.inter(
+          style: geistText(
             fontSize: 17,
             fontWeight: FontWeight.w600,
-            color: HomeFeedTokens.textPrimary,
+            color: c.textPrimary,
           ),
         ),
       ),
@@ -195,8 +195,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
                       margin: EdgeInsets.only(right: i < 2 ? 6 : 0),
                       decoration: BoxDecoration(
                         color: active
-                            ? HomeFeedTokens.textPrimary
-                            : HomeFeedTokens.textPrimary.withValues(alpha: 0.15),
+                            ? c.textPrimary
+                            : c.textPrimary.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -229,50 +229,50 @@ class _OnboardingPageState extends State<OnboardingPage> {
   }
 
   Widget _buildRoleStep() {
+    final c = context.authColors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'What brings you to Studio 3?',
-          style: GoogleFonts.inter(
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
-            color: HomeFeedTokens.textPrimary,
+          style: geistText(
+            fontSize: 28,
+            fontWeight: FontWeight.w500,
+            color: c.textPrimary,
+            letterSpacing: -0.4,
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 24),
         for (final (id, title, subtitle) in _roles)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: _RoleCard(
-              title: title,
-              subtitle: subtitle,
-              selected: _role == id,
-              onTap: () => setState(() => _role = id),
-            ),
+          _RoleCard(
+            title: title,
+            subtitle: subtitle,
+            selected: _role == id,
+            onTap: () => setState(() => _role = id),
           ),
       ],
     );
   }
 
   Widget _buildPreferencesStep() {
+    final c = context.authColors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Your taste',
-          style: GoogleFonts.inter(
+          style: geistText(
             fontSize: 22,
             fontWeight: FontWeight.w700,
-            color: HomeFeedTokens.textPrimary,
+            color: c.textPrimary,
           ),
         ),
         const SizedBox(height: 8),
         Text(
           'Pick at least 3 mediums, styles, and themes.',
-          style: GoogleFonts.inter(
+          style: geistText(
             fontSize: 14,
-            color: HomeFeedTokens.textPrimary.withValues(alpha: 0.55),
+            color: c.textPrimary.withValues(alpha: 0.55),
           ),
         ),
         const SizedBox(height: 20),
@@ -335,23 +335,24 @@ class _OnboardingPageState extends State<OnboardingPage> {
   }
 
   Widget _buildPhotosStep() {
+    final c = context.authColors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Profile photos',
-          style: GoogleFonts.inter(
+          style: geistText(
             fontSize: 22,
             fontWeight: FontWeight.w700,
-            color: HomeFeedTokens.textPrimary,
+            color: c.textPrimary,
           ),
         ),
         const SizedBox(height: 8),
         Text(
           'Add a profile photo and cover image, or tap Finish to skip for now.',
-          style: GoogleFonts.inter(
+          style: geistText(
             fontSize: 14,
-            color: HomeFeedTokens.textPrimary.withValues(alpha: 0.55),
+            color: c.textPrimary.withValues(alpha: 0.55),
             height: 1.5,
           ),
         ),
@@ -370,16 +371,16 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   _profilePhotoUrl == null
                       ? 'Add profile photo'
                       : 'Profile photo added',
-                  style: GoogleFonts.inter(
+                  style: geistText(
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
-                    color: HomeFeedTokens.textPrimary,
+                    color: c.textPrimary,
                   ),
                 ),
               ),
               Icon(
                 Icons.chevron_right,
-                color: HomeFeedTokens.textPrimary.withValues(alpha: 0.35),
+                color: c.textPrimary.withValues(alpha: 0.35),
               ),
             ],
           ),
@@ -403,7 +404,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 children: [
                   Icon(
                     Icons.image_outlined,
-                    color: HomeFeedTokens.textPrimary.withValues(alpha: 0.55),
+                    color: c.textPrimary.withValues(alpha: 0.55),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
@@ -411,16 +412,16 @@ class _OnboardingPageState extends State<OnboardingPage> {
                       _coverPhotoUrl == null
                           ? 'Add cover photo'
                           : 'Cover photo added',
-                      style: GoogleFonts.inter(
+                      style: geistText(
                         fontSize: 15,
                         fontWeight: FontWeight.w500,
-                        color: HomeFeedTokens.textPrimary,
+                        color: c.textPrimary,
                       ),
                     ),
                   ),
                   Icon(
                     Icons.chevron_right,
-                    color: HomeFeedTokens.textPrimary.withValues(alpha: 0.35),
+                    color: c.textPrimary.withValues(alpha: 0.35),
                   ),
                 ],
               ),
@@ -447,42 +448,51 @@ class _RoleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: selected
-          ? HomeFeedTokens.textPrimary.withValues(alpha: 0.08)
-          : Colors.transparent,
-      borderRadius: BorderRadius.circular(12),
+    // Row + left rule, matching the "What brings you to Studio 3?" picker
+    // in the sign-in design (SignIn4Intention) rather than a bordered card.
+    final c = context.authColors;
+    return Semantics(
+      inMutuallyExclusiveGroup: true,
+      selected: selected,
+      button: true,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
         child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(vertical: 18),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: selected
-                  ? HomeFeedTokens.textPrimary
-                  : HomeFeedTokens.textPrimary.withValues(alpha: 0.2),
-            ),
+            border: Border(bottom: BorderSide(color: c.border)),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Row(
             children: [
-              Text(
-                title,
-                style: GoogleFonts.inter(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: HomeFeedTokens.textPrimary,
-                ),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                width: 2,
+                height: 40,
+                margin: const EdgeInsets.only(right: 14),
+                color: selected ? c.textPrimary : Colors.transparent,
               ),
-              const SizedBox(height: 4),
-              Text(
-                subtitle,
-                style: GoogleFonts.inter(
-                  fontSize: 13,
-                  color: HomeFeedTokens.textPrimary.withValues(alpha: 0.55),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: geistText(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w500,
+                        color: selected ? c.textPrimary : c.textDim,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: geistText(
+                        fontSize: 13,
+                        color: selected ? c.textMuted : c.textDim,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -510,15 +520,16 @@ class _ChipSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.authColors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           title,
-          style: GoogleFonts.inter(
+          style: geistText(
             fontSize: 15,
             fontWeight: FontWeight.w600,
-            color: HomeFeedTokens.textPrimary,
+            color: c.textPrimary,
           ),
         ),
         const SizedBox(height: 8),
@@ -532,8 +543,8 @@ class _ChipSection extends StatelessWidget {
               label: Text(name),
               selected: isSelected,
               onSelected: (_) => onToggle(name),
-              selectedColor: HomeFeedTokens.textPrimary.withValues(alpha: 0.15),
-              checkmarkColor: HomeFeedTokens.textPrimary,
+              selectedColor: c.textPrimary.withValues(alpha: 0.15),
+              checkmarkColor: c.textPrimary,
             );
           }).toList(),
         ),

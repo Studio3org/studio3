@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../services/api_exception.dart';
 import '../services/auth_service.dart';
 import '../services/auth_session.dart';
+import '../theme/auth_palette.dart';
 import '../utils/auth_validators.dart';
 import '../widgets/auth_ui.dart';
 import '../widgets/studio_loading.dart';
@@ -335,6 +335,10 @@ class _SignUpPageState extends State<SignUpPage> {
         compact: true,
         showBackButton: true,
         onBackPressed: _goBack,
+        // The brand mark only appears on the very first sign-in screen in
+        // the design; deeper steps show just the back button and progress
+        // bar (see SignIn2Code / SignIn3Profile / SignIn4Intention).
+        showLogo: _step == _SignUpStep.name,
         child: Column(
         children: [
           AuthFormBody(
@@ -450,6 +454,7 @@ class _SignUpPageState extends State<SignUpPage> {
   }
 
   Widget _buildOtpStep({required Key key}) {
+    final c = context.authColors;
     return _stepBody(
       key: key,
       title: 'Verify email',
@@ -475,11 +480,11 @@ class _SignUpPageState extends State<SignUpPage> {
               onPressed: (_loading || _resendCooldown > 0) ? null : _resendOtp,
               child: Text(
                 'Resend code',
-                style: GoogleFonts.inter(
+                style: geistText(
                   fontSize: 13,
                   color: _resendCooldown > 0
-                      ? AuthColors.textMuted.withValues(alpha: 0.5)
-                      : AuthColors.textMuted,
+                      ? c.textMuted.withValues(alpha: 0.5)
+                      : c.textMuted,
                   decoration: TextDecoration.underline,
                 ),
               ),
@@ -488,7 +493,7 @@ class _SignUpPageState extends State<SignUpPage> {
               const SizedBox(width: 4),
               Text(
                 '(${_formatCooldown(_resendCooldown)})',
-                style: GoogleFonts.inter(fontSize: 13, color: AuthColors.textMuted),
+                style: geistText(fontSize: 13, color: c.textMuted),
               ),
             ],
           ],
@@ -498,6 +503,7 @@ class _SignUpPageState extends State<SignUpPage> {
   }
 
   Widget _buildUsernameStep({required Key key}) {
+    final c = context.authColors;
     final localValid = AuthValidators.username(_usernameController.text) == null;
     return _stepBody(
       key: key,
@@ -516,14 +522,14 @@ class _SignUpPageState extends State<SignUpPage> {
         if (_checkingUsername)
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Text('Checking availability…', style: GoogleFonts.inter(fontSize: 12, color: AuthColors.textDim)),
+            child: Text('Checking availability…', style: geistText(fontSize: 12, color: c.textDim)),
           )
         else if (_usernameAvailable == true)
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Text(
               _usernameApiMessage ?? 'Username is available',
-              style: GoogleFonts.inter(fontSize: 12, color: AuthColors.success),
+              style: geistText(fontSize: 12, color: c.success),
             ),
           )
         else if (_usernameAvailable == false)
@@ -531,7 +537,7 @@ class _SignUpPageState extends State<SignUpPage> {
             padding: const EdgeInsets.only(top: 8),
             child: Text(
               _usernameApiMessage ?? 'Username is taken',
-              style: GoogleFonts.inter(fontSize: 12, color: AuthColors.error),
+              style: geistText(fontSize: 12, color: c.error),
             ),
           ),
         if (_usernameSuggestions.isNotEmpty) ...[
@@ -541,9 +547,9 @@ class _SignUpPageState extends State<SignUpPage> {
             runSpacing: 8,
             children: _usernameSuggestions.map((s) {
               return ActionChip(
-                label: Text(s, style: GoogleFonts.inter(fontSize: 12, color: AuthColors.textPrimary)),
-                backgroundColor: AuthColors.surfaceElevated,
-                side: BorderSide(color: AuthColors.border),
+                label: Text(s, style: geistText(fontSize: 12, color: c.textPrimary)),
+                backgroundColor: c.surfaceElevated,
+                side: BorderSide(color: c.border),
                 onPressed: () {
                   _usernameController.text = s;
                   _onUsernameChanged(s);
@@ -590,6 +596,7 @@ class _SignUpPageState extends State<SignUpPage> {
   }
 
   Widget _buildPasswordStep({required Key key}) {
+    final c = context.authColors;
     return _stepBody(
       key: key,
       title: 'Set password',
@@ -612,13 +619,13 @@ class _SignUpPageState extends State<SignUpPage> {
             child: LinearProgressIndicator(
               value: _passwordStrength,
               minHeight: 3,
-              backgroundColor: AuthColors.surfaceElevated,
+              backgroundColor: c.surfaceElevated,
               valueColor: AlwaysStoppedAnimation<Color>(
                 _passwordStrength < 0.4
-                    ? AuthColors.error
+                    ? c.error
                     : _passwordStrength < 0.7
                         ? const Color(0xFFFFB347)
-                        : AuthColors.success,
+                        : c.success,
               ),
             ),
           ),
