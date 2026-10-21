@@ -326,4 +326,111 @@ void main() {
     expect(tester.widget<Text>(find.text('Now listed · \$1200')).style!.color, StudioColors.dark.positive);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('Available is a 28 title, an intro, and the fixed price', (tester) async {
+    final older = _entry(
+      id: 'old',
+      title: 'Older',
+      available: true,
+      priceCents: 95000,
+      savedAt: 1,
+    );
+    final newer = _entry(
+      id: 'new',
+      title: 'River',
+      author: 'Amara Osei',
+      available: true,
+      priceCents: 350000,
+      savedAt: 5,
+    );
+    final sold = _entry(
+      id: 'sold',
+      title: 'Sold piece',
+      available: false,
+      priceCents: 10000,
+      savedAt: 9,
+    );
+    final listed = savedAvailableEntries([older, sold, newer]);
+    expect(listed.map((entry) => entry.id), ['new', 'old']);
+    expect(savedAvailablePrice(newer), r'$3,500');
+    expect(savedAvailablePrice(older), r'$950');
+    expect(savedAvailablePrice(sold), isNull);
+
+    await tester.pumpWidget(
+      _app(
+        home: Scaffold(
+          body: SavedAvailableBody(
+            entries: listed,
+            onOpen: (_) {},
+            onLongPress: (_) {},
+            onRefresh: () async {},
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final title = tester.widget<Text>(find.text('Available'));
+    expect(title.style!.fontSize, 28);
+    expect(title.style!.fontWeight, StudioType.medium);
+    expect(title.style!.letterSpacing, -0.5);
+    expect(
+      find.text(
+        'Saved pieces you can collect right now. This folder updates on its own when pieces sell or go on sale.',
+      ),
+      findsOneWidget,
+    );
+    final count = tester.widget<Text>(find.text('2 pieces'));
+    expect(count.style!.fontSize, 12);
+    expect(count.style!.fontFamily, StudioType.geistMono);
+    expect(count.style!.color, StudioColors.light.textSecondary);
+
+    final price = tester.widget<Text>(find.text(r'$3,500'));
+    expect(price.style!.fontSize, 13);
+    expect(price.style!.fontWeight, StudioType.regular);
+    expect(price.style!.color, StudioColors.light.textPrimary);
+    expect(find.text(r'$950'), findsOneWidget);
+    expect(find.text('Sold piece'), findsNothing);
+    expect(find.textContaining('Now listed'), findsNothing);
+    expect(find.textContaining('Bid'), findsNothing);
+    expect(find.byType(StudioChip), findsNothing);
+    expect(find.byKey(const Key('saved-folder-options')), findsNothing);
+    expect(tester.widget<AspectRatio>(find.byType(AspectRatio).first).aspectRatio, 167 / 223);
+
+    await tester.binding.setSurfaceSize(const Size(375, 667));
+    await tester.pumpWidget(
+      _app(
+        textScaler: const TextScaler.linear(1.4),
+        home: Scaffold(
+          body: SavedAvailableBody(
+            entries: listed,
+            onOpen: (_) {},
+            onLongPress: (_) {},
+            onRefresh: () async {},
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+
+    await tester.binding.setSurfaceSize(const Size(440, 956));
+    await tester.pumpWidget(
+      _app(
+        dark: true,
+        home: Scaffold(
+          body: SavedAvailableBody(
+            entries: listed,
+            onOpen: (_) {},
+            onLongPress: (_) {},
+            onRefresh: () async {},
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(tester.widget<Text>(find.text('Available')).style!.color, StudioColors.dark.textPrimary);
+    expect(tester.widget<Text>(find.text(r'$3,500')).style!.color, StudioColors.dark.textPrimary);
+    expect(tester.takeException(), isNull);
+  });
 }

@@ -36,6 +36,35 @@ String? savedChangeLine(SavedEntry entry) {
 bool savedIsCollected(SavedEntry entry) =>
     entry.preview != null && _isCollected(entry.preview!);
 
+/// Saved pieces that can be bought right now, newest saved first.
+/// Auction end times are not on the payload, so nothing sorts ahead of these.
+List<SavedEntry> savedAvailableEntries(Iterable<SavedEntry> entries) {
+  final list = entries.where((entry) => entry.preview?.isAvailable == true).toList();
+  list.sort((a, b) => b.savedAt.compareTo(a.savedAt));
+  return list;
+}
+
+/// Fixed price for the Available folder. Whole dollars, with thousands separators.
+String? savedAvailablePrice(SavedEntry entry) {
+  final preview = entry.preview;
+  final cents = preview?.priceCents;
+  if (preview == null || !preview.isAvailable || cents == null) return null;
+  return formatSavedDollars(cents);
+}
+
+String formatSavedDollars(int cents) {
+  final dollars = cents ~/ 100;
+  final digits = dollars.abs().toString();
+  final buffer = StringBuffer(dollars < 0 ? '-' : '');
+  buffer.write(r'$');
+  for (var i = 0; i < digits.length; i++) {
+    final remaining = digits.length - i;
+    if (i > 0 && remaining % 3 == 0) buffer.write(',');
+    buffer.write(digits[i]);
+  }
+  return buffer.toString();
+}
+
 bool _isCollected(FeedPreviewItem preview) =>
     preview.status?.toLowerCase() == 'collected';
 
@@ -149,11 +178,15 @@ class SavedPieceTile extends StatelessWidget {
     required this.entry,
     required this.onTap,
     required this.onLongPress,
+    this.availablePrice = false,
   });
 
   final SavedEntry entry;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
+
+  /// Available folder: the fixed price at 13, instead of the folder change line.
+  final bool availablePrice;
 
   @override
   Widget build(BuildContext context) {
@@ -161,6 +194,7 @@ class SavedPieceTile extends StatelessWidget {
     final url = savedEntryThumbnailUrl(entry);
     final change = savedChangeLine(entry);
     final collected = savedIsCollected(entry);
+    final price = availablePrice ? savedAvailablePrice(entry) : null;
     return GestureDetector(
       onTap: onTap,
       onLongPress: onLongPress,
@@ -207,7 +241,14 @@ class SavedPieceTile extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: StudioType.caption12(color: c.textSecondary),
             ),
-          if (collected)
+          if (price != null)
+            Text(
+              price,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: StudioType.sans(13, color: c.textPrimary),
+            )
+          else if (collected)
             const Padding(
               padding: EdgeInsets.only(top: 2),
               child: StudioStatusChip(StudioStatus.collected),
@@ -326,6 +367,107 @@ double savedPieceTileExtent(BuildContext context, double width) {
   final caption = _scaledLine(context, 12);
   final chip = 2 + 10 + _scaledLine(context, 11);
   return width * 223 / 167 + 6 + _scaledLine(context, 14) + caption + (chip > caption ? chip : caption) + 4;
+}
+
+/// Piece tile in Available: the third line is the 13 px price.
+double savedAvailableTileExtent(BuildContext context, double width) =>
+    width * 223 / 167 +
+    6 +
+    _scaledLine(context, 14) +
+    _scaledLine(context, 12) +
+    _scaledLine(context, 13) +
+    4;
+
+/// The Available folder: a 28 title, the intro, a Mono count, then the
+/// for-sale pieces. No folder-options control and no All / Piece / Scene chips.
+class SavedAvailableBody extends StatelessWidget {
+  const SavedAvailableBody({
+    super.key,
+    required this.entries,
+    required this.onOpen,
+    required this.onLongPress,
+    required this.onRefresh,
+  });
+
+  final List<SavedEntry> entries;
+  final ValueChanged<SavedEntry> onOpen;
+  final ValueChanged<SavedEntry> onLongPress;
+  final Future<void> Function() onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.studio;
+    final bottom = MediaQuery.paddingOf(context).bottom + StudioSpace.marginPage;
+    final count = entries.length == 1 ? '1 piece' : '${entries.length} pieces';
+    return RefreshIndicator(
+      color: c.textPrimary,
+      onRefresh: onRefresh,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final tileWidth = (constraints.maxWidth - StudioSpace.marginPage * 2 - StudioSpace.s16) / 2;
+          final extent = savedAvailableTileExtent(context, tileWidth);
+          return CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+                sliver: SliverToBoxAdapter(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Available',
+                        style: StudioType.sans(
+                          28,
+                          weight: StudioType.medium,
+                          letterSpacing: -0.5,
+                          color: c.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Saved pieces you can collect right now. This folder updates on its own when pieces sell or go on sale.',
+                        style: StudioType.body14(height: 1.5, color: c.textSecondary),
+                      ),
+                      const SizedBox(height: 20),
+                      Text(count, style: StudioType.mono(12, color: c.textSecondary)),
+                      const SizedBox(height: 6),
+                    ],
+                  ),
+                ),
+              ),
+              if (entries.isNotEmpty)
+                SliverPadding(
+                  padding: EdgeInsets.fromLTRB(20, 0, 20, bottom),
+                  sliver: SliverGrid(
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: StudioSpace.s16,
+                      mainAxisSpacing: StudioSpace.s20,
+                      mainAxisExtent: extent,
+                    ),
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final entry = entries[index];
+                        return SavedPieceTile(
+                          entry: entry,
+                          availablePrice: true,
+                          onTap: () => onOpen(entry),
+                          onLongPress: () => onLongPress(entry),
+                        );
+                      },
+                      childCount: entries.length,
+                    ),
+                  ),
+                )
+              else
+                SliverToBoxAdapter(child: SizedBox(height: bottom)),
+            ],
+          );
+        },
+      ),
+    );
+  }
 }
 
 /// Plus in the Saved header. 44 px, same slot as the board's new-folder control.

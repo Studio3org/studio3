@@ -175,7 +175,7 @@ class _SavedPageState extends State<SavedPage>
           backgroundColor: routeContext.studio.background,
           appBar: StudioTopBar(
             context: routeContext,
-            title: title,
+            title: availableOnly ? '' : title,
             actions: collectionId == null
                 ? null
                 : [
@@ -295,11 +295,8 @@ class _SavedItemsViewState extends State<_SavedItemsView> {
     final list = collectionId == null
         ? _store.entries(filter: _filter)
         : _store.entriesForCollection(collectionId, filter: _filter);
-    final visible = List<SavedEntry>.of(
-      widget.availableOnly
-          ? list.where((entry) => entry.preview?.isAvailable == true)
-          : list,
-    );
+    if (widget.availableOnly) return savedAvailableEntries(list);
+    final visible = List<SavedEntry>.of(list);
     if (collectionId == null) {
       visible.sort((a, b) => b.savedAt.compareTo(a.savedAt));
     }
@@ -420,6 +417,14 @@ class _SavedItemsViewState extends State<_SavedItemsView> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.availableOnly) {
+      return SavedAvailableBody(
+        entries: _items,
+        onOpen: _openEntry,
+        onLongPress: _confirmUnsave,
+        onRefresh: widget.onRefresh,
+      );
+    }
     final c = context.studio;
     final items = _items;
     final bottom = MediaQuery.paddingOf(context).bottom + StudioSpace.marginPage;
