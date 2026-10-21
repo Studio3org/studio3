@@ -19,14 +19,23 @@ enum _SignUpStep {
 }
 
 class SignUpPage extends StatefulWidget {
-  const SignUpPage({super.key});
+  const SignUpPage({super.key, this.initialStepIndex = 0});
+
+  /// 0 name, 1 email, 2 code, 3 username, 4 phone, 5 password.
+  final int initialStepIndex;
 
   @override
   State<SignUpPage> createState() => _SignUpPageState();
 }
 
 class _SignUpPageState extends State<SignUpPage> {
-  _SignUpStep _step = _SignUpStep.name;
+  late _SignUpStep _step;
+
+  @override
+  void initState() {
+    super.initState();
+    _step = _SignUpStep.values[widget.initialStepIndex.clamp(0, _SignUpStep.values.length - 1)];
+  }
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
   final _emailController = TextEditingController();

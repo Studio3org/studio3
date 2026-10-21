@@ -451,25 +451,38 @@ class AuthRememberRow extends StatelessWidget {
       height: StudioSize.tapTarget,
       child: Row(
         children: [
-          SizedBox(
-            width: 22,
-            height: 22,
-            child: Checkbox(
-              value: value,
-              onChanged: (v) => onChanged(v ?? false),
-              activeColor: c.textPrimary,
-              checkColor: c.background,
-              side: BorderSide(color: c.lineStrong),
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              visualDensity: VisualDensity.compact,
+        SizedBox(
+          width: StudioSize.tapTarget,
+          height: StudioSize.tapTarget,
+          child: InkWell(
+            onTap: () => onChanged(!value),
+            child: Center(
+              child: IgnorePointer(
+                child: Checkbox(
+                  value: value,
+                  onChanged: (_) {},
+                  activeColor: c.textPrimary,
+                  checkColor: c.background,
+                  side: BorderSide(color: c.lineStrong),
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
             ),
           ),
+        ),
           const SizedBox(width: 8),
-          GestureDetector(
-            onTap: () => onChanged(!value),
-            child: Text('Remember me', style: StudioType.caption12(color: c.textSecondary)),
+          Expanded(
+            child: GestureDetector(
+              onTap: () => onChanged(!value),
+              child: Text(
+                'Remember me',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: StudioType.caption12(color: c.textSecondary),
+              ),
+            ),
           ),
-          const Spacer(),
           if (onForgot != null)
             TextButton(
               onPressed: onForgot,
@@ -530,7 +543,7 @@ class AuthLinkFooter extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: SizedBox(
-        height: 36,
+        height: StudioSize.tapTarget,
         child: Center(
           child: Text.rich(
             TextSpan(
@@ -676,18 +689,25 @@ class AuthTermsCheckbox extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          width: 22,
-          height: 22,
-          child: Checkbox(
-            value: value,
-            onChanged: (v) => onChanged(v ?? false),
-            activeColor: c.textPrimary,
-            checkColor: c.background,
-            side: BorderSide(
-              color: showError && !value ? c.textPrimary : c.lineStrong,
+          width: StudioSize.tapTarget,
+          height: StudioSize.tapTarget,
+          child: InkWell(
+            onTap: () => onChanged(!value),
+            child: Center(
+              child: IgnorePointer(
+                child: Checkbox(
+                  value: value,
+                  onChanged: (_) {},
+                  activeColor: c.textPrimary,
+                  checkColor: c.background,
+                  side: BorderSide(
+                    color: showError && !value ? c.textPrimary : c.lineStrong,
+                  ),
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
             ),
-            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            visualDensity: VisualDensity.compact,
           ),
         ),
         const SizedBox(width: 8),
@@ -739,7 +759,6 @@ class AuthGuestLink extends StatelessWidget {
     return StudioButton(
       label: 'Browse without an account',
       variant: StudioButtonVariant.text,
-      height: 36,
       onPressed: () => Navigator.pushNamedAndRemoveUntil(context, '/', (_) => false),
     );
   }

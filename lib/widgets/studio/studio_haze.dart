@@ -14,10 +14,13 @@ class StudioHaze extends StatefulWidget {
   const StudioHaze({super.key});
 
   @override
-  State<StudioHaze> createState() => _StudioHazeState();
+  State<StudioHaze> createState() => StudioHazeState();
 }
 
-class _StudioHazeState extends State<StudioHaze> with SingleTickerProviderStateMixin {
+class StudioHazeState extends State<StudioHaze> with SingleTickerProviderStateMixin {
+  /// True while the haze is drifting. Stays false when reduced motion is on.
+  bool get isDrifting => _controller.isAnimating;
+
   late final AnimationController _controller = AnimationController(
     vsync: this,
     duration: StudioMotion.hazeLoop,

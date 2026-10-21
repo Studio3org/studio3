@@ -17,14 +17,17 @@ import '../../widgets/studio_loading.dart';
 
 /// Multi-step onboarding: role → preferences → photos → complete.
 class OnboardingPage extends StatefulWidget {
-  const OnboardingPage({super.key});
+  const OnboardingPage({super.key, this.initialStep = 0});
+
+  /// 0 role, 1 preferences, 2 photos.
+  final int initialStep;
 
   @override
   State<OnboardingPage> createState() => _OnboardingPageState();
 }
 
 class _OnboardingPageState extends State<OnboardingPage> {
-  int _step = 0;
+  late int _step = widget.initialStep.clamp(0, 2);
   bool _loading = false;
   String? _role;
   final Set<String> _mediums = {};
