@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../services/social_service.dart';
-import '../../theme/home_feed_tokens.dart';
+import '../../theme/studio_colors.dart';
+import '../../theme/studio_metrics.dart';
+import '../../theme/studio_type.dart';
 
 class SceneVideoCommentSheet extends StatefulWidget {
   const SceneVideoCommentSheet({
@@ -22,9 +23,9 @@ class SceneVideoCommentSheet extends StatefulWidget {
     return showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: HomeFeedTokens.background,
+      backgroundColor: context.studio.background,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(StudioRadius.sheet)),
       ),
       builder: (context) => Padding(
         padding: EdgeInsets.only(
@@ -72,6 +73,7 @@ class _SceneVideoCommentSheetState extends State<SceneVideoCommentSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.studio;
     return SafeArea(
       top: false,
       child: Padding(
@@ -85,7 +87,7 @@ class _SceneVideoCommentSheetState extends State<SceneVideoCommentSheet> {
                 width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: HomeFeedTokens.textSecondary.withValues(alpha: 0.35),
+                  color: c.lineStrong,
                   borderRadius: BorderRadius.circular(100),
                 ),
               ),
@@ -93,10 +95,8 @@ class _SceneVideoCommentSheetState extends State<SceneVideoCommentSheet> {
             const SizedBox(height: 16),
             Text(
               'Comment on ${widget.authorName}\'s scene',
-              style: GoogleFonts.inter(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: HomeFeedTokens.textPrimary,
+              style: StudioType.body15(color: c.textPrimary).copyWith(
+                fontWeight: StudioType.medium,
               ),
             ),
             const SizedBox(height: 12),
@@ -107,18 +107,13 @@ class _SceneVideoCommentSheetState extends State<SceneVideoCommentSheet> {
               minLines: 2,
               textInputAction: TextInputAction.send,
               onSubmitted: (_) => _submit(),
-              style: GoogleFonts.inter(
-                fontSize: 14,
-                color: HomeFeedTokens.textPrimary,
-              ),
+              style: StudioType.body14(color: c.textPrimary),
+              cursorColor: c.textPrimary,
               decoration: InputDecoration(
                 hintText: 'Add a comment…',
-                hintStyle: GoogleFonts.inter(
-                  fontSize: 14,
-                  color: HomeFeedTokens.textSecondary,
-                ),
+                hintStyle: StudioType.body14(color: c.textSecondary),
                 filled: true,
-                fillColor: HomeFeedTokens.textPrimary.withValues(alpha: 0.06),
+                fillColor: c.surface,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -130,28 +125,27 @@ class _SceneVideoCommentSheetState extends State<SceneVideoCommentSheet> {
             FilledButton(
               onPressed: _posting ? null : _submit,
               style: FilledButton.styleFrom(
-                backgroundColor: HomeFeedTokens.textPrimary,
-                foregroundColor: HomeFeedTokens.textInverse,
+                backgroundColor: c.buttonFill,
+                foregroundColor: c.buttonText,
+                disabledBackgroundColor: c.buttonDisabledFill,
+                disabledForegroundColor: c.buttonDisabledText,
                 minimumSize: const Size.fromHeight(44),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(StudioRadius.button),
                 ),
               ),
               child: _posting
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: Colors.white,
+                        color: c.buttonText,
                       ),
                     )
                   : Text(
                       'Post comment',
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: StudioType.body14(weight: StudioType.medium),
                     ),
             ),
           ],

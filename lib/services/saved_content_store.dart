@@ -364,6 +364,31 @@ class SavedContentStore extends ChangeNotifier {
     );
   }
 
+  void removeEntryFromCollection(
+    String collectionId,
+    String entryId, {
+    required String targetType,
+  }) {
+    final index = _collections.indexWhere((c) => c.id == collectionId);
+    if (index == -1) return;
+    final current = _collections[index];
+    if (!current.entryIds.contains(entryId)) return;
+    _collections[index] = current.copyWith(
+      entryIds: current.entryIds.where((id) => id != entryId).toList(),
+    );
+    notifyListeners();
+    unawaited(_persistCollections());
+    unawaited(
+      SocialService.instance
+          .removeFromCollection(
+            collectionId: collectionId,
+            targetType: targetType,
+            targetId: entryId,
+          )
+          .catchError((_) {}),
+    );
+  }
+
   void removeEntryFromAllCollections(String entryId, {String? targetType}) {
     var changed = false;
     final affectedCollectionIds = <String>[];

@@ -1,40 +1,45 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter/services.dart';
 
-import '../theme/home_feed_tokens.dart';
+import '../theme/studio_colors.dart';
+import '../theme/studio_metrics.dart';
+import 'studio/studio_button.dart';
+import 'studio/studio_field.dart';
+import 'studio/studio_sheet.dart';
+import '../theme/studio_type.dart';
 
-/// Bottom-sheet prompt for a collection name — shared by "create a new
-/// collection" and "rename an existing one". Returns the trimmed name, or
-/// null if cancelled.
+/// Name field for a new folder or a rename. Names may repeat. 40 characters.
+/// Returns the trimmed name, or null if the sheet is dismissed.
 class CollectionNameSheet extends StatefulWidget {
   const CollectionNameSheet({
     super.key,
     this.initialName = '',
-    this.title = 'New collection',
-    this.actionLabel = 'Create',
+    this.title = 'New folder',
+    this.actionLabel = 'Create folder',
+    this.pieceTitle,
   });
 
   final String initialName;
   final String title;
   final String actionLabel;
 
+  /// When set, the sheet says this piece will go in the new folder.
+  final String? pieceTitle;
+
   static Future<String?> show(
     BuildContext context, {
     String initialName = '',
-    String title = 'New collection',
-    String actionLabel = 'Create',
+    String title = 'New folder',
+    String actionLabel = 'Create folder',
+    String? pieceTitle,
   }) {
-    return showModalBottomSheet<String>(
+    return showStudioSheet<String>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: HomeFeedTokens.detailBackground,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
       builder: (context) => CollectionNameSheet(
         initialName: initialName,
         title: title,
         actionLabel: actionLabel,
+        pieceTitle: pieceTitle,
       ),
     );
   }
@@ -66,64 +71,41 @@ class _CollectionNameSheetState extends State<CollectionNameSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
-
-    return Padding(
-      padding: EdgeInsets.only(bottom: bottomInset),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                widget.title,
-                style: GoogleFonts.inter(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: HomeFeedTokens.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _controller,
-                autofocus: true,
-                textCapitalization: TextCapitalization.words,
-                decoration: InputDecoration(
-                  hintText: 'Collection name',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-                onSubmitted: (_) => _submit(),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: Text(
-                      'Cancel',
-                      style: GoogleFonts.inter(color: HomeFeedTokens.textSecondary),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  TextButton(
-                    onPressed: _submit,
-                    child: Text(
-                      widget.actionLabel,
-                      style: GoogleFonts.inter(
-                        fontWeight: FontWeight.w600,
-                        color: HomeFeedTokens.textPrimary,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+    final c = context.studio;
+    final piece = widget.pieceTitle?.trim();
+    final name = _controller.text.trim();
+    return StudioSheet(
+      horizontalPadding: StudioSpace.marginForm,
+      gap: 6,
+      scrollable: true,
+      children: [
+        Text(widget.title, style: StudioType.title22(color: c.textPrimary)),
+        if (piece != null && piece.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Text(
+              '$piece will go in it.',
+              style: StudioType.body14(color: c.textSecondary),
+            ),
           ),
+        StudioUnderlineField(
+          label: 'Folder name',
+          controller: _controller,
+          autofocus: true,
+          valueSize: 18,
+          textCapitalization: TextCapitalization.words,
+          textInputAction: TextInputAction.done,
+          maxLength: 40,
+          inputFormatters: [LengthLimitingTextInputFormatter(40)],
+          onChanged: (_) => setState(() {}),
+          onSubmitted: (_) => _submit(),
         ),
-      ),
+        const SizedBox(height: 12),
+        StudioButton(
+          label: widget.actionLabel,
+          onPressed: name.isEmpty ? null : _submit,
+        ),
+      ],
     );
   }
 }

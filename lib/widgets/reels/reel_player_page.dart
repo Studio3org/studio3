@@ -6,7 +6,9 @@ import 'package:video_player/video_player.dart';
 
 import '../../models/feed_item.dart';
 import '../../services/auth_session.dart';
+import '../../theme/studio_colors.dart';
 import '../feed_skeleton.dart';
+import '../studio/studio_icon.dart';
 import 'reel_overlay.dart';
 
 class ReelPlayerPage extends StatefulWidget {
@@ -176,10 +178,11 @@ class _ReelPlayerPageState extends State<ReelPlayerPage> {
               )
             else if (_failed)
               const Center(
-                child: Icon(
-                  Icons.videocam_off_outlined,
-                  color: Colors.white54,
+                child: StudioIcon(
+                  StudioIcons.video,
                   size: 48,
+                  color: StudioColors.onDarkSecondary,
+                  semanticLabel: 'Video unavailable',
                 ),
               )
             else
@@ -188,14 +191,18 @@ class _ReelPlayerPageState extends State<ReelPlayerPage> {
               child: Center(
                 child: AnimatedOpacity(
                   opacity: _showHeart ? 1 : 0,
-                  duration: const Duration(milliseconds: 150),
+                  duration: MediaQuery.disableAnimationsOf(context)
+                      ? Duration.zero
+                      : const Duration(milliseconds: 150),
                   child: AnimatedScale(
                     scale: _showHeart ? 1 : 0.6,
-                    duration: const Duration(milliseconds: 200),
+                    duration: MediaQuery.disableAnimationsOf(context)
+                        ? Duration.zero
+                        : const Duration(milliseconds: 200),
                     curve: Curves.easeOut,
                     child: const Icon(
                       Icons.favorite,
-                      color: Colors.white,
+                      color: StudioColors.galleryWhite,
                       size: 100,
                     ),
                   ),

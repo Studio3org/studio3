@@ -16,6 +16,11 @@ abstract final class StudioIcons {
   static const String close = '$_dir/close.svg';
   static const String edit = '$_dir/edit_piece.svg';
   static const String events = '$_dir/events.svg';
+  static const String folder = '$_dir/folder.svg';
+  static const String folderOptions = '$_dir/conversation_options.svg';
+  static const String deleteFolder = '$_dir/delete_folder.svg';
+  static const String renameFolder = '$_dir/rename_folder.svg';
+  static const String newFolder = '$_dir/add_a_photo.svg';
   static const String filter = '$_dir/filter_feed.svg';
   static const String inbox = '$_dir/inbox_unread_items.svg';
   static const String layers = '$_dir/layers.svg';
@@ -29,6 +34,7 @@ abstract final class StudioIcons {
   static const String save = '$_dir/save.svg';
   static const String saved = '$_dir/saved.svg';
   static const String search = '$_dir/search_behind_the_work.svg';
+  static const String send = '$_dir/send.svg';
   static const String settings = '$_dir/settings.svg';
   static const String share = '$_dir/share.svg';
   static const String video = '$_dir/video.svg';

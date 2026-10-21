@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/feed_item.dart';
+import '../../theme/studio_colors.dart';
+import '../../theme/studio_type.dart';
 import '../../services/engagement_store.dart';
 import '../../services/saved_content_store.dart';
 import '../../services/report_service.dart';
@@ -14,6 +15,7 @@ import '../follow_button.dart';
 import '../piece_detail/detail_follow_state.dart';
 import '../profile_avatar.dart';
 import '../save_to_collection_sheet.dart';
+import '../studio/studio_icon.dart';
 import 'reel_description_sheet.dart';
 import 'scene_video_comment_sheet.dart';
 
@@ -234,12 +236,17 @@ class ReelOverlayState extends State<ReelOverlay>
     if (!mounted) return;
     final nextSaved = !_saved;
 
-    String? collectionId;
+    List<String> collectionIds = const [];
     final hadCollections = SavedContentStore.instance.hasCollections;
     if (nextSaved) {
-      final resolution = await resolveSaveCollection(context);
+      final resolution = await resolveSaveCollection(
+        context,
+        pieceTitle: widget.item.title,
+        thumbnailUrl: widget.item.mediaUrl,
+        forSale: widget.item.isForSale,
+      );
       if (resolution.cancelled) return;
-      collectionId = resolution.collectionId;
+      collectionIds = resolution.collectionIds;
     }
 
     final generation = ++_saveGeneration;
@@ -247,7 +254,7 @@ class ReelOverlayState extends State<ReelOverlay>
     _engagement.setSaved(postId, nextSaved);
     if (nextSaved) {
       SavedContentStore.instance.saveFeedItem(widget.item);
-      if (collectionId != null) {
+      for (final collectionId in collectionIds) {
         SavedContentStore.instance.addEntryToCollection(
           collectionId,
           postId,
@@ -338,10 +345,9 @@ class ReelOverlayState extends State<ReelOverlay>
                               authorName,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.inter(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
+                              style: StudioType.body14(
+                                weight: StudioType.medium,
+                                color: StudioColors.galleryWhite,
                               ),
                             ),
                             if (authorUsername != null &&
@@ -350,10 +356,9 @@ class ReelOverlayState extends State<ReelOverlay>
                                 '@$authorUsername',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.inter(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w400,
-                                  color: Colors.white.withValues(alpha: 0.7),
+                                style: StudioType.sans(
+                                  11,
+                                  color: StudioColors.galleryWhite.withValues(alpha: 0.7),
                                 ),
                               ),
                           ],
@@ -381,12 +386,9 @@ class ReelOverlayState extends State<ReelOverlay>
                       caption,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.inter(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w400,
-                        color: Colors.white.withValues(alpha: 0.92),
-                        height: 1.35,
-                      ),
+                      style: StudioType.label13(
+                        color: StudioColors.galleryWhite.withValues(alpha: 0.92),
+                      ).copyWith(height: 1.35),
                     ),
                   ),
                 ],
@@ -404,8 +406,11 @@ class ReelOverlayState extends State<ReelOverlay>
               ),
               const SizedBox(height: 18),
               _ActionButton(
-                icon: Icons.chat_bubble_outline_rounded,
-                iconColor: Colors.white,
+                icon: const StudioIcon(
+                  StudioIcons.chat,
+                  size: 28,
+                  color: StudioColors.galleryWhite,
+                ),
                 label: _commentCount > 0 ? '$_commentCount' : 'Comment',
                 onTap: _openComments,
               ),
@@ -419,8 +424,11 @@ class ReelOverlayState extends State<ReelOverlay>
               if (widget.item.post?.id != null) ...[
                 const SizedBox(height: 18),
                 _ActionButton(
-                  icon: Icons.more_horiz_rounded,
-                  iconColor: Colors.white,
+                  icon: const StudioIcon(
+                    StudioIcons.more,
+                    size: 28,
+                    color: StudioColors.galleryWhite,
+                  ),
                   label: 'More',
                   // Blocking removes this reel (and the rest of the
                   // author's) from ReelsPage via BlockedAuthorsStore.
@@ -446,8 +454,6 @@ class _LikeActionButton extends StatelessWidget {
     required this.onTap,
   });
 
-  static const _likeRed = Color(0xFFFF3040);
-
   final bool liked;
   final String label;
   final VoidCallback onTap;
@@ -461,24 +467,23 @@ class _LikeActionButton extends StatelessWidget {
         children: [
           Icon(
             liked ? Icons.favorite : Icons.favorite_border,
-            color: liked ? _likeRed : Colors.white,
+            color: liked ? context.studio.alert : StudioColors.galleryWhite,
             size: 30,
             fill: liked ? 1 : 0,
           ),
           const SizedBox(height: 4),
-          Text(
-            label,
-            style: GoogleFonts.inter(
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-              color: Colors.white,
-            ),
-          ),
+          Text(label, style: _actionLabel),
         ],
       ),
     );
   }
 }
+
+TextStyle get _actionLabel => StudioType.sans(
+  11,
+  weight: StudioType.medium,
+  color: StudioColors.galleryWhite,
+);
 
 class _SaveActionButton extends StatelessWidget {
   const _SaveActionButton({required this.saved, required this.onTap});
@@ -493,21 +498,13 @@ class _SaveActionButton extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       child: Column(
         children: [
-          Icon(
-            saved ? Icons.bookmark : Icons.bookmark_border,
-            color: Colors.white,
+          StudioIcon(
+            saved ? StudioIcons.saved : StudioIcons.save,
             size: 30,
-            fill: saved ? 1 : 0,
+            color: StudioColors.galleryWhite,
           ),
           const SizedBox(height: 4),
-          Text(
-            'Save',
-            style: GoogleFonts.inter(
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-              color: Colors.white,
-            ),
-          ),
+          Text('Save', style: _actionLabel),
         ],
       ),
     );
@@ -527,7 +524,7 @@ class _MuteActionButton extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       child: Icon(
         muted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
-        color: Colors.white,
+        color: StudioColors.galleryWhite,
         size: 28,
       ),
     );
@@ -537,13 +534,11 @@ class _MuteActionButton extends StatelessWidget {
 class _ActionButton extends StatelessWidget {
   const _ActionButton({
     required this.icon,
-    required this.iconColor,
     required this.label,
     required this.onTap,
   });
 
-  final IconData icon;
-  final Color iconColor;
+  final Widget icon;
   final String label;
   final VoidCallback onTap;
 
@@ -554,16 +549,9 @@ class _ActionButton extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       child: Column(
         children: [
-          Icon(icon, color: iconColor, size: 28),
+          icon,
           const SizedBox(height: 4),
-          Text(
-            label,
-            style: GoogleFonts.inter(
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-              color: Colors.white,
-            ),
-          ),
+          Text(label, style: _actionLabel),
         ],
       ),
     );

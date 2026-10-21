@@ -1,27 +1,30 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
-import '../theme/home_feed_tokens.dart';
+import '../theme/studio_colors.dart';
+import '../theme/studio_metrics.dart';
+import '../theme/studio_type.dart';
 
-/// Instagram-style bottom toast shown after saving/unsaving a piece or scene
-/// to the collection, with the item's thumbnail alongside the message.
+/// Confirmation after a save or unsave. The save sheet carries its own
+/// "Saved" header; this toast still reports the result once that sheet closes,
+/// and it is the only confirmation when there is no folder to pick.
 void showCollectionSavedToast(
   BuildContext context, {
   required bool saved,
   String? thumbnailUrl,
   double bottomMargin = 16,
 }) {
+  final c = context.studio;
   final messenger = ScaffoldMessenger.of(context);
   messenger.hideCurrentSnackBar();
   messenger.showSnackBar(
     SnackBar(
       behavior: SnackBarBehavior.floating,
       duration: const Duration(seconds: 2),
-      backgroundColor: HomeFeedTokens.textPrimary,
+      backgroundColor: c.buttonFill,
       margin: EdgeInsets.fromLTRB(16, 0, 16, bottomMargin),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(StudioRadius.button),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       content: Row(
@@ -35,21 +38,16 @@ void showCollectionSavedToast(
                   ? CachedNetworkImage(
                       imageUrl: thumbnailUrl,
                       fit: BoxFit.cover,
-                      errorWidget: (context, url, error) =>
-                          _placeholder(),
+                      errorWidget: (context, url, error) => _placeholder(c),
                     )
-                  : _placeholder(),
+                  : _placeholder(c),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               saved ? 'Added to Collection' : 'Removed from Collection',
-              style: GoogleFonts.inter(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: HomeFeedTokens.textInverse,
-              ),
+              style: StudioType.label13(weight: StudioType.medium, color: c.buttonText),
             ),
           ),
         ],
@@ -58,11 +56,7 @@ void showCollectionSavedToast(
   );
 }
 
-Widget _placeholder() => ColoredBox(
-      color: HomeFeedTokens.textInverse.withValues(alpha: 0.15),
-      child: const Icon(
-        Icons.image_outlined,
-        color: HomeFeedTokens.textInverse,
-        size: 18,
-      ),
+Widget _placeholder(StudioColors c) => ColoredBox(
+      color: c.buttonText.withValues(alpha: 0.15),
+      child: Icon(Icons.image_outlined, color: c.buttonText, size: 18),
     );

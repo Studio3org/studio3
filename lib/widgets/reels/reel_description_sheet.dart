@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/feed_item.dart';
+import '../../theme/studio_colors.dart';
+import '../../theme/studio_metrics.dart';
+import '../../theme/studio_type.dart';
 import '../../services/auth_session.dart';
 import '../../services/social_service.dart';
 import '../../utils/profile_navigation.dart';
 import '../../utils/require_login.dart';
 import '../follow_button.dart';
 import '../profile_avatar.dart';
+import '../studio/studio_icon.dart';
 
 /// Instagram-style "expand caption" popup for a reel: full caption text plus
 /// a persistent comment box, over a dark scrim matching the reel screen
@@ -41,9 +44,9 @@ class ReelDescriptionSheet extends StatefulWidget {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.black,
+      backgroundColor: StudioColors.ink,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(StudioRadius.sheet)),
       ),
       builder: (context) => DraggableScrollableSheet(
         initialChildSize: 0.6,
@@ -113,7 +116,7 @@ class _ReelDescriptionSheetState extends State<ReelDescriptionSheet> {
             width: 36,
             height: 4,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.35),
+              color: StudioColors.galleryWhite.withValues(alpha: 0.35),
               borderRadius: BorderRadius.circular(100),
             ),
           ),
@@ -148,10 +151,9 @@ class _ReelDescriptionSheetState extends State<ReelDescriptionSheet> {
                           authorName,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.inter(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
+                          style: StudioType.body14(
+                            weight: StudioType.medium,
+                            color: StudioColors.galleryWhite,
                           ),
                         ),
                         if (authorUsername != null &&
@@ -160,10 +162,8 @@ class _ReelDescriptionSheetState extends State<ReelDescriptionSheet> {
                             '@$authorUsername',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.inter(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w400,
-                              color: Colors.white.withValues(alpha: 0.6),
+                            style: StudioType.caption12(
+                              color: StudioColors.galleryWhite.withValues(alpha: 0.6),
                             ),
                           ),
                       ],
@@ -182,15 +182,14 @@ class _ReelDescriptionSheetState extends State<ReelDescriptionSheet> {
             ),
           ),
           const SizedBox(height: 12),
-          const Divider(height: 1, color: Colors.white24),
+          const Divider(height: 1, color: Color(0x3DFAFAF8)),
           Expanded(
             child: caption.trim().isEmpty
                 ? Center(
                     child: Text(
                       'No description',
-                      style: GoogleFonts.inter(
-                        fontSize: 13,
-                        color: Colors.white.withValues(alpha: 0.6),
+                      style: StudioType.label13(
+                        color: StudioColors.onDarkSecondary,
                       ),
                     ),
                   )
@@ -199,16 +198,13 @@ class _ReelDescriptionSheetState extends State<ReelDescriptionSheet> {
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
                     child: Text(
                       caption,
-                      style: GoogleFonts.inter(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w400,
-                        color: Colors.white.withValues(alpha: 0.92),
-                        height: 1.4,
-                      ),
+                      style: StudioType.label13(
+                        color: StudioColors.galleryWhite.withValues(alpha: 0.92),
+                      ).copyWith(height: 1.4),
                     ),
                   ),
           ),
-          const Divider(height: 1, color: Colors.white24),
+          const Divider(height: 1, color: Color(0x3DFAFAF8)),
           _buildInputBar(),
         ],
       ),
@@ -243,15 +239,15 @@ class _ReelDescriptionSheetState extends State<ReelDescriptionSheet> {
                       ),
               textInputAction: TextInputAction.send,
               onSubmitted: (_) => _submit(),
-              style: GoogleFonts.inter(fontSize: 14, color: Colors.white),
+              style: StudioType.body14(color: StudioColors.galleryWhite),
+              cursorColor: StudioColors.galleryWhite,
               decoration: InputDecoration(
                 hintText: 'Add a comment…',
-                hintStyle: GoogleFonts.inter(
-                  fontSize: 14,
-                  color: Colors.white.withValues(alpha: 0.5),
+                hintStyle: StudioType.body14(
+                  color: StudioColors.galleryWhite.withValues(alpha: 0.5),
                 ),
                 filled: true,
-                fillColor: Colors.white.withValues(alpha: 0.1),
+                fillColor: StudioColors.galleryWhite.withValues(alpha: 0.1),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(20),
                   borderSide: BorderSide.none,
@@ -272,11 +268,15 @@ class _ReelDescriptionSheetState extends State<ReelDescriptionSheet> {
                     height: 18,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: Colors.white,
+                      color: StudioColors.galleryWhite,
                     ),
                   )
-                : const Icon(Icons.send_rounded),
-            color: Colors.white,
+                : const StudioIcon(
+                    StudioIcons.send,
+                    size: 22,
+                    color: StudioColors.galleryWhite,
+                  ),
+            color: StudioColors.galleryWhite,
           ),
         ],
       ),
