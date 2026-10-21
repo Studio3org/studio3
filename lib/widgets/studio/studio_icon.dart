@@ -16,6 +16,9 @@ abstract final class StudioIcons {
   static const String close = '$_dir/close.svg';
   static const String edit = '$_dir/edit_piece.svg';
   static const String events = '$_dir/events.svg';
+  static const String filter = '$_dir/filter_feed.svg';
+  static const String inbox = '$_dir/inbox_unread_items.svg';
+  static const String layers = '$_dir/layers.svg';
   static const String explore = '$_dir/explore.svg';
   static const String home = '$_dir/home.svg';
   static const String info = '$_dir/info.svg';

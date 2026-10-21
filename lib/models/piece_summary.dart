@@ -28,6 +28,8 @@ class PieceSummary {
     this.authorAvatarUrl,
     this.authorIsFollowing = false,
     this.series,
+    this.listingState,
+    this.imageUrls = const [],
     this.status,
     this.materials = const [],
     this.styleTags = const [],
@@ -61,6 +63,12 @@ class PieceSummary {
   final String? authorAvatarUrl;
   final bool authorIsFollowing;
   final PieceSeriesInfo? series;
+
+  /// Marketplace badge from the piece payload (`available`, `collected`, …).
+  final String? listingState;
+
+  /// Ordered gallery. Empty when the payload only has a cover [mediaUrl].
+  final List<String> imageUrls;
   final String? status;
   final List<String> materials;
   final List<String> styleTags;
@@ -111,6 +119,8 @@ class PieceSummary {
       series: seriesJson is Map<String, dynamic>
           ? PieceSeriesInfo.fromJson(seriesJson)
           : null,
+      listingState: json['listingState'] as String?,
+      imageUrls: _imageUrls(json),
       status: json['status'] as String?,
       materials: (json['materials'] as List?)?.whereType<String>().toList() ??
           const [],
@@ -125,6 +135,25 @@ class PieceSummary {
               .toList()
           : null,
     );
+  }
+
+  static List<String> _imageUrls(Map<String, dynamic> json) {
+    final raw = json['images'];
+    if (raw is List) {
+      final urls = <String>[];
+      for (final item in raw) {
+        if (item is String && item.isNotEmpty) {
+          urls.add(item);
+        } else if (item is Map && item['mediaUrl'] is String) {
+          final url = item['mediaUrl'] as String;
+          if (url.isNotEmpty) urls.add(url);
+        }
+      }
+      if (urls.isNotEmpty) return urls;
+    }
+    final cover = json['mediaUrl'] as String?;
+    if (cover != null && cover.isNotEmpty) return [cover];
+    return const [];
   }
 
   static int? _intFrom(dynamic value) {
@@ -160,6 +189,9 @@ class PieceSummary {
         if (authorAvatarUrl != null) 'authorAvatarUrl': authorAvatarUrl,
         'authorIsFollowing': authorIsFollowing,
         if (series != null) 'series': series!.toJson(),
+        if (listingState != null) 'listingState': listingState,
+        if (imageUrls.isNotEmpty)
+          'images': [for (final url in imageUrls) {'mediaUrl': url}],
         if (status != null) 'status': status,
         'materials': materials,
         'styleTags': styleTags,

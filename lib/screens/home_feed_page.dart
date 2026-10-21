@@ -1,13 +1,13 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../models/feed_item.dart';
 import '../models/feed_page.dart';
 import '../models/feed_preview_item.dart' show FeedAvailabilityFilter;
-import '../theme/home_feed_tokens.dart';
+import '../theme/studio_colors.dart';
+import '../theme/studio_metrics.dart';
+import '../theme/studio_type.dart';
 import '../utils/explore_detail_route.dart';
 import '../utils/require_login.dart';
-import '../utils/image_aspect_ratio_resolver.dart';
 import '../widgets/feed_skeleton.dart';
 import '../widgets/home_feed/home_feed_widgets.dart';
 import '../widgets/offline_state.dart';
@@ -235,7 +235,7 @@ class _HomePageState extends State<HomePage>
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.paddingOf(context).bottom + 100;
+    final bottomInset = MediaQuery.paddingOf(context).bottom + 64 + 28 + 20;
     final store = widget.store;
     final items = _showAvailable ? store.availableItems : store.feedItems;
     final filter = _showAvailable
@@ -243,15 +243,13 @@ class _HomePageState extends State<HomePage>
         : FeedAvailabilityFilter.all;
 
     return Scaffold(
-      backgroundColor: HomeFeedTokens.background,
+      backgroundColor: context.studio.background,
       body: SafeArea(
         bottom: false,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(0, 8, 0, 12),
-              child: FeedHomeHeader(
+            FeedHomeHeader(
                 filter: filter,
                 onFilterChanged: _onFilterTap,
                 onAddTap: () async {
@@ -267,7 +265,6 @@ class _HomePageState extends State<HomePage>
                 },
                 hasAvailableItems: store.availableItems.isNotEmpty,
               ),
-            ),
             Expanded(
               child: _buildFeed(
                 bottomInset,
@@ -309,10 +306,7 @@ class _HomePageState extends State<HomePage>
             Center(
               child: Text(
                 emptyMessage,
-                style: TextStyle(
-                  color: HomeFeedTokens.textSecondary,
-                  fontSize: 14,
-                ),
+                style: StudioType.body14(color: context.studio.textSecondary),
               ),
             ),
           ],
@@ -320,135 +314,46 @@ class _HomePageState extends State<HomePage>
       );
     }
 
+    final rows = <Widget>[];
+    final seenSeries = <String>{};
+    for (final item in items) {
+      final series = item.piece?.series;
+      if (series != null && series.previewPieces.isNotEmpty && seenSeries.add(series.id)) {
+        rows.add(
+          FeedSeriesRow(
+            series: series,
+            artistName: item.authorName?.trim().isNotEmpty == true ? item.authorName!.trim() : 'Artist',
+            artistUsername: item.authorUsername,
+          ),
+        );
+      }
+      rows.add(FeedPieceCard(item: item, onTap: () => _openApiItem(item)));
+    }
+
     return RefreshIndicator(
+      color: context.studio.textPrimary,
       onRefresh: () => store.refresh(),
-      child: ListView.builder(
+      child: ListView.separated(
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         padding: EdgeInsets.only(bottom: bottomInset),
-        itemCount: items.length + (store.loadingMore ? 1 : 0),
+        itemCount: rows.length + (store.loadingMore ? 1 : 0),
+        separatorBuilder: (_, _) => const SizedBox(height: StudioSpace.feedGap),
         itemBuilder: (context, index) {
-          if (index >= items.length) {
-            return const Padding(
-              padding: EdgeInsets.symmetric(vertical: 16),
+          if (index >= rows.length) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
               child: Center(
                 child: SizedBox(
                   width: 24,
                   height: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  child: CircularProgressIndicator(strokeWidth: 2, color: context.studio.textPrimary),
                 ),
               ),
             );
           }
-          final item = items[index];
-          return Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: HomeFeedTokens.sideMargin,
-            ).copyWith(bottom: HomeFeedTokens.rowGap),
-            child: _ApiFeedTile(item: item, onTap: () => _openApiItem(item)),
-          );
+          return rows[index];
         },
-      ),
-    );
-  }
-}
-
-/// A "For You" feed card that sizes itself to the item's real posted
-/// aspect ratio (3:4 or 16:9) instead of a fixed shape, so the image shows
-/// fully instead of being cropped to a mismatched box.
-class _ApiFeedTile extends StatefulWidget {
-  const _ApiFeedTile({required this.item, required this.onTap});
-
-  final FeedItem item;
-  final VoidCallback onTap;
-
-  @override
-  State<_ApiFeedTile> createState() => _ApiFeedTileState();
-}
-
-class _ApiFeedTileState extends State<_ApiFeedTile> {
-  double _aspectRatio = ImageAspectRatioResolver.portrait3x4;
-
-  @override
-  void initState() {
-    super.initState();
-    _resolveAspectRatio();
-  }
-
-  @override
-  void didUpdateWidget(covariant _ApiFeedTile oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.item.mediaUrl != widget.item.mediaUrl) {
-      _resolveAspectRatio();
-    }
-  }
-
-  void _resolveAspectRatio() {
-    final stored = widget.item.mediaAspectRatio;
-    if (stored != null) {
-      // Known synchronously from the baked-at-publish-time ratio — no
-      // decode round-trip, so the tile never renders at the wrong shape
-      // before snapping to the real one.
-      _aspectRatio = stored == '16:9'
-          ? ImageAspectRatioResolver.landscape16x9
-          : ImageAspectRatioResolver.portrait3x4;
-      return;
-    }
-
-    // Fallback for legacy content published before mediaAspectRatio existed
-    // (and for videos, which have no crop/transform step today).
-    if (widget.item.isVideo) {
-      _aspectRatio = ImageAspectRatioResolver.landscape16x9;
-    }
-    final url = widget.item.mediaUrl;
-    if (url == null) return;
-    final cached = ImageAspectRatioResolver.cached(url);
-    if (cached != null) {
-      _aspectRatio = cached;
-      return;
-    }
-    ImageAspectRatioResolver.resolve(url).then((ratio) {
-      if (mounted) setState(() => _aspectRatio = ratio);
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final item = widget.item;
-    final url = item.mediaUrl;
-
-    return GestureDetector(
-      onTap: widget.onTap,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(HomeFeedTokens.cardRadius),
-        child: AspectRatio(
-          aspectRatio: _aspectRatio,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (url != null)
-                CachedNetworkImage(
-                  imageUrl: url,
-                  fit: BoxFit.cover,
-                  memCacheWidth:
-                      (MediaQuery.sizeOf(context).width *
-                              MediaQuery.devicePixelRatioOf(context))
-                          .round(),
-                  errorWidget: (context, error, stackTrace) =>
-                      ColoredBox(color: Colors.grey.shade300),
-                )
-              else
-                ColoredBox(color: Colors.grey.shade300),
-              if (item.type == FeedItemType.piece)
-                FeedApiCardOverlay(
-                  avatarUrl: item.authorAvatarUrl,
-                  name: item.authorName ?? 'Artist',
-                  medium: item.piece?.medium,
-                  authorUsername: item.authorUsername,
-                ),
-            ],
-          ),
-        ),
       ),
     );
   }

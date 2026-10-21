@@ -31,6 +31,14 @@ class FeedItem {
   String? get mediaUrl =>
       type == FeedItemType.piece ? piece!.mediaUrl : post!.mediaUrl;
 
+  /// Gallery when the payload includes one, otherwise the cover alone.
+  List<String> get imageUrls {
+    if (type == FeedItemType.piece) return piece!.imageUrls;
+    final url = mediaUrl;
+    if (url == null || url.isEmpty) return const [];
+    return [url];
+  }
+
   String? get title =>
       type == FeedItemType.piece ? piece!.title : post!.caption;
 

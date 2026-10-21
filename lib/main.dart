@@ -362,7 +362,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     AuthSession.instance.addListener(_onSessionChanged);
     _selectedNavIndex.addListener(_onNavIndexChanged);
     ReelsTabService.instance.register(_openReelsTab);
-    MainNavService.instance.register(goHome: _goHome);
+    MainNavService.instance.register(goHome: _goHome, goSaved: _goSaved);
     _loadProfilePhoto();
   }
 
@@ -395,6 +395,11 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   void _goHome() {
     Navigator.of(context).popUntil((route) => route.isFirst);
     _onNavTap(BottomNavIndex.home);
+  }
+
+  void _goSaved() {
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    _onNavTap(BottomNavIndex.bookmark);
   }
 
   @override

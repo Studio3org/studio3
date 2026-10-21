@@ -3,7 +3,8 @@ import 'package:shimmer/shimmer.dart';
 
 import '../theme/explore_tokens.dart';
 import '../theme/home_feed_tokens.dart';
-import '../utils/image_aspect_ratio_resolver.dart';
+import '../theme/studio_colors.dart';
+import '../theme/studio_metrics.dart';
 
 /// Wraps a skeleton's placeholder blocks in an animated shimmer sweep —
 /// shared by every skeleton below so first-load placeholders read as
@@ -88,83 +89,59 @@ class FeedListSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fill = HomeFeedTokens.skeletonBase;
-    final overlayFill = Colors.white.withValues(alpha: 0.75);
+    final c = context.studio;
+    final fill = c.surface;
+    final lineFill = c.line;
 
     Widget line(double width, double height) {
       return Container(
         width: width,
         height: height,
-        decoration: BoxDecoration(
-          color: overlayFill,
-          borderRadius: BorderRadius.circular(4),
-        ),
+        decoration: BoxDecoration(color: lineFill, borderRadius: BorderRadius.circular(4)),
       );
     }
 
     Widget card() {
-      return AspectRatio(
-        aspectRatio: ImageAspectRatioResolver.portrait3x4,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: fill,
-                borderRadius: BorderRadius.circular(HomeFeedTokens.cardRadius),
-              ),
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AspectRatio(
+            aspectRatio: 3 / 4,
+            child: ColoredBox(color: fill),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(color: lineFill, shape: BoxShape.circle),
+                ),
+                const SizedBox(width: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    line(96, 12),
+                    const SizedBox(height: 6),
+                    line(72, 10),
+                  ],
+                ),
+              ],
             ),
-            Positioned(
-              left: 8,
-              right: 8,
-              bottom: 8,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  SizedBox(
-                    width: HomeFeedTokens.avatarSize,
-                    height: HomeFeedTokens.avatarSize,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: overlayFill,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        line(80, 10),
-                        const SizedBox(height: 6),
-                        line(56, 8),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       );
     }
 
-    return _shimmer(
-      ListView.separated(
-        physics: const NeverScrollableScrollPhysics(),
-        padding: const EdgeInsets.symmetric(
-          horizontal: HomeFeedTokens.sideMargin,
-        ),
-        itemCount: itemCount,
-        separatorBuilder: (_, __) =>
-            const SizedBox(height: HomeFeedTokens.rowGap),
-        itemBuilder: (_, __) => card(),
-      ),
-      baseColor: fill,
-      highlightColor: HomeFeedTokens.skeletonHighlight,
+    final list = ListView.separated(
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: itemCount,
+      separatorBuilder: (_, _) => const SizedBox(height: StudioSpace.feedGap),
+      itemBuilder: (_, _) => card(),
     );
+    if (MediaQuery.disableAnimationsOf(context)) return list;
+    return _shimmer(list, baseColor: fill, highlightColor: c.card);
   }
 }
 
