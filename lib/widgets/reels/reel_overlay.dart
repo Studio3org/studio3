@@ -130,6 +130,7 @@ class ReelOverlayState extends State<ReelOverlay>
     if (postId == null || _likeBusy) return;
     if (!await requireLogin(
       context,
+      title: 'Sign in to like',
       message: 'Log in or create a free account to like scenes.',
     )) {
       return;
@@ -173,6 +174,7 @@ class ReelOverlayState extends State<ReelOverlay>
     // asked to log in before it opens rather than after typing.
     if (!await requireLogin(
       context,
+      title: 'Sign in to comment',
       message: 'Log in or create a free account to comment.',
     )) {
       return;
@@ -224,6 +226,7 @@ class ReelOverlayState extends State<ReelOverlay>
     if (postId == null || _saveBusy) return;
     if (!await requireLogin(
       context,
+      title: 'Sign in to save',
       message: 'Log in or create a free account to save scenes.',
     )) {
       return;

@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../services/auth_session.dart';
-import '../theme/home_feed_tokens.dart';
+import '../widgets/studio/studio.dart';
 
 /// Gate for account-based actions (like, save, comment, follow, collect,
 /// message, post…). Guests can browse everything public (App Store guideline
@@ -13,24 +12,25 @@ import '../theme/home_feed_tokens.dart';
 /// fresh signed-in shell, so the original action is never resumed.
 Future<bool> requireLogin(
   BuildContext context, {
+  String? title,
   String message = 'Log in or create a free account to continue.',
 }) async {
   if (AuthSession.instance.isLoggedIn) return true;
-  await showModalBottomSheet<void>(
+  await showStudioSheet<void>(
     context: context,
     useRootNavigator: true,
-    backgroundColor: HomeFeedTokens.background,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    builder: (sheetContext) => _LoginPromptSheet(
+      title: title ?? 'Sign in to continue',
+      message: message,
     ),
-    builder: (sheetContext) => _LoginPromptSheet(message: message),
   );
   return false;
 }
 
 class _LoginPromptSheet extends StatelessWidget {
-  const _LoginPromptSheet({required this.message});
+  const _LoginPromptSheet({required this.title, required this.message});
 
+  final String title;
   final String message;
 
   void _go(BuildContext context, String route) {
@@ -41,67 +41,55 @@ class _LoginPromptSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'Join Studio3',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.inter(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: HomeFeedTokens.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.inter(
-                fontSize: 14,
-                height: 1.4,
-                color: HomeFeedTokens.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 20),
-            FilledButton(
-              onPressed: () => _go(context, '/login'),
-              style: FilledButton.styleFrom(
-                backgroundColor: HomeFeedTokens.textPrimary,
-                foregroundColor: HomeFeedTokens.textInverse,
-                minimumSize: const Size.fromHeight(48),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-              child: const Text('Log in'),
-            ),
-            const SizedBox(height: 10),
-            OutlinedButton(
-              onPressed: () => _go(context, '/signup'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: HomeFeedTokens.textPrimary,
-                minimumSize: const Size.fromHeight(48),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-              child: const Text('Create account'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              style: TextButton.styleFrom(
-                foregroundColor: HomeFeedTokens.textSecondary,
-              ),
-              child: const Text('Not now'),
-            ),
-          ],
+    final c = context.studio;
+    return StudioSheet(
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: StudioType.title22(color: c.textPrimary)),
+              const SizedBox(height: 6),
+              Text(message, style: StudioType.body15(color: c.textSecondary)),
+            ],
+          ),
         ),
-      ),
+        StudioButton(label: 'Log in', onPressed: () => _go(context, '/login')),
+        StudioButton(
+          label: 'Create account',
+          variant: StudioButtonVariant.outline,
+          onPressed: () => _go(context, '/signup'),
+        ),
+        StudioButton(
+          label: 'Not now',
+          variant: StudioButtonVariant.text,
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        Text.rich(
+          TextSpan(
+            style: StudioType.caption12(height: 1.5, color: c.textSecondary),
+            children: [
+              const TextSpan(text: 'By continuing, you agree to our '),
+              WidgetSpan(
+                alignment: PlaceholderAlignment.baseline,
+                baseline: TextBaseline.alphabetic,
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    Navigator.of(context, rootNavigator: true).pushNamed('/terms');
+                  },
+                  child: Text(
+                    'Terms',
+                    style: StudioType.caption12(height: 1.5, color: c.textPrimary),
+                  ),
+                ),
+              ),
+              const TextSpan(text: '.'),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -116,58 +104,33 @@ class GuestAccountPlaceholder extends StatelessWidget {
     required this.message,
   });
 
+  // Kept so existing call sites still compile. The signed-out board has no icon.
+  // ignore: unused_field
   final IconData icon;
   final String title;
   final String message;
 
   @override
   Widget build(BuildContext context) {
+    final c = context.studio;
     return ColoredBox(
-      color: HomeFeedTokens.background,
+      color: c.background,
       child: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icon, size: 40, color: HomeFeedTokens.textSecondary),
-                const SizedBox(height: 16),
-                Text(
-                  title,
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: HomeFeedTokens.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  message,
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    height: 1.4,
-                    color: HomeFeedTokens.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                FilledButton(
-                  onPressed: () => Navigator.of(context, rootNavigator: true)
-                      .pushNamed('/login'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: HomeFeedTokens.textPrimary,
-                    foregroundColor: HomeFeedTokens.textInverse,
-                    minimumSize: const Size(200, 46),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  child: const Text('Log in or sign up'),
-                ),
-              ],
-            ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(title, style: StudioType.sans(24, weight: StudioType.medium, height: 1.2, color: c.textPrimary)),
+              const SizedBox(height: 8),
+              Text(message, style: StudioType.body15(color: c.textSecondary)),
+              const SizedBox(height: 18),
+              StudioButton(
+                label: 'Log in',
+                height: 50,
+                onPressed: () => Navigator.of(context, rootNavigator: true).pushNamed('/login'),
+              ),
+            ],
           ),
         ),
       ),

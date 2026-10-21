@@ -437,6 +437,7 @@ class _ProfilePageState extends State<ProfilePage>
     if (target == null) return;
     if (!await requireLogin(
       context,
+      title: 'Sign in to message',
       message: 'Log in or create a free account to message artists.',
     )) {
       return;
@@ -461,6 +462,7 @@ class _ProfilePageState extends State<ProfilePage>
     }
     if (!await requireLogin(
       context,
+      title: 'Sign in to follow',
       message: 'Log in or create a free account to follow artists.',
     )) {
       return;

@@ -91,70 +91,61 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    return AuthScaffold(
-      compact: true,
-      // Pushed from a guest's "log in to continue" prompt → let them back out.
+    // No login board exists. This is the first sign-in screen (`SignInFirst`),
+    // with the fields and links this page already has.
+    return SignInLaunchScaffold(
       showBackButton: Navigator.of(context).canPop(),
-      child: AuthFormBody(
-        child: AbsorbPointer(
-          absorbing: _loading,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const AuthPageTitle(title: 'Login'),
-              const SizedBox(height: 28),
-              AuthIconInput(
-                controller: _usernameController,
-                placeholder: 'Username or email',
-                prefixIcon: Icons.person_outline_rounded,
-                errorText: _usernameError,
-                textInputAction: TextInputAction.next,
-                keyboardType: TextInputType.emailAddress,
-                onChanged: (_) => setState(() {}),
-              ),
-              const SizedBox(height: 14),
-              AuthIconInput(
-                controller: _passwordController,
-                placeholder: 'Password',
-                prefixIcon: Icons.lock_outline_rounded,
-                obscureText: _obscurePassword,
-                errorText: _passwordError,
-                textInputAction: TextInputAction.done,
-                onSubmitted: (_) => _signIn(),
-                onChanged: (_) => setState(() {}),
-                onToggleVisibility: () =>
-                    setState(() => _obscurePassword = !_obscurePassword),
-              ),
-              const SizedBox(height: 14),
-              AuthRememberRow(
-                value: _rememberMe,
-                onChanged: (v) => setState(() => _rememberMe = v),
-                onForgot: () =>
-                    Navigator.pushNamed(context, '/forgot-password'),
-              ),
-              const SizedBox(height: 16),
-              AuthTermsCheckbox(
-                value: _agreedToTerms,
-                showError: _submitted,
-                onChanged: (v) => setState(() => _agreedToTerms = v),
-              ),
-              const SizedBox(height: 20),
-              AuthPrimaryButton(
-                label: 'Login',
-                enabled: _canSubmit,
-                loading: _loading,
-                onPressed: _signIn,
-              ),
-              const SizedBox(height: 24),
-              AuthLinkFooter(
-                prompt: "Don't have an account? ",
-                actionLabel: 'Sign Up',
-                onTap: () => Navigator.pushNamed(context, '/signup'),
-              ),
-              const SizedBox(height: 8),
-              const AuthGuestLink(),
-            ],
-          ),
+      form: AbsorbPointer(
+        absorbing: _loading,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AuthIconInput(
+              controller: _usernameController,
+              placeholder: 'Username or email',
+              errorText: _usernameError,
+              textInputAction: TextInputAction.next,
+              keyboardType: TextInputType.emailAddress,
+              onChanged: (_) => setState(() {}),
+            ),
+            const SizedBox(height: 14),
+            AuthIconInput(
+              controller: _passwordController,
+              placeholder: 'Password',
+              obscureText: _obscurePassword,
+              errorText: _passwordError,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _signIn(),
+              onChanged: (_) => setState(() {}),
+              onToggleVisibility: () =>
+                  setState(() => _obscurePassword = !_obscurePassword),
+            ),
+            AuthRememberRow(
+              value: _rememberMe,
+              onChanged: (v) => setState(() => _rememberMe = v),
+              onForgot: () => Navigator.pushNamed(context, '/forgot-password'),
+            ),
+            AuthTermsCheckbox(
+              value: _agreedToTerms,
+              showError: _submitted,
+              onChanged: (v) => setState(() => _agreedToTerms = v),
+            ),
+            const SizedBox(height: 14),
+            AuthPrimaryButton(
+              label: 'Login',
+              enabled: _canSubmit,
+              loading: _loading,
+              onPressed: _signIn,
+            ),
+            AuthLinkFooter(
+              prompt: "Don't have an account? ",
+              actionLabel: 'Sign Up',
+              onTap: () => Navigator.pushNamed(context, '/signup'),
+            ),
+            const AuthGuestLink(),
+            const SizedBox(height: 14),
+            const AuthLegalLine(),
+          ],
         ),
       ),
     );

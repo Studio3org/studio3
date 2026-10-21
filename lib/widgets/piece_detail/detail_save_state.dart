@@ -65,6 +65,7 @@ mixin DetailSaveState<T extends StatefulWidget> on State<T> {
     if (_saveBusy) return;
     if (!await requireLogin(
       context,
+      title: 'Sign in to save this piece',
       message: 'Log in or create a free account to save art to your '
           'collections.',
     )) {
@@ -176,6 +177,7 @@ mixin DetailLikeState<T extends StatefulWidget> on State<T> {
     if (_likeBusy) return;
     if (!await requireLogin(
       context,
+      title: 'Sign in to like',
       message: 'Log in or create a free account to like pieces and scenes.',
     )) {
       return;

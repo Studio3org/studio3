@@ -5,9 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../services/api_exception.dart';
-import '../theme/app_theme.dart';
 import '../theme/auth_palette.dart';
-import '../widgets/studio_logo.dart';
+import 'studio/studio.dart';
 
 /// Thin wrapper so auth screens use the brand's Geist family with an honest
 /// system fallback — matches every `.dc.html` sign-in screen in the design
@@ -207,9 +206,8 @@ class AuthScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.authColors;
+    final c = context.studio;
     final showBack = showBackButton || onBackPressed != null;
-    final brightness = Theme.of(context).brightness;
 
     return Scaffold(
       backgroundColor: c.background,
@@ -222,32 +220,27 @@ class AuthScaffold extends StatelessWidget {
                 constraints: BoxConstraints(minHeight: constraints.maxHeight),
                 child: Column(
                   children: [
-                    Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        if (showLogo)
-                          Center(child: StudioAuthLogo(dark: brightness == Brightness.dark)),
-                        if (showBack)
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: IconButton(
-                              onPressed: onBackPressed ?? () => Navigator.maybePop(context),
-                              icon: Icon(
-                                Icons.arrow_back_ios_new_rounded,
-                                color: c.textMuted,
-                                size: 20,
+                    SizedBox(
+                      height: 44,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          if (showLogo) const StudioLogo.mark(markWidth: 76),
+                          if (showBack)
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: _AuthBackButton(
+                                onPressed: onBackPressed ?? () => Navigator.maybePop(context),
                               ),
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
                             ),
-                          ),
-                      ],
+                        ],
+                      ),
                     ),
                     if (!compact) ...[
                       Text(
                         'Discover art and the people who make it.',
                         textAlign: TextAlign.center,
-                        style: geistText(fontSize: 13, color: c.textMuted),
+                        style: StudioType.label13(color: c.textSecondary),
                       ),
                       const SizedBox(height: 28),
                     ] else
@@ -320,26 +313,14 @@ class AuthPageTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.authColors;
+    final c = context.studio;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          style: geistText(
-            fontSize: 32,
-            fontWeight: FontWeight.w500,
-            color: c.textPrimary,
-            letterSpacing: -0.6,
-            height: 1.1,
-          ),
-        ),
+        Text(title, style: StudioType.title32(color: c.textPrimary)),
         if (subtitle != null) ...[
           const SizedBox(height: 10),
-          Text(
-            subtitle!,
-            style: geistText(fontSize: 16, color: c.textMuted, height: 1.45),
-          ),
+          Text(subtitle!, style: StudioType.body16(color: c.textSecondary)),
         ],
       ],
     );
@@ -354,7 +335,7 @@ class AuthIconInput extends StatelessWidget {
     super.key,
     this.controller,
     this.placeholder,
-    this.prefixIcon,
+    this.prefixIcon, // ignored: underline fields have no leading icon
     this.obscureText = false,
     this.onChanged,
     this.onToggleVisibility,
@@ -379,49 +360,28 @@ class AuthIconInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.authColors;
-    final lineColor = errorText != null ? c.error : c.border;
-    final focusColor = errorText != null ? c.error : c.borderFocus;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        TextField(
-          controller: controller,
-          autofocus: autofocus,
-          onChanged: onChanged,
-          onSubmitted: onSubmitted,
-          obscureText: obscureText,
-          keyboardType: keyboardType,
-          textInputAction: textInputAction,
-          style: geistText(fontSize: 16, color: c.textPrimary),
-          cursorColor: c.textPrimary,
-          decoration: InputDecoration(
-            labelText: placeholder,
-            floatingLabelBehavior: FloatingLabelBehavior.always,
-            labelStyle: geistText(fontSize: 13, color: c.textMuted),
-            floatingLabelStyle: geistText(fontSize: 13, color: c.textMuted),
-            isDense: true,
-            contentPadding: const EdgeInsets.only(top: 18, bottom: 8),
-            border: UnderlineInputBorder(borderSide: BorderSide(color: lineColor)),
-            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: lineColor)),
-            focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: focusColor, width: 1.5)),
-            suffixIcon: onToggleVisibility != null
-                ? IconButton(
-                    icon: Icon(
-                      obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                      color: c.textMuted,
-                      size: 20,
-                    ),
-                    onPressed: onToggleVisibility,
-                  )
-                : null,
-          ),
-        ),
-        if (errorText != null) ...[
-          const SizedBox(height: 6),
-          Text(errorText!, style: geistText(fontSize: 12, color: c.error)),
-        ],
-      ],
+    final c = context.studio;
+    // [prefixIcon] stays on the constructor for existing call sites. Underline
+    // fields on the boards have no leading icon.
+    assert(prefixIcon == null || prefixIcon is IconData);
+    return StudioUnderlineField(
+      label: placeholder ?? '',
+      controller: controller,
+      autofocus: autofocus,
+      onChanged: onChanged,
+      onSubmitted: onSubmitted,
+      obscureText: obscureText,
+      keyboardType: keyboardType,
+      textInputAction: textInputAction,
+      errorText: errorText,
+      valueSize: 16,
+      labelColor: c.textTertiary,
+      trailing: onToggleVisibility == null
+          ? null
+          : _ShowHide(
+              obscured: obscureText,
+              onPressed: onToggleVisibility!,
+            ),
     );
   }
 }
@@ -445,31 +405,10 @@ class AuthPrimaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.authColors;
-    final canPress = enabled && !loading;
-    final useAccentStyle = enabled;
-    return SizedBox(
-      height: AppDims.primaryButtonHeight,
-      width: double.infinity,
-      child: FilledButton(
-        onPressed: canPress ? onPressed : null,
-        style: FilledButton.styleFrom(
-          backgroundColor: useAccentStyle ? c.accent : c.greyAccent,
-          foregroundColor: useAccentStyle ? c.backgroundDeep : c.textDim,
-          disabledBackgroundColor: useAccentStyle ? c.accent : c.greyAccent,
-          disabledForegroundColor: useAccentStyle ? c.backgroundDeep : c.textDim,
-          overlayColor: c.backgroundDeep.withValues(alpha: 0.08),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          textStyle: geistText(fontSize: 15, fontWeight: FontWeight.w500),
-        ),
-        child: loading
-            ? SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator(strokeWidth: 2, color: c.backgroundDeep),
-              )
-            : Text(label),
-      ),
+    return StudioButton(
+      label: label,
+      loading: loading,
+      onPressed: enabled && !loading ? onPressed : null,
     );
   }
 }
@@ -485,19 +424,10 @@ class AuthGhostButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.authColors;
-    return SizedBox(
-      height: AppDims.primaryButtonHeight,
-      width: double.infinity,
-      child: TextButton(
-        onPressed: onPressed,
-        style: TextButton.styleFrom(
-          foregroundColor: c.textMuted,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          textStyle: geistText(fontSize: 14, fontWeight: FontWeight.w500),
-        ),
-        child: Text(label),
-      ),
+    return StudioButton(
+      label: label,
+      variant: StudioButtonVariant.text,
+      onPressed: onPressed,
     );
   }
 }
@@ -516,40 +446,46 @@ class AuthRememberRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.authColors;
-    return Row(
-      children: [
-        SizedBox(
-          width: 22,
-          height: 22,
-          child: Checkbox(
-            value: value,
-            onChanged: (v) => onChanged(v ?? false),
-            activeColor: c.accent,
-            checkColor: c.background,
-            side: BorderSide(color: c.border),
-            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            visualDensity: VisualDensity.compact,
-          ),
-        ),
-        const SizedBox(width: 8),
-        GestureDetector(
-          onTap: () => onChanged(!value),
-          child: Text('Remember me', style: geistText(fontSize: 12, color: c.textMuted)),
-        ),
-        const Spacer(),
-        if (onForgot != null)
-          TextButton(
-            onPressed: onForgot,
-            style: TextButton.styleFrom(
-              foregroundColor: c.textMuted,
-              padding: EdgeInsets.zero,
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    final c = context.studio;
+    return SizedBox(
+      height: StudioSize.tapTarget,
+      child: Row(
+        children: [
+          SizedBox(
+            width: 22,
+            height: 22,
+            child: Checkbox(
+              value: value,
+              onChanged: (v) => onChanged(v ?? false),
+              activeColor: c.textPrimary,
+              checkColor: c.background,
+              side: BorderSide(color: c.lineStrong),
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: VisualDensity.compact,
             ),
-            child: Text('Forgot login?', style: geistText(fontSize: 12, fontWeight: FontWeight.w500)),
           ),
-      ],
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: () => onChanged(!value),
+            child: Text('Remember me', style: StudioType.caption12(color: c.textSecondary)),
+          ),
+          const Spacer(),
+          if (onForgot != null)
+            TextButton(
+              onPressed: onForgot,
+              style: TextButton.styleFrom(
+                foregroundColor: c.textSecondary,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                minimumSize: const Size(44, 44),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: Text(
+                'Forgot login?',
+                style: StudioType.caption12(color: c.textPrimary).copyWith(fontWeight: StudioType.medium),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -589,24 +525,26 @@ class AuthLinkFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.authColors;
+    final c = context.studio;
     return GestureDetector(
       onTap: onTap,
-      child: RichText(
-        textAlign: TextAlign.center,
-        text: TextSpan(
-          style: geistText(fontSize: 14, color: c.textMuted),
-          children: [
-            TextSpan(text: prompt),
+      behavior: HitTestBehavior.opaque,
+      child: SizedBox(
+        height: 36,
+        child: Center(
+          child: Text.rich(
             TextSpan(
-              text: actionLabel,
-              style: geistText(
-                fontWeight: FontWeight.w600,
-                color: c.textPrimary,
-                decoration: TextDecoration.underline,
-              ),
+              style: StudioType.body14(weight: StudioType.medium, color: c.textSecondary),
+              children: [
+                TextSpan(text: prompt),
+                TextSpan(
+                  text: actionLabel,
+                  style: StudioType.body14(weight: StudioType.medium, color: c.textPrimary),
+                ),
+              ],
             ),
-          ],
+            textAlign: TextAlign.center,
+          ),
         ),
       ),
     );
@@ -680,95 +618,21 @@ class _AuthOtpInputState extends State<AuthOtpInput> {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.authColors;
-    final code = _controller.text;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        GestureDetector(
-          onTap: () {
-            // A dismissed on-screen keyboard doesn't clear Flutter's
-            // internal focus state, so requestFocus() alone is a no-op
-            // once the node is already focused — force a focus transition
-            // so the platform "show keyboard" call fires again.
-            if (_focusNode.hasFocus) {
-              _focusNode.unfocus();
-              Future.microtask(() => _focusNode.requestFocus());
-            } else {
-              _focusNode.requestFocus();
-            }
-          },
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: List.generate(_length, (i) {
-              final char = i < code.length ? code[i] : '';
-              final active = i == code.length && _focusNode.hasFocus;
-              return AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                width: 40,
-                height: 56,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(
-                      color: widget.errorText != null
-                          ? c.error
-                          : active
-                              ? c.borderFocus
-                              : c.border,
-                      width: active ? 2 : 1.5,
-                    ),
-                  ),
-                ),
-                child: Text(
-                  char,
-                  style: geistMono(fontSize: 28, color: c.textPrimary),
-                ),
-              );
-            }),
-          ),
-        ),
-        SizedBox(
-          height: 0,
-          width: 0,
-          child: TextField(
-            controller: _controller,
-            focusNode: _focusNode,
-            keyboardType: TextInputType.number,
-            maxLength: _length,
-            autofocus: true,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            style: const TextStyle(color: Colors.transparent),
-            decoration: const InputDecoration(counterText: '', border: InputBorder.none),
-            onChanged: (value) {
-              setState(() {});
-              widget.onChanged?.call(value);
-              if (value.length == _length) widget.onCompleted(value);
-            },
-          ),
-        ),
-        if (widget.errorText != null) ...[
-          const SizedBox(height: 8),
-          Text(widget.errorText!, style: geistText(fontSize: 12, color: c.error)),
-        ],
-      ],
+    return StudioOtpSlots(
+      controller: _controller,
+      focusNode: _focusNode,
+      errorText: widget.errorText,
+      autofocus: true,
+      onChanged: (value) {
+        widget.onChanged?.call(value);
+        if (value.length == _length) widget.onCompleted(value);
+      },
     );
   }
 }
 
 void showAuthSnackBar(BuildContext context, String message, {bool isError = false}) {
-  final c = context.authColors;
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text(
-        message,
-        style: geistText(fontWeight: FontWeight.w500, color: c.backgroundDeep),
-      ),
-      backgroundColor: isError ? c.error : c.textPrimary,
-      behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-    ),
-  );
+  showStudioToast(context, message, icon: isError ? null : StudioIcons.check);
 }
 
 void showAuthError(BuildContext context, Object error) {
@@ -803,11 +667,10 @@ class AuthTermsCheckbox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.authColors;
-    final base = geistText(
-      fontSize: 12,
+    final c = context.studio;
+    final base = StudioType.caption12(
       height: 1.45,
-      color: showError && !value ? c.error : c.textMuted,
+      color: showError && !value ? c.textPrimary : c.textSecondary,
     );
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -818,10 +681,10 @@ class AuthTermsCheckbox extends StatelessWidget {
           child: Checkbox(
             value: value,
             onChanged: (v) => onChanged(v ?? false),
-            activeColor: c.accent,
+            activeColor: c.textPrimary,
             checkColor: c.background,
             side: BorderSide(
-              color: showError && !value ? c.error : c.border,
+              color: showError && !value ? c.textPrimary : c.lineStrong,
             ),
             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
             visualDensity: VisualDensity.compact,
@@ -845,7 +708,7 @@ class AuthTermsCheckbox extends StatelessWidget {
                         'Terms of Use (EULA)',
                         style: base.copyWith(
                           color: c.textPrimary,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: StudioType.medium,
                           decoration: TextDecoration.underline,
                           decorationColor: c.textPrimary,
                         ),
@@ -873,18 +736,369 @@ class AuthGuestLink extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.authColors;
+    return StudioButton(
+      label: 'Browse without an account',
+      variant: StudioButtonVariant.text,
+      height: 36,
+      onPressed: () => Navigator.pushNamedAndRemoveUntil(context, '/', (_) => false),
+    );
+  }
+}
+
+/// 11 px legal line on `SignInFirst` (1.5, centered). Terms open the in-app page.
+class AuthLegalLine extends StatelessWidget {
+  const AuthLegalLine({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.studio;
+    final base = StudioType.sans(11, height: 1.5, color: c.textPlaceholder);
+    return Text.rich(
+      TextSpan(
+        style: base,
+        children: [
+          const TextSpan(text: 'By continuing, you agree to our '),
+          WidgetSpan(
+            alignment: PlaceholderAlignment.baseline,
+            baseline: TextBaseline.alphabetic,
+            child: GestureDetector(
+              onTap: () => Navigator.pushNamed(context, '/terms'),
+              child: Text(
+                'Terms',
+                style: base.copyWith(color: c.textTertiary),
+              ),
+            ),
+          ),
+          const TextSpan(text: ' and '),
+          TextSpan(text: 'Privacy Policy', style: base.copyWith(color: c.textTertiary)),
+          const TextSpan(text: '.'),
+        ],
+      ),
+      textAlign: TextAlign.center,
+    );
+  }
+}
+
+/// First screen (`SignInFirst` / `SignInFirstDark`): haze, large centred logo, form pinned
+/// at the bottom (24 margins, 28 above the safe area). Login uses this same frame — there
+/// is no separate login board — with the login fields inside [form].
+class SignInLaunchScaffold extends StatelessWidget {
+  const SignInLaunchScaffold({
+    super.key,
+    required this.form,
+    this.showBackButton = false,
+    this.onBackPressed,
+  });
+
+  final Widget form;
+  final bool showBackButton;
+  final VoidCallback? onBackPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.studio;
+    final showBack = showBackButton || onBackPressed != null;
+    return Scaffold(
+      backgroundColor: c.signInBackground,
+      resizeToAvoidBottomInset: true,
+      body: Stack(
+        children: [
+          const Positioned.fill(child: StudioHaze()),
+          SafeArea(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final logoHeight = (constraints.maxHeight * 0.42).clamp(120.0, 309.0);
+                return SingleChildScrollView(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          children: [
+                            SizedBox(
+                              height: 44,
+                              child: showBack
+                                  ? Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: _AuthBackButton(
+                                        onPressed: onBackPressed ?? () => Navigator.maybePop(context),
+                                      ),
+                                    )
+                                  : null,
+                            ),
+                            SizedBox(
+                              height: logoHeight,
+                              child: const FittedBox(
+                                fit: BoxFit.contain,
+                                child: StudioLogo.signIn(),
+                              ),
+                            ),
+                          ],
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 16, 24, 28),
+                          child: form,
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Later sign-in steps (`SignIn2Code`, `SignIn3Profile`, `SignIn4Intention`): flat background,
+/// 44 back, optional 3-segment bar, scrolling body, optional bar pinned 40 from the bottom.
+class SignInStepScaffold extends StatelessWidget {
+  const SignInStepScaffold({
+    super.key,
+    required this.body,
+    this.onBack,
+    this.progressCurrent,
+    this.progressTotal = 3,
+    this.bottom,
+  });
+
+  final Widget body;
+  final VoidCallback? onBack;
+
+  /// 1-based. Null hides the bar (steps the board doesn't number).
+  final int? progressCurrent;
+  final int progressTotal;
+  final Widget? bottom;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.studio;
+    return Scaffold(
+      backgroundColor: c.background,
+      resizeToAvoidBottomInset: true,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 12, 20, 0),
+              child: Row(
+                children: [
+                  _AuthBackButton(onPressed: onBack ?? () => Navigator.maybePop(context)),
+                  if (progressCurrent != null) ...[
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: StudioProgressSegments(
+                        current: progressCurrent!,
+                        total: progressTotal,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(28, 40, 28, 24),
+                child: body,
+              ),
+            ),
+            if (bottom != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(28, 0, 28, 40),
+                child: bottom,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AuthBackButton extends StatelessWidget {
+  const _AuthBackButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: 'Back',
+      onPressed: onPressed,
+      style: IconButton.styleFrom(
+        fixedSize: const Size(44, 44),
+        minimumSize: const Size(44, 44),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        padding: EdgeInsets.zero,
+      ),
+      icon: StudioIcon(StudioIcons.backBold, size: 22, color: context.studio.textPrimary),
+    );
+  }
+}
+
+class _ShowHide extends StatelessWidget {
+  const _ShowHide({required this.obscured, required this.onPressed});
+
+  final bool obscured;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
     return TextButton(
-      onPressed: () =>
-          Navigator.pushNamedAndRemoveUntil(context, '/', (_) => false),
-      style: TextButton.styleFrom(foregroundColor: c.textMuted),
+      onPressed: onPressed,
+      style: TextButton.styleFrom(
+        minimumSize: const Size(44, 44),
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
       child: Text(
-        'Browse without an account',
-        style: geistText(
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
-          decoration: TextDecoration.underline,
-          decorationColor: c.textMuted,
+        obscured ? 'Show' : 'Hide',
+        style: StudioType.label13(weight: StudioType.medium, color: context.studio.textSecondary),
+      ),
+    );
+  }
+}
+
+/// Six Geist Mono 32 slots on underlines, 56 tall (`SignIn2Code`). The active slot has a
+/// 2 px underline and a 2 × 30 cursor. Submit is the caller's job on the sixth digit.
+class StudioOtpSlots extends StatefulWidget {
+  const StudioOtpSlots({
+    super.key,
+    this.controller,
+    this.focusNode,
+    this.errorText,
+    this.onChanged,
+    this.length = 6,
+    this.autofocus = false,
+  });
+
+  final TextEditingController? controller;
+  final FocusNode? focusNode;
+  final String? errorText;
+  final ValueChanged<String>? onChanged;
+  final int length;
+  final bool autofocus;
+
+  @override
+  State<StudioOtpSlots> createState() => _StudioOtpSlotsState();
+}
+
+class _StudioOtpSlotsState extends State<StudioOtpSlots> {
+  TextEditingController? _ownController;
+  FocusNode? _ownFocus;
+
+  TextEditingController get _controller => widget.controller ?? (_ownController ??= TextEditingController());
+  FocusNode get _focus => widget.focusNode ?? (_ownFocus ??= FocusNode());
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_rebuild);
+    _focus.addListener(_rebuild);
+  }
+
+  @override
+  void didUpdateWidget(StudioOtpSlots old) {
+    super.didUpdateWidget(old);
+    if (old.controller != widget.controller) {
+      (old.controller ?? _ownController)?.removeListener(_rebuild);
+      _controller.addListener(_rebuild);
+    }
+    if (old.focusNode != widget.focusNode) {
+      (old.focusNode ?? _ownFocus)?.removeListener(_rebuild);
+      _focus.addListener(_rebuild);
+    }
+  }
+
+  void _rebuild() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_rebuild);
+    _focus.removeListener(_rebuild);
+    _ownController?.dispose();
+    _ownFocus?.dispose();
+    super.dispose();
+  }
+
+  void _focusField() {
+    if (_focus.hasFocus) {
+      _focus.unfocus();
+      Future.microtask(() => _focus.requestFocus());
+    } else {
+      _focus.requestFocus();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.studio;
+    final code = _controller.text;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        GestureDetector(
+          onTap: _focusField,
+          behavior: HitTestBehavior.opaque,
+          child: Row(
+            children: [
+              for (var i = 0; i < widget.length; i++) ...[
+                if (i > 0) const SizedBox(width: 12),
+                Expanded(child: _slot(c, i, code)),
+              ],
+            ],
+          ),
+        ),
+        SizedBox(
+          height: 0,
+          width: 0,
+          child: TextField(
+            controller: _controller,
+            focusNode: _focus,
+            autofocus: widget.autofocus,
+            autofillHints: const [AutofillHints.oneTimeCode],
+            keyboardType: TextInputType.number,
+            maxLength: widget.length,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            style: const TextStyle(color: Colors.transparent, fontSize: 1),
+            cursorColor: Colors.transparent,
+            decoration: const InputDecoration(counterText: '', border: InputBorder.none),
+            onChanged: widget.onChanged,
+          ),
+        ),
+        if (widget.errorText != null) ...[
+          const SizedBox(height: 8),
+          Text(widget.errorText!, style: StudioType.caption12(height: 1.45, color: c.textPrimary)),
+        ],
+      ],
+    );
+  }
+
+  Widget _slot(StudioColors c, int i, String code) {
+    final char = i < code.length ? code[i] : '';
+    final active = _focus.hasFocus && i == code.length;
+    final filled = char.isNotEmpty;
+    return SizedBox(
+      height: 56,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: filled || active ? c.textPrimary : c.lineStrong,
+              width: active ? 2 : 1.5,
+            ),
+          ),
+        ),
+        child: Center(
+          child: char.isNotEmpty
+              ? Text(char, style: StudioType.mono(32, color: c.textPrimary))
+              : active
+                  ? Container(width: 2, height: 30, color: c.textPrimary)
+                  : const SizedBox.shrink(),
         ),
       ),
     );

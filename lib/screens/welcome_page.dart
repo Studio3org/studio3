@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/auth_user.dart';
-import '../theme/auth_palette.dart';
+import '../theme/studio_colors.dart';
+import '../theme/studio_type.dart';
 import '../widgets/auth_ui.dart';
 
 class WelcomePage extends StatelessWidget {
@@ -11,16 +12,15 @@ class WelcomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final firstName = user.name.split(' ').first;
-    final c = context.authColors;
+    final c = context.studio;
 
     return AuthScaffold(
       compact: true,
+      showLogo: true,
       child: AuthFormBody(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Icon(Icons.celebration_outlined, color: c.textPrimary, size: 52),
-            const SizedBox(height: 20),
             AuthPageTitle(
               title: 'Welcome, $firstName!',
               subtitle: 'Your Studio 3 account @${user.username} is ready.',
@@ -28,7 +28,7 @@ class WelcomePage extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               'Start discovering art, collecting stories, and sharing your creative journey.',
-              style: geistText(fontSize: 14, color: c.textDim, height: 1.5),
+              style: StudioType.body14(height: 1.5, color: c.textSecondary),
             ),
             const SizedBox(height: 32),
             AuthPrimaryButton(

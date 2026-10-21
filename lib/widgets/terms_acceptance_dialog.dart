@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../services/auth_service.dart';
 import '../services/user_service.dart';
-import '../theme/home_feed_tokens.dart';
+import '../theme/studio_colors.dart';
+import '../theme/studio_metrics.dart';
+import '../theme/studio_type.dart';
 
 /// Blocking prompt for a signed-in account that hasn't agreed to the current
 /// Terms of Use (EULA) — accounts created before the terms existed, or any
@@ -54,38 +55,40 @@ class _TermsAcceptanceDialogState extends State<_TermsAcceptanceDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.studio;
+    final label = StudioType.body14(weight: StudioType.medium, color: c.textPrimary);
     return AlertDialog(
-      backgroundColor: HomeFeedTokens.background,
-      title: Text(
-        'Terms of Use',
-        style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 18),
-      ),
+      backgroundColor: c.background,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(StudioRadius.button)),
+      title: Text('Terms of Use', style: StudioType.header17(color: c.textPrimary)),
       content: Text(
         'To keep using your Studio3 account, please review and agree to our '
         'Terms of Use (EULA). Studio3 has zero tolerance for objectionable '
         'content or abusive users — violating content is removed and the '
         'accounts behind it are ejected.',
-        style: GoogleFonts.inter(fontSize: 14, height: 1.45),
+        style: StudioType.body14(height: 1.45, color: c.textBody),
       ),
       actionsOverflowButtonSpacing: 4,
       actions: [
         TextButton(
-          onPressed: _saving
-              ? null
-              : () => Navigator.of(context).pushNamed('/terms'),
-          child: const Text('Read terms'),
+          onPressed: _saving ? null : () => Navigator.of(context).pushNamed('/terms'),
+          child: Text('Read terms', style: label),
         ),
         TextButton(
           onPressed: _saving ? null : _logOut,
-          child: const Text('Log out'),
+          child: Text('Log out', style: label),
         ),
         FilledButton(
           onPressed: _saving ? null : _agree,
           style: FilledButton.styleFrom(
-            backgroundColor: HomeFeedTokens.textPrimary,
-            foregroundColor: HomeFeedTokens.textInverse,
+            backgroundColor: c.buttonFill,
+            foregroundColor: c.buttonText,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(StudioRadius.button)),
           ),
-          child: Text(_saving ? 'Saving…' : 'I agree'),
+          child: Text(
+            _saving ? 'Saving…' : 'I agree',
+            style: StudioType.body14(weight: StudioType.medium, color: c.buttonText),
+          ),
         ),
       ],
     );

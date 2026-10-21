@@ -246,9 +246,9 @@ class _SavedPageState extends State<SavedPage>
     if (!AuthSession.instance.isLoggedIn) {
       return const GuestAccountPlaceholder(
         icon: Icons.bookmark_border_rounded,
-        title: 'Save art you love',
-        message: 'Log in or create a free account to save pieces and scenes '
-            'into collections.',
+        title: 'Keep track of the art you love',
+        message: 'Save pieces, follow artists, share your own work, and keep '
+            'your event tickets in one place.',
       );
     }
     return Scaffold(

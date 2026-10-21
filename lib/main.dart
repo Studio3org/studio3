@@ -479,6 +479,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       if (!AuthSession.instance.isLoggedIn) {
         requireLogin(
           context,
+          title: 'Sign in to set up your profile',
           message: 'Log in or create a free account to set up your profile, '
               'post your work, and collect art.',
         );

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../utils/auth_validators.dart';
 import '../services/auth_service.dart';
-import '../theme/auth_palette.dart';
 import '../widgets/auth_ui.dart';
+import '../widgets/studio/studio.dart';
 import '../widgets/studio_loading.dart';
 
 enum _ForgotStep { email, sent, reset, done }
@@ -132,13 +132,11 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   }
 
   Widget _buildSentStep({required Key key}) {
-    final c = context.authColors;
     return Column(
       key: key,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Icon(Icons.mark_email_read_outlined, color: c.textPrimary, size: 48),
-        const SizedBox(height: 16),
+        const SizedBox(height: 8),
         AuthPageTitle(
           title: 'Check your email',
           subtitle:
@@ -206,12 +204,11 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   }
 
   Widget _buildDoneStep({required Key key}) {
-    final c = context.authColors;
     return Column(
       key: key,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Icon(Icons.check_circle_outline_rounded, color: c.success, size: 56),
+        StudioIcon(StudioIcons.check, size: 28, color: context.studio.textPrimary),
         const SizedBox(height: 16),
         const AuthPageTitle(
           title: 'Password updated',

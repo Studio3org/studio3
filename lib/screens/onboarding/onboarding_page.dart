@@ -8,9 +8,8 @@ import '../../services/api_exception.dart';
 import '../../services/media_service.dart';
 import '../../services/permission_service.dart';
 import '../../services/user_service.dart';
-import '../../theme/auth_palette.dart';
 import '../../widgets/auth_ui.dart';
-import '../../widgets/studio/studio_top_bar.dart';
+import '../../widgets/studio/studio.dart';
 import '../../widgets/permission_denied_sheet.dart';
 import '../../widgets/profile_avatar.dart';
 import '../../widgets/profile_cover_image.dart';
@@ -165,105 +164,63 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.authColors;
     return StudioLoadingGate(
       loading: _loading || _uploadingPhoto,
-      child: Scaffold(
-        backgroundColor: c.background,
-        appBar: StudioTopBar(context: context, title: 'Set up your profile'),
-      body: SafeArea(
-        child: Column(
+      child: SignInStepScaffold(
+        progressCurrent: _step + 1,
+        bottom: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              child: Row(
-                children: List.generate(3, (i) {
-                  final active = i <= _step;
-                  return Expanded(
-                    child: Container(
-                      height: 3,
-                      margin: EdgeInsets.only(right: i < 2 ? 6 : 0),
-                      decoration: BoxDecoration(
-                        color: active
-                            ? c.textPrimary
-                            : c.textPrimary.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  );
-                }),
-              ),
-            ),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: switch (_step) {
-                  0 => _buildRoleStep(),
-                  1 => _buildPreferencesStep(),
-                  _ => _buildPhotosStep(),
-                },
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-              child: AuthPrimaryButton(
-                label: _step == 2 ? 'Finish' : 'Continue',
-                onPressed: _next,
-              ),
+            StudioButton(
+              label: _step == 2 ? 'Finish' : 'Continue',
+              height: 54,
+              onPressed: _next,
             ),
           ],
         ),
+        body: switch (_step) {
+          0 => _buildRoleStep(),
+          1 => _buildPreferencesStep(),
+          _ => _buildPhotosStep(),
+        },
       ),
-    ),
     );
   }
 
   Widget _buildRoleStep() {
-    final c = context.authColors;
+    final c = context.studio;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Text('What brings you to Studio 3?', style: StudioType.title32(color: c.textPrimary)),
+        const SizedBox(height: 10),
         Text(
-          'What brings you to Studio 3?',
-          style: geistText(
-            fontSize: 28,
-            fontWeight: FontWeight.w500,
-            color: c.textPrimary,
-            letterSpacing: -0.4,
-          ),
+          "We'll use this to get your feed started.",
+          style: StudioType.body16(color: c.textSecondary),
         ),
-        const SizedBox(height: 24),
-        for (final (id, title, subtitle) in _roles)
-          _RoleCard(
-            title: title,
-            subtitle: subtitle,
-            selected: _role == id,
-            onTap: () => setState(() => _role = id),
+        const SizedBox(height: 28),
+        for (var i = 0; i < _roles.length; i++)
+          StudioSelectRow(
+            title: _roles[i].$2,
+            subtitle: _roles[i].$3,
+            selected: _role == _roles[i].$1,
+            divider: i < _roles.length - 1,
+            onTap: () => setState(() => _role = _roles[i].$1),
           ),
       ],
     );
   }
 
   Widget _buildPreferencesStep() {
-    final c = context.authColors;
+    final c = context.studio;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Your taste',
-          style: geistText(
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
-            color: c.textPrimary,
-          ),
-        ),
+        Text('Your taste', style: StudioType.title22(color: c.textPrimary)),
         const SizedBox(height: 8),
         Text(
           'Pick at least 3 mediums, styles, and themes.',
-          style: geistText(
-            fontSize: 14,
-            color: c.textPrimary.withValues(alpha: 0.55),
-          ),
+          style: StudioType.body14(color: c.textSecondary),
         ),
         const SizedBox(height: 20),
         _ChipSection(
@@ -325,52 +282,41 @@ class _OnboardingPageState extends State<OnboardingPage> {
   }
 
   Widget _buildPhotosStep() {
-    final c = context.authColors;
+    final c = context.studio;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Profile photos',
-          style: geistText(
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
-            color: c.textPrimary,
-          ),
-        ),
-        const SizedBox(height: 8),
+        Text('Add a photo', style: StudioType.title32(color: c.textPrimary)),
+        const SizedBox(height: 10),
         Text(
           'Add a profile photo and cover image, or tap Finish to skip for now.',
-          style: geistText(
-            fontSize: 14,
-            color: c.textPrimary.withValues(alpha: 0.55),
-            height: 1.5,
-          ),
+          style: StudioType.body16(color: c.textSecondary),
         ),
-        const SizedBox(height: 28),
+        const SizedBox(height: 40),
         GestureDetector(
           onTap: () => _uploadPhoto(MediaPurpose.profile),
           child: Row(
             children: [
-              ProfileAvatar(
-                url: _profilePhotoUrl,
-                size: 72,
-              ),
+              _profilePhotoUrl == null
+                  ? Container(
+                      width: 72,
+                      height: 72,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(color: c.surface, shape: BoxShape.circle),
+                      child: StudioIcon(StudioIcons.post, size: 26, color: c.textTertiary),
+                    )
+                  : ProfileAvatar(url: _profilePhotoUrl, size: 72),
               const SizedBox(width: 16),
-              Expanded(
-                child: Text(
-                  _profilePhotoUrl == null
-                      ? 'Add profile photo'
-                      : 'Profile photo added',
-                  style: geistText(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    color: c.textPrimary,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _profilePhotoUrl == null ? 'Add a photo' : 'Profile photo added',
+                    style: StudioType.body15(color: c.textPrimary).copyWith(fontWeight: StudioType.medium),
                   ),
-                ),
-              ),
-              Icon(
-                Icons.chevron_right,
-                color: c.textPrimary.withValues(alpha: 0.35),
+                  const SizedBox(height: 2),
+                  Text('Optional', style: StudioType.label13(color: c.textTertiary)),
+                ],
               ),
             ],
           ),
@@ -392,26 +338,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
               const SizedBox(height: 10),
               Row(
                 children: [
-                  Icon(
-                    Icons.image_outlined,
-                    color: c.textPrimary.withValues(alpha: 0.55),
-                  ),
-                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      _coverPhotoUrl == null
-                          ? 'Add cover photo'
-                          : 'Cover photo added',
-                      style: geistText(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        color: c.textPrimary,
-                      ),
+                      _coverPhotoUrl == null ? 'Add cover photo' : 'Cover photo added',
+                      style: StudioType.body15(color: c.textPrimary).copyWith(fontWeight: StudioType.medium),
                     ),
-                  ),
-                  Icon(
-                    Icons.chevron_right,
-                    color: c.textPrimary.withValues(alpha: 0.35),
                   ),
                 ],
               ),
@@ -419,76 +350,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _RoleCard extends StatelessWidget {
-  const _RoleCard({
-    required this.title,
-    required this.subtitle,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String title;
-  final String subtitle;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    // Row + left rule, matching the "What brings you to Studio 3?" picker
-    // in the sign-in design (SignIn4Intention) rather than a bordered card.
-    final c = context.authColors;
-    return Semantics(
-      inMutuallyExclusiveGroup: true,
-      selected: selected,
-      button: true,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 18),
-          decoration: BoxDecoration(
-            border: Border(bottom: BorderSide(color: c.border)),
-          ),
-          child: Row(
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                width: 2,
-                height: 40,
-                margin: const EdgeInsets.only(right: 14),
-                color: selected ? c.textPrimary : Colors.transparent,
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: geistText(
-                        fontSize: 19,
-                        fontWeight: FontWeight.w500,
-                        color: selected ? c.textPrimary : c.textDim,
-                        letterSpacing: -0.2,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: geistText(
-                        fontSize: 13,
-                        color: selected ? c.textMuted : c.textDim,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }
@@ -510,31 +371,21 @@ class _ChipSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.authColors;
+    final c = context.studio;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          style: geistText(
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-            color: c.textPrimary,
-          ),
-        ),
+        Text(title, style: StudioType.body15(color: c.textPrimary).copyWith(fontWeight: StudioType.medium)),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
           runSpacing: 8,
           children: options.map((name) {
             final id = idForName(name);
-            final isSelected = selected.contains(id);
-            return FilterChip(
-              label: Text(name),
-              selected: isSelected,
-              onSelected: (_) => onToggle(name),
-              selectedColor: c.textPrimary.withValues(alpha: 0.15),
-              checkmarkColor: c.textPrimary,
+            return StudioChip(
+              label: name,
+              selected: selected.contains(id),
+              onTap: () => onToggle(name),
             );
           }).toList(),
         ),

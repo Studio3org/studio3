@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
-import '../theme/home_feed_tokens.dart';
+import '../theme/studio_colors.dart';
+import '../theme/studio_type.dart';
 import '../widgets/studio/studio_top_bar.dart';
 
 /// Version of the terms text below. Must match the backend's
@@ -76,19 +76,12 @@ class TermsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final heading = GoogleFonts.inter(
-      fontSize: 17,
-      fontWeight: FontWeight.w600,
-      color: HomeFeedTokens.textPrimary,
-    );
-    final body = GoogleFonts.inter(
-      fontSize: 14,
-      height: 1.55,
-      color: HomeFeedTokens.neutral800,
-    );
+    final c = context.studio;
+    final heading = StudioType.header17(color: c.textPrimary);
+    final body = StudioType.body14(height: 1.55, color: c.textBody);
 
     return Scaffold(
-      backgroundColor: HomeFeedTokens.detailBackground,
+      backgroundColor: c.background,
       appBar: StudioTopBar(context: context, title: 'Terms of Use (EULA)'),
       body: SafeArea(
         top: false,
@@ -99,15 +92,15 @@ class TermsPage extends StatelessWidget {
               'Effective $kTermsVersion. By creating an account, logging in, '
               'or posting on Studio3 you agree to these terms. If you do not '
               'agree, do not use the app.',
-              style: body.copyWith(color: HomeFeedTokens.textSecondary),
+              style: body.copyWith(color: c.textSecondary),
             ),
             const SizedBox(height: 20),
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: c.card,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE3DDD5)),
+                border: Border.all(color: c.line),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

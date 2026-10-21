@@ -220,6 +220,7 @@ class _InboxMenuButtonState extends State<_InboxMenuButton> {
   Future<void> _openInbox(BuildContext context) async {
     if (!await requireLogin(
       context,
+      title: 'Sign in to see your inbox',
       message: 'Log in to see your notifications and messages.',
     )) {
       return;

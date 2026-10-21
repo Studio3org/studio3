@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import '../services/api_exception.dart';
 import '../services/auth_service.dart';
 import '../services/auth_session.dart';
-import '../theme/auth_palette.dart';
 import '../utils/auth_validators.dart';
 import '../widgets/auth_ui.dart';
+import '../widgets/studio/studio.dart';
 import '../widgets/studio_loading.dart';
 import 'terms_page.dart';
 
@@ -53,17 +53,6 @@ class _SignUpPageState extends State<SignUpPage> {
   int _resendCooldown = 0;
   Timer? _resendCooldownTimer;
   static const _resendCooldownSeconds = 120;
-
-  static const _formSteps = 6;
-
-  int get _progressStep => switch (_step) {
-        _SignUpStep.name => 1,
-        _SignUpStep.email => 2,
-        _SignUpStep.emailVerify => 3,
-        _SignUpStep.username => 4,
-        _SignUpStep.phone => 5,
-        _SignUpStep.password => 6,
-      };
 
   String get _fullName =>
       '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}'.trim();
@@ -328,49 +317,67 @@ class _SignUpPageState extends State<SignUpPage> {
 
   @override
   Widget build(BuildContext context) {
+    final step = _buildStep();
+    if (_step == _SignUpStep.name) {
+      return StudioLoadingGate(
+        loading: _loading,
+        child: SignInLaunchScaffold(
+          showBackButton: true,
+          onBackPressed: _goBack,
+          form: step,
+        ),
+      );
+    }
+    final progress = switch (_step) {
+      _SignUpStep.emailVerify => 1,
+      _SignUpStep.username || _SignUpStep.phone => 2,
+      _ => null,
+    };
     return StudioLoadingGate(
       loading: _loading,
-      dark: true,
-      child: AuthScaffold(
-        compact: true,
-        showBackButton: true,
-        onBackPressed: _goBack,
-        // The brand mark only appears on the very first sign-in screen in
-        // the design; deeper steps show just the back button and progress
-        // bar (see SignIn2Code / SignIn3Profile / SignIn4Intention).
-        showLogo: _step == _SignUpStep.name,
-        child: Column(
-        children: [
-          AuthFormBody(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 280),
-              switchInCurve: Curves.easeOut,
-              switchOutCurve: Curves.easeIn,
-              transitionBuilder: (child, animation) => FadeTransition(
-                opacity: animation,
-                child: SlideTransition(
-                  position: Tween<Offset>(begin: const Offset(0.03, 0), end: Offset.zero)
-                      .animate(CurvedAnimation(parent: animation, curve: Curves.easeOut)),
-                  child: child,
-                ),
-              ),
-              child: _buildStep(),
-            ),
-          ),
-          if (_step == _SignUpStep.name) ...[
-            const SizedBox(height: 24),
-            AuthLinkFooter(
-              prompt: 'Already have an account? ',
-              actionLabel: 'Sign in',
-              onTap: () => Navigator.pushNamed(context, '/login'),
-            ),
-            const SizedBox(height: 8),
-            const AuthGuestLink(),
-          ],
-        ],
+      child: SignInStepScaffold(
+        onBack: _goBack,
+        progressCurrent: progress,
+        bottom: _stepBottom(),
+        body: step,
       ),
-    ),
     );
+  }
+
+  Widget? _stepBottom() {
+    return switch (_step) {
+      _SignUpStep.emailVerify => AuthPrimaryButton(
+          label: 'Verify',
+          enabled: _otp.length == 6,
+          loading: _loading,
+          onPressed: () => _continueOtp(_otp),
+        ),
+      _SignUpStep.username => AuthPrimaryButton(
+          label: 'Continue',
+          enabled: AuthValidators.username(_usernameController.text) == null &&
+              _usernameAvailable != false,
+          onPressed: _continueUsername,
+        ),
+      _SignUpStep.phone => Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AuthPrimaryButton(label: 'Continue', onPressed: () => _continuePhone()),
+            const SizedBox(height: 4),
+            AuthGhostButton(label: 'Skip for now', onPressed: () => _continuePhone(skip: true)),
+          ],
+        ),
+      _SignUpStep.password => AuthPrimaryButton(
+          label: 'Create Account',
+          enabled: AuthValidators.password(_passwordController.text) == null &&
+              AuthValidators.confirmPassword(
+                    _confirmPasswordController.text,
+                    _passwordController.text,
+                  ) ==
+                  null,
+          onPressed: _createAccount,
+        ),
+      _ => null,
+    };
   }
 
   Widget _buildStep() {
@@ -385,15 +392,15 @@ class _SignUpPageState extends State<SignUpPage> {
   }
 
   Widget _buildNameStep({required Key key}) {
-    return _stepBody(
+    return Column(
       key: key,
-      title: 'Your name',
-      subtitle: 'How should we address you?',
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        const AuthPageTitle(title: 'Your name', subtitle: 'How should we address you?'),
+        const SizedBox(height: 14),
         AuthIconInput(
           controller: _firstNameController,
           placeholder: 'First name',
-          prefixIcon: Icons.badge_outlined,
           errorText: _submitted && _firstNameController.text.trim().isEmpty ? 'First name is required' : null,
           textInputAction: TextInputAction.next,
           onChanged: (_) => setState(() {}),
@@ -402,19 +409,18 @@ class _SignUpPageState extends State<SignUpPage> {
         AuthIconInput(
           controller: _lastNameController,
           placeholder: 'Last name',
-          prefixIcon: Icons.badge_outlined,
           errorText: _submitted && _lastNameController.text.trim().isEmpty ? 'Last name is required' : null,
           textInputAction: TextInputAction.done,
           onSubmitted: (_) => _continueName(),
           onChanged: (_) => setState(() {}),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 14),
         AuthTermsCheckbox(
           value: _agreedToTerms,
           showError: _submitted,
           onChanged: (v) => setState(() => _agreedToTerms = v),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 14),
         AuthPrimaryButton(
           label: 'Continue',
           enabled: _firstNameController.text.trim().isNotEmpty &&
@@ -422,6 +428,14 @@ class _SignUpPageState extends State<SignUpPage> {
               _agreedToTerms,
           onPressed: _continueName,
         ),
+        AuthLinkFooter(
+          prompt: 'Already have an account? ',
+          actionLabel: 'Sign in',
+          onTap: () => Navigator.pushNamed(context, '/login'),
+        ),
+        const AuthGuestLink(),
+        const SizedBox(height: 14),
+        const AuthLegalLine(),
       ],
     );
   }
@@ -454,131 +468,163 @@ class _SignUpPageState extends State<SignUpPage> {
   }
 
   Widget _buildOtpStep({required Key key}) {
-    final c = context.authColors;
-    return _stepBody(
+    final c = context.studio;
+    final email = _emailController.text.trim();
+    return Column(
       key: key,
-      title: 'Verify email',
-      subtitle: 'Enter the 6-digit code sent to ${_emailController.text.trim()}',
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        Text('Enter your code', style: StudioType.title32(color: c.textPrimary)),
+        const SizedBox(height: 10),
+        Text.rich(
+          TextSpan(
+            style: StudioType.body16(color: c.textSecondary),
+            children: [
+              TextSpan(text: 'We sent it to $email. '),
+              WidgetSpan(
+                alignment: PlaceholderAlignment.baseline,
+                baseline: TextBaseline.alphabetic,
+                child: GestureDetector(
+                  onTap: _goBack,
+                  child: Text(
+                    'Wrong email?',
+                    style: StudioType.body16(color: c.textPrimary).copyWith(fontWeight: StudioType.medium),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 48),
         AuthOtpInput(
           errorText: _otpError,
           onChanged: (v) => setState(() => _otp = v),
           onCompleted: _continueOtp,
         ),
-        const SizedBox(height: 24),
-        AuthPrimaryButton(
-          label: 'Verify',
-          enabled: _otp.length == 6,
-          loading: _loading,
-          onPressed: () => _continueOtp(_otp),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextButton(
-              onPressed: (_loading || _resendCooldown > 0) ? null : _resendOtp,
+        const SizedBox(height: 48),
+        if (_resendCooldown > 0)
+          Text.rich(
+            TextSpan(
+              style: StudioType.body14(color: c.textSecondary),
+              children: [
+                const TextSpan(text: "Didn't get it? You can resend in "),
+                TextSpan(
+                  text: _formatCooldown(_resendCooldown),
+                  style: StudioType.mono13(color: c.textPrimary),
+                ),
+              ],
+            ),
+          )
+        else
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: _loading ? null : _resendOtp,
+              style: TextButton.styleFrom(
+                padding: EdgeInsets.zero,
+                minimumSize: const Size(44, 44),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
               child: Text(
                 'Resend code',
-                style: geistText(
-                  fontSize: 13,
-                  color: _resendCooldown > 0
-                      ? c.textMuted.withValues(alpha: 0.5)
-                      : c.textMuted,
-                  decoration: TextDecoration.underline,
-                ),
+                style: StudioType.body14(weight: StudioType.medium, color: c.textPrimary),
               ),
             ),
-            if (_resendCooldown > 0) ...[
-              const SizedBox(width: 4),
-              Text(
-                '(${_formatCooldown(_resendCooldown)})',
-                style: geistText(fontSize: 13, color: c.textMuted),
-              ),
-            ],
-          ],
+          ),
+        const SizedBox(height: 6),
+        Text(
+          "Check your inbox and spam folder. On iPhone the code can fill in straight from Mail, and we'll keep going as soon as it's in.",
+          style: StudioType.label13(color: c.textPlaceholder).copyWith(height: 1.5),
         ),
       ],
     );
   }
 
   Widget _buildUsernameStep({required Key key}) {
-    final c = context.authColors;
-    final localValid = AuthValidators.username(_usernameController.text) == null;
-    return _stepBody(
+    final c = context.studio;
+    final taken = _usernameAvailable == false;
+    return Column(
       key: key,
-      title: 'Pick a username',
-      subtitle: 'This is how others will find you',
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        AuthIconInput(
+        Text('Set up your profile', style: StudioType.title32(color: c.textPrimary)),
+        const SizedBox(height: 10),
+        Text(
+          "How you'll show up when you save or share work.",
+          style: StudioType.body16(color: c.textSecondary),
+        ),
+        const SizedBox(height: 40),
+        StudioUnderlineField(
+          label: 'Username',
           controller: _usernameController,
-          placeholder: 'Username',
-          prefixIcon: Icons.alternate_email_rounded,
-          errorText: _submitted ? AuthValidators.username(_usernameController.text) : null,
+          valueSize: 19,
+          labelGap: 8,
+          underlineGap: 10,
+          labelColor: c.textTertiary,
+          errorText: taken
+              ? (_usernameApiMessage ?? 'Username is taken')
+              : (_submitted ? AuthValidators.username(_usernameController.text) : null),
           textInputAction: TextInputAction.done,
           onSubmitted: (_) => _continueUsername(),
           onChanged: _onUsernameChanged,
+          trailing: _usernameAvailable == true
+              ? Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    StudioIcon(StudioIcons.check, size: 14, color: c.textPrimary),
+                    const SizedBox(width: 4),
+                    Text('available', style: StudioType.mono(12, color: c.textPrimary)),
+                  ],
+                )
+              : null,
+          helper: _checkingUsername ? 'Checking availability…' : null,
         ),
-        if (_checkingUsername)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Text('Checking availability…', style: geistText(fontSize: 12, color: c.textDim)),
-          )
-        else if (_usernameAvailable == true)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Text(
-              _usernameApiMessage ?? 'Username is available',
-              style: geistText(fontSize: 12, color: c.success),
-            ),
-          )
-        else if (_usernameAvailable == false)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Text(
-              _usernameApiMessage ?? 'Username is taken',
-              style: geistText(fontSize: 12, color: c.error),
-            ),
-          ),
         if (_usernameSuggestions.isNotEmpty) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: _usernameSuggestions.map((s) {
-              return ActionChip(
-                label: Text(s, style: geistText(fontSize: 12, color: c.textPrimary)),
-                backgroundColor: c.surfaceElevated,
-                side: BorderSide(color: c.border),
-                onPressed: () {
-                  _usernameController.text = s;
-                  _onUsernameChanged(s);
-                },
-              );
-            }).toList(),
+            children: [
+              for (final s in _usernameSuggestions)
+                StudioChip(
+                  label: s,
+                  selected: false,
+                  onTap: () {
+                    _usernameController.text = s;
+                    _onUsernameChanged(s);
+                  },
+                ),
+            ],
           ),
         ],
-        const SizedBox(height: 24),
-        AuthPrimaryButton(
-          label: 'Continue',
-          enabled: localValid && _usernameAvailable != false,
-          loading: false,
-          onPressed: _continueUsername,
-        ),
       ],
     );
   }
 
   Widget _buildPhoneStep({required Key key}) {
-    return _stepBody(
+    final c = context.studio;
+    return Column(
       key: key,
-      title: 'Phone number',
-      subtitle: 'Optional — for account recovery',
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        AuthIconInput(
+        Text('Set up your profile', style: StudioType.title32(color: c.textPrimary)),
+        const SizedBox(height: 10),
+        Text(
+          'For shipping and delivery updates. You can add it later.',
+          style: StudioType.body16(color: c.textSecondary),
+        ),
+        const SizedBox(height: 40),
+        StudioUnderlineField(
+          label: 'Phone',
           controller: _phoneController,
-          placeholder: 'Phone number (optional)',
-          prefixIcon: Icons.phone_outlined,
+          mono: true,
+          valueSize: 18,
+          labelGap: 8,
+          underlineGap: 10,
+          labelColor: c.textTertiary,
+          labelTrailing: Text(' · optional', style: StudioType.label13(color: c.textPlaceholder)),
+          hint: '(000) 000-0000',
+          helper: 'For shipping and delivery updates. You can add it later.',
           keyboardType: TextInputType.phone,
           errorText: _submitted && _phoneController.text.trim().isNotEmpty
               ? AuthValidators.phone(_phoneController.text)
@@ -587,25 +633,25 @@ class _SignUpPageState extends State<SignUpPage> {
           onSubmitted: (_) => _continuePhone(),
           onChanged: (_) => setState(() {}),
         ),
-        const SizedBox(height: 24),
-        AuthPrimaryButton(label: 'Continue', onPressed: () => _continuePhone()),
-        const SizedBox(height: 10),
-        AuthGhostButton(label: 'Skip for now', onPressed: () => _continuePhone(skip: true)),
       ],
     );
   }
 
   Widget _buildPasswordStep({required Key key}) {
-    final c = context.authColors;
-    return _stepBody(
+    final c = context.studio;
+    final strength = _passwordStrength;
+    return Column(
       key: key,
-      title: 'Set password',
-      subtitle: 'Create a strong password for your account',
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        const AuthPageTitle(
+          title: 'Set password',
+          subtitle: 'Create a strong password for your account',
+        ),
+        const SizedBox(height: 28),
         AuthIconInput(
           controller: _passwordController,
           placeholder: 'Password',
-          prefixIcon: Icons.lock_outline_rounded,
           obscureText: _obscurePassword,
           errorText: _submitted ? AuthValidators.password(_passwordController.text) : null,
           textInputAction: TextInputAction.next,
@@ -617,16 +663,14 @@ class _SignUpPageState extends State<SignUpPage> {
           ClipRRect(
             borderRadius: BorderRadius.circular(2),
             child: LinearProgressIndicator(
-              value: _passwordStrength,
+              value: strength,
               minHeight: 3,
-              backgroundColor: c.surfaceElevated,
-              valueColor: AlwaysStoppedAnimation<Color>(
-                _passwordStrength < 0.4
-                    ? c.error
-                    : _passwordStrength < 0.7
-                        ? const Color(0xFFFFB347)
-                        : c.success,
-              ),
+              backgroundColor: c.line,
+              color: strength < 0.4
+                  ? c.alert
+                  : strength < 0.7
+                      ? c.textSecondary
+                      : c.positive,
             ),
           ),
         ],
@@ -634,7 +678,6 @@ class _SignUpPageState extends State<SignUpPage> {
         AuthIconInput(
           controller: _confirmPasswordController,
           placeholder: 'Confirm password',
-          prefixIcon: Icons.lock_outline_rounded,
           obscureText: _obscureConfirm,
           errorText: _submitted
               ? AuthValidators.confirmPassword(_confirmPasswordController.text, _passwordController.text)
@@ -643,14 +686,6 @@ class _SignUpPageState extends State<SignUpPage> {
           onSubmitted: (_) => _createAccount(),
           onChanged: (_) => setState(() {}),
           onToggleVisibility: () => setState(() => _obscureConfirm = !_obscureConfirm),
-        ),
-        const SizedBox(height: 24),
-        AuthPrimaryButton(
-          label: 'Create Account',
-          enabled: AuthValidators.password(_passwordController.text) == null &&
-              AuthValidators.confirmPassword(_confirmPasswordController.text, _passwordController.text) == null,
-          loading: false,
-          onPressed: _createAccount,
         ),
       ],
     );
@@ -666,10 +701,6 @@ class _SignUpPageState extends State<SignUpPage> {
       key: key,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (_progressStep > 0) ...[
-          AuthStepProgress(current: _progressStep, total: _formSteps),
-          const SizedBox(height: 24),
-        ],
         AuthPageTitle(title: title, subtitle: subtitle),
         const SizedBox(height: 24),
         ...children,

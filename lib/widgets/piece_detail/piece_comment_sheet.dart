@@ -331,6 +331,7 @@ class _PieceCommentSheetState extends State<PieceCommentSheet> {
                   ? null
                   : () => requireLogin(
                         context,
+                        title: 'Sign in to comment',
                         message: 'Log in or create a free account to comment.',
                       ),
               textInputAction: TextInputAction.send,

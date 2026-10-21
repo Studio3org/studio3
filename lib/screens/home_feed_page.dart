@@ -257,6 +257,7 @@ class _HomePageState extends State<HomePage>
                 onAddTap: () async {
                   if (!await requireLogin(
                     context,
+                    title: 'Sign in to post',
                     message: 'Log in or create a free account to post '
                         'your work.',
                   )) {

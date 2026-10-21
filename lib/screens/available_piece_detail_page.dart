@@ -93,6 +93,7 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
   Future<void> _onCollect() async {
     if (!await requireLogin(
       context,
+      title: 'Sign in to collect this piece',
       message: 'Log in or create a free account to collect this piece.',
     )) {
       return;

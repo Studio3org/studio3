@@ -87,6 +87,7 @@ Future<void> confirmBlockUser(
 }) async {
   if (!await requireLogin(
     context,
+    title: 'Sign in to block',
     message: 'Log in to block accounts you don\'t want to see.',
   )) {
     return;
@@ -133,6 +134,7 @@ Future<void> showReportSheet(
 }) async {
   if (!await requireLogin(
     context,
+    title: 'Sign in to report',
     message: 'Log in to report content that breaks our Terms of Use.',
   )) {
     return;
