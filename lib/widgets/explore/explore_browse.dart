@@ -5,6 +5,7 @@ import '../../models/series_summary.dart';
 import '../../theme/studio_colors.dart';
 import '../../theme/studio_metrics.dart';
 import '../../theme/studio_type.dart';
+import '../follow_button.dart';
 import '../studio/studio_avatar.dart';
 import '../studio/studio_icon.dart';
 import 'explore_feed_image.dart';
@@ -580,7 +581,7 @@ class ExploreArtistTile extends StatelessWidget {
             _ArtistFollowButton(
               label: followLabel!,
               busy: followBusy,
-              filled: followLabel == 'Following',
+              filled: followLabel == FollowState.none.actionLabel,
               onTap: onFollow,
             ),
           ],

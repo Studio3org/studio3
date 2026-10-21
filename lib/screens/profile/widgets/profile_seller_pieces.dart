@@ -75,18 +75,7 @@ class _ProfileSellerPiecesState extends State<ProfileSellerPieces> {
           ),
         ),
         if (visible.isEmpty)
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 32),
-              child: Center(
-                child: Text(
-                  availableOnly ? 'No pieces listed for sale yet' : 'No pieces yet',
-                  textAlign: TextAlign.center,
-                  style: StudioType.label13(color: context.studio.textSecondary),
-                ),
-              ),
-            ),
-          )
+          const SliverToBoxAdapter(child: SizedBox.shrink())
         else
           SliverPadding(
             padding: const EdgeInsets.only(top: 16),

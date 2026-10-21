@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/auth_session.dart';
+import '../utils/auth_validators.dart';
 import '../widgets/studio/studio.dart';
 
 /// Gate for account-based actions (like, save, comment, follow, collect,
@@ -27,50 +28,69 @@ Future<bool> requireLogin(
   return false;
 }
 
-class _LoginPromptSheet extends StatelessWidget {
+class _LoginPromptSheet extends StatefulWidget {
   const _LoginPromptSheet({required this.title, required this.message});
 
   final String title;
   final String message;
 
-  void _go(BuildContext context, String route) {
+  @override
+  State<_LoginPromptSheet> createState() => _LoginPromptSheetState();
+}
+
+class _LoginPromptSheetState extends State<_LoginPromptSheet> {
+  final _emailController = TextEditingController();
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    super.dispose();
+  }
+
+  void _go(String route, {String? email}) {
     final navigator = Navigator.of(context, rootNavigator: true);
     navigator.pop();
-    navigator.pushNamed(route);
+    navigator.pushNamed(route, arguments: email);
   }
 
   @override
   Widget build(BuildContext context) {
     final c = context.studio;
+    final emailOk = AuthValidators.email(_emailController.text) == null;
     return StudioSheet(
+      scrollable: true,
       children: [
         Padding(
           padding: const EdgeInsets.only(top: 6),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: StudioType.title22(color: c.textPrimary)),
+              Text(widget.title, style: StudioType.title22(color: c.textPrimary)),
               const SizedBox(height: 6),
-              Text(message, style: StudioType.body15(color: c.textSecondary)),
+              Text(widget.message, style: StudioType.body15(color: c.textSecondary)),
             ],
           ),
         ),
-        StudioButton(label: 'Log in', onPressed: () => _go(context, '/login')),
-        StudioButton(
-          label: 'Create account',
-          variant: StudioButtonVariant.outline,
-          onPressed: () => _go(context, '/signup'),
+        StudioUnderlineField(
+          label: 'Email',
+          controller: _emailController,
+          hint: 'you@email.com',
+          keyboardType: TextInputType.emailAddress,
+          textInputAction: TextInputAction.done,
+          onChanged: (_) => setState(() {}),
+          onSubmitted: (_) {
+            if (emailOk) _go('/signup', email: _emailController.text.trim());
+          },
         ),
         StudioButton(
-          label: 'Not now',
-          variant: StudioButtonVariant.text,
-          onPressed: () => Navigator.of(context).pop(),
+          label: 'Continue',
+          onPressed: emailOk ? () => _go('/signup', email: _emailController.text.trim()) : null,
         ),
         Text.rich(
           TextSpan(
             style: StudioType.caption12(height: 1.5, color: c.textSecondary),
             children: [
-              const TextSpan(text: 'By continuing, you agree to our '),
+              const TextSpan(text: "We'll email you a code to sign in. By continuing, you agree to our "),
               WidgetSpan(
                 alignment: PlaceholderAlignment.baseline,
                 baseline: TextBaseline.alphabetic,
@@ -85,9 +105,25 @@ class _LoginPromptSheet extends StatelessWidget {
                   ),
                 ),
               ),
+              const TextSpan(text: ' and '),
+              TextSpan(
+                text: 'Privacy Policy',
+                style: StudioType.caption12(height: 1.5, color: c.textPrimary),
+              ),
               const TextSpan(text: '.'),
             ],
           ),
+        ),
+        StudioButton(label: 'Log in', onPressed: () => _go('/login')),
+        StudioButton(
+          label: 'Create account',
+          variant: StudioButtonVariant.outline,
+          onPressed: () => _go('/signup'),
+        ),
+        StudioButton(
+          label: 'Not now',
+          variant: StudioButtonVariant.text,
+          onPressed: () => Navigator.of(context).pop(),
         ),
       ],
     );

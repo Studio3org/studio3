@@ -5,7 +5,21 @@ import '../theme/home_feed_tokens.dart';
 
 /// Follow relationship from the viewer to a profile/artist — a private
 /// account yields [pending] instead of jumping straight to [following].
-enum FollowState { none, pending, following }
+enum FollowState {
+  none,
+  pending,
+  following;
+
+  /// Not following is the dark Follow action. Following and a pending request
+  /// stay the light button.
+  bool get filled => this == FollowState.none;
+
+  String get actionLabel => switch (this) {
+    FollowState.none => 'Follow',
+    FollowState.pending => 'Requested',
+    FollowState.following => 'Unfollow',
+  };
+}
 
 /// Shared Follow/Following/Requested pill button used on the artist profile
 /// page and on piece/scene detail pages.
@@ -31,12 +45,8 @@ class FollowButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final outlined = state != FollowState.none;
-    final label = switch (state) {
-      FollowState.none => 'Follow',
-      FollowState.pending => 'Requested',
-      FollowState.following => 'Following',
-    };
+    final outlined = !state.filled;
+    final label = state.actionLabel;
     final labelColor = outlined
         ? HomeFeedTokens.textPrimary.withValues(
             alpha: state == FollowState.pending ? 0.7 : 1,

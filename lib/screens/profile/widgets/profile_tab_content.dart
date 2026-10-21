@@ -80,6 +80,9 @@ class ProfileTabContent extends StatelessWidget {
     }
 
     if (currentTab == 'series') {
+      if (sellerMode && seriesItems.isEmpty && !loading) {
+        return const SliverToBoxAdapter(child: SizedBox.shrink());
+      }
       return SliverToBoxAdapter(
         child: ProfileSeriesGrid(items: seriesItems, loading: loading),
       );
@@ -115,6 +118,9 @@ class ProfileTabContent extends StatelessWidget {
       final visibleScenes = sceneFilter == 'videos'
           ? scenes.where(_isVideoPost).toList()
           : scenes;
+      if (sellerMode && scenes.isEmpty) {
+        return const SliverToBoxAdapter(child: SizedBox.shrink());
+      }
       final Widget gridSliver = visibleScenes.isNotEmpty
           ? ProfileContentGrid.fromPosts(
               visibleScenes,
@@ -174,12 +180,7 @@ class ProfileTabContent extends StatelessWidget {
       };
 
       if (visible.isEmpty) {
-        final label = switch (collectSegment) {
-          'sold' => 'No sold pieces yet',
-          'available' => 'No pieces listed for sale yet',
-          _ => 'No collect pieces yet',
-        };
-        return SliverToBoxAdapter(child: _EmptyState(label: label));
+        return const SliverToBoxAdapter(child: SizedBox.shrink());
       }
 
       return ProfileContentGrid.fromPieces(

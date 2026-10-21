@@ -1,5 +1,9 @@
 import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+
 import '../services/api_exception.dart';
 import '../services/auth_service.dart';
 import '../services/auth_session.dart';
@@ -9,20 +13,29 @@ import '../widgets/studio/studio.dart';
 import '../widgets/studio_loading.dart';
 import 'terms_page.dart';
 
+/// Choices collected on the profile screen that register does not accept.
+/// The photo path is uploaded once the account exists. The marketing switch
+/// is kept for the screen only: there is no saved preference for it.
+class SignupExtras {
+  static String? photoPath;
+  static bool marketingTexts = false;
+}
+
 enum _SignUpStep {
-  name,
   email,
   emailVerify,
-  username,
-  phone,
+  profile,
   password,
 }
 
 class SignUpPage extends StatefulWidget {
-  const SignUpPage({super.key, this.initialStepIndex = 0});
+  const SignUpPage({super.key, this.initialStepIndex = 0, this.initialEmail});
 
-  /// 0 name, 1 email, 2 code, 3 username, 4 phone, 5 password.
+  /// 0 email, 1 code, 2 profile, 3 password.
   final int initialStepIndex;
+
+  /// Filled when the sign-in sheet Continue opens this screen.
+  final String? initialEmail;
 
   @override
   State<SignUpPage> createState() => _SignUpPageState();
@@ -35,9 +48,10 @@ class _SignUpPageState extends State<SignUpPage> {
   void initState() {
     super.initState();
     _step = _SignUpStep.values[widget.initialStepIndex.clamp(0, _SignUpStep.values.length - 1)];
+    final email = widget.initialEmail?.trim();
+    if (email != null && email.isNotEmpty) _emailController.text = email;
   }
-  final _firstNameController = TextEditingController();
-  final _lastNameController = TextEditingController();
+  final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _usernameController = TextEditingController();
   final _phoneController = TextEditingController();
@@ -53,6 +67,10 @@ class _SignUpPageState extends State<SignUpPage> {
   String _otp = '';
   String? _otpError;
 
+  String? _photoPath;
+  bool _marketingTexts = false;
+  final _picker = ImagePicker();
+
   bool _checkingUsername = false;
   bool? _usernameAvailable;
   String? _usernameApiMessage;
@@ -63,8 +81,7 @@ class _SignUpPageState extends State<SignUpPage> {
   Timer? _resendCooldownTimer;
   static const _resendCooldownSeconds = 120;
 
-  String get _fullName =>
-      '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}'.trim();
+  String get _fullName => _nameController.text.trim();
 
   double get _passwordStrength {
     final p = _passwordController.text;
@@ -83,8 +100,7 @@ class _SignUpPageState extends State<SignUpPage> {
   void dispose() {
     _usernameDebounce?.cancel();
     _resendCooldownTimer?.cancel();
-    _firstNameController.dispose();
-    _lastNameController.dispose();
+    _nameController.dispose();
     _emailController.dispose();
     _usernameController.dispose();
     _phoneController.dispose();
@@ -94,7 +110,7 @@ class _SignUpPageState extends State<SignUpPage> {
   }
 
   void _goBack() {
-    if (_step == _SignUpStep.name) {
+    if (_step == _SignUpStep.email) {
       Navigator.maybePop(context);
       return;
     }
@@ -102,35 +118,23 @@ class _SignUpPageState extends State<SignUpPage> {
       _submitted = false;
       _loading = false;
       _step = switch (_step) {
-        _SignUpStep.email => _SignUpStep.name,
         _SignUpStep.emailVerify => _SignUpStep.email,
-        _SignUpStep.username => _SignUpStep.emailVerify,
-        _SignUpStep.phone => _SignUpStep.username,
-        _SignUpStep.password => _SignUpStep.phone,
-        _SignUpStep.name => _SignUpStep.name,
+        _SignUpStep.profile => _SignUpStep.emailVerify,
+        _SignUpStep.password => _SignUpStep.profile,
+        _SignUpStep.email => _SignUpStep.email,
       };
     });
   }
 
   String? _nameError() {
     if (!_submitted) return null;
-    if (_firstNameController.text.trim().isEmpty) return 'First name is required';
-    if (_lastNameController.text.trim().isEmpty) return 'Last name is required';
+    if (_nameController.text.trim().isEmpty) return 'Name is required';
     return null;
-  }
-
-  Future<void> _continueName() async {
-    setState(() => _submitted = true);
-    if (_nameError() != null || !_agreedToTerms) return;
-    setState(() {
-      _submitted = false;
-      _step = _SignUpStep.email;
-    });
   }
 
   Future<void> _continueEmail() async {
     setState(() => _submitted = true);
-    if (AuthValidators.email(_emailController.text) != null) return;
+    if (AuthValidators.email(_emailController.text) != null || !_agreedToTerms) return;
 
     // Navigate immediately rather than waiting on the network — sending
     // the code is inherently slow (backend cold start, SMTP delivery) and
@@ -210,7 +214,7 @@ class _SignUpPageState extends State<SignUpPage> {
       if (!mounted) return;
       setState(() {
         _otp = code;
-        _step = _SignUpStep.username;
+        _step = _SignUpStep.profile;
       });
     } catch (e) {
       if (!mounted) return;
@@ -248,9 +252,22 @@ class _SignUpPageState extends State<SignUpPage> {
     });
   }
 
-  Future<void> _continueUsername() async {
+  Future<void> _pickPhoto() async {
+    try {
+      final picked = await _picker.pickImage(source: ImageSource.gallery);
+      if (picked == null || !mounted) return;
+      setState(() => _photoPath = picked.path);
+    } catch (e) {
+      if (mounted) showAuthError(context, e);
+    }
+  }
+
+  Future<void> _continueProfile() async {
     setState(() => _submitted = true);
+    if (_nameError() != null) return;
     if (AuthValidators.username(_usernameController.text) != null) return;
+    final phone = _phoneController.text.trim();
+    if (phone.isNotEmpty && AuthValidators.phone(phone) != null) return;
 
     setState(() => _loading = true);
     try {
@@ -265,25 +282,13 @@ class _SignUpPageState extends State<SignUpPage> {
       }
       setState(() {
         _submitted = false;
-        _step = _SignUpStep.phone;
+        _step = _SignUpStep.password;
       });
     } catch (e) {
       if (mounted) showAuthError(context, e);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
-  }
-
-  void _continuePhone({bool skip = false}) {
-    if (!skip) {
-      setState(() => _submitted = true);
-      final phone = _phoneController.text.trim();
-      if (phone.isNotEmpty && AuthValidators.phone(phone) != null) return;
-    }
-    setState(() {
-      _submitted = false;
-      _step = _SignUpStep.password;
-    });
   }
 
   Future<void> _createAccount() async {
@@ -307,6 +312,8 @@ class _SignUpPageState extends State<SignUpPage> {
             ? null
             : _phoneController.text.trim(),
       );
+      SignupExtras.photoPath = _photoPath;
+      SignupExtras.marketingTexts = _marketingTexts && _phoneController.text.trim().isNotEmpty;
       await AuthSession.instance.saveTermsAgreedOnDevice(kTermsVersion);
       if (!mounted) return;
       // Clear the whole stack so a guest MainShell that pushed login/sign-up
@@ -326,20 +333,20 @@ class _SignUpPageState extends State<SignUpPage> {
 
   @override
   Widget build(BuildContext context) {
-    final step = _buildStep();
-    if (_step == _SignUpStep.name) {
+    if (_step == _SignUpStep.email) {
       return StudioLoadingGate(
         loading: _loading,
         child: SignInLaunchScaffold(
           showBackButton: true,
           onBackPressed: _goBack,
-          form: step,
+          form: _buildEmailStep(key: const ValueKey('email')),
         ),
       );
     }
+    final step = _buildStep();
     final progress = switch (_step) {
       _SignUpStep.emailVerify => 1,
-      _SignUpStep.username || _SignUpStep.phone => 2,
+      _SignUpStep.profile => 2,
       _ => null,
     };
     return StudioLoadingGate(
@@ -361,18 +368,20 @@ class _SignUpPageState extends State<SignUpPage> {
           loading: _loading,
           onPressed: () => _continueOtp(_otp),
         ),
-      _SignUpStep.username => AuthPrimaryButton(
-          label: 'Continue',
-          enabled: AuthValidators.username(_usernameController.text) == null &&
-              _usernameAvailable != false,
-          onPressed: _continueUsername,
-        ),
-      _SignUpStep.phone => Column(
+      _SignUpStep.profile => Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            AuthPrimaryButton(label: 'Continue', onPressed: () => _continuePhone()),
-            const SizedBox(height: 4),
-            AuthGhostButton(label: 'Skip for now', onPressed: () => _continuePhone(skip: true)),
+            _marketingSwitch(),
+            const SizedBox(height: 20),
+            AuthPrimaryButton(
+              label: 'Continue',
+              enabled: _nameController.text.trim().isNotEmpty &&
+                  AuthValidators.username(_usernameController.text) == null &&
+                  _usernameAvailable != false &&
+                  (_phoneController.text.trim().isEmpty ||
+                      AuthValidators.phone(_phoneController.text) == null),
+              onPressed: _continueProfile,
+            ),
           ],
         ),
       _SignUpStep.password => AuthPrimaryButton(
@@ -391,36 +400,26 @@ class _SignUpPageState extends State<SignUpPage> {
 
   Widget _buildStep() {
     return switch (_step) {
-      _SignUpStep.name => _buildNameStep(key: const ValueKey('name')),
-      _SignUpStep.email => _buildEmailStep(key: const ValueKey('email')),
       _SignUpStep.emailVerify => _buildOtpStep(key: const ValueKey('otp')),
-      _SignUpStep.username => _buildUsernameStep(key: const ValueKey('username')),
-      _SignUpStep.phone => _buildPhoneStep(key: const ValueKey('phone')),
+      _SignUpStep.profile => _buildProfileStep(key: const ValueKey('profile')),
       _SignUpStep.password => _buildPasswordStep(key: const ValueKey('password')),
+      _SignUpStep.email => const SizedBox.shrink(),
     };
   }
 
-  Widget _buildNameStep({required Key key}) {
+  Widget _buildEmailStep({required Key key}) {
     return Column(
       key: key,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const AuthPageTitle(title: 'Your name', subtitle: 'How should we address you?'),
-        const SizedBox(height: 14),
-        AuthIconInput(
-          controller: _firstNameController,
-          placeholder: 'First name',
-          errorText: _submitted && _firstNameController.text.trim().isEmpty ? 'First name is required' : null,
-          textInputAction: TextInputAction.next,
-          onChanged: (_) => setState(() {}),
-        ),
-        const SizedBox(height: 14),
-        AuthIconInput(
-          controller: _lastNameController,
-          placeholder: 'Last name',
-          errorText: _submitted && _lastNameController.text.trim().isEmpty ? 'Last name is required' : null,
+        StudioUnderlineField(
+          label: 'Email',
+          controller: _emailController,
+          hint: 'you@email.com',
+          keyboardType: TextInputType.emailAddress,
+          errorText: _submitted ? AuthValidators.email(_emailController.text) : null,
           textInputAction: TextInputAction.done,
-          onSubmitted: (_) => _continueName(),
+          onSubmitted: (_) => _continueEmail(),
           onChanged: (_) => setState(() {}),
         ),
         const SizedBox(height: 14),
@@ -432,46 +431,18 @@ class _SignUpPageState extends State<SignUpPage> {
         const SizedBox(height: 14),
         AuthPrimaryButton(
           label: 'Continue',
-          enabled: _firstNameController.text.trim().isNotEmpty &&
-              _lastNameController.text.trim().isNotEmpty &&
-              _agreedToTerms,
-          onPressed: _continueName,
+          enabled: AuthValidators.email(_emailController.text) == null && _agreedToTerms,
+          loading: _loading,
+          onPressed: _continueEmail,
         ),
+        const AuthGuestLink(label: 'Look around first'),
         AuthLinkFooter(
           prompt: 'Already have an account? ',
           actionLabel: 'Sign in',
           onTap: () => Navigator.pushNamed(context, '/login'),
         ),
-        const AuthGuestLink(),
         const SizedBox(height: 14),
         const AuthLegalLine(),
-      ],
-    );
-  }
-
-  Widget _buildEmailStep({required Key key}) {
-    return _stepBody(
-      key: key,
-      title: 'Your email',
-      subtitle: 'We\'ll send a verification code',
-      children: [
-        AuthIconInput(
-          controller: _emailController,
-          placeholder: 'Email address',
-          prefixIcon: Icons.mail_outline_rounded,
-          keyboardType: TextInputType.emailAddress,
-          errorText: _submitted ? AuthValidators.email(_emailController.text) : null,
-          textInputAction: TextInputAction.done,
-          onSubmitted: (_) => _continueEmail(),
-          onChanged: (_) => setState(() {}),
-        ),
-        const SizedBox(height: 24),
-        AuthPrimaryButton(
-          label: 'Send code',
-          enabled: AuthValidators.email(_emailController.text) == null,
-          loading: _loading,
-          onPressed: _continueEmail,
-        ),
       ],
     );
   }
@@ -549,7 +520,7 @@ class _SignUpPageState extends State<SignUpPage> {
     );
   }
 
-  Widget _buildUsernameStep({required Key key}) {
+  Widget _buildProfileStep({required Key key}) {
     final c = context.studio;
     final taken = _usernameAvailable == false;
     return Column(
@@ -563,6 +534,54 @@ class _SignUpPageState extends State<SignUpPage> {
           style: StudioType.body16(color: c.textSecondary),
         ),
         const SizedBox(height: 40),
+        GestureDetector(
+          onTap: _pickPhoto,
+          child: Row(
+            children: [
+              _photoPath == null
+                  ? Container(
+                      width: 72,
+                      height: 72,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(color: c.surface, shape: BoxShape.circle),
+                      child: StudioIcon(StudioIcons.post, size: 26, color: c.textTertiary),
+                    )
+                  : ClipOval(
+                      child: Image.file(
+                        File(_photoPath!),
+                        width: 72,
+                        height: 72,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+              const SizedBox(width: 16),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _photoPath == null ? 'Add a photo' : 'Profile photo added',
+                    style: StudioType.body15(color: c.textPrimary).copyWith(fontWeight: StudioType.medium),
+                  ),
+                  const SizedBox(height: 2),
+                  Text('Optional', style: StudioType.label13(color: c.textTertiary)),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 40),
+        StudioUnderlineField(
+          label: 'Name',
+          controller: _nameController,
+          valueSize: 20,
+          labelGap: 8,
+          underlineGap: 10,
+          labelColor: c.textTertiary,
+          errorText: _submitted ? _nameError() : null,
+          textInputAction: TextInputAction.next,
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 28),
         StudioUnderlineField(
           label: 'Username',
           controller: _usernameController,
@@ -573,8 +592,7 @@ class _SignUpPageState extends State<SignUpPage> {
           errorText: taken
               ? (_usernameApiMessage ?? 'Username is taken')
               : (_submitted ? AuthValidators.username(_usernameController.text) : null),
-          textInputAction: TextInputAction.done,
-          onSubmitted: (_) => _continueUsername(),
+          textInputAction: TextInputAction.next,
           onChanged: _onUsernameChanged,
           trailing: _usernameAvailable == true
               ? Row(
@@ -606,23 +624,7 @@ class _SignUpPageState extends State<SignUpPage> {
             ],
           ),
         ],
-      ],
-    );
-  }
-
-  Widget _buildPhoneStep({required Key key}) {
-    final c = context.studio;
-    return Column(
-      key: key,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text('Set up your profile', style: StudioType.title32(color: c.textPrimary)),
-        const SizedBox(height: 10),
-        Text(
-          'For shipping and delivery updates. You can add it later.',
-          style: StudioType.body16(color: c.textSecondary),
-        ),
-        const SizedBox(height: 40),
+        const SizedBox(height: 28),
         StudioUnderlineField(
           label: 'Phone',
           controller: _phoneController,
@@ -639,8 +641,45 @@ class _SignUpPageState extends State<SignUpPage> {
               ? AuthValidators.phone(_phoneController.text)
               : null,
           textInputAction: TextInputAction.done,
-          onSubmitted: (_) => _continuePhone(),
-          onChanged: (_) => setState(() {}),
+          onChanged: (value) {
+            setState(() {
+              if (value.trim().isEmpty) _marketingTexts = false;
+            });
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _marketingSwitch() {
+    final c = context.studio;
+    final phoneAdded = _phoneController.text.trim().isNotEmpty;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        StudioSwitch(
+          value: phoneAdded && _marketingTexts,
+          semanticLabel: 'Text me about events and new work',
+          onChanged: phoneAdded
+              ? (next) => setState(() => _marketingTexts = next)
+              : (_) => setState(() => _marketingTexts = false),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Text me about events and new work',
+                style: StudioType.body15(color: c.textPrimary).copyWith(fontWeight: StudioType.medium),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'From Studio 3 and artists you follow. Message and data rates may apply. Reply STOP to opt out anytime.',
+                style: StudioType.caption12(height: 1.5, color: c.textTertiary),
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -700,20 +739,4 @@ class _SignUpPageState extends State<SignUpPage> {
     );
   }
 
-  Widget _stepBody({
-    required Key key,
-    required String title,
-    required String subtitle,
-    required List<Widget> children,
-  }) {
-    return Column(
-      key: key,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        AuthPageTitle(title: title, subtitle: subtitle),
-        const SizedBox(height: 24),
-        ...children,
-      ],
-    );
-  }
 }

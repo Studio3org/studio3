@@ -188,11 +188,7 @@ class _NearbySellersRowState extends State<NearbySellersRow> {
                 final seller = _sellers[index];
                 final state = _follow[seller.username] ??
                     (seller.isFollowing ? FollowState.following : FollowState.none);
-                final label = switch (state) {
-                  FollowState.none => 'Follow',
-                  FollowState.pending => 'Requested',
-                  FollowState.following => 'Following',
-                };
+                final label = state.actionLabel;
                 final showFollow = !_isSelf(seller) && seller.username.isNotEmpty;
                 return ExploreArtistTile(
                   name: seller.displayName,

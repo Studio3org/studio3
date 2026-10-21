@@ -187,9 +187,9 @@ void main() {
     await tester.tap(signUp);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
-    expect(find.text('Your name'), findsOneWidget);
+    expect(find.text('Email'), findsOneWidget);
 
-    Navigator.of(tester.element(find.text('Your name'))).pop();
+    Navigator.of(tester.element(find.text('Email'))).pop();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
@@ -257,10 +257,13 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
 
       expect(find.text('Sign in to save this piece'), findsOneWidget);
+      expect(find.text('Email'), findsOneWidget);
+      expect(tester.widget<StudioButton>(find.widgetWithText(StudioButton, 'Continue')).onPressed, isNull);
       expect(tester.getSize(find.widgetWithText(StudioButton, 'Log in')).height, StudioSize.buttonPrimary);
       expect(tester.getSize(find.widgetWithText(StudioButton, 'Create account')).height, greaterThanOrEqualTo(44));
       expect(tester.getSize(find.widgetWithText(StudioButton, 'Not now')).height, greaterThanOrEqualTo(44));
 
+      await tester.ensureVisible(find.text('Not now'));
       await tester.tap(find.text('Not now'));
       await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
@@ -269,6 +272,7 @@ void main() {
       await tester.tap(find.text('open'));
       await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
+      await tester.ensureVisible(find.text('Log in'));
       await tester.tap(find.text('Log in'));
       await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
@@ -280,37 +284,39 @@ void main() {
       await tester.tap(find.text('open'));
       await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
+      await tester.ensureVisible(find.text('Create account'));
       await tester.tap(find.text('Create account'));
       await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
-      expect(find.text('Your name'), findsOneWidget);
+      expect(find.text('Email'), findsOneWidget);
     });
   }
 
-  testWidgets('signup name uses the same first screen, then email, without a network call', (tester) async {
+  testWidgets('signup starts on email, with terms, and stays off the network until Continue', (tester) async {
     await _surface(tester, const Size(390, 900));
     await tester.pumpWidget(_routed(home: const SignUpPage()));
     await tester.pump();
     expect(find.byType(StudioHaze), findsOneWidget);
-    expect(find.text('Your name'), findsOneWidget);
+    expect(find.text('Email'), findsOneWidget);
+    expect(find.text('you@email.com'), findsOneWidget);
+    expect(find.textContaining('I agree to the'), findsOneWidget);
+    expect(find.textContaining('Privacy Policy'), findsOneWidget);
+    expect(find.text('Look around first'), findsOneWidget);
     expect(tester.widget<StudioButton>(find.widgetWithText(StudioButton, 'Continue')).onPressed, isNull);
 
-    await tester.enterText(find.byType(TextField).at(0), 'Amara');
-    await tester.enterText(find.byType(TextField).at(1), 'Osei');
+    await tester.enterText(find.byType(TextField), 'amara@studio.test');
+    await tester.pump();
+    expect(tester.widget<StudioButton>(find.widgetWithText(StudioButton, 'Continue')).onPressed, isNull);
+
     await tester.ensureVisible(find.textContaining('I agree to the'));
     await tester.tap(find.textContaining('I agree to the'));
     await tester.pump();
-    await tester.ensureVisible(find.widgetWithText(StudioButton, 'Continue'));
-    await tester.tap(find.widgetWithText(StudioButton, 'Continue'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(find.text('Your email'), findsOneWidget);
-    expect(find.text('Send code'), findsOneWidget);
+    expect(tester.widget<StudioButton>(find.widgetWithText(StudioButton, 'Continue')).onPressed, isNotNull);
   });
 
   testWidgets('code step: six slots, wrong email goes back, resend copy, three segments', (tester) async {
     await _surface(tester, const Size(390, 844));
-    await tester.pumpWidget(_routed(home: const SignUpPage(initialStepIndex: 2)));
+    await tester.pumpWidget(_routed(home: const SignUpPage(initialStepIndex: 1)));
     await tester.pump();
 
     expect(find.text('Enter your code'), findsOneWidget);
@@ -338,24 +344,31 @@ void main() {
     await tester.tap(find.textContaining('Wrong email?'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
-    expect(find.text('Your email'), findsOneWidget);
+    expect(find.text('Email'), findsOneWidget);
   });
 
-  testWidgets('profile steps keep the current split, available row, phone helper and skip', (tester) async {
+  testWidgets('profile step is one screen in board order, then password', (tester) async {
     await _surface(tester, const Size(390, 844));
-    await tester.pumpWidget(_routed(home: const SignUpPage(initialStepIndex: 3)));
+    await tester.pumpWidget(_routed(home: const SignUpPage(initialStepIndex: 2)));
     await tester.pump();
     expect(find.text('Set up your profile'), findsOneWidget);
+    expect(find.text('Add a photo'), findsOneWidget);
+    expect(find.text('Optional'), findsOneWidget);
+    expect(find.text('Name'), findsOneWidget);
     expect(find.text('Username'), findsOneWidget);
+    expect(find.text('Phone'), findsOneWidget);
+    expect(find.text('Text me about events and new work'), findsOneWidget);
     expect(find.bySemanticsLabel('Step 2 of 3'), findsOneWidget);
 
-    await tester.pumpWidget(_routed(home: const SignUpPage(initialStepIndex: 4)));
-    await tester.pump();
+    final name = tester.getTopLeft(find.text('Name'));
+    final username = tester.getTopLeft(find.text('Username'));
+    final phone = tester.getTopLeft(find.text('Phone'));
+    expect(name.dy, lessThan(username.dy));
+    expect(username.dy, lessThan(phone.dy));
     expect(find.textContaining('For shipping and delivery updates', skipOffstage: false), findsWidgets);
-    expect(find.text('Skip for now'), findsOneWidget);
-    await tester.tap(find.text('Skip for now'));
+
+    await tester.pumpWidget(_routed(home: const SignUpPage(initialStepIndex: 3)));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
     expect(find.text('Set password'), findsOneWidget);
     expect(find.text('Create Account'), findsOneWidget);
   });
@@ -365,19 +378,20 @@ void main() {
     await tester.pumpWidget(_routed(home: const OnboardingPage()));
     await tester.pump();
     expect(find.text('What brings you to Studio 3?'), findsOneWidget);
-    expect(find.text('Artist'), findsOneWidget);
-    expect(find.text('Collector'), findsOneWidget);
-    expect(find.text('Enthusiast'), findsOneWidget);
-    expect(find.bySemanticsLabel('Step 1 of 3'), findsOneWidget);
+    expect(find.text('Collecting art'), findsOneWidget);
+    expect(find.text('Sharing my work'), findsOneWidget);
+    expect(find.text('Exploring and events'), findsOneWidget);
+    expect(find.text('Skip for now'), findsOneWidget);
+    expect(find.bySemanticsLabel('Step 3 of 3'), findsOneWidget);
     expect(tester.getSize(find.widgetWithText(StudioButton, 'Continue')).height, StudioSize.buttonPrimaryTall);
 
     await tester.tap(find.text('Continue'));
     await tester.pump();
     expect(find.text('Please select a role'), findsOneWidget);
 
-    await tester.tap(find.text('Artist'));
+    await tester.tap(find.text('Sharing my work'));
     await tester.pump();
-    expect(tester.widget<StudioSelectRow>(find.widgetWithText(StudioSelectRow, 'Artist')).selected, isTrue);
+    expect(tester.widget<StudioSelectRow>(find.widgetWithText(StudioSelectRow, 'Sharing my work')).selected, isTrue);
   });
 
   testWidgets('preferences step still requires three in each group', (tester) async {

@@ -165,12 +165,8 @@ class ProfileHeader extends StatelessWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: _ProfileActionButton(
-                      label: followState == FollowState.none
-                          ? 'Follow'
-                          : followState == FollowState.pending
-                          ? 'Requested'
-                          : 'Following',
-                      filled: followState == FollowState.none,
+                      label: followState.actionLabel,
+                      filled: followState.filled,
                       busy: followBusy,
                       onPressed: followBusy ? null : onFollow,
                     ),

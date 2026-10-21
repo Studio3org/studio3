@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../data/post_picker_options.dart';
 import '../../services/api_exception.dart';
+import '../../services/auth_session.dart';
 import '../../services/media_service.dart';
 import '../../services/permission_service.dart';
 import '../../services/user_service.dart';
@@ -14,6 +15,7 @@ import '../../widgets/permission_denied_sheet.dart';
 import '../../widgets/profile_avatar.dart';
 import '../../widgets/profile_cover_image.dart';
 import '../../widgets/studio_loading.dart';
+import '../signup_page.dart';
 
 /// Multi-step onboarding: role → preferences → photos → complete.
 class OnboardingPage extends StatefulWidget {
@@ -39,9 +41,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
   bool _uploadingPhoto = false;
 
   static const _roles = [
-    ('artist', 'Artist', 'Create and share your work'),
-    ('collector', 'Collector', 'Discover and collect art'),
-    ('enthusiast', 'Enthusiast', 'Explore and engage with art'),
+    ('collector', 'Collecting art', 'Available pieces and prices first'),
+    ('artist', 'Sharing my work', 'Post pieces and build a following'),
+    ('enthusiast', 'Exploring and events', "A bit of everything, plus what's on at The Space"),
   ];
 
   static const _themeOptions = [
@@ -101,6 +103,14 @@ class _OnboardingPageState extends State<OnboardingPage> {
     if (_step == 2) {
       setState(() => _loading = true);
       try {
+        if (_profilePhotoUrl == null && SignupExtras.photoPath != null) {
+          final url = await MediaService.instance.uploadFile(
+            purpose: MediaPurpose.profile,
+            file: File(SignupExtras.photoPath!),
+          );
+          _profilePhotoUrl = url;
+          SignupExtras.photoPath = null;
+        }
         if (_profilePhotoUrl == null && _coverPhotoUrl == null) {
           await UserService.instance.setOnboardingPhotos(skip: true);
         } else {
@@ -111,7 +121,17 @@ class _OnboardingPageState extends State<OnboardingPage> {
         }
         await UserService.instance.completeOnboarding();
         if (!mounted) return;
-        Navigator.pushReplacementNamed(context, '/');
+        final firstName = AuthSession.instance.user?.name.split(' ').first;
+        final navigator = Navigator.of(context);
+        navigator.pushReplacementNamed('/');
+        final welcome = (firstName == null || firstName.isEmpty)
+            ? 'Welcome to Studio 3'
+            : 'Welcome to Studio 3, $firstName';
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (navigator.context.mounted) {
+            showStudioToast(navigator.context, welcome);
+          }
+        });
       } catch (e) {
         _showError(e);
       } finally {
@@ -170,7 +190,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
     return StudioLoadingGate(
       loading: _loading || _uploadingPhoto,
       child: SignInStepScaffold(
-        progressCurrent: _step + 1,
+        progressCurrent: _step == 0 ? 3 : null,
         bottom: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -179,6 +199,13 @@ class _OnboardingPageState extends State<OnboardingPage> {
               height: 54,
               onPressed: _next,
             ),
+            if (_step == 0) ...[
+              const SizedBox(height: 4),
+              AuthGhostButton(
+                label: 'Skip for now',
+                onPressed: () => setState(() => _step = 1),
+              ),
+            ],
           ],
         ),
         body: switch (_step) {
@@ -300,7 +327,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
           onTap: () => _uploadPhoto(MediaPurpose.profile),
           child: Row(
             children: [
-              _profilePhotoUrl == null
+              _profilePhotoUrl == null && SignupExtras.photoPath == null
                   ? Container(
                       width: 72,
                       height: 72,
@@ -308,13 +335,24 @@ class _OnboardingPageState extends State<OnboardingPage> {
                       decoration: BoxDecoration(color: c.surface, shape: BoxShape.circle),
                       child: StudioIcon(StudioIcons.post, size: 26, color: c.textTertiary),
                     )
-                  : ProfileAvatar(url: _profilePhotoUrl, size: 72),
+                  : _profilePhotoUrl != null
+                      ? ProfileAvatar(url: _profilePhotoUrl, size: 72)
+                      : ClipOval(
+                          child: Image.file(
+                            File(SignupExtras.photoPath!),
+                            width: 72,
+                            height: 72,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
               const SizedBox(width: 16),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    _profilePhotoUrl == null ? 'Add a photo' : 'Profile photo added',
+                    _profilePhotoUrl == null && SignupExtras.photoPath == null
+                        ? 'Add a photo'
+                        : 'Profile photo added',
                     style: StudioType.body15(color: c.textPrimary).copyWith(fontWeight: StudioType.medium),
                   ),
                   const SizedBox(height: 2),

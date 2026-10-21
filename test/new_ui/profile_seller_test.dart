@@ -4,6 +4,7 @@ import 'package:studio3/models/piece_summary.dart';
 import 'package:studio3/screens/profile/models/profile_series_data.dart';
 import 'package:studio3/screens/profile/profile_constants.dart';
 import 'package:studio3/screens/profile/widgets/profile_header.dart';
+import 'package:studio3/screens/profile/widgets/profile_tab_content.dart';
 import 'package:studio3/screens/profile/widgets/profile_hero.dart';
 import 'package:studio3/screens/profile/widgets/profile_seller_pieces.dart';
 import 'package:studio3/screens/profile/widgets/profile_tabs.dart';
@@ -212,6 +213,25 @@ void main() {
     expect(find.byKey(const Key('profile-available-filter')), findsNothing);
     expect(find.byType(StudioStatusChip), findsNothing);
     expect(find.text('Series'), findsNothing);
+    expect(find.text('No pieces yet'), findsNothing);
+
+    await tester.pumpWidget(
+      _app(
+        home: Scaffold(
+          body: CustomScrollView(
+            slivers: [
+              ProfileTabContent(
+                currentTab: 'scenes',
+                seriesItems: const [],
+                sellerMode: true,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('No scenes yet'), findsNothing);
 
     await tester.pumpWidget(
       _app(

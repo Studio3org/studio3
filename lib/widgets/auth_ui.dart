@@ -752,12 +752,14 @@ class AuthTermsCheckbox extends StatelessWidget {
 /// "Browse without an account" — App Store guideline 5.1.1(v): browsing
 /// isn't an account feature, so the auth screens always offer a way out.
 class AuthGuestLink extends StatelessWidget {
-  const AuthGuestLink({super.key});
+  const AuthGuestLink({super.key, this.label = 'Browse without an account'});
+
+  final String label;
 
   @override
   Widget build(BuildContext context) {
     return StudioButton(
-      label: 'Browse without an account',
+      label: label,
       variant: StudioButtonVariant.text,
       onPressed: () => Navigator.pushNamedAndRemoveUntil(context, '/', (_) => false),
     );

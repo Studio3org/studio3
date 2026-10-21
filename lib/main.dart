@@ -134,7 +134,10 @@ class Studio3App extends StatelessWidget {
                     child: MainShell(),
                   ),
               '/login': (context) => const LoginPage(),
-              '/signup': (context) => const SignUpPage(),
+              '/signup': (context) {
+                final args = ModalRoute.of(context)?.settings.arguments;
+                return SignUpPage(initialEmail: args is String ? args : null);
+              },
               '/forgot-password': (context) => const ForgotPasswordPage(),
               '/onboarding': (context) => const OnboardingPage(),
               '/welcome': (context) {
