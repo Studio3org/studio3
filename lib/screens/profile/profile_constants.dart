@@ -12,17 +12,19 @@ const Color kProfileTextDisabled = Color(0xFFC8C5BC);
 const Color kProfileCollectMenuFill = Color(0xCC231F1B); // rgba(35,31,27,0.8)
 
 const double kProfileGutter = 8;
-const double kProfileHorizontalPad = 10;
-const double kProfileIdentityPad = 28;
-const double kProfileCoverHeight = 280;
-const double kProfileAvatarSize = 84;
-const double kProfileAvatarBorder = 3;
-const double kProfileAvatarTop = 238;
-const double kProfileHeroHeight = kProfileAvatarTop + kProfileAvatarSize; // 322
-const double kProfileButtonHeight = 28;
-const double kProfileButtonRadius = 4;
+const double kProfileHorizontalPad = 20;
+const double kProfileIdentityPad = 20;
+const double kProfileCoverHeight = 190;
+const double kProfileAvatarBorder = 4;
+
+/// Photo is 88. The 4 px ring sits outside it, so the disc is 96 (`HandoffRules`).
+const double kProfileAvatarSize = 88 + kProfileAvatarBorder * 2;
+const double kProfileAvatarTop = kProfileCoverHeight - 44;
+const double kProfileHeroHeight = kProfileAvatarTop + kProfileAvatarSize;
+const double kProfileButtonHeight = 44;
+const double kProfileButtonRadius = 12;
 const double kProfileButtonMaxWidth = 180;
-const double kProfileCardRadius = 6;
+const double kProfileCardRadius = 10;
 const double kProfileGridTopGap = 32;
 
 /// Figma 2650:1892 masonry rhythm (390pt column ≈ 181).

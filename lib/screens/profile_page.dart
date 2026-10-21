@@ -13,6 +13,7 @@ import '../services/series_service.dart';
 import '../services/social_service.dart';
 import '../services/user_service.dart';
 import '../theme/home_feed_tokens.dart';
+import '../theme/studio_colors.dart';
 import 'conversation_thread_page.dart';
 import 'follow_list_page.dart';
 import '../widgets/content_actions_sheet.dart';
@@ -680,7 +681,7 @@ class _ProfilePageState extends State<ProfilePage>
         statusBarBrightness: Brightness.dark,
       ),
       child: Scaffold(
-        backgroundColor: kProfilePageBackground,
+        backgroundColor: context.studio.background,
         body: Stack(
           children: [
             RefreshIndicator(
@@ -726,11 +727,7 @@ class _ProfilePageState extends State<ProfilePage>
                       piecesCount: profile?.piecesCount ?? _pieces.length,
                       scenesCount: _scenes.length,
                       savesCount: profile?.savesCount,
-                      availableCount: _listedPieces
-                          .where((p) => p.isForSale && p.status != 'sold')
-                          .length,
                       collectedCount: profile?.collectedCount,
-                      rating: profile?.rating,
                       sellerMode: sellerEnabled,
                       isOwnProfile: !showPublicActions,
                       followState: _followState,
@@ -770,7 +767,7 @@ class _ProfilePageState extends State<ProfilePage>
                     SliverPadding(
                       padding: EdgeInsets.fromLTRB(
                         kProfileHorizontalPad,
-                        kProfileGridTopGap,
+                        sellerEnabled && _tab == 'pieces' ? 0 : kProfileGridTopGap,
                         kProfileHorizontalPad,
                         bottomPad,
                       ),
@@ -790,6 +787,7 @@ class _ProfilePageState extends State<ProfilePage>
                         onPublishScene: _publishScene,
                         sceneFilter: _sceneFilter,
                         onSceneFilterChanged: _onSceneFilterChanged,
+                        onSeeAllSeries: () => _onTabChanged('series'),
                       ),
                     ),
                   ],

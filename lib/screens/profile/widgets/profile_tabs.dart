@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-import '../../../theme/home_feed_tokens.dart';
+import '../../../theme/studio_colors.dart';
+import '../../../theme/studio_metrics.dart';
+import '../../../theme/studio_type.dart';
 import '../profile_constants.dart';
 
 class ProfileTabs extends StatefulWidget {
@@ -71,56 +73,43 @@ class _ProfileTabsState extends State<ProfileTabs> {
       if (widget.showCollect) (id: 'collect', label: 'Collect'),
     ];
 
+    final c = context.studio;
     return ColoredBox(
       key: _tabsBarKey,
-      color: kProfilePageBackground,
-      child: Stack(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              kProfileHorizontalPad,
-              24,
-              kProfileHorizontalPad,
-              0,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (final tab in tabs)
-                  if (tab.id == 'collect')
-                    _CollectTabItem(
-                      key: _collectTabKey,
-                      active: widget.currentTab == tab.id,
-                      menuOpen: _collectMenuOpen,
-                      onTabTap: () {
-                        if (widget.currentTab == 'collect') {
-                          _openCollectFilterMenu();
-                        } else {
-                          widget.onTabChanged(tab.id);
-                        }
-                      },
-                      onFilterTap: _openCollectFilterMenu,
-                    )
-                  else
-                    _TabItem(
-                      label: tab.label,
-                      active: widget.currentTab == tab.id,
-                      onTap: () => widget.onTabChanged(tab.id),
-                    ),
-              ],
-            ),
+      color: c.background,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(kProfileHorizontalPad, 18, kProfileHorizontalPad, 0),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: c.line)),
           ),
-          const Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: ColoredBox(
-              color: kProfileTabRule,
-              child: SizedBox(height: 0.5),
-            ),
+          child: Row(
+            children: [
+              for (final tab in tabs)
+                Expanded(
+                  child: tab.id == 'collect'
+                      ? _CollectTabItem(
+                          key: _collectTabKey,
+                          active: widget.currentTab == tab.id,
+                          menuOpen: _collectMenuOpen,
+                          onTabTap: () {
+                            if (widget.currentTab == 'collect') {
+                              _openCollectFilterMenu();
+                            } else {
+                              widget.onTabChanged(tab.id);
+                            }
+                          },
+                          onFilterTap: _openCollectFilterMenu,
+                        )
+                      : _TabItem(
+                          label: tab.label,
+                          active: widget.currentTab == tab.id,
+                          onTap: () => widget.onTabChanged(tab.id),
+                        ),
+                ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -133,7 +122,7 @@ Future<String?> showCollectFilterMenu({
   required double top,
   required String currentSegment,
 }) {
-  const menuWidth = 112.0;
+  const menuWidth = 168.0;
 
   return showGeneralDialog<String>(
     context: context,
@@ -186,28 +175,28 @@ class _CollectFilterMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.studio;
     return Material(
       color: Colors.transparent,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(4),
-        child: ColoredBox(
-          color: kProfileCollectMenuFill,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (var i = 0; i < _options.length; i++) ...[
-                  if (i > 0) const SizedBox(height: 8),
-                  _CollectFilterOption(
-                    label: _options[i].label,
-                    selected: currentSegment == _options[i].id,
-                    onTap: () => onSelected(_options[i].id),
-                  ),
-                ],
-              ],
-            ),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: c.card,
+          borderRadius: BorderRadius.circular(StudioRadius.button),
+          border: Border.all(color: c.line),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final option in _options)
+                _CollectFilterOption(
+                  label: option.label,
+                  selected: currentSegment == option.id,
+                  onTap: () => onSelected(option.id),
+                ),
+            ],
           ),
         ),
       ),
@@ -226,42 +215,28 @@ class _CollectFilterOption extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  static const _dotAsset = 'assets/profile/icon_collect_dot_on.svg';
-
   @override
   Widget build(BuildContext context) {
+    final c = context.studio;
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: SizedBox(
-        width: 80,
-        height: 20,
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.clip,
-                textHeightBehavior: const TextHeightBehavior(
-                  applyHeightToFirstAscent: false,
-                  applyHeightToLastDescent: false,
-                ),
-                style: kProfileGeist(
-                  fontSize: 12,
-                  height: 1,
-                  color: selected
-                      ? HomeFeedTokens.textInverse
-                      : kProfileTextDisabled,
-                ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 44),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: StudioType.body14(
+                weight: selected ? StudioType.medium : StudioType.regular,
+                color: selected ? c.textPrimary : c.textSecondary,
               ),
             ),
-            if (selected)
-              Padding(
-                padding: const EdgeInsets.only(left: 4),
-                child: SvgPicture.asset(_dotAsset, width: 4, height: 4),
-              ),
-          ],
+          ),
         ),
       ),
     );
@@ -281,59 +256,35 @@ class _TabItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.studio;
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: 10),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: active ? c.textPrimary : Colors.transparent,
+              width: 2,
+            ),
+          ),
+        ),
+        child: SizedBox(
+          height: 44,
+          child: Center(
             child: Text(
               label,
-              style: kProfileGeist(
-                fontSize: 13,
-                fontWeight: active ? FontWeight.w500 : FontWeight.w400,
-                color: active
-                    ? HomeFeedTokens.textPrimary
-                    : HomeFeedTokens.textSecondary,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: StudioType.body14(
+                weight: StudioType.medium,
+                color: active ? c.textPrimary : c.textTertiary,
               ),
             ),
           ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: -0.5,
-            child: Center(
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                curve: Curves.easeOut,
-                height: 2,
-                width: _indicatorWidth(label, active),
-                decoration: BoxDecoration(
-                  color: active
-                      ? HomeFeedTokens.textPrimary
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
-  }
-
-  double _indicatorWidth(String label, bool active) {
-    if (!active) return 0;
-    final painter = TextPainter(
-      text: TextSpan(
-        text: label,
-        style: kProfileGeist(fontSize: 13, fontWeight: FontWeight.w500),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    return painter.width;
   }
 }
 
@@ -355,35 +306,41 @@ class _CollectTabItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final labelColor = active
-        ? HomeFeedTokens.textPrimary
-        : HomeFeedTokens.textSecondary;
-
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              GestureDetector(
+    final c = context.studio;
+    final labelColor = active ? c.textPrimary : c.textTertiary;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: active ? c.textPrimary : Colors.transparent,
+            width: 2,
+          ),
+        ),
+      ),
+      child: SizedBox(
+        height: 44,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Flexible(
+              child: GestureDetector(
                 onTap: onTabTap,
                 behavior: HitTestBehavior.opaque,
                 child: Text(
                   'Collect',
-                  style: kProfileGeist(
-                    fontSize: 13,
-                    fontWeight: active ? FontWeight.w500 : FontWeight.w400,
-                    color: labelColor,
-                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: StudioType.body14(weight: StudioType.medium, color: labelColor),
                 ),
               ),
-              GestureDetector(
-                onTap: onFilterTap,
-                behavior: HitTestBehavior.opaque,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(4, 4, 0, 4),
+            ),
+            GestureDetector(
+              onTap: onFilterTap,
+              behavior: HitTestBehavior.opaque,
+              child: SizedBox(
+                width: 28,
+                height: 44,
+                child: Center(
                   child: AnimatedRotation(
                     duration: const Duration(milliseconds: 160),
                     turns: menuOpen ? 0.5 : 0,
@@ -391,48 +348,15 @@ class _CollectTabItem extends StatelessWidget {
                       _chevronAsset,
                       width: 8,
                       height: 4,
-                      colorFilter: ColorFilter.mode(
-                        labelColor,
-                        BlendMode.srcIn,
-                      ),
+                      colorFilter: ColorFilter.mode(labelColor, BlendMode.srcIn),
                     ),
                   ),
                 ),
               ),
-            ],
-          ),
-        ),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: -0.5,
-          child: Center(
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              curve: Curves.easeOut,
-              height: 2,
-              width: _collectIndicatorWidth(active),
-              decoration: BoxDecoration(
-                color: active ? HomeFeedTokens.textPrimary : Colors.transparent,
-                borderRadius: BorderRadius.circular(6),
-              ),
             ),
-          ),
+          ],
         ),
-      ],
-    );
-  }
-
-  double _collectIndicatorWidth(bool active) {
-    if (!active) return 0;
-    const chevronWidth = 12.0;
-    final painter = TextPainter(
-      text: TextSpan(
-        text: 'Collect',
-        style: kProfileGeist(fontSize: 13, fontWeight: FontWeight.w500),
       ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    return painter.width + chevronWidth;
+    );
   }
 }

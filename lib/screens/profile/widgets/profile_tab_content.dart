@@ -6,6 +6,7 @@ import '../../../widgets/feed_skeleton.dart';
 import '../../../widgets/pill_chip.dart';
 import '../profile_constants.dart';
 import 'profile_masonry_grid.dart';
+import 'profile_seller_pieces.dart';
 import 'profile_series_grid.dart';
 import '../models/profile_series_data.dart';
 
@@ -32,6 +33,7 @@ class ProfileTabContent extends StatelessWidget {
     this.onPublishScene,
     this.sceneFilter = 'all',
     this.onSceneFilterChanged,
+    this.onSeeAllSeries,
   });
 
   final String currentTab;
@@ -49,6 +51,7 @@ class ProfileTabContent extends StatelessWidget {
   final void Function(PostSummary post)? onPublishScene;
   final String sceneFilter;
   final ValueChanged<String>? onSceneFilterChanged;
+  final VoidCallback? onSeeAllSeries;
 
   /// A sliver — must be placed directly in a `CustomScrollView.slivers` list
   /// (or a `SliverPadding`'s `sliver:`), not wrapped in `SliverToBoxAdapter`,
@@ -83,6 +86,17 @@ class ProfileTabContent extends StatelessWidget {
     }
 
     if (currentTab == 'pieces') {
+      if (sellerMode) {
+        return ProfileSellerPieces(
+          pieces: pieces,
+          series: seriesItems,
+          showOwnerActions: isOwnProfile,
+          onPieceTap: (piece) => openProfilePiece(context, piece),
+          onDeletePiece: onDeletePiece,
+          onPublishPiece: onPublishPiece,
+          onSeeAllSeries: onSeeAllSeries,
+        );
+      }
       if (pieces.isNotEmpty) {
         return ProfileContentGrid.fromPieces(
           pieces,
