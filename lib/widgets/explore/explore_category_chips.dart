@@ -1,17 +1,27 @@
 import 'package:flutter/material.dart';
 
 import '../../models/explore_feed_block.dart';
-import '../../theme/explore_tokens.dart';
+import '../../theme/studio_metrics.dart';
+import '../studio/studio_chip.dart';
 
+/// The existing All / Pieces / Scenes filter, drawn as the 36-tall chip.
 class ExploreCategoryChips extends StatelessWidget {
   const ExploreCategoryChips({
     super.key,
     required this.selected,
     required this.onSelected,
+    this.mediums = const [],
+    this.selectedMedium,
+    this.onMediumSelected,
   });
 
   final ExploreCategory selected;
   final ValueChanged<ExploreCategory> onSelected;
+
+  /// Mediums already present on loaded pieces. Empty when the payload has none.
+  final List<String> mediums;
+  final String? selectedMedium;
+  final ValueChanged<String>? onMediumSelected;
 
   static const _labels = {
     ExploreCategory.all: 'All',
@@ -21,45 +31,30 @@ class ExploreCategoryChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: ExploreCategory.values.map((category) {
-        final isSelected = category == selected;
-        return Padding(
-          padding: EdgeInsets.only(
-            right: category != ExploreCategory.scenes ? 8 : 0,
-          ),
-          child: GestureDetector(
-            onTap: () => onSelected(category),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOut,
-              height: ExploreTokens.chipHeight,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? ExploreTokens.chipActiveFill
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(ExploreTokens.chipRadius),
-                border: Border.all(
-                  color: ExploreTokens.chipBorder,
-                  width: 1,
-                ),
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                _labels[category]!,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: isSelected
-                      ? ExploreTokens.textInverse
-                      : ExploreTokens.textPrimary,
-                ),
-              ),
-            ),
-          ),
-        );
-      }).toList(),
+    return SizedBox(
+      height: 36,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: StudioSpace.marginFeed),
+        itemCount: ExploreCategory.values.length + mediums.length,
+        separatorBuilder: (context, index) => const SizedBox(width: StudioSpace.s8),
+        itemBuilder: (context, index) {
+          if (index < ExploreCategory.values.length) {
+            final category = ExploreCategory.values[index];
+            return StudioChip(
+              label: _labels[category]!,
+              selected: category == selected,
+              onTap: () => onSelected(category),
+            );
+          }
+          final medium = mediums[index - ExploreCategory.values.length];
+          return StudioChip(
+            label: medium,
+            selected: medium == selectedMedium,
+            onTap: () => onMediumSelected?.call(medium),
+          );
+        },
+      ),
     );
   }
 }

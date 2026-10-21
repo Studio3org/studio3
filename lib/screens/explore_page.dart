@@ -1,34 +1,27 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../models/chat_message.dart';
 import '../models/explore_feed_block.dart';
 import '../models/feed_item.dart';
 import '../models/feed_page.dart';
-import '../models/user_profile.dart';
 import '../services/chat_service.dart';
 import '../services/connectivity_service.dart';
-import '../services/auth_session.dart';
 import '../services/blocked_authors_store.dart';
 import '../services/feed_service.dart';
-import '../services/user_service.dart';
-import '../theme/app_theme.dart';
-import '../theme/explore_tokens.dart';
+import '../theme/studio_colors.dart';
+import '../theme/studio_metrics.dart';
+import '../theme/studio_type.dart';
 import '../utils/explore_category_filter.dart';
 import '../utils/explore_detail_route.dart';
-import '../utils/explore_featured_ranker.dart';
-import '../utils/explore_layout_engine.dart';
 import '../utils/profile_navigation.dart';
-import '../widgets/explore/explore_featured_card.dart';
-import '../widgets/explore/explore_feed_section.dart';
-import '../widgets/explore/explore_near_you_placeholder.dart';
+import '../widgets/explore/explore_browse.dart';
+import '../widgets/explore/explore_feed_image.dart';
 import '../widgets/explore/nearby_sellers_row.dart';
 import '../widgets/explore/explore_sticky_header.dart';
 import '../widgets/feed_skeleton.dart';
-import '../widgets/glass_card.dart';
-import '../widgets/home_feed/home_feed_widgets.dart';
+import '../widgets/studio/studio_avatar.dart';
 import '../utils/scrolls_to_top_on_double_tap.dart';
 
 class ExplorePage extends StatefulWidget {
@@ -43,15 +36,17 @@ class _ExplorePageState extends State<ExplorePage>
   final _scrollController = ScrollController();
   final _searchController = TextEditingController();
 
+  final _browseKey = GlobalKey();
+
   ExploreCategory _category = ExploreCategory.all;
+  String? _medium;
   List<FeedItem> _allItems = [];
-  UserProfile? _profile;
-  FeedItem? _featured;
   bool _loading = true;
   bool _loadingMore = false;
   String? _nextCursor;
   String _searchQuery = '';
-  int _visibleCycleCount = 2;
+  bool _artistsSettled = false;
+  bool _artistsVisible = false;
 
   Timer? _userSearchDebounce;
   List<MessageableUser> _userResults = [];
@@ -83,9 +78,10 @@ class _ExplorePageState extends State<ExplorePage>
   @override
   void scrollToTopAndRefresh() {
     if (_scrollController.hasClients) {
+      final reduce = MediaQuery.disableAnimationsOf(context);
       _scrollController.animateTo(
         0,
-        duration: const Duration(milliseconds: 300),
+        duration: reduce ? Duration.zero : StudioMotion.standard,
         curve: Curves.easeOut,
       );
     }
@@ -111,14 +107,6 @@ class _ExplorePageState extends State<ExplorePage>
               // background-refreshed page once it lands, no flicker.
               onBackgroundUpdate: _mergeBackgroundPage,
             );
-      UserProfile? profile = _profile;
-      if (!append && AuthSession.instance.isLoggedIn) {
-        try {
-          profile = await UserService.instance.getMeCached();
-        } catch (_) {
-          profile = null;
-        }
-      }
       if (!mounted) return;
       setState(() {
         if (append) {
@@ -127,28 +115,17 @@ class _ExplorePageState extends State<ExplorePage>
           _allItems = page.items;
         }
         _nextCursor = page.nextCursor;
-        _profile = profile;
         _loading = false;
         _loadingMore = false;
+        if (_medium != null && !exploreMediumNames(_allItems).contains(_medium)) {
+          _medium = null;
+        }
       });
-      if (!append) {
-        final filtered = _filterItems(_allItems, _category);
-        final featured = ExploreFeaturedRanker.pickFeatured(
-          filtered,
-          profile: profile,
-        );
-        if (!mounted) return;
-        setState(() {
-          _featured = featured;
-          _visibleCycleCount = 2;
-        });
-      }
     } catch (_) {
       if (!mounted) return;
       setState(() {
         if (!append) {
           _allItems = [];
-          _featured = null;
           _nextCursor = null;
         }
         _loading = false;
@@ -159,20 +136,16 @@ class _ExplorePageState extends State<ExplorePage>
 
   /// Applies a page fetched silently in the background (see
   /// [CacheService.fetchWithCache]'s `onBackgroundUpdate`) — mirrors the
-  /// non-append branch of `_loadData` (replace items, recompute featured),
-  /// just without ever showing a spinner for it.
+  /// non-append branch of `_loadData` (replace items), just without ever
+  /// showing a spinner for it.
   void _mergeBackgroundPage(FeedPage page) {
     if (!mounted) return;
     setState(() {
       _allItems = page.items;
       _nextCursor = page.nextCursor;
-    });
-    final filtered = _filterItems(_allItems, _category);
-    final featured = ExploreFeaturedRanker.pickFeatured(filtered, profile: _profile);
-    if (!mounted) return;
-    setState(() {
-      _featured = featured;
-      _visibleCycleCount = 2;
+      if (_medium != null && !exploreMediumNames(_allItems).contains(_medium)) {
+        _medium = null;
+      }
     });
   }
 
@@ -185,45 +158,48 @@ class _ExplorePageState extends State<ExplorePage>
         .toList();
   }
 
-  FeedItem? get _effectiveFeatured {
-    final featured = _featured;
-    if (featured == null ||
-        BlockedAuthorsStore.instance.isBlocked(featured.authorUsername)) {
-      return null;
-    }
-    return featured;
-  }
-
   void _onAuthorBlocked() {
     if (mounted) setState(() {});
   }
 
-  List<FeedItem> _filterItems(List<FeedItem> items, ExploreCategory category) {
-    return filterExploreItems(items, category);
-  }
+  List<FeedItem> get _feedItems => filterExploreByMedium(
+        filterExploreItems(_sourceItems, _category),
+        _medium,
+      );
 
-  List<FeedItem> get _feedItems {
-    final filtered = _filterItems(_sourceItems, _category);
-    final featured = _effectiveFeatured;
-    if (featured == null) return filtered;
-    return filtered.where((item) => item.id != featured.id).toList();
-  }
-
-  List<ExploreFeedBlock> get _visibleBlocks {
-    final maxCycles = ExploreLayoutEngine.cycleCountForItems(_feedItems.length);
-    final count = _visibleCycleCount.clamp(0, maxCycles);
-    return ExploreLayoutEngine.buildBlocks(_feedItems, maxCycles: count);
+  void _onMediumSelected(String medium) {
+    setState(() => _medium = _medium == medium ? null : medium);
   }
 
   void _onCategoryChanged(ExploreCategory category) {
     if (_category == category) return;
+    setState(() => _category = category);
+  }
+
+  void _onArtistsOccupied(bool occupied) {
+    if (!mounted) return;
+    if (_artistsSettled && _artistsVisible == occupied) return;
     setState(() {
-      _category = category;
-      _visibleCycleCount = 2;
-      final filtered = _filterItems(_allItems, category);
-      _featured = ExploreFeaturedRanker.pickFeatured(
-        filtered,
-        profile: _profile,
+      _artistsSettled = true;
+      _artistsVisible = occupied;
+    });
+  }
+
+  void _seeAll(ExploreCategory category) {
+    if (_category != category) setState(() => _category = category);
+    _scrollToBrowse();
+  }
+
+  void _scrollToBrowse() {
+    final reduce = MediaQuery.disableAnimationsOf(context);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final target = _browseKey.currentContext;
+      if (target == null || !mounted) return;
+      Scrollable.ensureVisible(
+        target,
+        duration: reduce ? Duration.zero : StudioMotion.standard,
+        curve: Curves.easeOut,
+        alignment: 0.05,
       );
     });
   }
@@ -270,17 +246,6 @@ class _ExplorePageState extends State<ExplorePage>
     if (!_scrollController.hasClients || _loadingMore || _loading) return;
     final position = _scrollController.position;
     if (position.pixels < position.maxScrollExtent - 300) return;
-
-    final maxCycles = ExploreLayoutEngine.cycleCountForItems(_feedItems.length);
-    if (_visibleCycleCount < maxCycles &&
-        _visibleCycleCount < ExploreLayoutEngine.maxCycles) {
-      setState(() {
-        _visibleCycleCount =
-            (_visibleCycleCount + 2).clamp(0, maxCycles);
-      });
-      return;
-    }
-
     if (_nextCursor != null && _nextCursor!.isNotEmpty) {
       _loadData(append: true);
     }
@@ -290,15 +255,20 @@ class _ExplorePageState extends State<ExplorePage>
 
   @override
   Widget build(BuildContext context) {
+    final c = context.studio;
     final showSkeleton = _loading && _allItems.isEmpty;
     final isSearchingUsers = _searchQuery.isNotEmpty;
+    final bottom = MediaQuery.paddingOf(context).bottom +
+        StudioSize.navHeight +
+        StudioSize.navBottomGap +
+        StudioSpace.feedGap;
 
     return Scaffold(
-      backgroundColor: ExploreTokens.background,
+      backgroundColor: c.background,
       body: SafeArea(
         bottom: false,
         child: RefreshIndicator(
-          color: ExploreTokens.textPrimary,
+          color: c.textPrimary,
           onRefresh: () => _loadData(refresh: true),
           child: CustomScrollView(
             controller: _scrollController,
@@ -306,49 +276,26 @@ class _ExplorePageState extends State<ExplorePage>
               parent: BouncingScrollPhysics(),
             ),
             slivers: [
-              SliverPersistentHeader(
-                pinned: true,
-                delegate: ExploreStickyHeader(
+              SliverToBoxAdapter(
+                child: ExploreTop(
                   searchController: _searchController,
                   onSearchChanged: _onSearchChanged,
                   selectedCategory: _category,
                   onCategorySelected: _onCategoryChanged,
-                  onFilterTap: () {},
+                  mediums: exploreMediumNames(_sourceItems),
+                  selectedMedium: _medium,
+                  onMediumSelected: _onMediumSelected,
                 ),
               ),
               if (isSearchingUsers)
                 SliverToBoxAdapter(child: _buildUserSearchBody())
               else ...[
-                if (!showSkeleton && _effectiveFeatured != null)
-                  SliverToBoxAdapter(
-                    child: ExploreFeaturedCard(
-                      item: _effectiveFeatured!,
-                      onTap: () =>
-                          openExploreDetail(context, _effectiveFeatured!),
-                    ),
-                  ),
-                const SliverToBoxAdapter(
-                  child: ExploreNearYouPlaceholder(),
-                ),
-                const SliverToBoxAdapter(
-                  child: NearbySellersRow(),
-                ),
                 if (showSkeleton)
-                  const SliverToBoxAdapter(
-                    child: Padding(
-                      padding: EdgeInsets.only(top: 12, bottom: 48),
-                      child: ExploreFeedSkeleton(),
-                    ),
-                  )
+                  const SliverToBoxAdapter(child: ExploreFeedSkeleton())
                 else
-                  SliverToBoxAdapter(
-                    child: ExploreFeedSection(
-                      blocks: _visibleBlocks,
-                      emptyMessage: _emptyMessage,
-                    ),
-                  ),
+                  SliverToBoxAdapter(child: _buildExploreBody()),
               ],
-              const SliverToBoxAdapter(child: SizedBox(height: 120)),
+              SliverToBoxAdapter(child: SizedBox(height: bottom)),
             ],
           ),
         ),
@@ -356,86 +303,246 @@ class _ExplorePageState extends State<ExplorePage>
     );
   }
 
+  Widget _buildExploreBody() {
+    final items = _feedItems;
+    final forSale = items.where((item) => item.isForSale).toList();
+    final scenes = items.where((item) => item.isVideo).toList();
+    final series = exploreSeriesEntries(items);
+    final filterActive = _medium != null || _category != ExploreCategory.all;
+    final showEmpty =
+        items.isEmpty && (filterActive || (_artistsSettled && !_artistsVisible));
+    final shelves = <Widget>[];
+    void addShelf(Widget shelf) {
+      shelves.add(
+        Padding(
+          padding: EdgeInsets.only(top: shelves.isEmpty ? 36 : exploreSectionGap),
+          child: shelf,
+        ),
+      );
+    }
+    if (forSale.length >= exploreShelfMinCount) {
+      addShelf(
+        ExplorePieceShelf(
+          items: forSale,
+          onOpen: (item) => openExploreDetail(context, item),
+          onSeeAll: () => _seeAll(ExploreCategory.pieces),
+        ),
+      );
+    }
+    if (scenes.length >= exploreShelfMinCount) {
+      addShelf(
+        ExploreSceneShelf(
+          items: scenes,
+          onOpen: (item) => openExploreDetail(context, item),
+          onSeeAll: () => _seeAll(ExploreCategory.scenes),
+        ),
+      );
+    }
+    if (series.length >= exploreShelfMinCount) {
+      addShelf(
+        ExploreSeriesShelf(
+          entries: series,
+          onOpen: (entry) {
+            final username = entry.authorUsername;
+            if (username != null && username.isNotEmpty) {
+              openUserProfile(context, username);
+            }
+          },
+          onSeeAll: _scrollToBrowse,
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ...shelves,
+        NearbySellersRow(
+          topGap: shelves.isEmpty ? 36 : exploreSectionGap,
+          onOccupied: _onArtistsOccupied,
+        ),
+        if (showEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: StudioSpace.marginFeed,
+              vertical: 48,
+            ),
+            child: Text(
+              _emptyMessage,
+              textAlign: TextAlign.center,
+              style: StudioType.body14(color: context.studio.textSecondary),
+            ),
+          )
+        else if (items.isNotEmpty)
+          Padding(
+            padding: EdgeInsets.only(
+              top: shelves.isNotEmpty || _artistsVisible ? exploreSectionGap : 36,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  key: _browseKey,
+                  padding: const EdgeInsets.symmetric(horizontal: StudioSpace.marginFeed),
+                  child: Text(
+                    'Browse everything',
+                    style: StudioType.sans(
+                      20,
+                      weight: StudioType.medium,
+                      height: 1.2,
+                      color: context.studio.textPrimary,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: exploreShelfInnerGap),
+                ExploreBrowseGrid(
+                  items: items,
+                  onOpen: (item) => openExploreDetail(context, item),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  List<FeedItem> get _searchMatches => _sourceItems
+      .where((item) => exploreItemMatchesQuery(item, _searchQuery))
+      .toList();
+
   Widget _buildUserSearchBody() {
-    if (_userSearchLoading && _userResults.isEmpty) {
+    final c = context.studio;
+    final matches = _searchMatches;
+    final showPeopleLabel = _userResults.isNotEmpty && matches.isNotEmpty;
+    if (_userSearchLoading && _userResults.isEmpty && matches.isEmpty) {
       return const Padding(
         padding: EdgeInsets.only(top: 24),
         child: ListRowSkeleton(),
       );
     }
-    if (_userSearchError != null) {
+    if (_userResults.isEmpty && matches.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
-        child: Center(
-          child: Text(
-            'Search failed: $_userSearchError',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              color: ExploreTokens.textSecondary,
-            ),
-          ),
-        ),
-      );
-    }
-    if (_userResults.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 48),
-        child: Center(
-          child: Text(
-            'No users found for "$_searchQuery"',
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              color: ExploreTokens.textSecondary,
-            ),
-          ),
+        child: Text(
+          _userSearchError != null
+              ? 'Search failed: $_userSearchError'
+              : 'Nothing matches "$_searchQuery"',
+          textAlign: TextAlign.center,
+          style: StudioType.body14(color: c.textSecondary),
         ),
       );
     }
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: ExploreTokens.sideMargin,
-        vertical: 12,
+      padding: const EdgeInsets.fromLTRB(
+        StudioSpace.marginFeed,
+        StudioSpace.s16,
+        StudioSpace.marginFeed,
+        0,
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (final user in _userResults)
+          if (_userSearchError != null)
             Padding(
-              padding: const EdgeInsets.only(bottom: AppDims.spaceSm),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () => openUserProfile(context, user.username),
-                  borderRadius: BorderRadius.circular(AppDims.radiusMd),
-                  child: GlassCard(
-                    padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.only(bottom: StudioSpace.s12),
+              child: Text(
+                'Search failed: $_userSearchError',
+                style: StudioType.body14(color: c.textSecondary),
+              ),
+            ),
+          if (showPeopleLabel)
+            Padding(
+              padding: const EdgeInsets.only(bottom: StudioSpace.s8),
+              child: Text('People', style: StudioType.label13(color: c.textSecondary)),
+            ),
+          for (final user in _userResults)
+            GestureDetector(
+              onTap: () => openUserProfile(context, user.username),
+              behavior: HitTestBehavior.opaque,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: StudioSize.tapTarget),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: StudioSpace.s8),
+                  child: Row(
+                    children: [
+                      StudioAvatar(url: user.profilePhotoUrl, size: 48),
+                      const SizedBox(width: StudioSpace.s12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              user.displayName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: StudioType.body14(
+                                weight: StudioType.medium,
+                                color: c.textPrimary,
+                              ),
+                            ),
+                            Text(
+                              '@${user.username}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: StudioType.label13(color: c.textSecondary),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          if (matches.isNotEmpty) ...[
+            if (showPeopleLabel)
+              Padding(
+                padding: const EdgeInsets.only(top: StudioSpace.s8, bottom: StudioSpace.s8),
+                child: Text('Pieces', style: StudioType.label13(color: c.textSecondary)),
+              ),
+            for (final item in matches)
+              GestureDetector(
+                onTap: () => openExploreDetail(context, item),
+                behavior: HitTestBehavior.opaque,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: StudioSize.tapTarget),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: StudioSpace.s8),
                     child: Row(
                       children: [
-                        UserAvatar(
-                          url: user.profilePhotoUrl,
-                          name: user.displayName,
-                          size: 48,
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(StudioRadius.card),
+                          child: SizedBox(
+                            width: 48,
+                            height: 48,
+                            child: ExploreFeedImage(
+                              url: item.isVideo
+                                  ? (item.thumbnailUrl ?? item.mediaUrl)
+                                  : item.mediaUrl,
+                            ),
+                          ),
                         ),
-                        const SizedBox(width: AppDims.spaceSm + 4),
+                        const SizedBox(width: StudioSpace.s12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                user.displayName,
-                                style: GoogleFonts.inter(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.slate900,
+                                item.title ?? item.authorName ?? '',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: StudioType.body14(
+                                  weight: StudioType.medium,
+                                  color: c.textPrimary,
                                 ),
                               ),
-                              Text(
-                                '@${user.username}',
-                                style: GoogleFonts.inter(
-                                  fontSize: 13,
-                                  color: AppColors.slate500,
+                              if (item.authorName != null)
+                                Text(
+                                  item.authorName!,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: StudioType.label13(color: c.textSecondary),
                                 ),
-                              ),
                             ],
                           ),
                         ),
@@ -444,7 +551,7 @@ class _ExplorePageState extends State<ExplorePage>
                   ),
                 ),
               ),
-            ),
+          ],
         ],
       ),
     );

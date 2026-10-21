@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 
-import '../theme/explore_tokens.dart';
 import '../theme/home_feed_tokens.dart';
 import '../theme/studio_colors.dart';
 import '../theme/studio_metrics.dart';
@@ -145,63 +144,57 @@ class FeedListSkeleton extends StatelessWidget {
   }
 }
 
-/// Explore-style masonry placeholders (two columns, mixed heights).
+/// Two columns of 3:4 cards while Explore's first page is loading.
 class ExploreFeedSkeleton extends StatelessWidget {
   const ExploreFeedSkeleton({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final fill = ExploreTokens.skeleton;
+    final c = context.studio;
+    final fill = c.surface;
 
-    Widget tile(double aspect) {
+    Widget tile() {
       return AspectRatio(
-        aspectRatio: aspect,
+        aspectRatio: 3 / 4,
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: fill,
-            borderRadius: BorderRadius.circular(ExploreTokens.tileRadius),
+            borderRadius: BorderRadius.circular(StudioRadius.card),
           ),
         ),
       );
     }
 
-    return _shimmer(
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: ExploreTokens.sideMargin),
+    Widget column() {
+      return Expanded(
         child: Column(
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    children: [
-                      tile(3 / 4),
-                      const SizedBox(height: ExploreTokens.gutter),
-                      tile(1),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: ExploreTokens.gutter),
-                Expanded(
-                  child: Column(
-                    children: [
-                      tile(1),
-                      const SizedBox(height: ExploreTokens.gutter),
-                      tile(3 / 4),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: ExploreTokens.blockGap),
-            tile(16 / 9),
+            tile(),
+            const SizedBox(height: StudioSpace.feedGap),
+            tile(),
           ],
         ),
+      );
+    }
+
+    final grid = Padding(
+      padding: const EdgeInsets.fromLTRB(
+        StudioSpace.marginFeed,
+        36,
+        StudioSpace.marginFeed,
+        0,
       ),
-      baseColor: fill,
-      highlightColor: ExploreTokens.skeletonHighlight,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          column(),
+          const SizedBox(width: StudioSpace.s12),
+          column(),
+        ],
+      ),
     );
+    if (MediaQuery.disableAnimationsOf(context)) return grid;
+    return _shimmer(grid, baseColor: fill, highlightColor: c.card);
   }
 }
 

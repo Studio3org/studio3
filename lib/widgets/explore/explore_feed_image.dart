@@ -1,7 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
-import '../../theme/explore_tokens.dart';
+import '../../theme/studio_colors.dart';
 
 class ExploreFeedImage extends StatelessWidget {
   const ExploreFeedImage({super.key, this.url});
@@ -10,10 +10,14 @@ class ExploreFeedImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fill = context.studio.surface;
     if (url == null || url!.isEmpty) {
-      return const ColoredBox(color: ExploreTokens.skeleton);
+      return ColoredBox(color: fill);
     }
 
+    final fade = MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : const Duration(milliseconds: 280);
     return LayoutBuilder(
       builder: (context, constraints) {
         final dpr = MediaQuery.devicePixelRatioOf(context);
@@ -27,11 +31,9 @@ class ExploreFeedImage extends StatelessWidget {
           width: double.infinity,
           height: double.infinity,
           memCacheWidth: cacheWidth,
-          fadeInDuration: const Duration(milliseconds: 280),
-          placeholder: (context, url) =>
-              const ColoredBox(color: ExploreTokens.skeleton),
-          errorWidget: (context, error, stackTrace) =>
-              const ColoredBox(color: ExploreTokens.skeleton),
+          fadeInDuration: fade,
+          placeholder: (context, url) => ColoredBox(color: fill),
+          errorWidget: (context, error, stackTrace) => ColoredBox(color: fill),
         );
       },
     );

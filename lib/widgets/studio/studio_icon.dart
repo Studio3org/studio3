@@ -31,6 +31,7 @@ abstract final class StudioIcons {
   static const String search = '$_dir/search_behind_the_work.svg';
   static const String settings = '$_dir/settings.svg';
   static const String share = '$_dir/share.svg';
+  static const String video = '$_dir/video.svg';
 }
 
 /// A board icon drawn in one color (defaults to the current text color).

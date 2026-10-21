@@ -5,6 +5,7 @@ class NearbySeller {
     this.profilePhotoUrl,
     this.location,
     required this.distanceKm,
+    this.isFollowing = false,
   });
 
   final String username;
@@ -13,6 +14,9 @@ class NearbySeller {
   final String? location;
   final double distanceKm;
 
+  /// Already on the nearby payload (`user_to_dict` sends `isFollowing`).
+  final bool isFollowing;
+
   factory NearbySeller.fromJson(Map<String, dynamic> json) {
     return NearbySeller(
       username: json['username'] as String? ?? '',
@@ -20,6 +24,7 @@ class NearbySeller {
       profilePhotoUrl: json['profilePhotoUrl'] as String?,
       location: json['location'] as String?,
       distanceKm: (json['distanceKm'] as num?)?.toDouble() ?? 0,
+      isFollowing: json['isFollowing'] as bool? ?? false,
     );
   }
 

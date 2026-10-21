@@ -1,72 +1,73 @@
 import 'package:flutter/material.dart';
 
 import '../../models/explore_feed_block.dart';
-import '../../theme/explore_tokens.dart';
+import '../../theme/studio_colors.dart';
+import '../../theme/studio_metrics.dart';
+import '../../theme/studio_type.dart';
 import 'explore_category_chips.dart';
 import 'explore_search_bar.dart';
 
-class ExploreStickyHeader extends SliverPersistentHeaderDelegate {
-  ExploreStickyHeader({
+/// Explore title, search pill and the category chips. Scrolls with the page.
+class ExploreTop extends StatelessWidget {
+  const ExploreTop({
+    super.key,
     required this.searchController,
     required this.onSearchChanged,
     required this.selectedCategory,
     required this.onCategorySelected,
-    this.onFilterTap,
+    this.mediums = const [],
+    this.selectedMedium,
+    this.onMediumSelected,
   });
 
   final TextEditingController searchController;
   final ValueChanged<String> onSearchChanged;
   final ExploreCategory selectedCategory;
   final ValueChanged<ExploreCategory> onCategorySelected;
-  final VoidCallback? onFilterTap;
-
-  static double get headerHeight => ExploreTokens.stickyHeaderHeight;
-
-  @override
-  double get minExtent => headerHeight;
+  final List<String> mediums;
+  final String? selectedMedium;
+  final ValueChanged<String>? onMediumSelected;
 
   @override
-  double get maxExtent => headerHeight;
-
-  @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
-    return SizedBox(
-      height: headerHeight,
-      child: ColoredBox(
-        color: ExploreTokens.background,
-        child: Padding(
+  Widget build(BuildContext context) {
+    final c = context.studio;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
           padding: const EdgeInsets.fromLTRB(
-            ExploreTokens.sideMargin,
-            ExploreTokens.stickyHeaderTopPadding,
-            ExploreTokens.sideMargin,
-            ExploreTokens.stickyHeaderBottomPadding,
+            StudioSpace.marginFeed,
+            StudioSpace.s16,
+            StudioSpace.marginFeed,
+            0,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 44),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('Explore', style: StudioType.title26(color: c.textPrimary)),
+                ),
+              ),
+              const SizedBox(height: 14),
               ExploreSearchBar(
                 controller: searchController,
                 onChanged: onSearchChanged,
-                onFilterTap: onFilterTap,
-              ),
-              const SizedBox(height: ExploreTokens.stickyHeaderSectionGap),
-              ExploreCategoryChips(
-                selected: selectedCategory,
-                onSelected: onCategorySelected,
               ),
             ],
           ),
         ),
-      ),
+        const SizedBox(height: 14),
+        ExploreCategoryChips(
+          selected: selectedCategory,
+          onSelected: onCategorySelected,
+          mediums: mediums,
+          selectedMedium: selectedMedium,
+          onMediumSelected: onMediumSelected,
+        ),
+      ],
     );
-  }
-
-  @override
-  bool shouldRebuild(covariant ExploreStickyHeader oldDelegate) {
-    return oldDelegate.selectedCategory != selectedCategory;
   }
 }

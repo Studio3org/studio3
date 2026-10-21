@@ -1,71 +1,51 @@
 import 'package:flutter/material.dart';
 
-import '../../theme/explore_tokens.dart';
+import '../../theme/studio_colors.dart';
+import '../../theme/studio_metrics.dart';
+import '../../theme/studio_type.dart';
+import '../studio/studio_icon.dart';
 
+/// Explore search pill: 48 tall, round, surface fill, 20 icon, 15 placeholder.
 class ExploreSearchBar extends StatelessWidget {
   const ExploreSearchBar({
     super.key,
     this.controller,
     this.onChanged,
-    this.onFilterTap,
   });
 
   final TextEditingController? controller;
   final ValueChanged<String>? onChanged;
-  final VoidCallback? onFilterTap;
 
   @override
   Widget build(BuildContext context) {
+    final c = context.studio;
     return Container(
-      height: ExploreTokens.searchHeight,
+      key: const Key('explore-search'),
+      height: 48,
       decoration: BoxDecoration(
-        color: ExploreTokens.searchFill,
-        borderRadius: BorderRadius.circular(ExploreTokens.searchRadius),
+        color: c.surface,
+        borderRadius: BorderRadius.circular(StudioRadius.round),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 14),
+      padding: const EdgeInsets.symmetric(horizontal: StudioSpace.s16),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const Icon(
-            Icons.search,
-            size: 22,
-            color: ExploreTokens.textSecondary,
-          ),
+          StudioIcon(StudioIcons.search, size: 20, color: c.textSecondary),
           const SizedBox(width: 10),
           Expanded(
             child: TextField(
               controller: controller,
               onChanged: onChanged,
               maxLines: 1,
+              cursorColor: c.textPrimary,
               textAlignVertical: TextAlignVertical.center,
-              style: const TextStyle(
-                fontSize: 14,
-                height: 1.2,
-                color: ExploreTokens.textPrimary,
-              ),
-              decoration: const InputDecoration(
+              style: StudioType.body15(color: c.textPrimary),
+              decoration: InputDecoration(
                 isDense: true,
                 isCollapsed: true,
                 contentPadding: EdgeInsets.zero,
                 border: InputBorder.none,
-                hintText: 'Search artists, pieces, genres',
-                hintStyle: TextStyle(
-                  fontSize: 14,
-                  height: 1.2,
-                  color: ExploreTokens.textSecondary,
-                ),
-              ),
-            ),
-          ),
-          GestureDetector(
-            onTap: onFilterTap,
-            behavior: HitTestBehavior.opaque,
-            child: const Padding(
-              padding: EdgeInsets.all(4),
-              child: Icon(
-                Icons.tune,
-                size: 22,
-                color: ExploreTokens.textPrimary,
+                hintText: 'Search artists, pieces, events',
+                hintStyle: StudioType.body15(color: c.textSecondary),
               ),
             ),
           ),
