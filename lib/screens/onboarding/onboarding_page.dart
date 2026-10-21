@@ -10,6 +10,7 @@ import '../../services/permission_service.dart';
 import '../../services/user_service.dart';
 import '../../theme/auth_palette.dart';
 import '../../widgets/auth_ui.dart';
+import '../../widgets/studio/studio_top_bar.dart';
 import '../../widgets/permission_denied_sheet.dart';
 import '../../widgets/profile_avatar.dart';
 import '../../widgets/profile_cover_image.dart';
@@ -169,18 +170,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
       loading: _loading || _uploadingPhoto,
       child: Scaffold(
         backgroundColor: c.background,
-        appBar: AppBar(
-        backgroundColor: c.background,
-        elevation: 0,
-        title: Text(
-          'Set up your profile',
-          style: geistText(
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-            color: c.textPrimary,
-          ),
-        ),
-      ),
+        appBar: StudioTopBar(context: context, title: 'Set up your profile'),
       body: SafeArea(
         child: Column(
           children: [

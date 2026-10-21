@@ -8,6 +8,7 @@ import '../services/auth_session.dart';
 import '../services/piece_service.dart';
 import '../services/post_service.dart';
 import '../theme/home_feed_tokens.dart';
+import '../widgets/studio/studio_top_bar.dart';
 import '../widgets/studio_loading.dart';
 
 class EditScenePage extends StatefulWidget {
@@ -97,28 +98,10 @@ class _EditScenePageState extends State<EditScenePage> {
       loading: _saving,
       child: Scaffold(
         backgroundColor: HomeFeedTokens.background,
-        appBar: AppBar(
-          backgroundColor: HomeFeedTokens.background,
-          elevation: 0,
-          title: Text(
-            'Edit scene',
-            style: GoogleFonts.inter(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: HomeFeedTokens.textPrimary,
-            ),
-          ),
+        appBar: StudioTopBar(context: context, 
+          title: 'Edit scene',
           actions: [
-            TextButton(
-              onPressed: _saving ? null : _save,
-              child: Text(
-                'Save',
-                style: GoogleFonts.inter(
-                  fontWeight: FontWeight.w600,
-                  color: HomeFeedTokens.textPrimary,
-                ),
-              ),
-            ),
+            StudioSaveAction(onPressed: _saving ? null : _save),
           ],
         ),
         body: ListView(

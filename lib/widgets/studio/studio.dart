@@ -22,4 +22,5 @@ export 'studio_select_row.dart';
 export 'studio_sheet.dart';
 export 'studio_switch.dart';
 export 'studio_toast.dart';
+export 'studio_top_bar.dart';
 export 'studio_tooltip.dart';

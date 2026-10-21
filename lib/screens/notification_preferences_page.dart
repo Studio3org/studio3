@@ -5,6 +5,7 @@ import '../models/user_profile.dart';
 import '../services/api_exception.dart';
 import '../services/user_service.dart';
 import '../theme/home_feed_tokens.dart';
+import '../widgets/studio/studio_top_bar.dart';
 import '../widgets/settings_tile.dart';
 import '../widgets/studio_loading.dart';
 
@@ -130,18 +131,7 @@ class _NotificationPreferencesPageState
       loading: _loading,
       child: Scaffold(
         backgroundColor: HomeFeedTokens.background,
-        appBar: AppBar(
-          backgroundColor: HomeFeedTokens.background,
-          elevation: 0,
-          title: Text(
-            'Notification preferences',
-            style: GoogleFonts.inter(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: HomeFeedTokens.textPrimary,
-            ),
-          ),
-        ),
+        appBar: StudioTopBar(context: context, title: 'Notification preferences'),
         body: ListView(
           padding: const EdgeInsets.all(20),
           children: [

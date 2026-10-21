@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../services/api_exception.dart';
 import '../services/user_service.dart';
 import '../theme/home_feed_tokens.dart';
+import '../widgets/studio/studio_top_bar.dart';
 import '../utils/auth_validators.dart';
 import '../widgets/ghost_button.dart';
 import '../widgets/light_otp_input.dart';
@@ -95,18 +96,7 @@ class _ChangeEmailPageState extends State<ChangeEmailPage> {
       loading: _loading,
       child: Scaffold(
         backgroundColor: HomeFeedTokens.background,
-        appBar: AppBar(
-          backgroundColor: HomeFeedTokens.background,
-          elevation: 0,
-          title: Text(
-            'Change email',
-            style: GoogleFonts.inter(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: HomeFeedTokens.textPrimary,
-            ),
-          ),
-        ),
+        appBar: StudioTopBar(context: context, title: 'Change email'),
         body: Padding(
           padding: const EdgeInsets.all(20),
           child: AnimatedSwitcher(

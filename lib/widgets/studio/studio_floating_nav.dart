@@ -27,7 +27,7 @@ class StudioNavItem {
   final String? avatarUrl;
 }
 
-/// Floating nav (`Main`): a 64 tall round pill, Ink in light, 16 from the sides and
+/// Floating nav (`Main`): a 64 tall round pill, Ink in both themes, 16 from the sides and
 /// 28 above the bottom safe area. Slots are 52 × 48; the active one sits on a round
 /// #2A2A2A pill with a Gallery White icon, others are #8E8E8E. Icons are 24 px outlines,
 /// stroke 1.8. The profile slot is a 30 px avatar with a 1.5 px Gallery White ring.

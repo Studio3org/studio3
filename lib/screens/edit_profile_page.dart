@@ -10,6 +10,7 @@ import '../services/auth_service.dart';
 import '../services/auth_session.dart';
 import '../services/user_service.dart';
 import '../theme/home_feed_tokens.dart';
+import '../widgets/studio/studio_top_bar.dart';
 import '../utils/profile_photo_upload.dart';
 import '../widgets/labeled_dropdown.dart';
 import '../widgets/profile_edit_header.dart';
@@ -207,28 +208,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
       loading: _loading || _saving,
       child: Scaffold(
         backgroundColor: HomeFeedTokens.background,
-        appBar: AppBar(
-          backgroundColor: HomeFeedTokens.background,
-          elevation: 0,
-          title: Text(
-            'Edit profile',
-            style: GoogleFonts.inter(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: HomeFeedTokens.textPrimary,
-            ),
-          ),
+        appBar: StudioTopBar(context: context, 
+          title: 'Edit profile',
           actions: [
-            TextButton(
-              onPressed: _saving || _loading ? null : _save,
-              child: Text(
-                'Save',
-                style: GoogleFonts.inter(
-                  fontWeight: FontWeight.w600,
-                  color: HomeFeedTokens.textPrimary,
-                ),
-              ),
-            ),
+            StudioSaveAction(onPressed: _saving || _loading ? null : _save),
           ],
         ),
         body: ListView(

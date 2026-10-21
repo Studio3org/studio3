@@ -9,6 +9,7 @@ import '../services/address_service.dart';
 import '../services/api_exception.dart';
 import '../theme/app_theme.dart';
 import '../theme/home_feed_tokens.dart';
+import '../widgets/studio/studio_top_bar.dart';
 
 class AddressFormPage extends StatefulWidget {
   const AddressFormPage({super.key, this.existing});
@@ -158,23 +159,8 @@ class _AddressFormPageState extends State<AddressFormPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: HomeFeedTokens.background,
-      appBar: AppBar(
-        backgroundColor: HomeFeedTokens.background,
-        elevation: 0,
-        centerTitle: true,
-        title: Text(
-          _isEdit ? 'Edit address' : 'Add address',
-          style: GoogleFonts.inter(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: HomeFeedTokens.textPrimary,
-          ),
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded,
-              color: HomeFeedTokens.textPrimary, size: 20),
-          onPressed: () => Navigator.pop(context),
-        ),
+      appBar: StudioTopBar(context: context, 
+        title: _isEdit ? 'Edit address' : 'Add address',
       ),
       body: ListView(
         padding: const EdgeInsets.all(20),

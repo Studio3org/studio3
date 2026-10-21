@@ -7,6 +7,9 @@ import '../services/api_exception.dart';
 import '../services/connectivity_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/home_feed_tokens.dart';
+import '../theme/studio_colors.dart';
+import '../widgets/studio/studio_icon.dart';
+import '../widgets/studio/studio_top_bar.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/offline_state.dart';
 import 'address_form_page.dart';
@@ -122,27 +125,19 @@ class _AddressListPageState extends State<AddressListPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: HomeFeedTokens.background,
-      appBar: AppBar(
-        backgroundColor: HomeFeedTokens.background,
-        elevation: 0,
-        centerTitle: true,
-        title: Text(
-          'Shipping addresses',
-          style: GoogleFonts.inter(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: HomeFeedTokens.textPrimary,
-          ),
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded,
-              color: HomeFeedTokens.textPrimary, size: 20),
-          onPressed: () => Navigator.pop(context),
-        ),
+      appBar: StudioTopBar(context: context, 
+        title: 'Shipping addresses',
         actions: [
           IconButton(
-            icon: const Icon(Icons.add, color: HomeFeedTokens.textPrimary),
             onPressed: _addAddress,
+            tooltip: 'Add address',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints.tightFor(width: 44, height: 44),
+            icon: StudioIcon(
+              StudioIcons.post,
+              size: 22,
+              color: context.studio.textPrimary,
+            ),
           ),
         ],
       ),

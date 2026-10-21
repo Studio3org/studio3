@@ -6,6 +6,7 @@ import '../services/api_exception.dart';
 import '../services/piece_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/home_feed_tokens.dart';
+import '../widgets/studio/studio_top_bar.dart';
 import '../widgets/choose_location_sheet.dart';
 import '../widgets/studio_loading.dart';
 
@@ -152,28 +153,10 @@ class _EditPiecePageState extends State<EditPiecePage> {
       loading: _saving,
       child: Scaffold(
         backgroundColor: HomeFeedTokens.background,
-        appBar: AppBar(
-          backgroundColor: HomeFeedTokens.background,
-          elevation: 0,
-          title: Text(
-            'Edit piece',
-            style: GoogleFonts.inter(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: HomeFeedTokens.textPrimary,
-            ),
-          ),
+        appBar: StudioTopBar(context: context, 
+          title: 'Edit piece',
           actions: [
-            TextButton(
-              onPressed: _saving ? null : _save,
-              child: Text(
-                'Save',
-                style: GoogleFonts.inter(
-                  fontWeight: FontWeight.w600,
-                  color: HomeFeedTokens.textPrimary,
-                ),
-              ),
-            ),
+            StudioSaveAction(onPressed: _saving ? null : _save),
           ],
         ),
         body: ListView(

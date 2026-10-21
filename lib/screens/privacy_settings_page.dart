@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../services/api_exception.dart';
 import '../services/user_service.dart';
 import '../theme/home_feed_tokens.dart';
+import '../widgets/studio/studio_top_bar.dart';
 import '../widgets/labeled_dropdown.dart';
 import '../widgets/studio_loading.dart';
 
@@ -89,18 +89,7 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
       loading: _loading,
       child: Scaffold(
         backgroundColor: HomeFeedTokens.background,
-        appBar: AppBar(
-          backgroundColor: HomeFeedTokens.background,
-          elevation: 0,
-          title: Text(
-            'Privacy',
-            style: GoogleFonts.inter(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: HomeFeedTokens.textPrimary,
-            ),
-          ),
-        ),
+        appBar: StudioTopBar(context: context, title: 'Privacy'),
         body: ListView(
           padding: const EdgeInsets.all(20),
           children: [

@@ -6,6 +6,7 @@ import '../models/series_summary.dart';
 import '../services/api_exception.dart';
 import '../services/series_service.dart';
 import '../theme/home_feed_tokens.dart';
+import '../widgets/studio/studio_top_bar.dart';
 import '../widgets/create_flow/create_series_dialog.dart';
 import '../widgets/studio_loading.dart';
 import 'profile/models/profile_series_data.dart';
@@ -83,23 +84,9 @@ class _ManageSeriesPageState extends State<ManageSeriesPage> {
       loading: _loading && _series.isEmpty,
       child: Scaffold(
         backgroundColor: HomeFeedTokens.background,
-        appBar: AppBar(
-          backgroundColor: HomeFeedTokens.background,
-          elevation: 0,
-          centerTitle: true,
-          title: Text(
-            'Manage series',
-            style: GoogleFonts.inter(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: HomeFeedTokens.textPrimary,
-            ),
-          ),
-          leading: IconButton(
-            icon: Icon(Icons.arrow_back_ios_new_rounded,
-                color: HomeFeedTokens.textPrimary, size: 20),
-            onPressed: () => Navigator.pop(context, true),
-          ),
+        appBar: StudioTopBar(context: context, 
+          title: 'Manage series',
+          onBack: () => Navigator.pop(context, true),
         ),
         floatingActionButton: FloatingActionButton.extended(
           onPressed: _loading ? null : _createSeries,

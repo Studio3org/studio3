@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../services/api_exception.dart';
 import '../services/user_service.dart';
 import '../theme/home_feed_tokens.dart';
+import '../widgets/studio/studio_top_bar.dart';
 import '../utils/auth_validators.dart';
 import '../widgets/pill_input.dart';
 import '../widgets/primary_button.dart';
@@ -89,18 +90,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
       loading: _loading,
       child: Scaffold(
         backgroundColor: HomeFeedTokens.background,
-        appBar: AppBar(
-          backgroundColor: HomeFeedTokens.background,
-          elevation: 0,
-          title: Text(
-            'Change password',
-            style: GoogleFonts.inter(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: HomeFeedTokens.textPrimary,
-            ),
-          ),
-        ),
+        appBar: StudioTopBar(context: context, title: 'Change password'),
         body: ListView(
           padding: const EdgeInsets.all(20),
           children: [

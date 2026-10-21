@@ -13,6 +13,7 @@ import '../utils/profile_navigation.dart';
 import '../widgets/feed_skeleton.dart';
 import '../widgets/settings_tile.dart';
 import '../widgets/studio/studio_select_row.dart';
+import '../widgets/studio/studio_top_bar.dart';
 import '../widgets/studio/studio_toast.dart';
 import '../widgets/studio_loading.dart';
 import 'inbox_page.dart';
@@ -210,23 +211,9 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
       loading: _togglingSeller,
       child: Scaffold(
         backgroundColor: colors.background,
-        appBar: AppBar(
-          backgroundColor: colors.background,
-          elevation: 0,
-          centerTitle: true,
-          title: Text(
-            'Settings',
-            style: GoogleFonts.inter(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: colors.textPrimary,
-            ),
-          ),
-          leading: IconButton(
-            icon: Icon(Icons.arrow_back_ios_new_rounded,
-                color: colors.textPrimary, size: 20),
-            onPressed: () => Navigator.pop(context, true),
-          ),
+        appBar: StudioTopBar(context: context, 
+          title: 'Settings',
+          onBack: () => Navigator.pop(context, true),
         ),
         body: _loadingSeller
             ? const SettingsListSkeleton()

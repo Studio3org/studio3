@@ -5,6 +5,7 @@ import '../models/blocked_user.dart';
 import '../services/social_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/home_feed_tokens.dart';
+import '../widgets/studio/studio_top_bar.dart';
 import '../utils/profile_navigation.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/home_feed/home_feed_widgets.dart';
@@ -89,18 +90,7 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: HomeFeedTokens.background,
-      appBar: AppBar(
-        backgroundColor: HomeFeedTokens.background,
-        elevation: 0,
-        title: Text(
-          'Blocked accounts',
-          style: GoogleFonts.inter(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: HomeFeedTokens.textPrimary,
-          ),
-        ),
-      ),
+      appBar: StudioTopBar(context: context, title: 'Blocked accounts'),
       body: SafeArea(child: _buildBody()),
     );
   }

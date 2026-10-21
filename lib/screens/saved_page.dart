@@ -13,6 +13,7 @@ import '../screens/available_piece_detail_page.dart';
 import '../screens/piece_detail_page.dart';
 import '../services/saved_content_store.dart';
 import '../theme/home_feed_tokens.dart';
+import '../widgets/studio/studio_top_bar.dart';
 import '../utils/reels_route.dart';
 import '../widgets/collection_name_sheet.dart';
 import '../widgets/home_feed/home_feed_widgets.dart';
@@ -224,19 +225,7 @@ class _SavedPageState extends State<SavedPage>
       MaterialPageRoute<void>(
         builder: (_) => Scaffold(
           backgroundColor: HomeFeedTokens.background,
-          appBar: AppBar(
-            backgroundColor: HomeFeedTokens.background,
-            elevation: 0,
-            iconTheme: const IconThemeData(color: HomeFeedTokens.textPrimary),
-            title: Text(
-              title,
-              style: GoogleFonts.inter(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: HomeFeedTokens.textPrimary,
-              ),
-            ),
-          ),
+          appBar: StudioTopBar(context: context, title: title),
           body: SafeArea(
             top: false,
             bottom: false,

@@ -6,6 +6,7 @@ import '../services/api_exception.dart';
 import '../services/social_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/home_feed_tokens.dart';
+import '../widgets/studio/studio_top_bar.dart';
 import '../utils/profile_navigation.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/home_feed/home_feed_widgets.dart';
@@ -33,17 +34,8 @@ class FollowListPage extends StatelessWidget {
       initialIndex: initialTab == FollowListTab.following ? 1 : 0,
       child: Scaffold(
         backgroundColor: HomeFeedTokens.background,
-        appBar: AppBar(
-          backgroundColor: HomeFeedTokens.background,
-          elevation: 0,
-          title: Text(
-            '@$username',
-            style: GoogleFonts.inter(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: HomeFeedTokens.textPrimary,
-            ),
-          ),
+        appBar: StudioTopBar(context: context, 
+          title: '@$username',
           bottom: TabBar(
             labelColor: HomeFeedTokens.textPrimary,
             unselectedLabelColor: HomeFeedTokens.textSecondary,

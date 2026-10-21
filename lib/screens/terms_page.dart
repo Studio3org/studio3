@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/home_feed_tokens.dart';
+import '../widgets/studio/studio_top_bar.dart';
 
 /// Version of the terms text below. Must match the backend's
 /// `CURRENT_TERMS_VERSION` (src/shared/constants.py), which also serves the
@@ -88,16 +89,7 @@ class TermsPage extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: HomeFeedTokens.detailBackground,
-      appBar: AppBar(
-        backgroundColor: HomeFeedTokens.detailBackground,
-        foregroundColor: HomeFeedTokens.textPrimary,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        title: Text(
-          'Terms of Use (EULA)',
-          style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600),
-        ),
-      ),
+      appBar: StudioTopBar(context: context, title: 'Terms of Use (EULA)'),
       body: SafeArea(
         top: false,
         child: ListView(

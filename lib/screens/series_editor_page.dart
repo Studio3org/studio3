@@ -9,6 +9,9 @@ import '../services/auth_session.dart';
 import '../services/piece_service.dart';
 import '../services/series_service.dart';
 import '../theme/home_feed_tokens.dart';
+import '../theme/studio_colors.dart';
+import '../widgets/studio/studio_icon.dart';
+import '../widgets/studio/studio_top_bar.dart';
 import '../widgets/create_flow/create_series_dialog.dart';
 import '../widgets/studio_loading.dart';
 
@@ -187,27 +190,20 @@ class _SeriesEditorPageState extends State<SeriesEditorPage> {
       loading: _loading || _busy,
       child: Scaffold(
         backgroundColor: HomeFeedTokens.background,
-        appBar: AppBar(
-          backgroundColor: HomeFeedTokens.background,
-          elevation: 0,
-          title: Text(
-            series?.name ?? 'Series',
-            style: GoogleFonts.inter(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: HomeFeedTokens.textPrimary,
-            ),
-          ),
-          leading: IconButton(
-            icon: Icon(Icons.arrow_back_ios_new_rounded,
-                color: HomeFeedTokens.textPrimary, size: 20),
-            onPressed: () => Navigator.pop(context, true),
-          ),
+        appBar: StudioTopBar(context: context, 
+          title: series?.name ?? 'Series',
+          onBack: () => Navigator.pop(context, true),
           actions: [
             IconButton(
               onPressed: _renameSeries,
-              icon: Icon(Icons.edit_outlined,
-                  color: HomeFeedTokens.textPrimary.withValues(alpha: 0.75)),
+              tooltip: 'Rename series',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints.tightFor(width: 44, height: 44),
+              icon: StudioIcon(
+                StudioIcons.edit,
+                size: 22,
+                color: context.studio.textPrimary,
+              ),
             ),
           ],
         ),

@@ -29,8 +29,8 @@ class _StudioGalleryPageState extends State<StudioGalleryPage> {
           final c = context.studio;
           return Scaffold(
             backgroundColor: c.background,
-            appBar: AppBar(
-              title: const Text('Components'),
+            appBar: StudioTopBar(context: context, 
+              title: 'Components',
               actions: [
                 Padding(
                   padding: const EdgeInsets.only(right: 16),

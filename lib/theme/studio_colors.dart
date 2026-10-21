@@ -181,9 +181,10 @@ class StudioColors extends ThemeExtension<StudioColors> {
     buttonText: Color(0xFF111111),
     buttonDisabledFill: Color(0x29FAFAF8), // rgba(250,250,248,0.16) — SignInFirstDark
     buttonDisabledText: Color(0x8CFAFAF8), // rgba(250,250,248,0.55) — SignInFirstDark
-    navFill: Color(0xFF1C1C1C), // proposed
-    navBorder: Color(0xFF2A2A2A), // proposed
-    navActive: Color(0xFF3A3A3A), // proposed
+    // Same ink bar in both themes. The floating nav does not recolor in dark mode.
+    navFill: Color(0xFF111111),
+    navBorder: Color(0x00000000),
+    navActive: Color(0xFF2A2A2A),
     navIconActive: Color(0xFFFAFAF8),
     navIconInactive: Color(0xFF8E8E8E),
     signInBackground: Color(0xFF0B0B10),

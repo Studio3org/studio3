@@ -6,6 +6,7 @@ import '../services/connectivity_service.dart';
 import '../services/order_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/home_feed_tokens.dart';
+import '../widgets/studio/studio_top_bar.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/offline_state.dart';
 import 'order_detail_page.dart';
@@ -100,24 +101,7 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: HomeFeedTokens.background,
-      appBar: AppBar(
-        backgroundColor: HomeFeedTokens.background,
-        elevation: 0,
-        centerTitle: true,
-        title: Text(
-          'My Orders',
-          style: GoogleFonts.inter(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: HomeFeedTokens.textPrimary,
-          ),
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded,
-              color: HomeFeedTokens.textPrimary, size: 20),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
+      appBar: StudioTopBar(context: context, title: 'My Orders'),
       body: RefreshIndicator(
         onRefresh: () => _load(),
         child: _buildBody(),
