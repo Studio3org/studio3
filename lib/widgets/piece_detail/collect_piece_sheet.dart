@@ -1,34 +1,44 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/collect_checkout.dart';
 import '../../models/feed_preview_item.dart';
 import '../../services/api_exception.dart';
 import '../../services/order_service.dart';
-import '../../theme/collect_detail_tokens.dart';
+import '../../theme/collect_detail_tokens.dart' show formatMoney, formatMoneyAmount;
+import '../../theme/studio_colors.dart';
+import '../../theme/studio_metrics.dart';
+import '../../theme/studio_type.dart';
 import '../home_feed/home_feed_widgets.dart';
+import '../studio/studio_button.dart';
+import '../studio/studio_icon.dart';
+import '../studio/studio_sheet.dart';
 import 'collect_order_confirmation_sheet.dart';
 import 'collect_payment_sheet.dart';
 import 'collect_shipping_method_sheet.dart';
 import 'collect_shipping_sheet.dart';
 
-/// Collect checkout sheet — Figma 2340-2049.
+/// Checkout (`BuyCheckoutEmpty` → `BuyCheckoutReady`), kept as a sheet: piece summary,
+/// Shipping and Payment rows, order summary with "–" until an address is set, "All sales
+/// are final. See terms" above "Collect this piece".
 class CollectPieceSheet extends StatefulWidget {
   const CollectPieceSheet({
     super.key,
     required this.item,
+    @visibleForTesting this.initialShipping,
+    @visibleForTesting this.initialPayment,
   });
 
   final FeedPreviewItem item;
 
+  /// Tests only: start with shipping / payment already chosen (`BuyCheckoutReady`).
+  final CollectShippingSelection? initialShipping;
+  final CollectPaymentMethod? initialPayment;
+
   static Future<void> show(BuildContext context, {required FeedPreviewItem item}) {
-    return showModalBottomSheet<void>(
+    return showStudioSheet<void>(
       context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withValues(alpha: 0.2),
       builder: (context) => CollectPieceSheet(item: item),
     );
   }
@@ -38,8 +48,8 @@ class CollectPieceSheet extends StatefulWidget {
 }
 
 class _CollectPieceSheetState extends State<CollectPieceSheet> {
-  CollectShippingSelection? _shipping;
-  CollectPaymentMethod? _payment;
+  late CollectShippingSelection? _shipping = widget.initialShipping;
+  late CollectPaymentMethod? _payment = widget.initialPayment;
   bool _collecting = false;
 
   FeedPreviewItem get item => widget.item;
@@ -50,12 +60,10 @@ class _CollectPieceSheetState extends State<CollectPieceSheet> {
     return feedPreviewImageUrl(item);
   }
 
-  String get _location {
-    final region = item.shippingRegion;
-    if (region == null || region.isEmpty) return '—';
-    const prefix = 'Ships from ';
-    if (region.startsWith(prefix)) return region.substring(prefix.length);
-    return region;
+  /// Order summary amounts always show cents, as the board ("$3,500.00").
+  static String _cents(int cents) {
+    final amount = formatMoneyAmount(cents);
+    return '\$${amount.contains('.') ? amount : '$amount.00'}';
   }
 
   int get _artworkCents => item.priceCents ?? 0;
@@ -64,10 +72,7 @@ class _CollectPieceSheetState extends State<CollectPieceSheet> {
   int get _totalCents => _artworkCents + _shippingCents + _taxCents;
 
   Future<void> _openShipping() async {
-    final address = await CollectShippingSheet.show(
-      context,
-      initial: _shipping?.address,
-    );
+    final address = await CollectShippingSheet.show(context, initial: _shipping?.address);
     if (!mounted || address == null) return;
 
     final selection = await CollectShippingMethodSheet.show(
@@ -81,10 +86,7 @@ class _CollectPieceSheetState extends State<CollectPieceSheet> {
   }
 
   Future<void> _openPayment() async {
-    final result = await CollectPaymentSheet.show(
-      context,
-      initial: _payment,
-    );
+    final result = await CollectPaymentSheet.show(context, initial: _payment);
     if (!mounted || result == null) return;
     setState(() => _payment = result);
   }
@@ -103,10 +105,7 @@ class _CollectPieceSheetState extends State<CollectPieceSheet> {
       // Real Stripe PaymentIntent flow is not wired yet. Debug/profile may
       // use the server's auto-pay confirm; release builds skip confirm unless
       // explicitly enabled via --dart-define=ALLOW_DEV_CHECKOUT=true.
-      const allowDevCheckout = bool.fromEnvironment(
-        'ALLOW_DEV_CHECKOUT',
-        defaultValue: false,
-      );
+      const allowDevCheckout = bool.fromEnvironment('ALLOW_DEV_CHECKOUT', defaultValue: false);
       final canConfirm = kDebugMode || allowDevCheckout;
 
       if (!canConfirm) {
@@ -114,9 +113,7 @@ class _CollectPieceSheetState extends State<CollectPieceSheet> {
         setState(() => _collecting = false);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(
-              'Payments are not live yet. Checkout confirm is disabled in this build.',
-            ),
+            content: Text('Payments are not live yet. Checkout confirm is disabled in this build.'),
           ),
         );
         return;
@@ -132,9 +129,7 @@ class _CollectPieceSheetState extends State<CollectPieceSheet> {
       final message = e.statusCode == 501
           ? 'Card payments are not set up yet (Stripe pending).'
           : e.message;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     } catch (_) {
       if (!mounted) return;
       setState(() => _collecting = false);
@@ -146,293 +141,92 @@ class _CollectPieceSheetState extends State<CollectPieceSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.paddingOf(context).bottom;
-    final maxHeight = MediaQuery.sizeOf(context).height * 0.96;
-    final shippingPlaceholder = _shipping == null
-        ? 'Shipping rates calculated after entry'
-        : '${_shipping!.method.title} · ${_shipping!.method.priceDisplay}';
-    final paymentPlaceholder =
-        _payment?.label ?? 'Add a payment method';
+    final c = context.studio;
+    final mq = MediaQuery.of(context);
+    final safeBottom = mq.viewPadding.bottom;
+    final shipping = _shipping;
+    final address = shipping?.address;
+    final place = address == null
+        ? ''
+        : [address.city, address.state].where((part) => part.trim().isNotEmpty).join(', ');
 
-    return Align(
-      alignment: Alignment.bottomCenter,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: maxHeight),
-        child: Material(
-          color: CollectDetailTokens.sheetBackground,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            children: [
-              _Header(onClose: () => Navigator.pop(context)),
-              Expanded(
-                child: ListView(
-                  padding: EdgeInsets.fromLTRB(16, 0, 16, 24 + bottomInset),
-                  children: [
-                    _PieceCard(
-                      imageUrl: _imageUrl,
-                      title: item.title,
-                      artistName: item.displayName,
-                      priceDisplay: formatCollectPrice(item.priceCents),
-                      year: '${item.year}',
-                      medium: item.medium,
-                      size: item.dimensions,
-                      edition: 'One of a kind',
-                      location: _location,
-                      onViewHistory: () {},
-                    ),
-                    const SizedBox(height: 20),
-                    _NavRow(
-                      label: 'Shipping',
-                      placeholder: shippingPlaceholder,
-                      filled: _shipping != null,
-                      onTap: _openShipping,
-                    ),
-                    const SizedBox(height: 20),
-                    _NavRow(
-                      label: 'Payment',
-                      placeholder: paymentPlaceholder,
-                      filled: _payment != null,
-                      onTap: _openPayment,
-                    ),
-                    const SizedBox(height: 20),
-                    _OrderSummaryCard(
-                      artworkDisplay: formatMoney(_artworkCents),
-                      shippingDisplay: _shipping == null
-                          ? '—'
-                          : formatMoney(_shippingCents),
-                      taxDisplay: formatMoney(_taxCents),
-                      totalDisplay: formatCollectPrice(_totalCents),
-                    ),
-                    const SizedBox(height: 28),
-                    _CollectCta(
-                      loading: _collecting,
-                      onTap: _shipping == null || _collecting
-                          ? null
-                          : _onCollect,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  const _Header({required this.onClose});
-
-  final VoidCallback onClose;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 12, 16),
-      child: SizedBox(
-        height: 24,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Align(
-              alignment: Alignment.centerLeft,
-              child: GestureDetector(
-                onTap: onClose,
-                behavior: HitTestBehavior.opaque,
-                child: const Padding(
-                  padding: EdgeInsets.all(2),
-                  child: Icon(
-                    Icons.close,
-                    size: 18,
-                    color: CollectDetailTokens.textPrimary,
-                  ),
-                ),
-              ),
-            ),
-            Text(
-              'Collect',
-              style: GoogleFonts.inter(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: CollectDetailTokens.textPrimary,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PieceCard extends StatelessWidget {
-  const _PieceCard({
-    required this.imageUrl,
-    required this.title,
-    required this.artistName,
-    required this.priceDisplay,
-    required this.year,
-    required this.medium,
-    required this.size,
-    required this.edition,
-    required this.location,
-    required this.onViewHistory,
-  });
-
-  final String imageUrl;
-  final String title;
-  final String artistName;
-  final String priceDisplay;
-  final String year;
-  final String medium;
-  final String size;
-  final String edition;
-  final String location;
-  final VoidCallback onViewHistory;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: CollectDetailTokens.sheetCardFill,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    return SizedBox(
+      // As tall as a sheet may be (`HandoffSizes`: ≤ 90 %), so the button stays pinned.
+      height: mq.size.height * StudioSize.sheetMaxHeightFactor,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: 10),
+          const Center(child: StudioSheetGrabber()),
+          _Header(onClose: () => Navigator.pop(context)),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
               children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
-                  child: SizedBox(
-                    width: 118,
-                    height: 118,
-                    child: FeedPicsumImage(url: imageUrl),
-                  ),
+                _PieceSummary(
+                  imageUrl: _imageUrl,
+                  title: item.title,
+                  artistName: item.displayName,
+                  priceDisplay: item.priceCents == null ? null : formatMoney(item.priceCents!),
                 ),
-                const SizedBox(width: 20),
-                Expanded(
+                const SizedBox(height: 18),
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    border: Border(top: BorderSide(color: c.line)),
+                  ),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.inter(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w400,
-                          color: CollectDetailTokens.textPrimary,
-                        ),
+                      _NavRow(
+                        label: 'Shipping',
+                        value: shipping == null
+                            ? null
+                            : [
+                                shipping.method.title,
+                                place,
+                              ].where((part) => part.trim().isNotEmpty).join(' · '),
+                        placeholder: 'Add a delivery address',
+                        onTap: _openShipping,
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        artistName,
-                        style: GoogleFonts.inter(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w400,
-                          color: CollectDetailTokens.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        priceDisplay,
-                        style: GoogleFonts.inter(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w400,
-                          color: CollectDetailTokens.textPrimary,
-                        ),
+                      _NavRow(
+                        label: 'Payment',
+                        value: _payment?.label,
+                        placeholder: 'Add a payment method',
+                        onTap: _openPayment,
                       ),
                     ],
                   ),
                 ),
+                const SizedBox(height: 18),
+                _OrderSummary(
+                  artwork: _cents(_artworkCents),
+                  shipping: shipping == null ? null : _cents(_shippingCents),
+                  tax: shipping == null ? null : _cents(_taxCents),
+                  total: shipping == null ? null : _cents(_totalCents),
+                ),
               ],
             ),
-            const SizedBox(height: 20),
-            const Divider(height: 1, color: CollectDetailTokens.divider),
-            const SizedBox(height: 12),
-            Text(
-              'Piece Details',
-              style: GoogleFonts.inter(
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-                color: CollectDetailTokens.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 12),
-            _DetailRow(label: 'Year', value: year),
-            _DetailRow(label: 'Medium', value: medium),
-            _DetailRow(label: 'Size', value: size),
-            _DetailRow(label: 'Edition', value: edition),
-            _DetailRow(label: 'Location', value: location),
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                children: [
-                  Text(
-                    'Provenance',
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w400,
-                      color: CollectDetailTokens.textPrimary,
-                    ),
-                  ),
-                  const Spacer(),
-                  GestureDetector(
-                    onTap: onViewHistory,
-                    child: Text(
-                      'View History →',
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                        color: CollectDetailTokens.brand,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DetailRow extends StatelessWidget {
-  const _DetailRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          Text(
-            label,
-            style: GoogleFonts.inter(
-              fontSize: 12,
-              fontWeight: FontWeight.w400,
-              color: CollectDetailTokens.textPrimary,
-            ),
           ),
-          const Spacer(),
-          Flexible(
-            child: Text(
-              value,
-              textAlign: TextAlign.right,
-              style: GoogleFonts.inter(
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-                color: CollectDetailTokens.textPrimary,
-              ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              24,
+              8,
+              24,
+              safeBottom > 0 ? safeBottom : StudioSize.noInsetBottomPadding,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const _SalesFinalLine(),
+                const SizedBox(height: 8 + 4),
+                StudioButton(
+                  label: 'Collect this piece',
+                  height: StudioSize.buttonPrimaryTall,
+                  loading: _collecting,
+                  // Enabled once shipping is set, as before: payment is not charged yet
+                  // (Stripe pending), so it is not required (section 0.3).
+                  onPressed: shipping == null ? null : _onCollect,
+                ),
+              ],
             ),
           ),
         ],
@@ -441,61 +235,149 @@ class _DetailRow extends StatelessWidget {
   }
 }
 
-class _NavRow extends StatelessWidget {
-  const _NavRow({
-    required this.label,
-    required this.placeholder,
-    required this.onTap,
-    this.filled = false,
-  });
+/// Close (22 px, 44 target) on the left, "Checkout" 16/500 centred (`BuyCheckoutEmpty`).
+class _Header extends StatelessWidget {
+  const _Header({required this.onClose});
 
-  final String label;
-  final String placeholder;
-  final VoidCallback onTap;
-  final bool filled;
+  final VoidCallback onClose;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: CollectDetailTokens.sheetCardFill,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
+    final c = context.studio;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: SizedBox(
+        height: 44,
+        child: Row(
+          children: [
+            Semantics(
+              button: true,
+              label: 'Close',
+              excludeSemantics: true,
+              child: GestureDetector(
+                onTap: onClose,
+                behavior: HitTestBehavior.opaque,
+                child: SizedBox.square(
+                  dimension: 44,
+                  child: Center(
+                    child: StudioIcon(StudioIcons.close, size: 22, color: c.textPrimary),
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              child: Text(
+                'Checkout',
+                textAlign: TextAlign.center,
+                style: StudioType.sans(16, weight: StudioType.medium, color: c.textPrimary),
+              ),
+            ),
+            const SizedBox(width: 44),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 64 × 85 thumbnail (radius 8), 14 gap, then title 16/500, artist 13 Graphite and price
+/// 14, 3 apart.
+class _PieceSummary extends StatelessWidget {
+  const _PieceSummary({
+    required this.imageUrl,
+    required this.title,
+    required this.artistName,
+    required this.priceDisplay,
+  });
+
+  final String imageUrl;
+  final String title;
+  final String artistName;
+  final String? priceDisplay;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.studio;
+    return Row(
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(StudioRadius.small),
+          child: SizedBox(width: 64, height: 85, child: FeedPicsumImage(url: imageUrl)),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: StudioType.sans(16, weight: StudioType.medium, color: c.textPrimary),
+              ),
+              const SizedBox(height: 3),
+              Text(artistName, style: StudioType.label13(color: c.textSecondary)),
+              if (priceDisplay != null) ...[
+                const SizedBox(height: 3),
+                Text(priceDisplay!, style: StudioType.body14(color: c.textPrimary)),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Shipping / Payment row: label 13 Graphite over the value 15 (placeholder #A3A3A3 until
+/// set), 16 px chevron, 18 above and below, 1 px Line under.
+class _NavRow extends StatelessWidget {
+  const _NavRow({
+    required this.label,
+    required this.value,
+    required this.placeholder,
+    required this.onTap,
+  });
+
+  final String label;
+  final String? value;
+  final String placeholder;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.studio;
+    final set = value != null && value!.isNotEmpty;
+    return Semantics(
+      button: true,
+      child: GestureDetector(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 12, 12),
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 18),
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: c.line)),
+          ),
           child: Row(
             children: [
-              SizedBox(
-                width: 60,
-                child: Text(
-                  label,
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
-                    color: CollectDetailTokens.textSecondary,
-                  ),
-                ),
-              ),
               Expanded(
-                child: Text(
-                  placeholder,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.inter(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w400,
-                    color: filled
-                        ? CollectDetailTokens.textPrimary
-                        : CollectDetailTokens.textDisabled,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(label, style: StudioType.label13(color: c.textSecondary)),
+                    const SizedBox(height: 4),
+                    Text(
+                      set ? value! : placeholder,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: StudioType.sans(15, color: set ? c.textPrimary : c.textPlaceholder),
+                    ),
+                  ],
                 ),
               ),
-              const Icon(
-                Icons.chevron_right,
-                size: 18,
-                color: CollectDetailTokens.textDisabled,
-              ),
+              const SizedBox(width: 12),
+              StudioIcon(StudioIcons.chevronRight, size: 16, color: c.textTertiary),
             ],
           ),
         ),
@@ -504,150 +386,122 @@ class _NavRow extends StatelessWidget {
   }
 }
 
-class _OrderSummaryCard extends StatelessWidget {
-  const _OrderSummaryCard({
-    required this.artworkDisplay,
-    required this.shippingDisplay,
-    required this.taxDisplay,
-    required this.totalDisplay,
+/// "Order summary" 15/500, then Artwork, Shipping and Tax (14, label Graphite, 6 above and
+/// below), a 1 px Line and Total 15/500. Until an address is set, Shipping, Tax and Total
+/// show "–" in Mono with the line about shipping and tax under them. No Insurance or Fees:
+/// the app has neither today.
+class _OrderSummary extends StatelessWidget {
+  const _OrderSummary({
+    required this.artwork,
+    required this.shipping,
+    required this.tax,
+    required this.total,
   });
 
-  final String artworkDisplay;
-  final String shippingDisplay;
-  final String taxDisplay;
-  final String totalDisplay;
+  final String artwork;
+  final String? shipping;
+  final String? tax;
+  final String? total;
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: CollectDetailTokens.sheetCardFill,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    final c = context.studio;
+    Widget line(String label, String? value, {bool strong = false}) {
+      final style = strong
+          ? StudioType.sans(15, weight: StudioType.medium, color: c.textPrimary)
+          : StudioType.body14(color: c.textPrimary);
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
           children: [
+            Text(label, style: strong ? style : StudioType.body14(color: c.textSecondary)),
+            const Spacer(),
             Text(
-              'Order Summary',
-              style: GoogleFonts.inter(
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-                color: CollectDetailTokens.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 12),
-            _SummaryLine(label: 'Piece', value: artworkDisplay),
-            const SizedBox(height: 8),
-            _SummaryLine(label: 'Shipping', value: shippingDisplay),
-            const SizedBox(height: 8),
-            _SummaryLine(label: 'Tax', value: taxDisplay),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Text(
-                  'Total',
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: CollectDetailTokens.textPrimary,
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  totalDisplay,
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: CollectDetailTokens.textPrimary,
-                  ),
-                ),
-              ],
+              value ?? '–',
+              style: value == null
+                  ? StudioType.mono(
+                      strong ? 15 : 14,
+                      weight: style.fontWeight!,
+                      color: c.textPrimary,
+                    )
+                  : style,
             ),
           ],
         ),
-      ),
-    );
-  }
-}
+      );
+    }
 
-class _SummaryLine extends StatelessWidget {
-  const _SummaryLine({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          label,
-          style: GoogleFonts.inter(
-            fontSize: 12,
-            fontWeight: FontWeight.w400,
-            color: CollectDetailTokens.textPrimary,
-          ),
+          'Order summary',
+          style: StudioType.sans(15, weight: StudioType.medium, color: c.textPrimary),
         ),
-        const Spacer(),
-        Text(
-          value,
-          style: GoogleFonts.inter(
-            fontSize: 12,
-            fontWeight: FontWeight.w400,
-            color: CollectDetailTokens.textPrimary,
+        const SizedBox(height: 6),
+        line('Artwork', artwork),
+        line('Shipping', shipping),
+        line('Tax', tax),
+        Container(
+          margin: const EdgeInsets.only(top: 6),
+          padding: const EdgeInsets.only(top: 6),
+          decoration: BoxDecoration(
+            border: Border(top: BorderSide(color: c.line)),
           ),
+          child: line('Total', total, strong: true),
         ),
+        if (shipping == null) ...[
+          const SizedBox(height: 8),
+          Text(
+            'Shipping and tax are added once you enter an address.',
+            style: StudioType.caption12(color: c.textSecondary),
+          ),
+        ],
       ],
     );
   }
 }
 
-class _CollectCta extends StatelessWidget {
-  const _CollectCta({required this.onTap, this.loading = false});
+/// "All sales are final. See terms" (12 / 1.5, Graphite, the link in Ink), opening the
+/// existing Terms page.
+class _SalesFinalLine extends StatefulWidget {
+  const _SalesFinalLine();
 
-  final VoidCallback? onTap;
-  final bool loading;
+  @override
+  State<_SalesFinalLine> createState() => _SalesFinalLineState();
+}
+
+class _SalesFinalLineState extends State<_SalesFinalLine> {
+  late final TapGestureRecognizer _terms = TapGestureRecognizer()
+    ..onTap = () => Navigator.of(context).pushNamed('/terms');
+
+  @override
+  void dispose() {
+    _terms.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: CollectDetailTokens.collectButtonHeight,
-      width: double.infinity,
-      child: Material(
-        color: onTap == null
-            ? CollectDetailTokens.ctaFill.withValues(alpha: 0.5)
-            : CollectDetailTokens.ctaFill,
-        borderRadius: BorderRadius.circular(
-          CollectDetailTokens.collectButtonRadius,
-        ),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(
-            CollectDetailTokens.collectButtonRadius,
+    final c = context.studio;
+    final style = StudioType.caption12(height: 1.5, color: c.textSecondary);
+    return Text.rich(
+      TextSpan(
+        style: style,
+        children: [
+          const TextSpan(text: 'All sales are final. '),
+          TextSpan(
+            text: 'See terms',
+            recognizer: _terms,
+            style: style.copyWith(
+              color: c.textPrimary,
+              decoration: TextDecoration.underline,
+              decorationColor: c.textPrimary,
+            ),
           ),
-          child: Center(
-            child: loading
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: CollectDetailTokens.textInverse,
-                    ),
-                  )
-                : Text(
-                    'Collect this piece',
-                    style: GoogleFonts.inter(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w400,
-                      color: CollectDetailTokens.textInverse,
-                    ),
-                  ),
-          ),
-        ),
+        ],
       ),
+      textAlign: TextAlign.center,
     );
   }
 }
