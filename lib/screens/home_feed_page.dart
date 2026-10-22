@@ -7,7 +7,6 @@ import '../theme/studio_colors.dart';
 import '../theme/studio_metrics.dart';
 import '../theme/studio_type.dart';
 import '../utils/explore_detail_route.dart';
-import '../utils/require_login.dart';
 import '../widgets/feed_skeleton.dart';
 import '../widgets/home_feed/home_feed_widgets.dart';
 import '../widgets/offline_state.dart';
@@ -252,17 +251,6 @@ class _HomePageState extends State<HomePage>
             FeedHomeHeader(
                 filter: filter,
                 onFilterChanged: _onFilterTap,
-                onAddTap: () async {
-                  if (!await requireLogin(
-                    context,
-                    title: 'Sign in to post',
-                    message: 'Log in or create a free account to post '
-                        'your work.',
-                  )) {
-                    return;
-                  }
-                  if (context.mounted) Navigator.pushNamed(context, '/post');
-                },
                 hasAvailableItems: store.availableItems.isNotEmpty,
               ),
             Expanded(

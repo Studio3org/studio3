@@ -18,22 +18,20 @@ import '../../utils/profile_navigation.dart';
 import '../../utils/require_login.dart';
 import '../studio/studio.dart';
 
-/// `Main` top bar: "All ▾" (17/500) on the left, the wordmark centered, and
-/// post, Saved, and inbox on the right. The chevron keeps the existing
-/// All / Available filter. Saved switches to that tab. Inbox keeps its
-/// unread check and shows a dot, not a count.
+/// `Main` top bar: "All ▾" (17/500) on the left, the wordmark centered, Saved
+/// and inbox on the right. The chevron keeps the All / Available filter.
+/// Inbox keeps its unread check and shows a dot, not a count. Post lives in
+/// the floating nav.
 class FeedHomeHeader extends StatelessWidget {
   const FeedHomeHeader({
     super.key,
     required this.filter,
     required this.onFilterChanged,
-    required this.onAddTap,
     this.hasAvailableItems = false,
   });
 
   final FeedAvailabilityFilter filter;
   final ValueChanged<FeedAvailabilityFilter> onFilterChanged;
-  final VoidCallback onAddTap;
 
   /// Green dot on the Available choice when something is for sale.
   final bool hasAvailableItems;
@@ -41,7 +39,7 @@ class FeedHomeHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 8, 12),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
       child: SizedBox(
         height: StudioSize.tapTarget,
         child: Stack(
@@ -56,11 +54,6 @@ class FeedHomeHeader extends StatelessWidget {
                   onSelected: onFilterChanged,
                 ),
                 const Spacer(),
-                _HeaderIconButton(
-                  icon: StudioIcons.post,
-                  label: 'Post',
-                  onTap: onAddTap,
-                ),
                 _HeaderIconButton(
                   icon: StudioIcons.save,
                   label: 'Saved',

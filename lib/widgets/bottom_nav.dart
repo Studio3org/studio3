@@ -3,20 +3,22 @@ import 'package:flutter/material.dart';
 import 'studio/studio_floating_nav.dart';
 import 'studio/studio_icon.dart';
 
-/// Bottom nav slots. Order is the product order (not the board's Post / Events
-/// slots): Home, Discover, Reels, Saved, Profile.
+/// Bottom nav slots, in the `Main` board order: Home, Explore, Post, Events, Profile.
+/// Saved stays on the home top bar. Reels opens from a video, not from this bar.
 abstract final class BottomNavIndex {
   static const int home = 0;
-  static const int discover = 1;
-  static const int reels = 2;
-  static const int bookmark = 3;
+  static const int explore = 1;
+  static const int post = 2;
+  static const int events = 3;
   static const int profile = 4;
+
+  /// A page that is not one of the five slots (Saved, Reels).
+  static const int none = -1;
 }
 
-/// Floating nav on the shell (`Main` and profiles). One 64 px pill, 16 from the
-/// sides and 28 above the bottom safe area. The five current slots and their
-/// tap behaviour stay; only the drawing changes to the board (24 px outlines,
-/// stroke 1.8, active slot on a round pill).
+/// Floating nav on the shell (`Main`). One 64 px pill, 16 from the sides and
+/// 28 above the bottom safe area. Slots match the board: Home, Explore, Post
+/// (26 px), Events, Profile.
 class BottomNav extends StatelessWidget {
   const BottomNav({
     super.key,
@@ -41,9 +43,9 @@ class BottomNav extends StatelessWidget {
         onTap: onNavTap,
         items: [
           const StudioNavItem(label: 'Home', icon: StudioIcons.home),
-          const StudioNavItem(label: 'Discover', icon: StudioIcons.explore),
-          const StudioNavItem(label: 'Reels', icon: StudioIcons.reels),
-          const StudioNavItem(label: 'Saved', icon: StudioIcons.save),
+          const StudioNavItem(label: 'Explore', icon: StudioIcons.explore),
+          const StudioNavItem(label: 'Post', icon: StudioIcons.post, iconSize: 26),
+          const StudioNavItem(label: 'Events', icon: StudioIcons.events),
           StudioNavItem(label: 'Profile', isProfile: true, avatarUrl: photo),
         ],
       ),

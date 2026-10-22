@@ -320,8 +320,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   // auth-session change via the shared setState scope).
   final ValueNotifier<int> _selectedNavIndex =
       ValueNotifier(BottomNavIndex.home);
-  late final ValueNotifier<bool> _reelsActive =
-      ValueNotifier(_selectedNavIndex.value == BottomNavIndex.reels);
+  late final ValueNotifier<bool> _reelsActive = ValueNotifier(false);
   final ValueNotifier<bool> _showProfile = ValueNotifier(false);
   final ValueNotifier<ReelsJumpRequest?> _reelsJumpRequest = ValueNotifier(
     null,
@@ -392,7 +391,17 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   void _openReelsTab(List<FeedItem> items, int index) {
     Navigator.of(context).popUntil((route) => route.isFirst);
     _reelsJumpRequest.value = ReelsJumpRequest(items: items, index: index);
-    _onNavTap(BottomNavIndex.reels);
+    _showReelsPage();
+  }
+
+  void _showReelsPage() {
+    _showProfile.value = false;
+    _currentPage = _kReelsPage;
+    _reelsActive.value = true;
+    _selectedNavIndex.value = BottomNavIndex.none;
+    if (_pageController.hasClients) {
+      _pageController.jumpToPage(_kReelsPage);
+    }
   }
 
   void _goHome() {
@@ -402,7 +411,13 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
 
   void _goSaved() {
     Navigator.of(context).popUntil((route) => route.isFirst);
-    _onNavTap(BottomNavIndex.bookmark);
+    _showProfile.value = false;
+    _currentPage = _kSavedPage;
+    _reelsActive.value = false;
+    _selectedNavIndex.value = BottomNavIndex.none;
+    if (_pageController.hasClients) {
+      _pageController.jumpToPage(_kSavedPage);
+    }
   }
 
   @override
@@ -414,7 +429,9 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   }
 
   void _onNavIndexChanged() {
-    _reelsActive.value = _selectedNavIndex.value == BottomNavIndex.reels;
+    _reelsActive.value = _currentPage == _kReelsPage &&
+        !_showProfile.value &&
+        _selectedNavIndex.value == BottomNavIndex.none;
   }
 
   void _onSessionChanged() {
@@ -441,12 +458,9 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       case _kHomePage:
         return BottomNavIndex.home;
       case _kDiscoverPage:
-        return BottomNavIndex.discover;
-      case _kReelsPage:
-        return BottomNavIndex.reels;
-      case _kSavedPage:
+        return BottomNavIndex.explore;
       default:
-        return BottomNavIndex.bookmark;
+        return BottomNavIndex.none;
     }
   }
 
@@ -454,9 +468,21 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     // Covers swipe-to-switch too, not just bottom-nav taps (see _onNavTap).
     FocusManager.instance.primaryFocus?.unfocus();
     _currentPage = page;
+    _reelsActive.value = page == _kReelsPage;
     final navIndex = _navIndexForPage(page);
     _selectedNavIndex.value = navIndex;
     AppStateStore.instance.saveNavIndex(navIndex);
+  }
+
+  Future<void> _openPost() async {
+    if (!await requireLogin(
+      context,
+      title: 'Sign in to post',
+      message: 'Enter your email to join. Log in if you already have an account.',
+    )) {
+      return;
+    }
+    if (mounted) Navigator.pushNamed(context, '/post');
   }
 
   /// Single tap switches to the tapped section (if not already there).
@@ -483,13 +509,21 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       return;
     }
 
+    if (navIndex == BottomNavIndex.post) {
+      _openPost();
+      return;
+    }
+
+    // Events is drawn on the bar. The events flow is not in the app, so the
+    // tap stays on the current page.
+    if (navIndex == BottomNavIndex.events) return;
+
     if (navIndex == BottomNavIndex.profile) {
       if (!AuthSession.instance.isLoggedIn) {
         requireLogin(
           context,
           title: 'Sign in to set up your profile',
-          message: 'Log in or create a free account to set up your profile, '
-              'post your work, and collect art.',
+          message: 'Enter your email to join. Log in if you already have an account.',
         );
         return;
       }
@@ -502,9 +536,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     _showProfile.value = false;
     final targetPage = switch (navIndex) {
       BottomNavIndex.home => _kHomePage,
-      BottomNavIndex.discover => _kDiscoverPage,
-      BottomNavIndex.reels => _kReelsPage,
-      BottomNavIndex.bookmark => _kSavedPage,
+      BottomNavIndex.explore => _kDiscoverPage,
       _ => _currentPage,
     };
     _selectedNavIndex.value = navIndex;
@@ -521,9 +553,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   void _scrollToTopAndRefresh(int navIndex) {
     final key = switch (navIndex) {
       BottomNavIndex.home => _homeKey,
-      BottomNavIndex.discover => _exploreKey,
-      BottomNavIndex.reels => _reelsKey,
-      BottomNavIndex.bookmark => _savedKey,
+      BottomNavIndex.explore => _exploreKey,
       BottomNavIndex.profile => _profileKey,
       _ => null,
     };

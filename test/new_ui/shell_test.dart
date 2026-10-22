@@ -88,9 +88,18 @@ void main() {
 
       expect(tester.getSize(find.byType(AnimatedContainer).first), const Size(52, 48));
       expect(tester.getSize(find.byType(SvgPicture).first).width, 24);
+      expect(tester.getSize(find.bySemanticsLabel('Post')).width, 52);
+      final postIcon = tester.widget<SvgPicture>(
+        find.descendant(of: find.bySemanticsLabel('Post'), matching: find.byType(SvgPicture)),
+      );
+      expect(postIcon.width, 26);
 
-      await tester.tap(find.bySemanticsLabel('Saved'));
-      expect(tapped, BottomNavIndex.bookmark);
+      await tester.tap(find.bySemanticsLabel('Explore'));
+      expect(tapped, BottomNavIndex.explore);
+      await tester.tap(find.bySemanticsLabel('Post'));
+      expect(tapped, BottomNavIndex.post);
+      await tester.tap(find.bySemanticsLabel('Events'));
+      expect(tapped, BottomNavIndex.events);
       await tester.tap(find.bySemanticsLabel('Profile'));
       expect(tapped, BottomNavIndex.profile);
     });

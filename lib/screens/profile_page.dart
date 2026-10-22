@@ -666,6 +666,10 @@ class _ProfilePageState extends State<ProfilePage>
         profile?.sellerEnabled ??
         (isOwnProfile ? AuthSession.instance.sellerEnabled : false);
 
+    // `ProfileCollector`: someone who signed up to collect and has not turned on
+    // seller mode.
+    final collectorMode = !sellerEnabled && profile?.role == 'collector';
+
     final name =
         profile?.name ?? (isOwnProfile ? sessionUser?.name : null) ?? '';
     final handle =
@@ -729,6 +733,7 @@ class _ProfilePageState extends State<ProfilePage>
                       savesCount: profile?.savesCount,
                       collectedCount: profile?.collectedCount,
                       sellerMode: sellerEnabled,
+                      collectorMode: collectorMode,
                       isOwnProfile: !showPublicActions,
                       followState: _followState,
                       followBusy: _followBusy,

@@ -79,18 +79,16 @@ void main() {
     expect(cover.imageUrls, ['https://example.com/cover.jpg']);
   });
 
-  testWidgets('top bar is All, the wordmark, post, Saved and inbox', (tester) async {
+  testWidgets('top bar is All, the wordmark, Saved and inbox', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     FeedAvailabilityFilter? picked;
-    var posted = 0;
     await tester.pumpWidget(
       _app(
         home: FeedHomeHeader(
           filter: FeedAvailabilityFilter.all,
           hasAvailableItems: true,
           onFilterChanged: (filter) => picked = filter,
-          onAddTap: () => posted++,
         ),
       ),
     );
@@ -100,12 +98,9 @@ void main() {
     expect(tester.widget<Text>(find.text('All')).style!.fontSize, 17);
     expect(tester.widget<Text>(find.text('All')).style!.fontWeight, FontWeight.w500);
     expect(find.byType(StudioLogo), findsOneWidget);
-    expect(tester.getSize(find.bySemanticsLabel('Post')), const Size(44, 44));
+    expect(find.bySemanticsLabel('Post'), findsNothing);
     expect(tester.getSize(find.bySemanticsLabel('Saved')), const Size(44, 44));
     expect(tester.getSize(find.bySemanticsLabel('Inbox')), const Size(44, 44));
-
-    await tester.tap(find.bySemanticsLabel('Post'));
-    expect(posted, 1);
 
     await tester.tap(find.bySemanticsLabel('Filter feed'));
     await tester.pump();
@@ -235,7 +230,7 @@ void main() {
         textScaler: const TextScaler.linear(1.4),
         home: ListView(
           children: [
-            FeedHomeHeader(filter: FeedAvailabilityFilter.all, onFilterChanged: (_) {}, onAddTap: () {}),
+            FeedHomeHeader(filter: FeedAvailabilityFilter.all, onFilterChanged: (_) {}),
             card,
           ],
         ),

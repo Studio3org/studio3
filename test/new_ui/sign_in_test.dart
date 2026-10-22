@@ -40,7 +40,10 @@ Widget _routed({
       '/under-test': (_) => home,
       '/': (_) => const Scaffold(body: Text('home')),
       '/login': (_) => const LoginPage(),
-      '/signup': (_) => const SignUpPage(),
+      '/signup': (context) {
+        final args = ModalRoute.of(context)?.settings.arguments;
+        return SignUpPage(initialEmail: args is String ? args : null);
+      },
       '/forgot-password': (_) => const ForgotPasswordPage(),
       '/terms': (_) => const TermsPage(),
     },
@@ -119,9 +122,9 @@ void main() {
       expect(find.text('Password'), findsOneWidget);
       expect(find.text('Remember me'), findsOneWidget);
       expect(find.text('Forgot login?'), findsOneWidget);
-      expect(find.textContaining('I agree to the', skipOffstage: false), findsOneWidget);
+      expect(find.textContaining('I agree to the', skipOffstage: false), findsNothing);
       expect(find.textContaining('By continuing, you agree', skipOffstage: false), findsWidgets);
-      expect(find.text('Browse without an account', skipOffstage: false), findsOneWidget);
+      expect(find.text('Look around first', skipOffstage: false), findsOneWidget);
 
       final haze = tester.widget<ColoredBox>(
         find.descendant(of: find.byType(StudioHaze), matching: find.byType(ColoredBox)).first,
@@ -148,10 +151,6 @@ void main() {
       );
       expect(_spanFontSize(legal.text), 11);
 
-      expect(
-        tester.getSize(find.ancestor(of: find.byType(Checkbox).first, matching: find.byType(SizedBox)).first),
-        const Size(StudioSize.tapTarget, StudioSize.tapTarget),
-      );
       expect(tester.getSize(find.widgetWithText(TextButton, 'Forgot login?')).height, greaterThanOrEqualTo(44));
     });
   }
@@ -163,11 +162,6 @@ void main() {
 
     await tester.enterText(find.byType(TextField).at(0), 'amara');
     await tester.enterText(find.byType(TextField).at(1), 'secret');
-    await tester.pump();
-    expect(tester.widget<StudioButton>(find.widgetWithText(StudioButton, 'Login')).onPressed, isNull);
-
-    await tester.ensureVisible(find.textContaining('I agree to the'));
-    await tester.tap(find.textContaining('I agree to the'));
     await tester.pump();
     expect(tester.widget<StudioButton>(find.widgetWithText(StudioButton, 'Login')).onPressed, isNotNull);
 
@@ -231,7 +225,7 @@ void main() {
       await tester.pumpWidget(_routed(home: const LoginPage(), textScaler: const TextScaler.linear(1.4)));
       await tester.pump();
       expect(tester.takeException(), isNull);
-      await tester.ensureVisible(find.text('Browse without an account'));
+      await tester.ensureVisible(find.text('Look around first'));
       expect(find.text('Login'), findsOneWidget);
     }
   });
@@ -259,12 +253,10 @@ void main() {
       expect(find.text('Sign in to save this piece'), findsOneWidget);
       expect(find.text('Email'), findsOneWidget);
       expect(tester.widget<StudioButton>(find.widgetWithText(StudioButton, 'Continue')).onPressed, isNull);
+      expect(find.text('Create account'), findsNothing);
       expect(tester.getSize(find.widgetWithText(StudioButton, 'Log in')).height, StudioSize.buttonPrimary);
-      expect(tester.getSize(find.widgetWithText(StudioButton, 'Create account')).height, greaterThanOrEqualTo(44));
-      expect(tester.getSize(find.widgetWithText(StudioButton, 'Not now')).height, greaterThanOrEqualTo(44));
 
-      await tester.ensureVisible(find.text('Not now'));
-      await tester.tap(find.text('Not now'));
+      Navigator.of(tester.element(find.text('Sign in to save this piece'))).pop();
       await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
       expect(find.text('Sign in to save this piece'), findsNothing);
@@ -284,11 +276,17 @@ void main() {
       await tester.tap(find.text('open'));
       await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
-      await tester.ensureVisible(find.text('Create account'));
-      await tester.tap(find.text('Create account'));
+      await tester.enterText(find.byType(TextField), 'amara@studio.test');
+      await tester.pump();
+      await tester.ensureVisible(find.widgetWithText(StudioButton, 'Continue'));
+      await tester.tap(find.widgetWithText(StudioButton, 'Continue'));
       await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
-      expect(find.text('Email'), findsOneWidget);
+      expect(
+        tester.widgetList<TextField>(find.byType(TextField)).any((field) => field.controller?.text == 'amara@studio.test'),
+        isTrue,
+      );
+      expect(find.textContaining('I agree to the'), findsOneWidget);
     });
   }
 
@@ -458,6 +456,7 @@ void main() {
     expect(find.text('Terms of Use'), findsOneWidget);
     expect(find.text('I agree'), findsOneWidget);
     expect(find.text('Log out'), findsOneWidget);
+    expect(find.byType(BackdropFilter), findsOneWidget);
 
     await tester.tapAt(const Offset(10, 10));
     await tester.pump();

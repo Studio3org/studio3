@@ -77,7 +77,6 @@ class AuthService {
     final json = await _api.post('/api/auth/login', body: {
       'username': identifier.trim(),
       'password': password,
-      'acceptedTerms': true,
     });
     return _persistAuthResponse(json);
   }

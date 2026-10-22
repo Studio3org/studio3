@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
@@ -11,14 +13,27 @@ import '../theme/studio_type.dart';
 /// account after the terms are revised. The only ways out are agreeing or
 /// logging out, so nobody keeps posting without having accepted them.
 Future<void> showTermsAcceptanceDialog(BuildContext context) {
-  return showDialog<void>(
+  return showGeneralDialog<void>(
     context: context,
     barrierDismissible: false,
+    barrierLabel: 'Terms of Use',
+    barrierColor: const Color(0x00000000),
     useRootNavigator: true,
-    builder: (_) => const PopScope(
-      canPop: false,
-      child: _TermsAcceptanceDialog(),
-    ),
+    pageBuilder: (context, animation, secondaryAnimation) {
+      return const PopScope(
+        canPop: false,
+        child: _TermsAcceptanceDialog(),
+      );
+    },
+    transitionBuilder: (context, animation, secondaryAnimation, child) {
+      return BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+        child: ColoredBox(
+          color: const Color(0x47000000),
+          child: FadeTransition(opacity: animation, child: child),
+        ),
+      );
+    },
   );
 }
 

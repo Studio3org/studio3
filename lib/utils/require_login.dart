@@ -115,16 +115,6 @@ class _LoginPromptSheetState extends State<_LoginPromptSheet> {
           ),
         ),
         StudioButton(label: 'Log in', onPressed: () => _go('/login')),
-        StudioButton(
-          label: 'Create account',
-          variant: StudioButtonVariant.outline,
-          onPressed: () => _go('/signup'),
-        ),
-        StudioButton(
-          label: 'Not now',
-          variant: StudioButtonVariant.text,
-          onPressed: () => Navigator.of(context).pop(),
-        ),
       ],
     );
   }

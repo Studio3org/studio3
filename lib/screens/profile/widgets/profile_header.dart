@@ -19,6 +19,7 @@ class ProfileHeader extends StatelessWidget {
     this.savesCount,
     this.collectedCount,
     this.sellerMode = false,
+    this.collectorMode = false,
     this.isOwnProfile = true,
     this.followState = FollowState.none,
     this.followBusy = false,
@@ -38,6 +39,11 @@ class ProfileHeader extends StatelessWidget {
   final int? savesCount;
   final int? collectedCount;
   final bool sellerMode;
+
+  /// `ProfileCollector`: a collector without seller mode. The board's stats are
+  /// collected · artists · saves; the profile payload has no artists count, so that
+  /// one stays off (plan rule 5) and the row is collected · saves.
+  final bool collectorMode;
   final bool isOwnProfile;
   final FollowState followState;
   final bool followBusy;
@@ -59,6 +65,11 @@ class ProfileHeader extends StatelessWidget {
   List<({String value, String label})> get _stats => sellerMode
       ? [
           (value: _formatCount(piecesCount), label: 'pieces'),
+          (value: _formatCount(collectedCount), label: 'collected'),
+          (value: _formatCount(savesCount), label: 'saves'),
+        ]
+      : collectorMode
+      ? [
           (value: _formatCount(collectedCount), label: 'collected'),
           (value: _formatCount(savesCount), label: 'saves'),
         ]

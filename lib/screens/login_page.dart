@@ -5,7 +5,6 @@ import '../services/auth_service.dart';
 import '../services/auth_session.dart';
 import '../utils/auth_validators.dart';
 import '../widgets/auth_ui.dart';
-import 'terms_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -19,8 +18,6 @@ class _LoginPageState extends State<LoginPage> {
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _rememberMe = false;
-  bool _agreedToTerms =
-      AuthSession.instance.termsAgreedOnDevice == kTermsVersion;
   bool _submitted = false;
   bool _loading = false;
 
@@ -51,8 +48,7 @@ class _LoginPageState extends State<LoginPage> {
 
   bool get _canSubmit =>
       AuthValidators.loginIdentifier(_usernameController.text) == null &&
-      _passwordController.text.isNotEmpty &&
-      _agreedToTerms;
+      _passwordController.text.isNotEmpty;
 
   Future<void> _signIn() async {
     if (_loading) return;
@@ -73,7 +69,6 @@ class _LoginPageState extends State<LoginPage> {
       } else {
         await AuthSession.instance.clearRememberedUsername();
       }
-      await AuthSession.instance.saveTermsAgreedOnDevice(kTermsVersion);
       if (!mounted) return;
       // Clear the whole stack: login may have been pushed on top of a guest
       // MainShell, which must not survive underneath the signed-in one.
@@ -125,11 +120,6 @@ class _LoginPageState extends State<LoginPage> {
               onChanged: (v) => setState(() => _rememberMe = v),
               onForgot: () => Navigator.pushNamed(context, '/forgot-password'),
             ),
-            AuthTermsCheckbox(
-              value: _agreedToTerms,
-              showError: _submitted,
-              onChanged: (v) => setState(() => _agreedToTerms = v),
-            ),
             const SizedBox(height: 14),
             AuthPrimaryButton(
               label: 'Login',
@@ -142,7 +132,7 @@ class _LoginPageState extends State<LoginPage> {
               actionLabel: 'Sign Up',
               onTap: () => Navigator.pushNamed(context, '/signup'),
             ),
-            const AuthGuestLink(),
+            const AuthGuestLink(label: 'Look around first'),
             const SizedBox(height: 14),
             const AuthLegalLine(),
           ],
