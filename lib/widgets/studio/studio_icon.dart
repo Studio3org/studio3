@@ -11,6 +11,7 @@ abstract final class StudioIcons {
   static const String arrowRight = '$_dir/arrow_right.svg';
   static const String back = '$_dir/back.svg';
   static const String backBold = '$_dir/back_to_explore.svg';
+  static const String block = '$_dir/block.svg';
   static const String chat = '$_dir/chat.svg';
   static const String check = '$_dir/check.svg';
   static const String close = '$_dir/close.svg';
@@ -30,6 +31,7 @@ abstract final class StudioIcons {
   static const String more = '$_dir/more.svg';
   static const String post = '$_dir/post.svg';
   static const String profile = '$_dir/profile.svg';
+  static const String report = '$_dir/report.svg';
   static const String reels = '$_dir/reels.svg';
   static const String save = '$_dir/save.svg';
   static const String saved = '$_dir/saved.svg';

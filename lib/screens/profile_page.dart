@@ -15,13 +15,15 @@ import '../services/report_service.dart';
 import '../services/series_service.dart';
 import '../services/social_service.dart';
 import '../services/user_service.dart';
-import '../theme/home_feed_tokens.dart';
 import '../theme/studio_colors.dart';
 import 'conversation_thread_page.dart';
 import 'follow_list_page.dart';
 import '../widgets/content_actions_sheet.dart';
 import '../widgets/delete_confirmation_dialog.dart';
 import '../widgets/profile_avatar_preview_sheet.dart';
+import '../widgets/studio/studio_action_row.dart';
+import '../widgets/studio/studio_icon.dart';
+import '../widgets/studio/studio_sheet.dart';
 import 'profile/models/profile_series_data.dart';
 import 'profile/profile_constants.dart';
 import '../widgets/follow_button.dart';
@@ -601,68 +603,55 @@ class _ProfilePageState extends State<ProfilePage>
     }
   }
 
+  /// No board of its own: built as `ConvMenu` (person header, then Block and Report as
+  /// Ink rows with outline icons; no red outside status).
   void _showProfileActionsSheet(UserProfile? profile) {
     if (profile == null) return;
-    showModalBottomSheet<void>(
+    final name = profile.name.trim().isEmpty ? profile.handle : profile.name;
+    showStudioSheet<void>(
       context: context,
-      backgroundColor: HomeFeedTokens.background,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 8),
-            ListTile(
-              leading: const Icon(
-                Icons.flag_outlined,
-                color: Color(0xFFE05252),
-              ),
-              title: Text(
-                'Report ${profile.handle}',
-                style: const TextStyle(
-                  color: Color(0xFFE05252),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              onTap: () {
-                Navigator.pop(sheetContext);
-                showReportSheet(
-                  context,
-                  target: ReportTarget.user(profile.username),
-                );
-              },
+      builder: (sheetContext) => StudioSheet(
+        horizontalPadding: 24,
+        gap: 6,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: StudioActionSheetPerson(
+              name: name,
+              handle: profile.handle,
+              avatarUrl: profile.profilePhotoUrl,
             ),
-            ListTile(
-              leading: const Icon(
-                Icons.block_outlined,
-                color: Color(0xFFE05252),
-              ),
-              title: Text(
-                'Block ${profile.handle}',
-                style: const TextStyle(
-                  color: Color(0xFFE05252),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              onTap: () {
-                Navigator.pop(sheetContext);
-                confirmBlockUser(
-                  context,
-                  username: profile.username,
-                  onBlocked: () {
-                    if (mounted) Navigator.pop(context);
-                  },
-                );
-              },
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
+          ),
+          StudioActionRow(
+            icon: StudioIcons.block,
+            title: 'Block $name',
+            onTap: () {
+              Navigator.pop(sheetContext);
+              confirmBlockUser(
+                context,
+                username: profile.username,
+                onBlocked: () {
+                  if (mounted) Navigator.pop(context);
+                },
+              );
+            },
+          ),
+          StudioActionRow(
+            icon: StudioIcons.report,
+            title: 'Report',
+            onTap: () {
+              Navigator.pop(sheetContext);
+              showReportSheet(
+                context,
+                target: ReportTarget.user(profile.username),
+              );
+            },
+          ),
+        ],
       ),
     );
   }
+
 
   void _onBackToHome() {
     if (MainNavService.instance.goHome()) return;

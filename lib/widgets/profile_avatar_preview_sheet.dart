@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
-import '../theme/home_feed_tokens.dart';
+import '../theme/studio_colors.dart';
 import '../utils/profile_photo_upload.dart';
-import 'profile_avatar.dart';
+import 'studio/studio_avatar.dart';
+import 'studio/studio_button.dart';
 
 /// Shows an enlarged profile avatar. When [allowChange] is true, a Change button
 /// lets the user pick and upload a new profile photo.
+///
+/// No board: the sheet scrim behind a round avatar and an inline (44) Ink button.
 Future<void> showProfileAvatarPreview(
   BuildContext context, {
   required String? avatarUrl,
@@ -16,6 +18,9 @@ Future<void> showProfileAvatarPreview(
   return showModalBottomSheet<void>(
     context: context,
     backgroundColor: Colors.transparent,
+    // The page below dims once, with the sheet scrim drawn by the sheet itself.
+    barrierColor: Colors.transparent,
+    elevation: 0,
     isScrollControlled: true,
     builder: (sheetContext) {
       return _ProfileAvatarPreviewSheet(
@@ -39,8 +44,7 @@ class _ProfileAvatarPreviewSheet extends StatefulWidget {
   final VoidCallback? onChanged;
 
   @override
-  State<_ProfileAvatarPreviewSheet> createState() =>
-      _ProfileAvatarPreviewSheetState();
+  State<_ProfileAvatarPreviewSheet> createState() => _ProfileAvatarPreviewSheetState();
 }
 
 class _ProfileAvatarPreviewSheetState extends State<_ProfileAvatarPreviewSheet> {
@@ -67,41 +71,21 @@ class _ProfileAvatarPreviewSheetState extends State<_ProfileAvatarPreviewSheet> 
     return GestureDetector(
       onTap: () => Navigator.pop(context),
       child: Container(
-        color: Colors.black.withValues(alpha: 0.55),
+        color: context.studio.scrim,
         alignment: Alignment.center,
         child: GestureDetector(
           onTap: () {},
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              ProfileAvatar(
-                url: _avatarUrl,
-                size: _previewSize,
-              ),
+              StudioAvatar(url: _avatarUrl, size: _previewSize, semanticLabel: 'Profile photo'),
               if (widget.allowChange) ...[
                 const SizedBox(height: 20),
-                FilledButton(
+                StudioButton(
+                  label: 'Change',
+                  variant: StudioButtonVariant.inline,
+                  expand: false,
                   onPressed: _changePhoto,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: HomeFeedTokens.textPrimary,
-                    foregroundColor: HomeFeedTokens.textInverse,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 32,
-                      vertical: 12,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(
-                        HomeFeedTokens.cardRadius,
-                      ),
-                    ),
-                  ),
-                  child: Text(
-                    'Change',
-                    style: GoogleFonts.inter(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
                 ),
               ],
             ],
