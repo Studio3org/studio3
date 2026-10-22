@@ -26,4 +26,8 @@ abstract final class AppLinkConfig {
   }
 
   static String pieceUrl(String id) => '$webBaseUrl/piece/$id';
+
+  /// The website's public profile page (`app/src/App.jsx`: `/profile/:username`).
+  static String profileUrl(String username) =>
+      '$webBaseUrl/profile/${Uri.encodeComponent(username)}';
 }

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
+
+import '../config/app_link_config.dart';
 
 import '../models/piece_summary.dart';
 import '../models/post_summary.dart';
@@ -456,6 +459,32 @@ class _ProfilePageState extends State<ProfilePage>
     );
   }
 
+  Future<void> _onEditProfileTap() async {
+    // The same screen Settings opens; reload afterwards as the ⋯ path does.
+    await Navigator.pushNamed(context, '/edit-profile');
+    if (!mounted) return;
+    _resetTabCache();
+    await _loadProfileShell(silent: true);
+  }
+
+  Future<void> _onShareProfileTap(BuildContext buttonContext) async {
+    final profile = _profile;
+    final username = profile?.username ?? AuthSession.instance.user?.username;
+    if (username == null || username.isEmpty) return;
+    final name = (profile?.name ?? AuthSession.instance.user?.name ?? '').trim();
+    final url = AppLinkConfig.profileUrl(username);
+    final box = buttonContext.findRenderObject() as RenderBox?;
+    final origin = box != null
+        ? box.localToGlobal(Offset.zero) & box.size
+        : const Rect.fromLTWH(0, 0, 1, 1);
+    await SharePlus.instance.share(
+      ShareParams(
+        text: '${name.isEmpty ? '@$username' : name} on Studio\n\n$url',
+        sharePositionOrigin: origin,
+      ),
+    );
+  }
+
   Future<void> _onFollowTap() async {
     if (widget.viewerMode) {
       _showViewerModePreviewSnackBar();
@@ -741,6 +770,10 @@ class _ProfilePageState extends State<ProfilePage>
                           ? _onFollowTap
                           : null,
                       onMessage: showPublicActions ? _onMessageTap : null,
+                      onEditProfile: showPublicActions ? null : _onEditProfileTap,
+                      onShare: showPublicActions
+                          ? null
+                          : () => _onShareProfileTap(context),
                       onTapFollowing: () =>
                           _onTapFollowStat(FollowListTab.following),
                       onTapFollowers: () =>

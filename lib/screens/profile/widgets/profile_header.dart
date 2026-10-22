@@ -25,6 +25,8 @@ class ProfileHeader extends StatelessWidget {
     this.followBusy = false,
     this.onFollow,
     this.onMessage,
+    this.onEditProfile,
+    this.onShare,
     this.onTapFollowing,
     this.onTapFollowers,
   });
@@ -49,6 +51,11 @@ class ProfileHeader extends StatelessWidget {
   final bool followBusy;
   final VoidCallback? onFollow;
   final VoidCallback? onMessage;
+
+  /// `ProfileOwn`: Edit profile and Share replace Message and Follow on your own
+  /// profile. Shown only when [isOwnProfile] and a callback is given.
+  final VoidCallback? onEditProfile;
+  final VoidCallback? onShare;
   final VoidCallback? onTapFollowing;
   final VoidCallback? onTapFollowers;
 
@@ -113,39 +120,39 @@ class ProfileHeader extends StatelessWidget {
               constraints: const BoxConstraints(minHeight: StudioSize.tapTarget),
               child: Center(
                 child: Text.rich(
-              TextSpan(
-                children: [
-                  WidgetSpan(
-                    alignment: PlaceholderAlignment.baseline,
-                    baseline: TextBaseline.alphabetic,
-                    child: GestureDetector(
-                      onTap: onTapFollowers,
-                      behavior: HitTestBehavior.opaque,
-                      child: Text(
-                        '$followersCount followers',
-                        style: StudioType.label13(color: c.textSecondary),
-                      ),
-                    ),
-                  ),
                   TextSpan(
-                    text: ' · ',
-                    style: StudioType.label13(color: c.textSecondary),
-                  ),
-                  WidgetSpan(
-                    alignment: PlaceholderAlignment.baseline,
-                    baseline: TextBaseline.alphabetic,
-                    child: GestureDetector(
-                      onTap: onTapFollowing,
-                      behavior: HitTestBehavior.opaque,
-                      child: Text(
-                        '$followingCount following',
+                    children: [
+                      WidgetSpan(
+                        alignment: PlaceholderAlignment.baseline,
+                        baseline: TextBaseline.alphabetic,
+                        child: GestureDetector(
+                          onTap: onTapFollowers,
+                          behavior: HitTestBehavior.opaque,
+                          child: Text(
+                            '$followersCount followers',
+                            style: StudioType.label13(color: c.textSecondary),
+                          ),
+                        ),
+                      ),
+                      TextSpan(
+                        text: ' · ',
                         style: StudioType.label13(color: c.textSecondary),
                       ),
-                    ),
+                      WidgetSpan(
+                        alignment: PlaceholderAlignment.baseline,
+                        baseline: TextBaseline.alphabetic,
+                        child: GestureDetector(
+                          onTap: onTapFollowing,
+                          behavior: HitTestBehavior.opaque,
+                          child: Text(
+                            '$followingCount following',
+                            style: StudioType.label13(color: c.textSecondary),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              textAlign: TextAlign.center,
+                  textAlign: TextAlign.center,
                 ),
               ),
             ),
@@ -162,6 +169,29 @@ class ProfileHeader extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 6),
               child: _StatsRow(stats: _stats),
             ),
+            if (isOwnProfile && (onEditProfile != null || onShare != null)) ...[
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  if (onEditProfile != null)
+                    Expanded(
+                      child: _ProfileActionButton(
+                        label: 'Edit profile',
+                        filled: true,
+                        onPressed: onEditProfile,
+                      ),
+                    ),
+                  if (onEditProfile != null && onShare != null) const SizedBox(width: 10),
+                  if (onShare != null)
+                    _ProfileActionButton(
+                      label: 'Share',
+                      filled: false,
+                      hug: true,
+                      onPressed: onShare,
+                    ),
+                ],
+              ),
+            ],
             if (!isOwnProfile) ...[
               const SizedBox(height: 14),
               Row(
@@ -202,7 +232,9 @@ class _StatsRow extends StatelessWidget {
     return Row(
       children: [
         for (final stat in stats)
-          Expanded(child: _StatBlock(value: stat.value, label: stat.label)),
+          Expanded(
+            child: _StatBlock(value: stat.value, label: stat.label),
+          ),
       ],
     );
   }
@@ -245,12 +277,16 @@ class _ProfileActionButton extends StatelessWidget {
     required this.filled,
     this.onPressed,
     this.busy = false,
+    this.hug = false,
   });
 
   final String label;
   final bool filled;
   final VoidCallback? onPressed;
   final bool busy;
+
+  /// Size to the label with 16 each side (`ProfileOwn` Share) instead of filling.
+  final bool hug;
 
   @override
   Widget build(BuildContext context) {
@@ -269,17 +305,21 @@ class _ProfileActionButton extends StatelessWidget {
               borderRadius: BorderRadius.circular(StudioRadius.button),
               border: filled ? null : Border.all(color: c.lineStrong),
             ),
-            child: Center(
-              child: busy
-                  ? SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 1.5, color: foreground),
-                    )
-                  : Text(
-                      label,
-                      style: StudioType.body14(weight: StudioType.medium, color: foreground),
-                    ),
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: hug ? 16 : 0),
+              child: Center(
+                widthFactor: hug ? 1 : null,
+                child: busy
+                    ? SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 1.5, color: foreground),
+                      )
+                    : Text(
+                        label,
+                        style: StudioType.body14(weight: StudioType.medium, color: foreground),
+                      ),
+              ),
             ),
           ),
         ),
