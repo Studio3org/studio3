@@ -122,7 +122,7 @@ class _CollectPieceSheetState extends State<CollectPieceSheet> {
       final confirmed = await OrderService.instance.confirm(order.id);
       if (!mounted) return;
       Navigator.pop(context);
-      await CollectOrderConfirmationSheet.show(context, order: confirmed);
+      await CollectOrderConfirmationSheet.show(context, order: confirmed, item: item);
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _collecting = false);

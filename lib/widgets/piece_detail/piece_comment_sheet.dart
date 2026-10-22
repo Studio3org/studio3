@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/comment_page.dart';
 import '../../models/feed_item.dart';
@@ -8,14 +7,23 @@ import '../../services/blocked_authors_store.dart';
 import '../../services/chat_socket_service.dart';
 import '../../services/report_service.dart';
 import '../../services/social_service.dart';
-import '../../theme/home_feed_tokens.dart';
+import '../../theme/studio_colors.dart';
+import '../../theme/studio_metrics.dart';
+import '../../theme/studio_type.dart';
 import '../../utils/profile_navigation.dart';
 import '../../utils/require_login.dart';
 import '../content_actions_sheet.dart';
-import '../profile_avatar.dart';
+import '../studio/studio_avatar.dart';
+import '../studio/studio_icon.dart';
+import '../studio/studio_sheet.dart';
+import '../studio/studio_toast.dart';
 
-/// Instagram-style comment list + add-comment bottom sheet for a piece or
-/// scene. List/create only — no like/reply (backend has no API for those).
+/// Comment list + add-comment bottom sheet for a piece or scene. List/create only — no
+/// like/reply (backend has no API for those).
+///
+/// No board: a board sheet (scrim, 24 top corners, grabber, ≤ 90 %), comment rows with
+/// a 32 avatar, name 13/500 and Mono time, and the `Conversation` composer (42 pill field
+/// on Paper, 40 round send, grey until there is text).
 class PieceCommentSheet extends StatefulWidget {
   const PieceCommentSheet({
     super.key,
@@ -33,17 +41,19 @@ class PieceCommentSheet extends StatefulWidget {
     required String contentId,
     required bool isScene,
   }) {
+    final c = context.studio;
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: HomeFeedTokens.background,
+      backgroundColor: c.background,
+      barrierColor: c.scrim,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(StudioRadius.sheet)),
       ),
       builder: (context) => DraggableScrollableSheet(
         initialChildSize: 0.75,
         minChildSize: 0.5,
-        maxChildSize: 0.95,
+        maxChildSize: StudioSize.sheetMaxHeightFactor,
         expand: false,
         builder: (context, scrollController) => PieceCommentSheet(
           contentId: contentId,
@@ -75,10 +85,7 @@ class _PieceCommentSheetState extends State<PieceCommentSheet> {
   void initState() {
     super.initState();
     widget.scrollController.addListener(_onScroll);
-    ChatSocketService.instance.joinTarget(
-      targetType: _targetType,
-      targetId: widget.contentId,
-    );
+    ChatSocketService.instance.joinTarget(targetType: _targetType, targetId: widget.contentId);
     ChatSocketService.instance.onCommentNew(_onLiveComment);
     BlockedAuthorsStore.instance.addListener(_onAuthorBlocked);
     _loadInitial();
@@ -92,18 +99,13 @@ class _PieceCommentSheetState extends State<PieceCommentSheet> {
   /// the backend leaves them out of later fetches.
   List<CommentSummary> get _visibleComments {
     final blocked = BlockedAuthorsStore.instance;
-    return _comments
-        .where((c) => !blocked.isBlocked(c.authorUsername))
-        .toList();
+    return _comments.where((c) => !blocked.isBlocked(c.authorUsername)).toList();
   }
 
   @override
   void dispose() {
     widget.scrollController.removeListener(_onScroll);
-    ChatSocketService.instance.leaveTarget(
-      targetType: _targetType,
-      targetId: widget.contentId,
-    );
+    ChatSocketService.instance.leaveTarget(targetType: _targetType, targetId: widget.contentId);
     ChatSocketService.instance.offCommentNew();
     BlockedAuthorsStore.instance.removeListener(_onAuthorBlocked);
     _textController.dispose();
@@ -134,10 +136,8 @@ class _PieceCommentSheetState extends State<PieceCommentSheet> {
 
   Future<CommentPage> _fetch({String? cursor}) {
     return widget.isScene
-        ? SocialService.instance
-            .getPostComments(widget.contentId, cursor: cursor)
-        : SocialService.instance
-            .getPieceComments(widget.contentId, cursor: cursor);
+        ? SocialService.instance.getPostComments(widget.contentId, cursor: cursor)
+        : SocialService.instance.getPieceComments(widget.contentId, cursor: cursor);
   }
 
   Future<void> _loadInitial() async {
@@ -202,8 +202,7 @@ class _PieceCommentSheetState extends State<PieceCommentSheet> {
     try {
       final saved = widget.isScene
           ? await SocialService.instance.commentOnPost(widget.contentId, body)
-          : await SocialService.instance
-              .commentOnPiece(widget.contentId, body);
+          : await SocialService.instance.commentOnPiece(widget.contentId, body);
       if (!mounted) return;
       setState(() {
         final index = _comments.indexWhere((c) => c.id == tempId);
@@ -213,9 +212,7 @@ class _PieceCommentSheetState extends State<PieceCommentSheet> {
           // Socket may have already inserted the real comment.
           _comments.insert(0, saved);
         }
-        _comments.removeWhere(
-          (c) => c.id != saved.id && c.id == tempId,
-        );
+        _comments.removeWhere((c) => c.id != saved.id && c.id == tempId);
       });
     } catch (e) {
       if (!mounted) return;
@@ -223,9 +220,7 @@ class _PieceCommentSheetState extends State<PieceCommentSheet> {
         _comments.removeWhere((c) => c.id == tempId);
         _textController.text = body;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not post comment: $e')),
-      );
+      showStudioToast(context, 'Could not post comment', icon: null);
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -233,62 +228,42 @@ class _PieceCommentSheetState extends State<PieceCommentSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Column(
-        children: [
-          const SizedBox(height: 8),
-          Container(
-            width: 36,
-            height: 4,
-            decoration: BoxDecoration(
-              color: HomeFeedTokens.textSecondary.withValues(alpha: 0.35),
-              borderRadius: BorderRadius.circular(100),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Comments',
-            style: GoogleFonts.inter(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: HomeFeedTokens.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Divider(height: 1, color: Color(0xFFE8E5DF)),
-          Expanded(child: _buildList()),
-          const Divider(height: 1, color: Color(0xFFE8E5DF)),
-          _buildInputBar(),
-        ],
-      ),
+    final c = context.studio;
+    return Column(
+      children: [
+        const SizedBox(height: 10),
+        const StudioSheetGrabber(),
+        const SizedBox(height: 12),
+        Text(
+          'Comments',
+          style: StudioType.sans(16, weight: StudioType.medium, color: c.textPrimary),
+        ),
+        const SizedBox(height: 12),
+        Divider(height: 1, color: c.line),
+        Expanded(child: _buildList(c)),
+        _buildInputBar(c),
+      ],
     );
   }
 
-  Widget _buildList() {
+  Widget _buildList(StudioColors c) {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator(strokeWidth: 2));
     }
     if (_error != null) {
       return Center(
-        child: Text(
-          _error!,
-          style: GoogleFonts.inter(color: HomeFeedTokens.textSecondary),
-        ),
+        child: Text(_error!, style: StudioType.body14(color: c.textSecondary)),
       );
     }
     if (_visibleComments.isEmpty) {
       return Center(
-        child: Text(
-          'No comments yet',
-          style: GoogleFonts.inter(color: HomeFeedTokens.textSecondary),
-        ),
+        child: Text('No comments yet', style: StudioType.body14(color: c.textSecondary)),
       );
     }
     final comments = _visibleComments;
     return ListView.builder(
       controller: widget.scrollController,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.fromLTRB(20, 8, 8, 8),
       itemCount: comments.length + (_loadingMore ? 1 : 0),
       itemBuilder: (context, index) {
         if (index >= comments.length) {
@@ -308,68 +283,96 @@ class _PieceCommentSheetState extends State<PieceCommentSheet> {
     );
   }
 
-  Widget _buildInputBar() {
-    return Padding(
+  /// `Conversation` composer: 1 px rule above, 10 12 padding, 42 pill field on Paper
+  /// (15, placeholder tertiary), 8 gap, 40 round send (Line until there is text, then Ink).
+  Widget _buildInputBar(StudioColors c) {
+    final loggedIn = AuthSession.instance.isLoggedIn;
+    final safe = MediaQuery.viewPaddingOf(context).bottom;
+    final keyboard = MediaQuery.viewInsetsOf(context).bottom;
+    final canSend = loggedIn && !_sending && _textController.text.trim().isNotEmpty;
+    final style = StudioType.sans(15, color: c.textPrimary);
+    return Container(
       padding: EdgeInsets.fromLTRB(
-        16,
+        12,
         10,
-        16,
-        10 + MediaQuery.viewInsetsOf(context).bottom,
+        12,
+        keyboard > 0 ? keyboard + 10 : (safe > 0 ? safe : StudioSize.noInsetBottomPadding),
+      ),
+      decoration: BoxDecoration(
+        color: c.background,
+        border: Border(top: BorderSide(color: c.line)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Expanded(
-            child: TextField(
-              controller: _textController,
-              minLines: 1,
-              maxLines: 4,
-              // Guests can read the thread; tapping to write asks them to
-              // log in instead of opening the keyboard.
-              readOnly: !AuthSession.instance.isLoggedIn,
-              onTap: AuthSession.instance.isLoggedIn
-                  ? null
-                  : () => requireLogin(
+            child: Container(
+              constraints: const BoxConstraints(minHeight: 42),
+              alignment: Alignment.centerLeft,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(21)),
+              child: TextField(
+                controller: _textController,
+                minLines: 1,
+                maxLines: 4,
+                // Guests can read the thread; tapping to write asks them to
+                // log in instead of opening the keyboard.
+                readOnly: !loggedIn,
+                onTap: loggedIn
+                    ? null
+                    : () => requireLogin(
                         context,
                         title: 'Sign in to comment',
                         message: 'Log in or create a free account to comment.',
                       ),
-              textInputAction: TextInputAction.send,
-              onSubmitted: (_) => _submit(),
-              style: GoogleFonts.inter(
-                fontSize: 14,
-                color: HomeFeedTokens.textPrimary,
-              ),
-              decoration: InputDecoration(
-                hintText: AuthSession.instance.isLoggedIn
-                    ? 'Add a comment…'
-                    : 'Log in to comment',
-                hintStyle: GoogleFonts.inter(
-                  fontSize: 14,
-                  color: HomeFeedTokens.textSecondary,
+                onChanged: (_) => setState(() {}),
+                textInputAction: TextInputAction.send,
+                onSubmitted: (_) => _submit(),
+                style: style,
+                cursorColor: c.textPrimary,
+                decoration: InputDecoration(
+                  isCollapsed: true,
+                  contentPadding: EdgeInsets.zero,
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  hintText: loggedIn ? 'Add a comment…' : 'Log in to comment',
+                  hintStyle: style.copyWith(color: c.textTertiary),
                 ),
-                filled: true,
-                fillColor: HomeFeedTokens.textPrimary.withValues(alpha: 0.06),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(20),
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               ),
             ),
           ),
           const SizedBox(width: 8),
-          IconButton(
-            onPressed: _sending ? null : _submit,
-            icon: _sending
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.send_rounded),
-            color: HomeFeedTokens.textPrimary,
+          Semantics(
+            button: true,
+            enabled: canSend,
+            label: 'Send',
+            excludeSemantics: true,
+            child: GestureDetector(
+              onTap: canSend ? _submit : null,
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                width: 40,
+                height: 40,
+                margin: const EdgeInsets.only(bottom: 1),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: canSend ? c.buttonFill : c.line,
+                ),
+                child: _sending
+                    ? SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: c.buttonText),
+                      )
+                    : StudioIcon(
+                        StudioIcons.send,
+                        size: 18,
+                        color: canSend ? c.buttonText : StudioColors.galleryWhite,
+                      ),
+              ),
+            ),
           ),
         ],
       ),
@@ -384,12 +387,13 @@ class _CommentTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final canNavigate = comment.authorUsername != null &&
-        comment.authorUsername!.trim().isNotEmpty;
+    final c = context.studio;
+    final canNavigate = comment.authorUsername != null && comment.authorUsername!.trim().isNotEmpty;
     void onTapAuthor() => openUserProfile(context, comment.authorUsername);
     final me = AuthSession.instance.user?.username.toLowerCase();
     // Only real (server-saved) comments by someone else can be reported.
-    final canReport = comment.id.isNotEmpty &&
+    final canReport =
+        comment.id.isNotEmpty &&
         !comment.id.startsWith('local-') &&
         (me == null || comment.authorUsername?.toLowerCase() != me);
 
@@ -400,10 +404,8 @@ class _CommentTile extends StatelessWidget {
         children: [
           GestureDetector(
             onTap: canNavigate ? onTapAuthor : null,
-            behavior: canNavigate
-                ? HitTestBehavior.opaque
-                : HitTestBehavior.deferToChild,
-            child: ProfileAvatar(url: comment.authorAvatarUrl, size: 32),
+            behavior: canNavigate ? HitTestBehavior.opaque : HitTestBehavior.deferToChild,
+            child: StudioAvatar(url: comment.authorAvatarUrl, size: 32),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -412,55 +414,56 @@ class _CommentTile extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    GestureDetector(
-                      onTap: canNavigate ? onTapAuthor : null,
-                      behavior: canNavigate
-                          ? HitTestBehavior.opaque
-                          : HitTestBehavior.deferToChild,
-                      child: Text(
-                        (comment.authorName != null &&
-                                comment.authorName!.isNotEmpty)
-                            ? comment.authorName!
-                            : (comment.authorUsername ?? 'User'),
-                        style: GoogleFonts.inter(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: HomeFeedTokens.textPrimary,
+                    Flexible(
+                      child: GestureDetector(
+                        onTap: canNavigate ? onTapAuthor : null,
+                        behavior: canNavigate
+                            ? HitTestBehavior.opaque
+                            : HitTestBehavior.deferToChild,
+                        child: Text(
+                          (comment.authorName != null && comment.authorName!.isNotEmpty)
+                              ? comment.authorName!
+                              : (comment.authorUsername ?? 'User'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: StudioType.label13(
+                            weight: StudioType.medium,
+                            color: c.textPrimary,
+                          ),
                         ),
                       ),
                     ),
                     const SizedBox(width: 8),
+                    // Times are facts: Geist Mono.
                     Text(
                       _timeAgo(comment.createdAt),
-                      style: GoogleFonts.inter(
-                        fontSize: 11,
-                        color: HomeFeedTokens.textSecondary,
-                      ),
+                      style: StudioType.mono11(color: c.textTertiary),
                     ),
                   ],
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  comment.body,
-                  style: GoogleFonts.inter(
-                    fontSize: 13,
-                    color: HomeFeedTokens.textPrimary,
-                  ),
-                ),
+                Text(comment.body, style: StudioType.body14(height: 1.45, color: c.textPrimary)),
               ],
             ),
           ),
           if (canReport)
-            IconButton(
-              tooltip: 'More',
-              visualDensity: VisualDensity.compact,
-              iconSize: 18,
-              color: HomeFeedTokens.textSecondary,
-              icon: const Icon(Icons.more_horiz_rounded),
-              onPressed: () => showContentActionsSheet(
-                context,
-                target: ReportTarget.comment(comment.id),
-                authorUsername: comment.authorUsername,
+            Semantics(
+              button: true,
+              label: 'More',
+              excludeSemantics: true,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => showContentActionsSheet(
+                  context,
+                  target: ReportTarget.comment(comment.id),
+                  authorUsername: comment.authorUsername,
+                ),
+                child: SizedBox.square(
+                  dimension: 44,
+                  child: Center(
+                    child: StudioIcon(StudioIcons.more, size: 18, color: c.textTertiary),
+                  ),
+                ),
               ),
             ),
         ],

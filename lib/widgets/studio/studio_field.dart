@@ -29,6 +29,7 @@ class StudioUnderlineField extends StatefulWidget {
     this.labelGap = 6,
     this.underlineGap = 8,
     this.labelColor,
+    this.helperColor,
     this.keyboardType,
     this.textInputAction,
     this.inputFormatters,
@@ -70,6 +71,9 @@ class StudioUnderlineField extends StatefulWidget {
   final double labelGap;
   final double underlineGap;
   final Color? labelColor;
+
+  /// Helper line color; tertiary by default (sign-in), Graphite on `BuyAddress`.
+  final Color? helperColor;
   final TextInputType? keyboardType;
   final TextInputAction? textInputAction;
   final List<TextInputFormatter>? inputFormatters;
@@ -156,7 +160,9 @@ class _StudioUnderlineFieldState extends State<StudioUnderlineField> {
           ],
         ),
         SizedBox(height: widget.labelGap),
-        DecoratedBox(
+        // Container (not DecoratedBox) so the underline takes its own height, as the
+        // board's CSS border does: 8 + 1, or 7.5 + 1.5 when focused.
+        Container(
           decoration: BoxDecoration(
             border: Border(
               bottom: BorderSide(
@@ -195,6 +201,9 @@ class _StudioUnderlineFieldState extends State<StudioUnderlineField> {
                     cursorWidth: 1.5,
                     decoration: InputDecoration(
                       isCollapsed: true,
+                      // The theme's input padding (6 / 8) would add 14 under the value;
+                      // the board's value sits directly on the underline gap.
+                      contentPadding: EdgeInsets.zero,
                       border: InputBorder.none,
                       enabledBorder: InputBorder.none,
                       focusedBorder: InputBorder.none,
@@ -214,12 +223,17 @@ class _StudioUnderlineFieldState extends State<StudioUnderlineField> {
             ),
           ),
         ),
+        // Helper and error sit under the underline at the field's own gap (`BuyAddress` 6,
+        // sign-in 8), as the boards' flex columns do.
         if (hasError) ...[
-          const SizedBox(height: 8),
+          SizedBox(height: widget.labelGap),
           Text(widget.errorText!, style: StudioType.caption12(height: 1.45, color: c.textPrimary)),
         ] else if (widget.helper != null) ...[
-          const SizedBox(height: 8),
-          Text(widget.helper!, style: StudioType.caption12(height: 1.45, color: c.textTertiary)),
+          SizedBox(height: widget.labelGap),
+          Text(
+            widget.helper!,
+            style: StudioType.caption12(height: 1.45, color: widget.helperColor ?? c.textTertiary),
+          ),
         ],
       ],
     );

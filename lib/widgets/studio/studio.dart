@@ -9,6 +9,7 @@ export 'studio_action_row.dart';
 export 'studio_avatar.dart';
 export 'studio_bottom_bar.dart';
 export 'studio_button.dart';
+export 'studio_checkbox.dart';
 export 'studio_chip.dart';
 export 'studio_empty_state.dart';
 export 'studio_field.dart';

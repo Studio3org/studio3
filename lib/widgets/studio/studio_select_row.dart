@@ -21,6 +21,8 @@ class StudioSelectRow extends StatelessWidget {
     this.titleLetterSpacing = -0.3,
     this.verticalPadding = 22,
     this.ruleInset = 18,
+    this.subtitleSize = 14,
+    this.subtitleGap = 6,
   });
 
   final String title;
@@ -39,6 +41,10 @@ class StudioSelectRow extends StatelessWidget {
 
   /// Gap above and below the selection line: 18 on 22-padded rows, 14–16 on 16-padded.
   final double ruleInset;
+
+  /// 14, 6 under the title on sign-in; 13, 3 under on checkout (`BuyShipping`).
+  final double subtitleSize;
+  final double subtitleGap;
 
   @override
   Widget build(BuildContext context) {
@@ -84,10 +90,11 @@ class StudioSelectRow extends StatelessWidget {
                             child: Text(title),
                           ),
                           if (subtitle != null) ...[
-                            const SizedBox(height: 6),
+                            SizedBox(height: subtitleGap),
                             AnimatedDefaultTextStyle(
                               duration: StudioMotion.quick,
-                              style: StudioType.body14(
+                              style: StudioType.sans(
+                                subtitleSize,
                                 color: selected ? c.textSecondary : c.textPlaceholder,
                               ),
                               child: Text(subtitle!),

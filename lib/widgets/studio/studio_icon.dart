@@ -31,6 +31,7 @@ abstract final class StudioIcons {
   /// boards' icon style (24 grid, 1.8 stroke, round caps). Liked is filled Ink, not red.
   static const String like = '$_dir/like.svg';
   static const String liked = '$_dir/liked.svg';
+  static const String link = '$_dir/link.svg';
   static const String explore = '$_dir/explore.svg';
   static const String home = '$_dir/home.svg';
   static const String info = '$_dir/info.svg';
