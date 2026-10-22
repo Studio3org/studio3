@@ -34,6 +34,7 @@ class StudioButton extends StatelessWidget {
     this.expand = true,
     this.loading = false,
     this.semanticLabel,
+    this.filled = false,
   });
 
   final String label;
@@ -52,6 +53,10 @@ class StudioButton extends StatelessWidget {
   final bool expand;
   final bool loading;
   final String? semanticLabel;
+
+  /// Small only: Ink fill, no border. The app's follow convention is a filled Follow and a
+  /// light Unfollow on every surface, so the small Follow fills until you follow.
+  final bool filled;
 
   @override
   Widget build(BuildContext context) {
@@ -94,9 +99,15 @@ class StudioButton extends StatelessWidget {
         h = StudioSize.buttonSmall;
         radius = StudioRadius.small;
         size = 13;
-        fill = Colors.transparent;
-        fg = enabled ? c.textPrimary : c.textTertiary;
-        border = c.lineStrong;
+        if (filled) {
+          final on = enabled || loading;
+          fill = on ? c.buttonFill : c.buttonDisabledFill;
+          fg = on ? c.buttonText : c.buttonDisabledText;
+        } else {
+          fill = Colors.transparent;
+          fg = enabled ? c.textPrimary : c.textTertiary;
+          border = c.lineStrong;
+        }
         padding = const EdgeInsets.symmetric(horizontal: 16);
         hug = true;
     }

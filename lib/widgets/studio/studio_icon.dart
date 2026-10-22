@@ -25,6 +25,11 @@ abstract final class StudioIcons {
   static const String filter = '$_dir/filter_feed.svg';
   static const String inbox = '$_dir/inbox_unread_items.svg';
   static const String layers = '$_dir/layers.svg';
+
+  /// Not on any board: the piece page keeps its like action (plan rule 4), drawn in the
+  /// boards' icon style (24 grid, 1.8 stroke, round caps). Liked is filled Ink, not red.
+  static const String like = '$_dir/like.svg';
+  static const String liked = '$_dir/liked.svg';
   static const String explore = '$_dir/explore.svg';
   static const String home = '$_dir/home.svg';
   static const String info = '$_dir/info.svg';

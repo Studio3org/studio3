@@ -75,7 +75,8 @@ Color _nearestMaterialColor(WidgetTester tester, String label) {
 }
 
 BoxDecoration _buttonDecoration(WidgetTester tester, String label) {
-  return tester.widget<Container>(find.widgetWithText(Container, label)).decoration! as BoxDecoration;
+  return tester.widget<Container>(find.widgetWithText(Container, label)).decoration!
+      as BoxDecoration;
 }
 
 void main() {
@@ -88,7 +89,9 @@ void main() {
     expect(FollowState.pending.filled, isFalse);
   });
 
-  testWidgets('Follow buttons on the piece, profile, explore, and reels toggle together', (tester) async {
+  testWidgets('Follow buttons on the piece, profile, explore, and reels toggle together', (
+    tester,
+  ) async {
     final artist = _artist();
     final scene = FeedItem.post(
       const PostSummary(
@@ -106,16 +109,10 @@ void main() {
         alignment: Alignment.topCenter,
         child: FollowButton(state: state, onPressed: toggle),
       ),
-      'piece detail': (state, toggle) => PieceArtistRow(
-        item: artist,
-        followState: state,
-        onFollowToggle: toggle,
-      ),
-      'collect detail': (state, toggle) => CollectArtistRow(
-        item: artist,
-        followState: state,
-        onFollowToggle: toggle,
-      ),
+      'piece detail': (state, toggle) =>
+          PieceArtistRow(item: artist, followState: state, onFollowToggle: toggle),
+      'collect detail': (state, toggle) =>
+          CollectArtistRow(item: artist, followState: state, onFollowToggle: toggle),
       'profile': (state, toggle) => ProfileHeader(
         name: 'Amara Osei',
         handle: '@amara',
@@ -127,11 +124,8 @@ void main() {
         followState: state,
         onFollow: toggle,
       ),
-      'explore artist': (state, toggle) => ExploreArtistTile(
-        name: 'Amara Osei',
-        followLabel: state.actionLabel,
-        onFollow: toggle,
-      ),
+      'explore artist': (state, toggle) =>
+          ExploreArtistTile(name: 'Amara Osei', followLabel: state.actionLabel, onFollow: toggle),
       'reel caption': (state, toggle) => ReelDescriptionSheet(
         item: scene,
         followState: state,
@@ -156,7 +150,8 @@ void main() {
           : _nearestMaterialColor(tester, 'Follow');
       expect(
         followDark,
-        entry.key == 'profile' || entry.key == 'explore artist'
+        // Rebuilt surfaces read the new theme; the rest still use the old tokens.
+        entry.key == 'profile' || entry.key == 'explore artist' || entry.key == 'collect detail'
             ? StudioColors.light.buttonFill
             : HomeFeedTokens.textPrimary,
         reason: entry.key,

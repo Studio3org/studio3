@@ -8,12 +8,7 @@ enum FeedAspectRatio { portrait3x4, landscape16x9 }
 enum FeedAvailabilityFilter { all, available }
 
 class RelatedScene {
-  const RelatedScene({
-    this.id,
-    this.mediaUrl,
-    this.mediaType,
-    this.duration,
-  });
+  const RelatedScene({this.id, this.mediaUrl, this.mediaType, this.duration});
 
   final String? id;
   final String? mediaUrl;
@@ -26,26 +21,22 @@ class RelatedScene {
   }
 
   factory RelatedScene.fromPost(PostSummary post) {
-    return RelatedScene(
-      id: post.id,
-      mediaUrl: post.mediaUrl,
-      mediaType: post.mediaType,
-    );
+    return RelatedScene(id: post.id, mediaUrl: post.mediaUrl, mediaType: post.mediaType);
   }
 
   factory RelatedScene.fromJson(Map<String, dynamic> json) => RelatedScene(
-        id: json['id'] as String?,
-        mediaUrl: json['mediaUrl'] as String?,
-        mediaType: json['mediaType'] as String?,
-        duration: json['duration'] as String?,
-      );
+    id: json['id'] as String?,
+    mediaUrl: json['mediaUrl'] as String?,
+    mediaType: json['mediaType'] as String?,
+    duration: json['duration'] as String?,
+  );
 
   Map<String, dynamic> toJson() => {
-        if (id != null) 'id': id,
-        if (mediaUrl != null) 'mediaUrl': mediaUrl,
-        if (mediaType != null) 'mediaType': mediaType,
-        if (duration != null) 'duration': duration,
-      };
+    if (id != null) 'id': id,
+    if (mediaUrl != null) 'mediaUrl': mediaUrl,
+    if (mediaType != null) 'mediaType': mediaType,
+    if (duration != null) 'duration': duration,
+  };
 }
 
 /// Real API-backed Piece/Scene view model shared by the feed, detail, and
@@ -82,6 +73,9 @@ class FeedPreviewItem {
     this.authorIsFollowing = false,
     this.status,
     this.materials = const [],
+    this.handlingNotes,
+    this.styleTags = const [],
+    this.seriesPieceCount,
   });
 
   final String id;
@@ -115,6 +109,15 @@ class FeedPreviewItem {
   final String? status;
   final List<String> materials;
 
+  /// Piece page "Details" → Handling (`BuyPieceFull`).
+  final String? handlingNotes;
+
+  /// Piece page meta line after the medium ("Oil · Figurative · Portrait").
+  final List<String> styleTags;
+
+  /// Pieces in this piece's series ("6 pieces" on the series card); null when unknown.
+  final int? seriesPieceCount;
+
   bool get isLive => status == null || status == 'live';
 
   int get imageCount => imageSeeds.length;
@@ -124,15 +127,13 @@ class FeedPreviewItem {
 
   /// Real poster name when available, otherwise a neutral placeholder —
   /// never a fabricated name.
-  String get displayName =>
-      (authorName != null && authorName!.isNotEmpty) ? authorName! : 'Artist';
+  String get displayName => (authorName != null && authorName!.isNotEmpty) ? authorName! : 'Artist';
 
   /// Real poster avatar URL, or null — callers should show an initials
   /// placeholder rather than falling back to a fake photo.
   String? get displayAvatarUrl => authorAvatarUrl;
 
-  double get aspectRatioValue =>
-      aspectRatio == FeedAspectRatio.portrait3x4 ? 3 / 4 : 16 / 9;
+  double get aspectRatioValue => aspectRatio == FeedAspectRatio.portrait3x4 ? 3 / 4 : 16 / 9;
 
   String? get priceDisplay {
     if (priceCents == null) return null;
@@ -174,6 +175,9 @@ class FeedPreviewItem {
     bool? authorIsFollowing,
     String? status,
     List<String>? materials,
+    String? handlingNotes,
+    List<String>? styleTags,
+    int? seriesPieceCount,
   }) {
     return FeedPreviewItem(
       id: id ?? this.id,
@@ -206,6 +210,9 @@ class FeedPreviewItem {
       authorIsFollowing: authorIsFollowing ?? this.authorIsFollowing,
       status: status ?? this.status,
       materials: materials ?? this.materials,
+      handlingNotes: handlingNotes ?? this.handlingNotes,
+      styleTags: styleTags ?? this.styleTags,
+      seriesPieceCount: seriesPieceCount ?? this.seriesPieceCount,
     );
   }
 
@@ -213,11 +220,11 @@ class FeedPreviewItem {
   factory FeedPreviewItem.fromPieceSummary(PieceSummary piece) {
     final username = piece.authorUsername ?? 'artist';
     final series = piece.series;
-    final seriesThumbs = series?.previewPieces
-            .map((preview) => preview.id.hashCode.abs())
-            .toList(growable: false) ??
+    final seriesThumbs =
+        series?.previewPieces.map((preview) => preview.id.hashCode.abs()).toList(growable: false) ??
         const <int>[];
-    final seriesThumbUrls = series?.previewPieces
+    final seriesThumbUrls =
+        series?.previewPieces
             .map((preview) => preview.mediaUrl)
             .whereType<String>()
             .where((url) => url.isNotEmpty)
@@ -252,6 +259,9 @@ class FeedPreviewItem {
       authorIsFollowing: piece.authorIsFollowing,
       status: piece.status,
       materials: piece.materials,
+      handlingNotes: piece.handlingNotes,
+      styleTags: piece.styleTags,
+      seriesPieceCount: (series?.pieceIds.isNotEmpty ?? false) ? series!.pieceIds.length : null,
     );
   }
 
@@ -274,9 +284,7 @@ class FeedPreviewItem {
       story: post.caption ?? '',
       handle: username.startsWith('@') ? username : '@$username',
       isAvailable: false,
-      aspectRatio: isVideo
-          ? FeedAspectRatio.landscape16x9
-          : FeedAspectRatio.portrait3x4,
+      aspectRatio: isVideo ? FeedAspectRatio.landscape16x9 : FeedAspectRatio.portrait3x4,
       heroImageUrl: post.mediaUrl,
       location: post.location,
       isProcess: post.isProcess,
@@ -295,37 +303,40 @@ class FeedPreviewItem {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'imageSeeds': imageSeeds,
-        'title': title,
-        'medium': medium,
-        'year': year,
-        'dimensions': dimensions,
-        'story': story,
-        'handle': handle,
-        'isAvailable': isAvailable,
-        'aspectRatio': aspectRatio.name,
-        'isProcess': isProcess,
-        'seriesName': seriesName,
-        'seriesThumbs': seriesThumbs,
-        'seriesThumbUrls': seriesThumbUrls,
-        'relatedScenes': relatedScenes.map((s) => s.toJson()).toList(),
-        if (priceCents != null) 'priceCents': priceCents,
-        if (shippingRegion != null) 'shippingRegion': shippingRegion,
-        if (location != null) 'location': location,
-        if (framingNote != null) 'framingNote': framingNote,
-        if (provenanceNote != null) 'provenanceNote': provenanceNote,
-        if (heroImageUrl != null) 'heroImageUrl': heroImageUrl,
-        'isLiked': isLiked,
-        'isSaved': isSaved,
-        'likeCount': likeCount,
-        'commentCount': commentCount,
-        if (authorName != null) 'authorName': authorName,
-        if (authorAvatarUrl != null) 'authorAvatarUrl': authorAvatarUrl,
-        'authorIsFollowing': authorIsFollowing,
-        if (status != null) 'status': status,
-        'materials': materials,
-      };
+    'id': id,
+    'imageSeeds': imageSeeds,
+    'title': title,
+    'medium': medium,
+    'year': year,
+    'dimensions': dimensions,
+    'story': story,
+    'handle': handle,
+    'isAvailable': isAvailable,
+    'aspectRatio': aspectRatio.name,
+    'isProcess': isProcess,
+    'seriesName': seriesName,
+    'seriesThumbs': seriesThumbs,
+    'seriesThumbUrls': seriesThumbUrls,
+    'relatedScenes': relatedScenes.map((s) => s.toJson()).toList(),
+    if (priceCents != null) 'priceCents': priceCents,
+    if (shippingRegion != null) 'shippingRegion': shippingRegion,
+    if (location != null) 'location': location,
+    if (framingNote != null) 'framingNote': framingNote,
+    if (provenanceNote != null) 'provenanceNote': provenanceNote,
+    if (heroImageUrl != null) 'heroImageUrl': heroImageUrl,
+    'isLiked': isLiked,
+    'isSaved': isSaved,
+    'likeCount': likeCount,
+    'commentCount': commentCount,
+    if (authorName != null) 'authorName': authorName,
+    if (authorAvatarUrl != null) 'authorAvatarUrl': authorAvatarUrl,
+    'authorIsFollowing': authorIsFollowing,
+    if (status != null) 'status': status,
+    'materials': materials,
+    if (handlingNotes != null) 'handlingNotes': handlingNotes,
+    'styleTags': styleTags,
+    if (seriesPieceCount != null) 'seriesPieceCount': seriesPieceCount,
+  };
 
   factory FeedPreviewItem.fromCacheJson(Map<String, dynamic> json) {
     return FeedPreviewItem(
@@ -344,9 +355,9 @@ class FeedPreviewItem {
       isProcess: json['isProcess'] as bool? ?? false,
       seriesName: json['seriesName'] as String? ?? '',
       seriesThumbs: (json['seriesThumbs'] as List?)?.cast<int>() ?? const [],
-      seriesThumbUrls:
-          (json['seriesThumbUrls'] as List?)?.cast<String>() ?? const [],
-      relatedScenes: (json['relatedScenes'] as List?)
+      seriesThumbUrls: (json['seriesThumbUrls'] as List?)?.cast<String>() ?? const [],
+      relatedScenes:
+          (json['relatedScenes'] as List?)
               ?.whereType<Map<String, dynamic>>()
               .map(RelatedScene.fromJson)
               .toList() ??
@@ -365,9 +376,10 @@ class FeedPreviewItem {
       authorAvatarUrl: json['authorAvatarUrl'] as String?,
       authorIsFollowing: json['authorIsFollowing'] as bool? ?? false,
       status: json['status'] as String?,
-      materials:
-          (json['materials'] as List?)?.whereType<String>().toList() ??
-              const [],
+      materials: (json['materials'] as List?)?.whereType<String>().toList() ?? const [],
+      handlingNotes: json['handlingNotes'] as String?,
+      styleTags: (json['styleTags'] as List?)?.whereType<String>().toList() ?? const [],
+      seriesPieceCount: json['seriesPieceCount'] as int?,
     );
   }
 
@@ -385,15 +397,12 @@ FeedAspectRatio aspectRatioFromDimensions(String? dimensions) {
   if (dimensions == null || dimensions.isEmpty) {
     return FeedAspectRatio.portrait3x4;
   }
-  final match = RegExp(r'(\d+(?:\.\d+)?)\s*[x×]\s*(\d+(?:\.\d+)?)')
-      .firstMatch(dimensions);
+  final match = RegExp(r'(\d+(?:\.\d+)?)\s*[x×]\s*(\d+(?:\.\d+)?)').firstMatch(dimensions);
   if (match == null) return FeedAspectRatio.portrait3x4;
   final w = double.tryParse(match.group(1)!);
   final h = double.tryParse(match.group(2)!);
   if (w == null || h == null || h == 0) return FeedAspectRatio.portrait3x4;
-  return w / h > 1.2
-      ? FeedAspectRatio.landscape16x9
-      : FeedAspectRatio.portrait3x4;
+  return w / h > 1.2 ? FeedAspectRatio.landscape16x9 : FeedAspectRatio.portrait3x4;
 }
 
 /// The real media URL for [item], or an empty string when genuinely
