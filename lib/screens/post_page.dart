@@ -28,8 +28,9 @@ class PostPage extends StatefulWidget {
 class _PostPageState extends State<PostPage> {
   static const _bannerHeight = 64.0;
   static const _bottomControlsOffset = 42.0;
-  /// Pieces: up to 4 angles (`NotePostCover`). Scenes keep 10.
-  int get _maxSelection => _postType == 'piece' ? 4 : 10;
+  /// Pieces: up to 4 angles (`NotePostCover`). A Scene is one photo or one video (it used to
+  /// allow 10 photos and post only the one on screen).
+  int get _maxSelection => _postType == 'piece' ? 4 : 1;
 
   _PostFlowStep _step = _PostFlowStep.gallery;
   String _postType = 'piece';
@@ -37,6 +38,15 @@ class _PostPageState extends State<PostPage> {
   List<String>? _pickedImagePaths;
   String? _pickedVideoPath;
   Uint8List? _pickedVideoThumbnailBytes;
+  Duration? _pickedVideoLength;
+
+  /// Set when opened from "Add a Scene from the studio": a Scene pre-linked to that piece.
+  ScenePostArgs? _linkedPiece;
+  bool _readArgs = false;
+
+  /// The details steps were opened; they stay mounted (off stage) behind the photo steps
+  /// so going back to the photos keeps what was typed.
+  bool _detailsOpened = false;
   final ValueNotifier<bool> _albumMenuOpen = ValueNotifier(false);
   String _selectedAlbumName = 'Recents';
 
@@ -50,6 +60,18 @@ class _PostPageState extends State<PostPage> {
 
   /// Framing per photo path, kept while going back and forth between gallery and cover.
   final Map<String, PostImageTransform> _coverTransforms = {};
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_readArgs) return;
+    _readArgs = true;
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is ScenePostArgs) {
+      _linkedPiece = args;
+      _postType = 'scene';
+    }
+  }
 
   @override
   void dispose() {
@@ -69,6 +91,7 @@ class _PostPageState extends State<PostPage> {
       _pickedVideoThumbnailBytes = null;
       _assetIdByPath.clear();
       _coverTransforms.clear();
+      _detailsOpened = false;
     });
   }
 
@@ -95,6 +118,7 @@ class _PostPageState extends State<PostPage> {
       setState(() {
         _pickedVideoPath = file.path;
         _pickedVideoThumbnailBytes = thumbnail;
+        _pickedVideoLength = video!.videoDuration;
         _pickedImagePaths = null;
         _step = _PostFlowStep.videoEdit;
       });
@@ -115,9 +139,11 @@ class _PostPageState extends State<PostPage> {
     });
   }
 
-  void _goToDetailsFromVideoEdit(String finalVideoPath) {
+  void _goToDetailsFromVideoEdit(SceneVideoResult result) {
     setState(() {
-      _pickedVideoPath = finalVideoPath;
+      _pickedVideoPath = result.path;
+      _pickedVideoLength = result.length;
+      if (result.cover != null) _pickedVideoThumbnailBytes = result.cover;
       _editImagePaths = [];
       _editTransforms = [];
       _previewImageIndex = 0;
@@ -175,8 +201,10 @@ class _PostPageState extends State<PostPage> {
       case _PostFlowStep.edit when _showsCover:
         // PostCoverPage handles back itself so its order and framing are kept.
         return false;
-      case _PostFlowStep.edit:
       case _PostFlowStep.videoEdit:
+        // PostVideoEditPage steps back through trim and cover itself.
+        return false;
+      case _PostFlowStep.edit:
         _backToGallery();
         return false;
       case _PostFlowStep.details:
@@ -193,12 +221,26 @@ class _PostPageState extends State<PostPage> {
         if (didPop) return;
         _handleBack();
       },
-      child: switch (_step) {
-        _PostFlowStep.gallery => _buildGallery(),
-        _PostFlowStep.edit => _buildEdit(),
-        _PostFlowStep.videoEdit => _buildVideoEdit(),
-        _PostFlowStep.details => _buildDetails(),
-      },
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (_detailsOpened || _step == _PostFlowStep.details)
+            Offstage(
+              offstage: _step != _PostFlowStep.details,
+              child: TickerMode(
+                enabled: _step == _PostFlowStep.details,
+                child: _buildDetails(),
+              ),
+            ),
+          if (_step != _PostFlowStep.details)
+            switch (_step) {
+              _PostFlowStep.gallery => _buildGallery(),
+              _PostFlowStep.edit => _buildEdit(),
+              _PostFlowStep.videoEdit => _buildVideoEdit(),
+              _PostFlowStep.details => const SizedBox.shrink(),
+            },
+        ],
+      ),
     );
   }
 
@@ -298,7 +340,8 @@ class _PostPageState extends State<PostPage> {
       customImagePaths: isPicked ? _pickedImagePaths : null,
       initialImageIndex: _previewImageIndex,
       initialTransforms: _editTransforms.isNotEmpty ? _editTransforms : null,
-      onClose: _exitFlow,
+      // Back to the gallery, as the board's back arrow.
+      onClose: _backToGallery,
       onNext: _goToDetails,
     );
   }
@@ -307,14 +350,18 @@ class _PostPageState extends State<PostPage> {
     return PostVideoEditPage(
       key: ValueKey('video-edit-$_pickedVideoPath'),
       videoPath: _pickedVideoPath!,
-      onClose: _exitFlow,
+      initialCover: _pickedVideoThumbnailBytes,
+      // Back to the gallery, as the board's back arrow.
+      onClose: _backToGallery,
       onNext: _goToDetailsFromVideoEdit,
     );
   }
 
   Widget _buildDetails() {
+    _detailsOpened = true;
     return PostCreatePage(
-      key: const ValueKey('details'),
+      key: ValueKey('details-$_postType'),
+      active: _step == _PostFlowStep.details,
       postType: _postType,
       imagePaths: _editImagePaths,
       transforms: _editTransforms,
@@ -326,6 +373,8 @@ class _PostPageState extends State<PostPage> {
       mediaKind: _pickedVideoPath != null ? 'video' : 'image',
       videoPath: _pickedVideoPath,
       videoThumbnailBytes: _pickedVideoThumbnailBytes,
+      videoLength: _pickedVideoLength,
+      initialLinkedPiece: _postType == 'scene' ? _linkedPiece : null,
     );
   }
 }

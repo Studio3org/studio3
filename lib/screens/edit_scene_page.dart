@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../models/piece_summary.dart';
 import '../models/post_summary.dart';
@@ -7,7 +6,13 @@ import '../services/api_exception.dart';
 import '../services/auth_session.dart';
 import '../services/piece_service.dart';
 import '../services/post_service.dart';
-import '../theme/home_feed_tokens.dart';
+import '../theme/studio_colors.dart';
+import '../theme/studio_type.dart';
+import '../widgets/create_flow/link_piece_sheet.dart';
+import '../widgets/create_flow/post_flow_widgets.dart';
+import '../widgets/studio/studio_field.dart';
+import '../widgets/studio/studio_switch.dart';
+import '../widgets/studio/studio_toast.dart';
 import '../widgets/studio/studio_top_bar.dart';
 import '../widgets/studio_loading.dart';
 
@@ -23,8 +28,9 @@ class EditScenePage extends StatefulWidget {
 class _EditScenePageState extends State<EditScenePage> {
   late final TextEditingController _caption;
   bool _isProcess = false;
-  String? _linkedPieceId;
-  String? _linkedPieceTitle;
+  /// The pieces it shows on, in order, with their titles.
+  late List<String> _linkedIds;
+  final Map<String, String> _titles = {};
   bool _saving = false;
   String? _error;
 
@@ -33,8 +39,11 @@ class _EditScenePageState extends State<EditScenePage> {
     super.initState();
     _caption = TextEditingController(text: widget.post.caption);
     _isProcess = widget.post.isProcess;
-    _linkedPieceId = widget.post.pieceId;
-    _linkedPieceTitle = widget.post.linkedPiece?.title;
+    _linkedIds = widget.post.linkedPieceIds.isNotEmpty
+        ? List.of(widget.post.linkedPieceIds)
+        : [?widget.post.pieceId];
+    final first = widget.post.linkedPiece;
+    if (first != null) _titles[first.id] = first.title;
   }
 
   @override
@@ -50,23 +59,16 @@ class _EditScenePageState extends State<EditScenePage> {
     try {
       pieces = await PieceService.instance.getUserPieces(username);
     } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not load your pieces')),
-      );
+      if (mounted) showStudioToast(context, 'Could not load your pieces', icon: null);
       return;
     }
     if (!mounted) return;
-    final selected = await showModalBottomSheet<PieceSummary?>(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => _PiecePicker(pieces: pieces, selectedId: _linkedPieceId),
-    );
-    if (!mounted) return;
-    setState(() {
-      _linkedPieceId = selected?.id;
-      _linkedPieceTitle = selected?.title;
-    });
+    for (final p in pieces) {
+      _titles[p.id] = p.title;
+    }
+    final picked = await LinkPieceSheet.show(context, pieces: pieces, selectedIds: _linkedIds);
+    if (picked == null || !mounted) return;
+    setState(() => _linkedIds = picked.map((p) => p.id).toList());
   }
 
   Future<void> _save() async {
@@ -77,7 +79,7 @@ class _EditScenePageState extends State<EditScenePage> {
     final body = <String, dynamic>{
       if (_caption.text.trim().isNotEmpty) 'caption': _caption.text.trim(),
       'isProcess': _isProcess,
-      'linkedPieceId': _linkedPieceId,
+      'linkedPieceIds': _linkedIds,
     };
     try {
       await PostService.instance.update(widget.post.id, body);
@@ -92,101 +94,62 @@ class _EditScenePageState extends State<EditScenePage> {
     }
   }
 
+  /// No board: the light Studio form — underline caption, a Studio switch, linked pieces as
+  /// a chevron row, errors in Ink.
   @override
   Widget build(BuildContext context) {
+    final c = context.studio;
+    final linked = _linkedIds.map((id) => _titles[id] ?? 'A piece').join(', ');
     return StudioLoadingGate(
       loading: _saving,
       child: Scaffold(
-        backgroundColor: HomeFeedTokens.background,
-        appBar: StudioTopBar(context: context, 
-          title: 'Edit scene',
-          actions: [
-            StudioSaveAction(onPressed: _saving ? null : _save),
-          ],
+        backgroundColor: c.background,
+        appBar: StudioTopBar(
+          context: context,
+          title: 'Edit Scene',
+          actions: [StudioSaveAction(onPressed: _saving ? null : _save)],
         ),
         body: ListView(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
           children: [
-            Text(
-              'Caption',
-              style: GoogleFonts.inter(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: HomeFeedTokens.textPrimary.withValues(alpha: 0.6),
-              ),
-            ),
-            const SizedBox(height: 6),
-            TextField(
+            StudioUnderlineField(
+              label: 'Caption',
               controller: _caption,
-              maxLines: 4,
-              decoration: InputDecoration(
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              hint: 'Every piece has a behind-the-scenes. This is yours…',
+              maxLines: 5,
+              minLines: 1,
+            ),
+            const SizedBox(height: 14),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Work in progress',
+                      style: StudioType.sans(16, color: c.textPrimary),
+                    ),
+                  ),
+                  StudioSwitch(
+                    value: _isProcess,
+                    semanticLabel: 'Work in progress',
+                    onChanged: (v) => setState(() => _isProcess = v),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 16),
-            SwitchListTile.adaptive(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Process / work-in-progress scene'),
-              value: _isProcess,
-              onChanged: (v) => setState(() => _isProcess = v),
-            ),
-            const SizedBox(height: 8),
-            OutlinedButton(
-              onPressed: _pickLinkedPiece,
-              child: Text(_linkedPieceTitle ?? 'Link to a piece (optional)'),
+            PostChevronRow(
+              label: 'Linked pieces',
+              value: _linkedIds.isEmpty ? null : linked,
+              placeholder: 'Optional',
+              onTap: _pickLinkedPiece,
             ),
             if (_error != null) ...[
-              const SizedBox(height: 12),
-              Text(
-                _error!,
-                style: GoogleFonts.inter(fontSize: 12, color: Colors.red.shade700),
-              ),
+              const SizedBox(height: 16),
+              Text(_error!, style: StudioType.body14(color: c.textPrimary)),
             ],
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _PiecePicker extends StatelessWidget {
-  const _PiecePicker({required this.pieces, this.selectedId});
-
-  final List<PieceSummary> pieces;
-  final String? selectedId;
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text(
-              'Link to piece',
-              style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600),
-            ),
-          ),
-          ListTile(
-            leading: Icon(
-              selectedId == null ? Icons.radio_button_checked : Icons.radio_button_off,
-            ),
-            title: const Text('None'),
-            onTap: () => Navigator.pop(context),
-          ),
-          for (final piece in pieces)
-            ListTile(
-              leading: Icon(
-                selectedId == piece.id
-                    ? Icons.radio_button_checked
-                    : Icons.radio_button_off,
-              ),
-              title: Text(piece.title),
-              onTap: () => Navigator.pop(context, piece),
-            ),
-          const SizedBox(height: 16),
-        ],
       ),
     );
   }

@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../models/piece_summary.dart';
 import '../services/api_exception.dart';
 import '../services/piece_service.dart';
-import '../theme/app_theme.dart';
-import '../theme/home_feed_tokens.dart';
+import '../theme/studio_colors.dart';
+import '../theme/studio_type.dart';
 import '../widgets/studio/studio_top_bar.dart';
 import '../widgets/choose_location_sheet.dart';
+import '../widgets/create_flow/post_flow_widgets.dart';
+import '../widgets/studio/studio_chip.dart';
+import '../widgets/studio/studio_field.dart';
+import '../widgets/studio/studio_switch.dart';
 import '../widgets/studio_loading.dart';
 
 class EditPiecePage extends StatefulWidget {
@@ -88,10 +91,8 @@ class _EditPiecePageState extends State<EditPiecePage> {
   void _openShippingRegionPicker() {
     ChooseLocationSheet.show(
       context,
-      onLocationSelected: (loc) {
-        setState(() => _shippingRegion = loc.name);
-        Navigator.pop(context);
-      },
+      // The sheet closes itself after Done.
+      onLocationSelected: (loc) => setState(() => _shippingRegion = loc.name),
     );
   }
 
@@ -147,131 +148,148 @@ class _EditPiecePageState extends State<EditPiecePage> {
     }
   }
 
+  static String _statusLabel(String status) => switch (status) {
+    'draft' => 'Draft',
+    'live' => 'Live',
+    'delisted' => 'Hidden',
+    _ => status,
+  };
+
+  /// No board: a light Studio form — underline fields, Studio switches, the shipping city as
+  /// a chevron row, status as chips, errors in Ink (never red).
   @override
   Widget build(BuildContext context) {
+    final c = context.studio;
+    Widget gap() => const SizedBox(height: 22);
+    Widget toggle(String label, bool value, ValueChanged<bool> onChanged) => Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Expanded(child: Text(label, style: StudioType.sans(16, color: c.textPrimary))),
+          StudioSwitch(value: value, onChanged: onChanged, semanticLabel: label),
+        ],
+      ),
+    );
     return StudioLoadingGate(
       loading: _saving,
       child: Scaffold(
-        backgroundColor: HomeFeedTokens.background,
-        appBar: StudioTopBar(context: context, 
+        backgroundColor: c.background,
+        appBar: StudioTopBar(
+          context: context,
           title: 'Edit piece',
-          actions: [
-            StudioSaveAction(onPressed: _saving ? null : _save),
-          ],
+          actions: [StudioSaveAction(onPressed: _saving ? null : _save)],
         ),
         body: ListView(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
           children: [
-            _Field(label: 'Title', controller: _title),
-            const SizedBox(height: 16),
-            _Field(label: 'Caption', controller: _caption, maxLines: 3),
-            const SizedBox(height: 16),
-            _Field(label: 'Medium', controller: _medium),
-            const SizedBox(height: 16),
-            _Field(label: 'Dimensions', controller: _dimensions),
-            const SizedBox(height: 16),
-            _Field(label: 'Year created', controller: _yearCreated),
-            const SizedBox(height: 16),
-            _Field(label: 'Framing / mounting', controller: _framingMounting),
-            const SizedBox(height: 16),
-            _Field(label: 'Provenance', controller: _provenance, maxLines: 3),
-            const SizedBox(height: 16),
-            _Field(label: 'Handling notes', controller: _handlingNotes, maxLines: 3),
-            const SizedBox(height: 16),
-            _Field(label: 'Materials (comma separated)', controller: _materials),
-            const SizedBox(height: 16),
-            _Field(label: 'Style tags (comma separated)', controller: _styleTags),
-            const SizedBox(height: 16),
-            _Field(label: 'Alt text', controller: _altText, maxLines: 2),
-            const SizedBox(height: 16),
-            SwitchListTile.adaptive(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('AI tools used'),
-              value: _aiDisclosed,
-              onChanged: (v) => setState(() => _aiDisclosed = v),
+            StudioUnderlineField(label: 'Title', controller: _title),
+            gap(),
+            StudioUnderlineField(
+              label: 'Description',
+              controller: _caption,
+              maxLines: 5,
+              minLines: 1,
             ),
-            SwitchListTile.adaptive(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('List for sale'),
-              value: _isForSale,
-              onChanged: (v) => setState(() => _isForSale = v),
+            gap(),
+            StudioUnderlineField(label: 'Medium', controller: _medium),
+            gap(),
+            StudioUnderlineField(
+              label: 'Dimensions',
+              controller: _dimensions,
+              mono: true,
+              valueSize: 18,
+              hint: '24x36x1.5 in',
             ),
+            gap(),
+            StudioUnderlineField(
+              label: 'Year created',
+              controller: _yearCreated,
+              mono: true,
+              valueSize: 18,
+              keyboardType: TextInputType.number,
+            ),
+            gap(),
+            StudioUnderlineField(label: 'Framing', controller: _framingMounting),
+            gap(),
+            StudioUnderlineField(
+              label: 'Provenance',
+              controller: _provenance,
+              maxLines: 4,
+              minLines: 1,
+            ),
+            gap(),
+            StudioUnderlineField(
+              label: 'Handling notes',
+              controller: _handlingNotes,
+              maxLines: 4,
+              minLines: 1,
+            ),
+            gap(),
+            StudioUnderlineField(
+              label: 'Materials and tools',
+              controller: _materials,
+              helper: 'Separate them with commas.',
+            ),
+            gap(),
+            StudioUnderlineField(
+              label: 'Style',
+              controller: _styleTags,
+              helper: 'Separate them with commas.',
+            ),
+            gap(),
+            StudioUnderlineField(
+              label: 'Alt text',
+              controller: _altText,
+              maxLines: 3,
+              minLines: 1,
+              helper: 'Describes the image for people using a screen reader.',
+            ),
+            const SizedBox(height: 14),
+            toggle('Made with AI tools', _aiDisclosed, (v) => setState(() => _aiDisclosed = v)),
+            toggle('List for sale', _isForSale, (v) => setState(() => _isForSale = v)),
             if (_isForSale) ...[
+              const SizedBox(height: 14),
+              StudioUnderlineField(
+                label: 'Price',
+                controller: _priceUsd,
+                valueSize: 18,
+                hint: r'$0',
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
               const SizedBox(height: 8),
-              _Field(label: 'Price (USD)', controller: _priceUsd),
-              const SizedBox(height: 16),
-              OutlinedButton(
-                onPressed: _openShippingRegionPicker,
-                child: Text(_shippingRegion ?? 'Set shipping region'),
+              PostChevronRow(
+                label: 'Ships from',
+                value: _shippingRegion,
+                onTap: _openShippingRegionPicker,
               ),
             ],
-            const SizedBox(height: 16),
+            gap(),
             if (_statusIsEditable) ...[
-              Text(
-                'Status',
-                style: GoogleFonts.inter(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: HomeFeedTokens.textPrimary.withValues(alpha: 0.6),
-                ),
-              ),
-              const SizedBox(height: 6),
-              DropdownButtonFormField<String>(
-                initialValue: _status,
-                items: [
-                  for (final s in _editableStatuses)
-                    DropdownMenuItem(value: s, child: Text(s)),
+              Text('Status', style: StudioType.label13(color: c.textSecondary)),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: [
+                  for (final status in _editableStatuses)
+                    StudioChip(
+                      label: _statusLabel(status),
+                      selected: _status == status,
+                      onTap: () => setState(() => _status = status),
+                    ),
                 ],
-                onChanged: (v) => setState(() => _status = v ?? _status),
               ),
             ] else
               Text(
-                'Status: ${widget.piece.status} (managed automatically by checkout)',
-                style: GoogleFonts.inter(fontSize: 13, color: AppColors.slate500),
+                'Status: ${_statusLabel(widget.piece.status ?? '')}. Checkout changes it.',
+                style: StudioType.label13(color: c.textSecondary),
               ),
             if (_error != null) ...[
-              const SizedBox(height: 12),
-              Text(
-                _error!,
-                style: GoogleFonts.inter(fontSize: 12, color: Colors.red.shade700),
-              ),
+              const SizedBox(height: 16),
+              Text(_error!, style: StudioType.body14(color: c.textPrimary)),
             ],
           ],
         ),
       ),
-    );
-  }
-}
-
-class _Field extends StatelessWidget {
-  const _Field({required this.label, required this.controller, this.maxLines = 1});
-
-  final String label;
-  final TextEditingController controller;
-  final int maxLines;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: GoogleFonts.inter(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: HomeFeedTokens.textPrimary.withValues(alpha: 0.6),
-          ),
-        ),
-        const SizedBox(height: 6),
-        TextField(
-          controller: controller,
-          maxLines: maxLines,
-          decoration: InputDecoration(
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-        ),
-      ],
     );
   }
 }
