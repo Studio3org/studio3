@@ -31,6 +31,7 @@ class StudioUnderlineField extends StatefulWidget {
     this.labelColor,
     this.helperColor,
     this.strongUnderline = false,
+    this.sansHint = false,
     this.keyboardType,
     this.textInputAction,
     this.inputFormatters,
@@ -78,6 +79,9 @@ class StudioUnderlineField extends StatefulWidget {
 
   /// Ink 1.5 underline even when not focused (`PostAvailFixed` price).
   final bool strongUnderline;
+
+  /// A Mono field whose placeholder stays Geist 17 (`PostDetailsProgress` "Add weight").
+  final bool sansHint;
   final TextInputType? keyboardType;
   final TextInputAction? textInputAction;
   final List<TextInputFormatter>? inputFormatters;
@@ -214,7 +218,9 @@ class _StudioUnderlineFieldState extends State<StudioUnderlineField> {
                       disabledBorder: InputBorder.none,
                       counterText: '',
                       hintText: widget.hint,
-                      hintStyle: valueStyle.copyWith(color: c.textPlaceholder),
+                      hintStyle: widget.sansHint
+                          ? StudioType.sans(17, color: c.textPlaceholder)
+                          : valueStyle.copyWith(color: c.textPlaceholder),
                     ),
                   ),
                 ),

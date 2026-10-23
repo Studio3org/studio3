@@ -32,6 +32,10 @@ abstract final class StudioIcons {
   static const String like = '$_dir/like.svg';
   static const String liked = '$_dir/liked.svg';
   static const String link = '$_dir/link.svg';
+  static const String location = '$_dir/location.svg';
+  static const String shareBold = '$_dir/share_bold.svg';
+  static const String unlink = '$_dir/unlink.svg';
+  static const String addBold = '$_dir/add_bold.svg';
   static const String explore = '$_dir/explore.svg';
   static const String home = '$_dir/home.svg';
   static const String info = '$_dir/info.svg';

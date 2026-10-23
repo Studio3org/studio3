@@ -144,3 +144,84 @@ class _SelectionRule extends StatelessWidget {
     );
   }
 }
+
+/// List option row in picker sheets (`PostMedium`, `PostLocation`): 13 vertical padding, title
+/// 16 — the selected one 500 Ink with the left line and a 16 indent, the others 400 Graphite;
+/// an optional 13 subtitle (Graphite when selected, placeholder grey otherwise). Rows are
+/// separated by a 1 px line; pass `divider: false` on the last.
+class StudioListRow extends StatelessWidget {
+  const StudioListRow({
+    super.key,
+    required this.title,
+    required this.selected,
+    required this.onTap,
+    this.subtitle,
+    this.divider = true,
+    this.ruleInset = 14,
+  });
+
+  final String title;
+  final String? subtitle;
+  final bool selected;
+  final VoidCallback? onTap;
+  final bool divider;
+  final double ruleInset;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.studio;
+    return Semantics(
+      checked: selected,
+      button: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          decoration: BoxDecoration(
+            border: divider ? Border(bottom: BorderSide(color: c.line)) : null,
+          ),
+          child: Stack(
+            children: [
+              AnimatedPadding(
+                duration: MediaQuery.disableAnimationsOf(context)
+                    ? Duration.zero
+                    : StudioMotion.quick,
+                curve: Curves.easeOut,
+                padding: EdgeInsets.fromLTRB(selected ? 16 : 0, 13, 0, 13),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: StudioType.sans(
+                        16,
+                        weight: selected ? StudioType.medium : StudioType.regular,
+                        color: selected ? c.textPrimary : c.textBody,
+                      ),
+                    ),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle!,
+                        style: StudioType.label13(
+                          color: selected ? c.textSecondary : c.textPlaceholder,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (selected)
+                Positioned(
+                  left: 0,
+                  top: ruleInset,
+                  bottom: ruleInset,
+                  child: _SelectionRule(color: c.textPrimary),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

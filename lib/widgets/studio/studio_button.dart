@@ -35,6 +35,7 @@ class StudioButton extends StatelessWidget {
     this.loading = false,
     this.semanticLabel,
     this.filled = false,
+    this.icon,
   });
 
   final String label;
@@ -57,6 +58,9 @@ class StudioButton extends StatelessWidget {
   /// Small only: Ink fill, no border. The app's follow convention is a filled Follow and a
   /// light Unfollow on every surface, so the small Follow fills until you follow.
   final bool filled;
+
+  /// A 20 icon 10 before the label (`PostSuccess` "Share your piece").
+  final String? icon;
 
   @override
   Widget build(BuildContext context) {
@@ -124,6 +128,16 @@ class StudioButton extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: StudioType.sans(fontSize ?? size, weight: StudioType.medium, color: fg),
           );
+    final body = icon == null || loading
+        ? content
+        : Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              StudioIcon(icon!, size: 20, color: fg),
+              const SizedBox(width: 10),
+              Flexible(child: content),
+            ],
+          );
 
     final shape = RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(radius),
@@ -151,7 +165,7 @@ class StudioButton extends StatelessWidget {
                 onTap: enabled ? onPressed : null,
                 child: Padding(
                   padding: padding,
-                  child: Center(widthFactor: stretch ? null : 1, child: content),
+                  child: Center(widthFactor: stretch ? null : 1, child: body),
                 ),
               ),
             ),
