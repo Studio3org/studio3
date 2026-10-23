@@ -265,7 +265,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 400));
 
       expect(find.text('How do you want to share it?'), findsNothing);
-      expect(find.text('Give this piece a name'), findsOneWidget);
+      expect(find.text('Tell us about it'), findsOneWidget);
       expect(find.text('List for sale'), findsNothing); // decided on step 1 now
 
       await tester.binding.handlePopRoute();
