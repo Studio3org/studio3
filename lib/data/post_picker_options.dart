@@ -12,18 +12,22 @@ class PostPickerOption {
 abstract final class PostMediumOptions {
   PostMediumOptions._();
 
+  /// Board order (`PostMedium`), then the rest.
   static const all = <PostPickerOption>[
-    PostPickerOption(id: 'acrylic', name: 'Acrylic'),
-    PostPickerOption(id: 'encaustic', name: 'Encaustic'),
-    PostPickerOption(id: 'fresco', name: 'Fresco'),
-    PostPickerOption(id: 'gouache', name: 'Gouache'),
     PostPickerOption(id: 'oil', name: 'Oil'),
-    PostPickerOption(id: 'tempera', name: 'Tempera'),
+    PostPickerOption(id: 'acrylic', name: 'Acrylic'),
     PostPickerOption(id: 'watercolor', name: 'Watercolor'),
+    PostPickerOption(id: 'gouache', name: 'Gouache'),
+    PostPickerOption(id: 'mixed_media', name: 'Mixed media'),
+    PostPickerOption(id: 'encaustic', name: 'Encaustic'),
+    PostPickerOption(id: 'photography', name: 'Photography'),
+    PostPickerOption(id: 'printmaking', name: 'Printmaking'),
+    PostPickerOption(id: 'sculpture', name: 'Sculpture'),
+    PostPickerOption(id: 'tempera', name: 'Tempera'),
+    PostPickerOption(id: 'fresco', name: 'Fresco'),
     PostPickerOption(id: 'ink', name: 'Ink'),
     PostPickerOption(id: 'charcoal', name: 'Charcoal'),
     PostPickerOption(id: 'pastel', name: 'Pastel'),
-    PostPickerOption(id: 'mixed_media', name: 'Mixed media'),
     PostPickerOption(id: 'digital', name: 'Digital'),
   ];
 

@@ -10,6 +10,7 @@ class PostSummary {
     this.mediaAspectRatio,
     this.thumbnailUrl,
     this.pieceId,
+    this.linkedPieceIds = const [],
     this.isProcess = false,
     this.likeCount = 0,
     this.commentCount = 0,
@@ -31,6 +32,9 @@ class PostSummary {
   final String? mediaAspectRatio;
   final String? thumbnailUrl;
   final String? pieceId;
+
+  /// Every piece the Scene shows on (the first is [pieceId]).
+  final List<String> linkedPieceIds;
   final bool isProcess;
   final int likeCount;
   final int commentCount;
@@ -56,6 +60,10 @@ class PostSummary {
       mediaAspectRatio: json['mediaAspectRatio'] as String?,
       thumbnailUrl: json['thumbnailUrl'] as String?,
       pieceId: json['linkedPieceId'] as String? ?? json['pieceId'] as String?,
+      linkedPieceIds: [
+        for (final id in (json['linkedPieceIds'] as List?) ?? const [])
+          if (id is String) id,
+      ],
       isProcess: json['isProcess'] as bool? ?? false,
       likeCount: _intFrom(json['likeCount'] ?? json['likes']) ?? 0,
       commentCount: _intFrom(json['commentCount'] ?? json['comments']) ?? 0,
@@ -100,6 +108,7 @@ class PostSummary {
     if (mediaAspectRatio != null) 'mediaAspectRatio': mediaAspectRatio,
     if (thumbnailUrl != null) 'thumbnailUrl': thumbnailUrl,
     if (pieceId != null) 'linkedPieceId': pieceId,
+    if (linkedPieceIds.isNotEmpty) 'linkedPieceIds': linkedPieceIds,
     'isProcess': isProcess,
     'likeCount': likeCount,
     'commentCount': commentCount,
