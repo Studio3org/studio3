@@ -136,8 +136,17 @@ class _PostGalleryPickerState extends State<PostGalleryPicker> {
           _selected.add(asset);
         });
       } else {
-        if (_selected.length >= widget.maxSelection) return;
-        setState(() => _selected.add(asset));
+        if (widget.maxSelection == 1) {
+          // Single pick: tapping another photo swaps it in.
+          setState(() {
+            _selected
+              ..clear()
+              ..add(asset);
+          });
+        } else {
+          if (_selected.length >= widget.maxSelection) return;
+          setState(() => _selected.add(asset));
+        }
       }
     }
     widget.onSelectionChanged(List.unmodifiable(_selected));

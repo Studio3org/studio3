@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/series_summary.dart';
 import '../../services/series_service.dart';
+import '../../theme/studio_colors.dart';
+import '../../theme/studio_type.dart';
+import '../studio/studio_icon.dart';
+import '../studio/studio_select_row.dart';
+import '../studio/studio_sheet.dart';
 import 'create_series_dialog.dart';
 
 class SeriesPickerResult {
@@ -23,27 +27,31 @@ class SeriesPickerResult {
   static const cleared = SeriesPickerResult();
 }
 
-/// Single-select series picker for the create-piece flow.
+/// Single-select series picker for the create-piece flow. No board: a board sheet with
+/// the picker rows of `PostMedium` (title 16, piece count under it, left-line selection),
+/// None first, a pending new series when there is one, and "New series" as an action row.
 class SeriesPickerSheet extends StatefulWidget {
   const SeriesPickerSheet({
     super.key,
     this.selectedSeriesId,
     this.newSeriesName,
+    this.debugSeries,
   });
 
   final String? selectedSeriesId;
   final String? newSeriesName;
+
+  /// Series to show instead of loading them, for tests.
+  @visibleForTesting
+  final List<SeriesSummary>? debugSeries;
 
   static Future<SeriesPickerResult?> show(
     BuildContext context, {
     String? selectedSeriesId,
     String? newSeriesName,
   }) {
-    return showModalBottomSheet<SeriesPickerResult>(
+    return showStudioSheet<SeriesPickerResult>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withValues(alpha: 0.5),
       builder: (context) => SeriesPickerSheet(
         selectedSeriesId: selectedSeriesId,
         newSeriesName: newSeriesName,
@@ -56,28 +64,26 @@ class SeriesPickerSheet extends StatefulWidget {
 }
 
 class _SeriesPickerSheetState extends State<SeriesPickerSheet> {
-  static const _sheetBg = Color(0xFF231F1B);
-  static const _textSecondary = Color(0xFF8C8880);
-  static const _handleColor = Color(0xFF4A4843);
-
   List<SeriesSummary> _series = [];
   bool _loading = true;
-  String? _error;
-  String? _selectedId;
-  String? _pendingNewName;
+  bool _failed = false;
 
   @override
   void initState() {
     super.initState();
-    _selectedId = widget.selectedSeriesId;
-    _pendingNewName = widget.newSeriesName;
-    _loadSeries();
+    final given = widget.debugSeries;
+    if (given != null) {
+      _series = given;
+      _loading = false;
+    } else {
+      _loadSeries();
+    }
   }
 
   Future<void> _loadSeries() async {
     setState(() {
       _loading = true;
-      _error = null;
+      _failed = false;
     });
     try {
       final series = await SeriesService.instance.getMySeries();
@@ -86,10 +92,10 @@ class _SeriesPickerSheetState extends State<SeriesPickerSheet> {
         _series = series;
         _loading = false;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _failed = true;
         _loading = false;
       });
     }
@@ -98,207 +104,95 @@ class _SeriesPickerSheetState extends State<SeriesPickerSheet> {
   Future<void> _createNewSeries() async {
     final name = await CreateSeriesDialog.show(context);
     if (name == null || !mounted) return;
-    setState(() {
-      _pendingNewName = name;
-      _selectedId = null;
-    });
-    Navigator.pop(
-      context,
-      SeriesPickerResult(
-        newSeriesName: name,
-        displayLabel: name,
-      ),
-    );
-  }
-
-  void _selectNone() {
-    Navigator.pop(context, SeriesPickerResult.cleared);
-  }
-
-  void _selectExisting(SeriesSummary series) {
-    Navigator.pop(
-      context,
-      SeriesPickerResult(
-        selectedSeriesId: series.id,
-        displayLabel: series.name,
-      ),
-    );
+    Navigator.pop(context, SeriesPickerResult(newSeriesName: name, displayLabel: name));
   }
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.paddingOf(context).bottom;
-
-    return DraggableScrollableSheet(
-      initialChildSize: 0.45,
-      minChildSize: 0.32,
-      maxChildSize: 0.88,
-      builder: (context, scrollController) {
-        return DecoratedBox(
-          decoration: const BoxDecoration(
-            color: _sheetBg,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+    final c = context.studio;
+    final pending = widget.newSeriesName;
+    final noneSelected =
+        (widget.selectedSeriesId == null || widget.selectedSeriesId!.isEmpty) &&
+        (pending == null || pending.isEmpty);
+    return StudioSheet(
+      horizontalPadding: 24,
+      gap: 0,
+      scrollable: true,
+      children: [
+        Text('Series', style: StudioType.title22(color: c.textPrimary)),
+        const SizedBox(height: 4),
+        Text(
+          'Group it with related pieces. A piece can be in one series.',
+          style: StudioType.body14(height: 1.45, color: c.textSecondary),
+        ),
+        const SizedBox(height: 12),
+        if (_loading)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Center(
+              child: SizedBox.square(
+                dimension: 20,
+                child: CircularProgressIndicator(strokeWidth: 2, color: c.textSecondary),
+              ),
+            ),
+          )
+        else ...[
+          if (_failed)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Text(
+                "Couldn't load your series. You can still publish without one.",
+                style: StudioType.body14(color: c.textSecondary),
+              ),
+            ),
+          StudioListRow(
+            title: 'None',
+            subtitle: 'Not in a series',
+            selected: noneSelected,
+            onTap: () => Navigator.pop(context, SeriesPickerResult.cleared),
           ),
-          child: Column(
-            children: [
-              const SizedBox(height: 10),
-              Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: _handleColor,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+          if (pending != null && pending.isNotEmpty)
+            StudioListRow(
+              title: pending,
+              subtitle: 'New series, made when you publish',
+              selected: true,
+              onTap: () => Navigator.pop(
+                context,
+                SeriesPickerResult(newSeriesName: pending, displayLabel: pending),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Add to series',
-                        style: GoogleFonts.inter(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: _createNewSeries,
-                      child: Text(
-                        'New series',
-                        style: GoogleFonts.inter(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.white.withValues(alpha: 0.85),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+            ),
+          for (final series in _series)
+            StudioListRow(
+              title: series.name,
+              subtitle: '${series.pieceCount} ${series.pieceCount == 1 ? 'piece' : 'pieces'}',
+              selected: series.id == widget.selectedSeriesId,
+              onTap: () => Navigator.pop(
+                context,
+                SeriesPickerResult(selectedSeriesId: series.id, displayLabel: series.name),
               ),
-              Expanded(
-                child: _loading
-                    ? const Center(
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white54,
-                        ),
-                      )
-                    : _error != null
-                        ? Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(24),
-                              child: Text(
-                                'Could not load series.\nYou can still publish without one.',
-                                textAlign: TextAlign.center,
-                                style: GoogleFonts.inter(
-                                  fontSize: 14,
-                                  color: _textSecondary,
-                                  height: 1.45,
-                                ),
-                              ),
-                            ),
-                          )
-                        : ListView(
-                            controller: scrollController,
-                            padding: EdgeInsets.fromLTRB(8, 0, 8, bottomInset + 16),
-                            children: [
-                              _SeriesRadioTile(
-                                title: 'None',
-                                subtitle: 'Do not add to a series',
-                                selected: _selectedId == null &&
-                                    (_pendingNewName == null ||
-                                        _pendingNewName!.isEmpty),
-                                onTap: _selectNone,
-                              ),
-                              if (_pendingNewName != null &&
-                                  _pendingNewName!.isNotEmpty)
-                                _SeriesRadioTile(
-                                  title: _pendingNewName!,
-                                  subtitle: 'New series (created on publish)',
-                                  selected: true,
-                                  onTap: () {},
-                                ),
-                              for (final series in _series)
-                                _SeriesRadioTile(
-                                  title: series.name,
-                                  subtitle:
-                                      '${series.pieceCount} piece${series.pieceCount == 1 ? '' : 's'}',
-                                  selected: _selectedId == series.id,
-                                  onTap: () => _selectExisting(series),
-                                ),
-                            ],
-                          ),
+            ),
+        ],
+        Semantics(
+          button: true,
+          child: GestureDetector(
+            onTap: _createNewSeries,
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Row(
+                children: [
+                  StudioIcon(StudioIcons.addBold, size: 20, color: c.textPrimary),
+                  const SizedBox(width: 12),
+                  Text(
+                    'New series',
+                    style: StudioType.sans(16, weight: StudioType.medium, color: c.textPrimary),
+                  ),
+                ],
               ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _SeriesRadioTile extends StatelessWidget {
-  const _SeriesRadioTile({
-    required this.title,
-    required this.subtitle,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String title;
-  final String subtitle;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-          child: Row(
-            children: [
-              Icon(
-                selected
-                    ? Icons.radio_button_checked
-                    : Icons.radio_button_off,
-                color: selected ? Colors.white : Colors.white38,
-                size: 22,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: GoogleFonts.inter(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      style: GoogleFonts.inter(
-                        fontSize: 13,
-                        color: const Color(0xFF8C8880),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+            ),
           ),
         ),
-      ),
+      ],
     );
   }
 }

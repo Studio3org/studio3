@@ -1,62 +1,68 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
-import '../theme/home_feed_tokens.dart';
+import '../theme/studio_colors.dart';
+import '../theme/studio_metrics.dart';
+import '../theme/studio_type.dart';
+import 'studio/studio_icon.dart';
 
-/// Search field used in create-post bottom sheets.
+/// Search field in picker sheets (`PostMedium`, `PostLocation`, `PostMaterialsSearch`): 46
+/// tall, Surface fill, radius 12, 14 sides, a 20 search icon 10 before 15 text.
 class PostPickerSearchField extends StatelessWidget {
   const PostPickerSearchField({
     super.key,
     required this.controller,
     required this.hintText,
     required this.onChanged,
+    this.autofocus = false,
+    this.focusNode,
   });
-
-  static const _textSecondary = Color(0xFF8C8880);
 
   final TextEditingController controller;
   final String hintText;
   final ValueChanged<String> onChanged;
+  final bool autofocus;
+  final FocusNode? focusNode;
 
   @override
   Widget build(BuildContext context) {
+    final c = context.studio;
+    final style = StudioType.sans(15, color: c.textPrimary);
     return Container(
-      height: 32,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
+      height: 46,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: _textSecondary.withValues(alpha: 0.5),
-          width: 0.5,
-        ),
+        color: c.surface,
+        borderRadius: BorderRadius.circular(StudioRadius.button),
       ),
       child: Row(
         children: [
-          const Icon(
-            Icons.search,
-            size: 16,
-            color: _textSecondary,
+          // Tertiary like the placeholder until something is typed, then Ink.
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: controller,
+            builder: (context, value, _) => StudioIcon(
+              StudioIcons.search,
+              size: 20,
+              color: value.text.isEmpty ? c.textTertiary : c.textPrimary,
+            ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
           Expanded(
             child: TextField(
               controller: controller,
+              focusNode: focusNode,
+              autofocus: autofocus,
               onChanged: onChanged,
-              style: GoogleFonts.inter(
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-                color: HomeFeedTokens.textInverse,
-              ),
-              cursorColor: HomeFeedTokens.textInverse,
+              style: style,
+              cursorColor: c.textPrimary,
+              textInputAction: TextInputAction.search,
               decoration: InputDecoration(
-                isDense: true,
+                isCollapsed: true,
+                contentPadding: EdgeInsets.zero,
                 border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
                 hintText: hintText,
-                hintStyle: GoogleFonts.inter(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w400,
-                  color: _textSecondary,
-                ),
+                hintStyle: style.copyWith(color: c.textTertiary),
               ),
             ),
           ),

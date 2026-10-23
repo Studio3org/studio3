@@ -1,30 +1,36 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
-import '../../theme/home_feed_tokens.dart';
+import '../../theme/studio_colors.dart';
+import '../../theme/studio_type.dart';
+import '../studio/studio_button.dart';
+import '../studio/studio_field.dart';
+import '../studio/studio_sheet.dart';
 
-/// Prompt for a new series name. Returns trimmed name or null if cancelled.
+/// Prompt for a series name (new or renamed). No board: a board sheet with a 22/500 title,
+/// an underline field and a 52 primary button, off until there is a name. Returns the
+/// trimmed name, or null when dismissed.
 class CreateSeriesDialog extends StatefulWidget {
   const CreateSeriesDialog({
     super.key,
     this.initialName = '',
     this.title = 'New series',
+    this.action = 'Create',
   });
 
   final String initialName;
   final String title;
+  final String action;
 
   static Future<String?> show(
     BuildContext context, {
     String initialName = '',
     String title = 'New series',
+    String action = 'Create',
   }) {
-    return showDialog<String>(
+    return showStudioSheet<String>(
       context: context,
-      builder: (context) => CreateSeriesDialog(
-        initialName: initialName,
-        title: title,
-      ),
+      builder: (context) =>
+          CreateSeriesDialog(initialName: initialName, title: title, action: action),
     );
   }
 
@@ -33,13 +39,11 @@ class CreateSeriesDialog extends StatefulWidget {
 }
 
 class _CreateSeriesDialogState extends State<CreateSeriesDialog> {
-  late final TextEditingController _controller;
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.initialName,
+  )..addListener(_changed);
 
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController(text: widget.initialName);
-  }
+  void _changed() => setState(() {});
 
   @override
   void dispose() {
@@ -55,43 +59,24 @@ class _CreateSeriesDialogState extends State<CreateSeriesDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      backgroundColor: HomeFeedTokens.background,
-      title: Text(
-        widget.title,
-        style: GoogleFonts.inter(
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-          color: HomeFeedTokens.textPrimary,
+    final c = context.studio;
+    return StudioSheet(
+      horizontalPadding: 24,
+      gap: 20,
+      children: [
+        Text(widget.title, style: StudioType.title22(color: c.textPrimary)),
+        StudioUnderlineField(
+          label: 'Name',
+          controller: _controller,
+          hint: 'Series name',
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => _submit(),
         ),
-      ),
-      content: TextField(
-        controller: _controller,
-        autofocus: true,
-        textCapitalization: TextCapitalization.words,
-        decoration: InputDecoration(
-          hintText: 'Series name',
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-        ),
-        onSubmitted: (_) => _submit(),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text(
-            'Cancel',
-            style: GoogleFonts.inter(color: HomeFeedTokens.textSecondary),
-          ),
-        ),
-        TextButton(
-          onPressed: _submit,
-          child: Text(
-            'Create',
-            style: GoogleFonts.inter(
-              fontWeight: FontWeight.w600,
-              color: HomeFeedTokens.textPrimary,
-            ),
-          ),
+        StudioButton(
+          label: widget.action,
+          onPressed: _controller.text.trim().isEmpty ? null : _submit,
         ),
       ],
     );

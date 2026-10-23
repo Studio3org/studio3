@@ -158,6 +158,7 @@ class PostCropPreview extends StatefulWidget {
       brightness: transform.brightness,
       contrast: transform.contrast,
       exposure: transform.exposure,
+      warmth: transform.warmth,
     )) {
       return image;
     }
@@ -167,6 +168,7 @@ class PostCropPreview extends StatefulWidget {
           brightness: transform.brightness,
           contrast: transform.contrast,
           exposure: transform.exposure,
+          warmth: transform.warmth,
         ),
       ),
       child: image,
@@ -244,7 +246,7 @@ class _PostCropPreviewState extends State<PostCropPreview> {
     return ClipRRect(
       borderRadius: widget.borderRadius,
       child: AspectRatio(
-        aspectRatio: widget.transform.aspectRatio.value,
+        aspectRatio: widget.transform.aspectValue,
         child: PostCropPreview.buildTransformedContent(
           imagePath: widget.imagePath,
           transform: widget.transform,
