@@ -305,6 +305,33 @@ class SellerStatus {
   }
 }
 
+/// What a seller keeps on a sale at their own rate (`GET /api/user/me/commission-quote`):
+/// the "You'll receive" line on the listing form.
+class CommissionQuote {
+  const CommissionQuote({
+    required this.priceCents,
+    required this.netCents,
+    required this.commissionBps,
+    this.reducedRate = false,
+  });
+
+  final int priceCents;
+  final int netCents;
+  final int commissionBps;
+
+  /// The seller's own rate is below the standard one (the founding-artist tier).
+  final bool reducedRate;
+
+  factory CommissionQuote.fromJson(Map<String, dynamic> json) {
+    return CommissionQuote(
+      priceCents: (json['priceCents'] as num?)?.toInt() ?? 0,
+      netCents: (json['netCents'] as num?)?.toInt() ?? 0,
+      commissionBps: (json['commissionBps'] as num?)?.toInt() ?? 0,
+      reducedRate: json['reducedRate'] as bool? ?? false,
+    );
+  }
+}
+
 class SellerAnalytics {
   const SellerAnalytics({
     this.savesCount,

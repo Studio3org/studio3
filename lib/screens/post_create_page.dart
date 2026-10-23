@@ -12,14 +12,17 @@ import '../data/post_media_assets.dart';
 import '../models/listing_details.dart';
 import '../models/piece_summary.dart';
 import '../models/post_image_transform.dart';
+import '../models/user_profile.dart' show CommissionQuote;
 import '../services/auth_session.dart';
 import '../services/api_exception.dart';
 import '../services/piece_service.dart';
 import '../services/post_publish_service.dart';
+import '../services/user_service.dart';
 import '../theme/home_feed_tokens.dart';
 import '../widgets/choose_location_sheet.dart';
 import '../widgets/create_flow/create_flow_widgets.dart';
 import '../widgets/create_flow/listing_details_form.dart';
+import '../widgets/create_flow/post_availability_step.dart';
 import '../widgets/create_flow/series_picker_sheet.dart';
 import '../widgets/post_create_option_sheet.dart';
 import '../widgets/post_crop_preview.dart';
@@ -27,7 +30,15 @@ import '../widgets/seller_mode_required_dialog.dart';
 import '../widgets/uploading_dialog.dart';
 import 'add_materials_page.dart';
 
+/// Steps of the details part of posting. Pieces start on availability (`PostAvailFixed`,
+/// step 1 of 3); scenes start on details.
+enum _CreateStep { availability, details, review }
+
 /// Add Piece / Scene details — posting flow step (Figma 1995:1486).
+///
+/// Every step stays mounted (off stage when not shown) so what was entered survives going
+/// back, and the review and publish read the same form. Back moves one step at a time; from
+/// the first step it returns to the edit step ([onEdit]).
 class PostCreatePage extends StatefulWidget {
   const PostCreatePage({
     super.key,
@@ -40,6 +51,7 @@ class PostCreatePage extends StatefulWidget {
     this.mediaKind = 'image',
     this.videoPath,
     this.videoThumbnailBytes,
+    this.commissionQuote,
   });
 
   final String postType;
@@ -52,6 +64,10 @@ class PostCreatePage extends StatefulWidget {
   final String? videoPath;
   final Uint8List? videoThumbnailBytes;
 
+  /// Seller's earnings for a price; defaults to the API. Tests pass their own.
+  @visibleForTesting
+  final Future<CommissionQuote?> Function(int priceCents)? commissionQuote;
+
   @override
   State<PostCreatePage> createState() => _PostCreatePageState();
 }
@@ -63,11 +79,12 @@ class _PostCreatePageState extends State<PostCreatePage> {
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _listingFormKey = GlobalKey<ListingDetailsFormState>();
+  final _priceController = TextEditingController();
   bool _aiToolsUsed = false;
   bool _isProcess = false;
   bool _publishing = false;
   bool _listForSale = false;
-  bool _reviewMode = false;
+  late _CreateStep _step;
   PostLocationOption? _selectedLocation;
   String? _selectedMediumId;
   final Set<String> _selectedStyleIds = {};
@@ -79,10 +96,13 @@ class _PostCreatePageState extends State<PostCreatePage> {
   String? _linkedPieceLabel;
 
   bool get _isPiece => widget.postType == 'piece';
+  bool get _reviewMode => _step == _CreateStep.review;
+  double? get _price => PostAvailabilityStep.parsePrice(_priceController.text);
 
   @override
   void initState() {
     super.initState();
+    _step = _isPiece ? _CreateStep.availability : _CreateStep.details;
     _listForSale = _isPiece && AuthSession.instance.sellerEnabled;
     AuthSession.instance.addListener(_onSessionChanged);
   }
@@ -92,6 +112,7 @@ class _PostCreatePageState extends State<PostCreatePage> {
     AuthSession.instance.removeListener(_onSessionChanged);
     _nameController.dispose();
     _descriptionController.dispose();
+    _priceController.dispose();
     super.dispose();
   }
 
@@ -104,10 +125,8 @@ class _PostCreatePageState extends State<PostCreatePage> {
 
   Future<void> _onListForSaleChanged(bool value) async {
     if (!value) {
-      setState(() {
-        _listForSale = false;
-        _listingFormKey.currentState?.clear();
-      });
+      // The price stays typed in case they switch back; it is only sent for a sale.
+      setState(() => _listForSale = false);
       return;
     }
 
@@ -258,7 +277,9 @@ class _PostCreatePageState extends State<PostCreatePage> {
   PostDraft _buildDraft() {
     ListingDetails? listingDetails;
     if (_isPiece) {
-      listingDetails = _listingFormKey.currentState?.buildListingDetails();
+      listingDetails = _listingFormKey.currentState?.buildListingDetails(
+        priceUsd: _listForSale ? _price : null,
+      );
     }
 
     return PostDraft(
@@ -340,14 +361,12 @@ class _PostCreatePageState extends State<PostCreatePage> {
   }
 
   bool _validate() {
-    if (_isPiece && _listForSale) {
-      final form = _listingFormKey.currentState;
-      if (form == null || !form.isPriceValid) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Enter a valid price to list for sale')),
-        );
-        return false;
-      }
+    if (_isPiece && _listForSale && _price == null) {
+      setState(() => _step = _CreateStep.availability);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a valid price to list for sale')),
+      );
+      return false;
     }
     return true;
   }
@@ -359,12 +378,28 @@ class _PostCreatePageState extends State<PostCreatePage> {
 
   void _onNext() {
     if (!_validate()) return;
-    setState(() => _reviewMode = true);
+    setState(() => _step = _CreateStep.review);
   }
 
   void _onBackToEdit() {
-    setState(() => _reviewMode = false);
+    setState(() => _step = _CreateStep.details);
   }
+
+  /// One step back; from the first step, back to the edit step.
+  void _goBack() {
+    switch (_step) {
+      case _CreateStep.review:
+        _onBackToEdit();
+      case _CreateStep.details when _isPiece:
+        setState(() => _step = _CreateStep.availability);
+      case _CreateStep.details:
+      case _CreateStep.availability:
+        widget.onEdit?.call();
+    }
+  }
+
+  Future<CommissionQuote?> _quote(int priceCents) =>
+      (widget.commissionQuote ?? UserService.instance.getCommissionQuote)(priceCents);
 
   void _onCreate() {
     _publish(_buildDraft());
@@ -375,12 +410,47 @@ class _PostCreatePageState extends State<PostCreatePage> {
     final topInset = MediaQuery.paddingOf(context).top;
     final bottomInset = MediaQuery.paddingOf(context).bottom;
 
+    final onAvailability = _step == _CreateStep.availability;
     return PopScope(
-      canPop: !_reviewMode,
+      canPop: false,
       onPopInvokedWithResult: (didPop, result) {
-        if (!didPop) _onBackToEdit();
+        if (!didPop) _goBack();
       },
-      child: Scaffold(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Offstage(
+            offstage: onAvailability,
+            child: TickerMode(enabled: !onAvailability, child: _buildDetailsScaffold(topInset, bottomInset)),
+          ),
+          if (_isPiece)
+            Offstage(
+              offstage: !onAvailability,
+              child: TickerMode(
+                enabled: onAvailability,
+                child: PostAvailabilityStep(
+                  cover: PostCropPreview(
+                    imagePath: widget.imagePaths[widget.previewImageIndex],
+                    transform: widget.transforms[widget.previewImageIndex],
+                  ),
+                  photoCount: widget.imagePaths.length,
+                  forSale: _listForSale,
+                  onForSaleChanged: _onListForSaleChanged,
+                  priceController: _priceController,
+                  onBack: _goBack,
+                  onEdit: () => widget.onEdit?.call(),
+                  onContinue: () => setState(() => _step = _CreateStep.details),
+                  quote: _quote,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailsScaffold(double topInset, double bottomInset) {
+    return Scaffold(
       backgroundColor: Colors.black,
       body: Column(
         children: [
@@ -390,9 +460,23 @@ class _PostCreatePageState extends State<PostCreatePage> {
             onClose: widget.onClose,
           ),
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: _reviewMode ? _buildSummary() : _buildEditableForm(),
+            // The form stays mounted under the review so its values survive both ways.
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Offstage(
+                  offstage: _reviewMode,
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: _buildEditableForm(),
+                  ),
+                ),
+                if (_reviewMode)
+                  SingleChildScrollView(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: _buildSummary(),
+                  ),
+              ],
             ),
           ),
           Padding(
@@ -430,7 +514,6 @@ class _PostCreatePageState extends State<PostCreatePage> {
             ),
           ),
         ],
-      ),
       ),
     );
   }
@@ -562,11 +645,6 @@ class _PostCreatePageState extends State<PostCreatePage> {
                     onChanged: (value) => setState(() => _aiToolsUsed = value),
                   ),
                   if (_isPiece) ...[
-                    CreateFlowToggleRow(
-                      label: 'List for sale',
-                      value: _listForSale,
-                      onChanged: _onListForSaleChanged,
-                    ),
                     ListingDetailsForm(
                       key: _listingFormKey,
                       showSaleFields: _listForSale,
@@ -583,7 +661,7 @@ class _PostCreatePageState extends State<PostCreatePage> {
   Widget _buildSummary() {
     ListingDetails? listingDetails;
     if (_isPiece && _listForSale) {
-      listingDetails = _listingFormKey.currentState?.buildListingDetails();
+      listingDetails = _listingFormKey.currentState?.buildListingDetails(priceUsd: _price);
     }
     final materialsLabel = _selectedMaterials.isEmpty
         ? null

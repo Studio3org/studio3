@@ -1,11 +1,15 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:photo_manager/photo_manager.dart';
 
 import '../../services/permission_service.dart';
 import '../../services/photo_library_service.dart';
+import '../../theme/studio_colors.dart';
+import '../../theme/studio_metrics.dart';
+import '../../theme/studio_type.dart';
+import '../studio/studio_icon.dart';
+import '../studio/studio_on_image.dart';
 
 enum _LoadState { loading, denied, ready }
 
@@ -19,7 +23,12 @@ class _AlbumEntry {
 
 /// Custom in-app photo grid + album picker replacing the native OS photo
 /// picker, so the post-creation flow can show its own "Recents ⌄" album
-/// dropdown (Figma post-gallery redesign).
+/// dropdown.
+///
+/// No board: dark in both themes like `PostCover`. Video length is a plain white Mono
+/// image label (no play circle), the selection mark is a 22 round check (Gallery White
+/// with an Ink check when picked, a white ring otherwise), albums are Ink rows with a
+/// Mono count.
 class PostGalleryPicker extends StatefulWidget {
   const PostGalleryPicker({
     super.key,
@@ -29,6 +38,7 @@ class PostGalleryPicker extends StatefulWidget {
     required this.onPermissionPermanentlyDenied,
     this.maxSelection = 10,
     this.allowVideos = false,
+    this.initialSelection = const [],
   });
 
   final ValueNotifier<bool> openNotifier;
@@ -40,6 +50,9 @@ class PostGalleryPicker extends StatefulWidget {
   /// uses a 3:4 cell ratio, and selecting a video is exclusive of photos.
   final bool allowVideos;
 
+  /// Already picked (coming back from the cover step), in their order.
+  final List<AssetEntity> initialSelection;
+
   @override
   State<PostGalleryPicker> createState() => _PostGalleryPickerState();
 }
@@ -49,7 +62,7 @@ class _PostGalleryPickerState extends State<PostGalleryPicker> {
   List<_AlbumEntry> _albums = const [];
   _AlbumEntry? _selectedAlbum;
   List<AssetEntity> _assets = const [];
-  final List<AssetEntity> _selected = [];
+  late final List<AssetEntity> _selected = List<AssetEntity>.from(widget.initialSelection);
 
   @override
   void initState() {
@@ -160,7 +173,13 @@ class _PostGalleryPickerState extends State<PostGalleryPicker> {
     switch (_state) {
       case _LoadState.loading:
         return const Center(
-          child: CircularProgressIndicator(color: Colors.white54),
+          child: SizedBox.square(
+            dimension: 20,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: StudioColors.onDarkSecondary,
+            ),
+          ),
         );
       case _LoadState.denied:
         return _PermissionFallback(onRetry: _retry);
@@ -182,101 +201,115 @@ class _PostGalleryPickerState extends State<PostGalleryPicker> {
   Widget _buildCell(AssetEntity asset) {
     final selected = _selected.any((a) => a.id == asset.id);
     final isVideo = asset.type == AssetType.video;
-    return GestureDetector(
-      onTap: () => _toggleSelect(asset),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          _AssetThumbnail(key: ValueKey(asset.id), asset: asset, size: 200),
-          if (isVideo)
-            Container(
-              color: Colors.black.withValues(alpha: 0.22),
-              alignment: Alignment.center,
-              child: Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.45),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.play_arrow_rounded,
-                  color: Colors.white,
-                  size: 22,
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: GestureDetector(
+        onTap: () => _toggleSelect(asset),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            _AssetThumbnail(key: ValueKey(asset.id), asset: asset, size: 200),
+            if (isVideo)
+              Positioned(
+                left: 8,
+                bottom: 6,
+                child: StudioImageLabel(
+                  _formatDuration(asset.videoDuration),
+                  icon: StudioIcons.video,
                 ),
               ),
-            ),
-          if (isVideo)
+            if (selected) const ColoredBox(color: Color(0x59111111)),
             Positioned(
+              top: 6,
               right: 6,
-              bottom: 6,
-              child: Text(
-                _formatDuration(asset.videoDuration),
-                style: GoogleFonts.inter(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
-                  color: Colors.white,
+              child: Container(
+                width: 22,
+                height: 22,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: selected ? StudioColors.galleryWhite : const Color(0x33111111),
+                  border: selected
+                      ? null
+                      : Border.all(color: StudioColors.galleryWhite, width: 1.5),
                 ),
+                child: selected
+                    ? const StudioIcon(StudioIcons.check, size: 13, color: StudioColors.ink)
+                    : null,
               ),
             ),
-          if (selected) Container(color: Colors.black.withValues(alpha: 0.35)),
-          Positioned(
-            top: 6,
-            right: 6,
-            child: Container(
-              width: 20,
-              height: 20,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: selected ? Colors.white : Colors.black.withValues(alpha: 0.3),
-                border: Border.all(color: Colors.white, width: 1.2),
-              ),
-              child: selected
-                  ? const Icon(Icons.check, size: 14, color: Colors.black)
-                  : null,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildAlbumMenu() {
     return ColoredBox(
-      color: Colors.black,
+      color: StudioColors.ink,
       child: ListView.builder(
-        padding: EdgeInsets.zero,
+        padding: const EdgeInsets.symmetric(vertical: 8),
         itemCount: _albums.length,
         itemBuilder: (context, index) {
           final entry = _albums[index];
           final selected = _selectedAlbum?.path.id == entry.path.id;
-          return ListTile(
-            onTap: () => _selectAlbum(entry),
-            leading: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: SizedBox(
-                width: 44,
-                height: 44,
-                child: entry.cover != null
-                    ? _AssetThumbnail(
-                        key: ValueKey(entry.cover!.id),
-                        asset: entry.cover!,
-                        size: 100,
-                      )
-                    : const ColoredBox(color: Colors.white10),
+          return Semantics(
+            button: true,
+            selected: selected,
+            child: GestureDetector(
+              onTap: () => _selectAlbum(entry),
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                child: Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(StudioRadius.small),
+                      child: SizedBox(
+                        width: 48,
+                        height: 48,
+                        child: entry.cover != null
+                            ? _AssetThumbnail(
+                                key: ValueKey(entry.cover!.id),
+                                asset: entry.cover!,
+                                size: 100,
+                              )
+                            : const ColoredBox(color: Color(0x1AFAFAF8)),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            entry.path.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: StudioType.sans(
+                              15,
+                              weight: StudioType.medium,
+                              color: StudioColors.galleryWhite,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${entry.count}',
+                            style: StudioType.mono(12, color: StudioColors.onDarkSecondary),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (selected)
+                      const StudioIcon(
+                        StudioIcons.check,
+                        size: 18,
+                        color: StudioColors.galleryWhite,
+                      ),
+                  ],
+                ),
               ),
-            ),
-            title: Text(
-              entry.path.name,
-              style: GoogleFonts.inter(
-                color: Colors.white,
-                fontSize: 15,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-              ),
-            ),
-            subtitle: Text(
-              '${entry.count}',
-              style: GoogleFonts.inter(color: Colors.white54, fontSize: 13),
             ),
           );
         },
@@ -320,7 +353,7 @@ class _AssetThumbnailState extends State<_AssetThumbnail> {
       future: _future,
       builder: (context, snapshot) {
         final bytes = snapshot.data;
-        if (bytes == null) return const ColoredBox(color: Colors.white10);
+        if (bytes == null) return const ColoredBox(color: Color(0x1AFAFAF8));
         return Image.memory(bytes, fit: BoxFit.cover);
       },
     );
@@ -335,33 +368,46 @@ class _PermissionFallback extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.photo_library_outlined, color: Colors.white, size: 56),
-          const SizedBox(height: 16),
-          Text(
-            'Please give access to your gallery',
-            style: GoogleFonts.inter(
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(height: 20),
-          FilledButton(
-            onPressed: onRetry,
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: Colors.black,
-              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(100),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: StudioSpace.marginForm),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const StudioIcon(StudioIcons.newFolder, size: 32, color: StudioColors.galleryWhite),
+            const SizedBox(height: 16),
+            Text(
+              'Please give access to your gallery',
+              textAlign: TextAlign.center,
+              style: StudioType.sans(
+                15,
+                weight: StudioType.medium,
+                color: StudioColors.galleryWhite,
               ),
             ),
-            child: Text('Allow access', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
-          ),
-        ],
+            const SizedBox(height: 20),
+            // A Gallery White pill on Ink: the dark screens' primary button.
+            Semantics(
+              button: true,
+              child: GestureDetector(
+                onTap: onRetry,
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  height: 44,
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: StudioColors.galleryWhite,
+                    borderRadius: BorderRadius.circular(StudioRadius.round),
+                  ),
+                  child: Text(
+                    'Allow access',
+                    style: StudioType.sans(15, weight: StudioType.medium, color: StudioColors.ink),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

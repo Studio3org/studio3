@@ -9,9 +9,9 @@ import 'create_flow_widgets.dart';
 
 /// Inline listing + general artwork-detail fields for piece creation.
 ///
-/// Price/dimensions/shipping-region only apply when [showSaleFields] is true
-/// ("List for sale" toggled on); year/framing/provenance/handling notes are
-/// general piece metadata and always render regardless of sale status.
+/// Dimensions/shipping-region only apply when [showSaleFields] is true (Fixed price chosen
+/// on the availability step, which also holds the price); year/framing/provenance/handling
+/// notes are general piece metadata and always render regardless of sale status.
 class ListingDetailsForm extends StatefulWidget {
   const ListingDetailsForm({super.key, this.showSaleFields = true});
 
@@ -25,7 +25,6 @@ class ListingDetailsFormState extends State<ListingDetailsForm> {
   static const _textSecondary = Color(0xFF8C8880);
   static const _neutral700 = Color(0xFF4A4843);
 
-  final _priceController = TextEditingController();
   final _widthController = TextEditingController();
   final _heightController = TextEditingController();
   final _depthController = TextEditingController();
@@ -39,24 +38,8 @@ class ListingDetailsFormState extends State<ListingDetailsForm> {
   bool _nonStandardFormat = false;
   String? _location;
 
-  bool get isPriceValid {
-    final price = double.tryParse(_priceController.text.trim());
-    return price != null && price > 0;
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _priceController.addListener(_notifyChanged);
-  }
-
-  void _notifyChanged() => setState(() {});
-
   @override
   void dispose() {
-    _priceController
-      ..removeListener(_notifyChanged)
-      ..dispose();
     _widthController.dispose();
     _heightController.dispose();
     _depthController.dispose();
@@ -69,7 +52,6 @@ class ListingDetailsFormState extends State<ListingDetailsForm> {
   }
 
   void clear() {
-    _priceController.clear();
     _widthController.clear();
     _heightController.clear();
     _depthController.clear();
@@ -85,9 +67,10 @@ class ListingDetailsFormState extends State<ListingDetailsForm> {
     });
   }
 
-  ListingDetails buildListingDetails() {
+  /// [priceUsd] comes from the availability step.
+  ListingDetails buildListingDetails({double? priceUsd}) {
     return ListingDetails(
-      priceUsd: double.tryParse(_priceController.text.trim()),
+      priceUsd: priceUsd,
       width: double.tryParse(_widthController.text.trim()),
       height: double.tryParse(_heightController.text.trim()),
       depth: double.tryParse(_depthController.text.trim()),
@@ -119,44 +102,6 @@ class ListingDetailsFormState extends State<ListingDetailsForm> {
       children: [
         if (widget.showSaleFields) ...[
           const SizedBox(height: 8),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: createFlowHorizontalInset),
-            child: CreateFlowDivider(),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                CreateFlowTextField(
-                  controller: _priceController,
-                  hint: 'Price (required)',
-                  prefixText: '\$ ',
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                ),
-                if (!isPriceValid && _priceController.text.trim().isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Text(
-                      'Enter a valid price greater than 0',
-                      style: GoogleFonts.inter(fontSize: 11, color: _textSecondary),
-                    ),
-                  ),
-                ] else if (_priceController.text.trim().isEmpty) ...[
-                  const SizedBox(height: 6),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Text(
-                      'Required to list for sale',
-                      style: GoogleFonts.inter(fontSize: 11, color: _textSecondary),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(height: 10),
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: createFlowHorizontalInset),
             child: CreateFlowDivider(),

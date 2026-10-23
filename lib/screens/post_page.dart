@@ -1,15 +1,16 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:photo_manager/photo_manager.dart';
 
-import '../data/post_media_assets.dart';
 import '../models/post_image_transform.dart';
-import '../theme/home_feed_tokens.dart';
+import '../theme/studio_colors.dart';
+import '../theme/studio_metrics.dart';
+import '../theme/studio_type.dart';
 import '../widgets/permission_denied_sheet.dart';
 import '../widgets/post_gallery/post_gallery_picker.dart';
+import '../widgets/studio/studio_icon.dart';
+import 'post_cover_page.dart';
 import 'post_create_page.dart';
 import 'post_edit_page.dart';
 import 'post_video_edit_page.dart';
@@ -27,7 +28,8 @@ class PostPage extends StatefulWidget {
 class _PostPageState extends State<PostPage> {
   static const _bannerHeight = 64.0;
   static const _bottomControlsOffset = 42.0;
-  static const _maxSelection = 10;
+  /// Pieces: up to 4 angles (`NotePostCover`). Scenes keep 10.
+  int get _maxSelection => _postType == 'piece' ? 4 : 10;
 
   _PostFlowStep _step = _PostFlowStep.gallery;
   String _postType = 'piece';
@@ -41,6 +43,13 @@ class _PostPageState extends State<PostPage> {
   List<String> _editImagePaths = [];
   List<PostImageTransform> _editTransforms = [];
   int _previewImageIndex = 0;
+
+  /// Which picked asset each photo path came from, so the cover step's order can be
+  /// carried back into the gallery selection.
+  final Map<String, String> _assetIdByPath = {};
+
+  /// Framing per photo path, kept while going back and forth between gallery and cover.
+  final Map<String, PostImageTransform> _coverTransforms = {};
 
   @override
   void dispose() {
@@ -58,6 +67,8 @@ class _PostPageState extends State<PostPage> {
       _pickedImagePaths = null;
       _pickedVideoPath = null;
       _pickedVideoThumbnailBytes = null;
+      _assetIdByPath.clear();
+      _coverTransforms.clear();
     });
   }
 
@@ -92,7 +103,10 @@ class _PostPageState extends State<PostPage> {
     final paths = <String>[];
     for (final asset in _pickedAssets) {
       final file = await asset.file;
-      if (file != null) paths.add(file.path);
+      if (file != null) {
+        paths.add(file.path);
+        _assetIdByPath[file.path] = asset.id;
+      }
     }
     if (!mounted || paths.isEmpty) return;
     setState(() {
@@ -120,7 +134,29 @@ class _PostPageState extends State<PostPage> {
       _editImagePaths = imagePaths;
       _editTransforms = transforms;
       _previewImageIndex = previewImageIndex;
+      if (_postType == 'piece') _keepCoverState(imagePaths, transforms);
       _step = _PostFlowStep.details;
+    });
+  }
+
+  /// Remembers the cover step's order and framing, and puts the gallery selection in
+  /// the same order so the first photo stays the cover.
+  void _keepCoverState(List<String> paths, List<PostImageTransform> transforms) {
+    for (var i = 0; i < paths.length; i++) {
+      _coverTransforms[paths[i]] = transforms[i];
+    }
+    _pickedImagePaths = paths;
+    final rank = {for (var i = 0; i < paths.length; i++) _assetIdByPath[paths[i]]: i};
+    _pickedAssets = [..._pickedAssets]
+      ..sort((a, b) => (rank[a.id] ?? paths.length).compareTo(rank[b.id] ?? paths.length));
+  }
+
+  /// Cover step → gallery (Back, system back, or the add tile).
+  void _coverToGallery(List<String> paths, List<PostImageTransform> transforms) {
+    setState(() {
+      _keepCoverState(paths, transforms);
+      _previewImageIndex = 0;
+      _step = _PostFlowStep.gallery;
     });
   }
 
@@ -136,16 +172,15 @@ class _PostPageState extends State<PostPage> {
     switch (_step) {
       case _PostFlowStep.gallery:
         return true;
+      case _PostFlowStep.edit when _showsCover:
+        // PostCoverPage handles back itself so its order and framing are kept.
+        return false;
       case _PostFlowStep.edit:
       case _PostFlowStep.videoEdit:
         _backToGallery();
         return false;
       case _PostFlowStep.details:
-        if (_pickedVideoPath != null) {
-          setState(() => _step = _PostFlowStep.videoEdit);
-        } else {
-          _backToEdit();
-        }
+        // PostCreatePage steps back through its own steps, then calls onEdit.
         return false;
     }
   }
@@ -173,7 +208,7 @@ class _PostPageState extends State<PostPage> {
     final hasSelection = _pickedAssets.isNotEmpty || _pickedVideoPath != null;
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: StudioColors.ink,
       body: Stack(
         children: [
           Positioned(
@@ -186,6 +221,7 @@ class _PostPageState extends State<PostPage> {
               openNotifier: _albumMenuOpen,
               maxSelection: _maxSelection,
               allowVideos: _postType == 'scene',
+              initialSelection: _pickedAssets,
               onAlbumChanged: (name) =>
                   setState(() => _selectedAlbumName = name),
               onSelectionChanged: (assets) =>
@@ -235,8 +271,25 @@ class _PostPageState extends State<PostPage> {
     );
   }
 
+  bool get _showsCover =>
+      _postType == 'piece' && _pickedImagePaths != null && _pickedImagePaths!.isNotEmpty;
+
   Widget _buildEdit() {
     final isPicked = _pickedImagePaths != null && _pickedImagePaths!.isNotEmpty;
+    // Pieces: framing only (`PostCover`). Scenes keep the full edit step.
+    if (_showsCover) {
+      final paths = _pickedImagePaths!;
+      return PostCoverPage(
+        key: ValueKey('cover-${paths.join(",")}'),
+        imagePaths: paths,
+        initialImageIndex: _previewImageIndex,
+        initialTransforms: [for (final p in paths) _coverTransforms[p] ?? PostImageTransform()],
+        maxPhotos: _maxSelection,
+        onBack: _coverToGallery,
+        onAddPhotos: _coverToGallery,
+        onNext: _goToDetails,
+      );
+    }
     return PostEditPage(
       key: ValueKey(
         'edit-$_postType-${(_pickedImagePaths ?? const []).join(",")}',
@@ -277,6 +330,9 @@ class _PostPageState extends State<PostPage> {
   }
 }
 
+/// Gallery header, dark like the `PostCover` step that follows (no board of its own):
+/// close 22 in a 44 target, the album name 16/500 with a chevron in the middle, and
+/// "Next" 15/500 as text (Secondary-on-dark until something is picked).
 class _PostingBanner extends StatelessWidget {
   const _PostingBanner({
     required this.topInset,
@@ -286,8 +342,6 @@ class _PostingBanner extends StatelessWidget {
     required this.albumName,
     required this.menuOpen,
   });
-
-  static const _neutral300 = Color(0xFFC8C5BC);
 
   final double topInset;
   final VoidCallback onClose;
@@ -299,88 +353,98 @@ class _PostingBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: Colors.black,
+      color: StudioColors.ink,
       child: Padding(
         padding: EdgeInsets.only(top: topInset),
         child: SizedBox(
           height: _PostPageState._bannerHeight,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-            child: Stack(
-              alignment: Alignment.center,
+            padding: const EdgeInsets.fromLTRB(8, 12, 8, 8),
+            child: Row(
               children: [
-                Row(
-                  children: [
-                    GestureDetector(
-                      onTap: onClose,
-                      behavior: HitTestBehavior.opaque,
-                      child: SvgPicture.asset(
-                        PostMediaAssets.closeIcon,
-                        width: 14,
-                        height: 14,
-                      ),
-                    ),
-                    const Spacer(),
-                    Opacity(
-                      opacity: hasSelection ? 1 : 0.3,
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: onNext,
-                          borderRadius: BorderRadius.circular(100),
-                          child: Container(
-                            width: 60,
-                            height: 32,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: _neutral300,
-                              borderRadius: BorderRadius.circular(100),
-                            ),
-                            child: Text(
-                              'Next',
-                              style: GoogleFonts.inter(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: HomeFeedTokens.textPrimary,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                ValueListenableBuilder<bool>(
-                  valueListenable: menuOpen,
-                  builder: (context, open, _) => GestureDetector(
-                    onTap: () => menuOpen.value = !open,
+                Semantics(
+                  button: true,
+                  label: 'Close',
+                  excludeSemantics: true,
+                  child: GestureDetector(
+                    onTap: onClose,
                     behavior: HitTestBehavior.opaque,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          albumName,
-                          style: GoogleFonts.inter(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                            color: HomeFeedTokens.textInverse,
+                    child: const SizedBox.square(
+                      dimension: 44,
+                      child: Center(
+                        child: StudioIcon(
+                          StudioIcons.close,
+                          size: 22,
+                          color: StudioColors.galleryWhite,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Center(
+                    child: ValueListenableBuilder<bool>(
+                      valueListenable: menuOpen,
+                      builder: (context, open, _) => GestureDetector(
+                        onTap: () => menuOpen.value = !open,
+                        behavior: HitTestBehavior.opaque,
+                        child: SizedBox(
+                          height: 44,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  albumName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: StudioType.sans(
+                                    16,
+                                    weight: StudioType.medium,
+                                    color: StudioColors.galleryWhite,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              AnimatedRotation(
+                                turns: open ? -0.25 : 0.25,
+                                duration: StudioMotion.quick,
+                                child: const StudioIcon(
+                                  StudioIcons.chevronRight,
+                                  size: 16,
+                                  color: StudioColors.galleryWhite,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(width: 4),
-                        AnimatedRotation(
-                          turns: open ? 0.5 : 0,
-                          duration: const Duration(milliseconds: 150),
-                          child: SvgPicture.asset(
-                            PostMediaAssets.chevronDown,
-                            width: 9,
-                            height: 9,
-                            colorFilter: ColorFilter.mode(
-                              HomeFeedTokens.textInverse,
-                              BlendMode.srcIn,
+                      ),
+                    ),
+                  ),
+                ),
+                Semantics(
+                  button: true,
+                  enabled: hasSelection,
+                  child: GestureDetector(
+                    onTap: onNext,
+                    behavior: HitTestBehavior.opaque,
+                    child: SizedBox(
+                      height: 44,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        child: Center(
+                          child: Text(
+                            'Next',
+                            style: StudioType.sans(
+                              15,
+                              weight: StudioType.medium,
+                              color: hasSelection
+                                  ? StudioColors.galleryWhite
+                                  : StudioColors.onDarkSecondary,
                             ),
                           ),
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -393,10 +457,12 @@ class _PostingBanner extends StatelessWidget {
   }
 }
 
+/// Piece / Scene switch over the grid: an Ink pill (90 %) with 15 text, the chosen one
+/// Gallery White 500, the other Secondary-on-dark.
 class _PostingSelector extends StatelessWidget {
   const _PostingSelector({required this.postType, required this.onChanged});
 
-  static const _selectorBg = Color(0xE6231F1B);
+  static const _selectorBg = Color(0xE6111111);
 
   final String postType;
   final ValueChanged<String> onChanged;
@@ -412,7 +478,7 @@ class _PostingSelector extends StatelessWidget {
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: _selectorBg,
-        borderRadius: BorderRadius.circular(100),
+        borderRadius: BorderRadius.circular(StudioRadius.round),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -436,23 +502,32 @@ class _SelectorTab extends StatelessWidget {
     required this.onTap,
   });
 
-  static const _textSecondary = Color(0xFF8C8880);
-
   final String label;
   final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Text(
-        label,
-        style: GoogleFonts.inter(
-          fontSize: 15,
-          fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
-          color: selected ? HomeFeedTokens.textInverse : _textSecondary,
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          height: 44,
+          child: Center(
+            child: Text(
+              label,
+              style: StudioType.sans(
+                15,
+                weight: selected ? StudioType.medium : StudioType.regular,
+                color: selected
+                    ? StudioColors.galleryWhite
+                    : StudioColors.onDarkSecondary,
+              ),
+            ),
+          ),
         ),
       ),
     );

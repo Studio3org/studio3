@@ -263,6 +263,16 @@ class UserService {
     return status;
   }
 
+  /// What the signed-in seller keeps on a sale of [priceCents] at their own rate.
+  Future<CommissionQuote> getCommissionQuote(int priceCents) async {
+    final json = await _api.get(
+      '/api/user/me/commission-quote',
+      query: {'priceCents': '$priceCents'},
+      auth: true,
+    );
+    return CommissionQuote.fromJson(_api.extractData(json) as Map<String, dynamic>);
+  }
+
   Future<SellerStatus> enableSeller({
     required String location,
     bool useProfileLocation = false,

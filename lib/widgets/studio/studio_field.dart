@@ -30,6 +30,7 @@ class StudioUnderlineField extends StatefulWidget {
     this.underlineGap = 8,
     this.labelColor,
     this.helperColor,
+    this.strongUnderline = false,
     this.keyboardType,
     this.textInputAction,
     this.inputFormatters,
@@ -74,6 +75,9 @@ class StudioUnderlineField extends StatefulWidget {
 
   /// Helper line color; tertiary by default (sign-in), Graphite on `BuyAddress`.
   final Color? helperColor;
+
+  /// Ink 1.5 underline even when not focused (`PostAvailFixed` price).
+  final bool strongUnderline;
   final TextInputType? keyboardType;
   final TextInputAction? textInputAction;
   final List<TextInputFormatter>? inputFormatters;
@@ -138,7 +142,7 @@ class _StudioUnderlineFieldState extends State<StudioUnderlineField> {
     final c = context.studio;
     final focused = _focus.hasFocus;
     final hasError = widget.errorText != null;
-    final strong = focused || hasError;
+    final strong = focused || hasError || widget.strongUnderline;
     final valueStyle = widget.mono
         ? StudioType.mono(widget.valueSize, color: c.textPrimary)
         : StudioType.sans(widget.valueSize, color: c.textPrimary);
