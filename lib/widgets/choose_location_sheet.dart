@@ -2,32 +2,48 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../data/post_location_options.dart';
 import '../services/location_search_service.dart';
-import '../theme/home_feed_tokens.dart';
+import '../theme/studio_colors.dart';
+import '../theme/studio_type.dart';
 import 'post_picker_search_field.dart';
+import 'studio/studio_button.dart';
+import 'studio/studio_icon.dart';
+import 'studio/studio_select_row.dart';
+import 'studio/studio_sheet.dart';
+import 'studio/studio_toast.dart';
 
-/// Draggable location picker — live search via `LocationSearchService`
-/// (Nominatim), plus a "Use current location" option.
-/// Starts at ~1/3 screen; expands to ~88% when scrolled/dragged.
+/// Location picker (`PostLocation`): live city search via `LocationSearchService`
+/// (Nominatim) and "Use my current city". The chosen city takes the left line; Done
+/// confirms it. Only the city is ever public — the footer says so.
 class ChooseLocationSheet extends StatefulWidget {
-  const ChooseLocationSheet({super.key, required this.onLocationSelected});
+  const ChooseLocationSheet({
+    super.key,
+    required this.onLocationSelected,
+    this.selected,
+    this.subtitle = 'Where the piece is now.',
+  });
 
   final ValueChanged<PostLocationOption> onLocationSelected;
+  final PostLocationOption? selected;
+  final String subtitle;
 
+  /// Opens the sheet; [onLocationSelected] runs once Done is tapped (the sheet closes
+  /// itself).
   static Future<void> show(
     BuildContext context, {
     required ValueChanged<PostLocationOption> onLocationSelected,
+    PostLocationOption? selected,
+    String subtitle = 'Where the piece is now.',
   }) {
-    return showModalBottomSheet<void>(
+    return showStudioSheet<void>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withValues(alpha: 0.5),
-      builder: (context) =>
-          ChooseLocationSheet(onLocationSelected: onLocationSelected),
+      builder: (context) => ChooseLocationSheet(
+        onLocationSelected: onLocationSelected,
+        selected: selected,
+        subtitle: subtitle,
+      ),
     );
   }
 
@@ -36,15 +52,10 @@ class ChooseLocationSheet extends StatefulWidget {
 }
 
 class _ChooseLocationSheetState extends State<ChooseLocationSheet> {
-  static const _sheetBg = Color(0xFF231F1B);
-  static const _handleColor = Color(0xFF4A4843);
-
-  static const _initialSize = 0.33;
-  static const _maxSize = 0.88;
-
   final _searchController = TextEditingController();
   Timer? _debounce;
-  List<PostLocationOption> _results = const [];
+  late List<PostLocationOption> _results = [?widget.selected];
+  late PostLocationOption? _selected = widget.selected;
   bool _searching = false;
   bool _locating = false;
 
@@ -59,7 +70,7 @@ class _ChooseLocationSheetState extends State<ChooseLocationSheet> {
     _debounce?.cancel();
     if (value.trim().length < 3) {
       setState(() {
-        _results = const [];
+        _results = [?_selected];
         _searching = false;
       });
       return;
@@ -84,10 +95,7 @@ class _ChooseLocationSheetState extends State<ChooseLocationSheet> {
       }
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Location permission denied')),
-        );
+        if (mounted) showStudioToast(context, 'Location permission denied', icon: null);
         return;
       }
       final position = await Geolocator.getCurrentPosition();
@@ -97,190 +105,152 @@ class _ChooseLocationSheetState extends State<ChooseLocationSheet> {
       );
       if (!mounted) return;
       if (location == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not determine your location')),
-        );
+        showStudioToast(context, 'Could not find your city', icon: null);
         return;
       }
-      widget.onLocationSelected(location);
-      Navigator.pop(context);
+      setState(() {
+        _selected = location;
+        _results = [location];
+      });
     } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not get current location')),
-      );
+      if (mounted) showStudioToast(context, 'Could not get your location', icon: null);
     } finally {
       if (mounted) setState(() => _locating = false);
     }
   }
 
+  void _done() {
+    final selected = _selected;
+    if (selected == null) return;
+    widget.onLocationSelected(selected);
+    Navigator.pop(context);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
-    return Padding(
-      padding: EdgeInsets.only(bottom: bottomInset),
-      child: DraggableScrollableSheet(
-        initialChildSize: _initialSize,
-        minChildSize: _initialSize,
-        maxChildSize: _maxSize,
-        expand: false,
-        builder: (context, scrollController) {
-          return DecoratedBox(
-            decoration: const BoxDecoration(
-              color: _sheetBg,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-            child: Column(
+    final c = context.studio;
+    final mq = MediaQuery.of(context);
+    return PickerSheetFrame(
+      title: 'Location',
+      subtitle: widget.subtitle,
+      search: PostPickerSearchField(
+        controller: _searchController,
+        hintText: 'Search cities',
+        onChanged: _onQueryChanged,
+      ),
+      header: Semantics(
+        button: true,
+        child: GestureDetector(
+          onTap: _locating ? null : _useCurrentLocation,
+          behavior: HitTestBehavior.opaque,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
               children: [
-                const SizedBox(height: 10),
-                Container(
-                  width: 82,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: _handleColor,
-                    borderRadius: BorderRadius.circular(100),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Add location',
-                      style: GoogleFonts.inter(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: HomeFeedTokens.textInverse,
-                      ),
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(10, 12, 10, 8),
-                  child: PostPickerSearchField(
-                    controller: _searchController,
-                    hintText: 'Search locations',
-                    onChanged: _onQueryChanged,
-                  ),
-                ),
-                Expanded(
-                  child: ListView(
-                    controller: scrollController,
-                    padding: const EdgeInsets.fromLTRB(4, 4, 4, 24),
-                    children: [
-                      _UseCurrentLocationTile(
-                        loading: _locating,
-                        onTap: _locating ? null : _useCurrentLocation,
-                      ),
-                      if (_searching)
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 24),
-                          child: Center(
-                            child: SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                          ),
-                        )
-                      else
-                        for (final location in _results)
-                          _LocationListTile(
-                            location: location,
-                            onTap: () {
-                              widget.onLocationSelected(location);
-                              Navigator.pop(context);
-                            },
-                          ),
-                    ],
-                  ),
+                if (_locating)
+                  SizedBox.square(
+                    dimension: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: c.textPrimary),
+                  )
+                else
+                  StudioIcon(StudioIcons.location, size: 20, color: c.textPrimary),
+                const SizedBox(width: 10),
+                Text(
+                  'Use my current city',
+                  style: StudioType.sans(15, weight: StudioType.medium, color: c.textPrimary),
                 ),
               ],
             ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _UseCurrentLocationTile extends StatelessWidget {
-  const _UseCurrentLocationTile({required this.loading, required this.onTap});
-
-  final bool loading;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-          child: Row(
-            children: [
-              if (loading)
-                const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              else
-                const Icon(Icons.my_location, size: 16, color: Colors.white),
-              const SizedBox(width: 10),
-              Text(
-                'Use current location',
-                style: GoogleFonts.inter(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: HomeFeedTokens.textInverse,
-                ),
-              ),
-            ],
           ),
         ),
       ),
+      footer: Text(
+        'Only the city shows on your piece. Your exact pickup address stays private in '
+        'payout settings.',
+        style: StudioType.caption12(height: 1.5, color: c.textSecondary),
+      ),
+      done: StudioButton(label: 'Done', onPressed: _selected == null ? null : _done),
+      maxHeight: mq.size.height - 120,
+      list: _searching
+          ? [
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Center(
+                  child: SizedBox.square(
+                    dimension: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: c.textSecondary),
+                  ),
+                ),
+              ),
+            ]
+          : [
+              for (var i = 0; i < _results.length; i++)
+                StudioListRow(
+                  title: _results[i].name,
+                  subtitle: _results[i].subtitle,
+                  selected: _selected?.id == _results[i].id,
+                  divider: i < _results.length - 1,
+                  onTap: () => setState(() => _selected = _results[i]),
+                ),
+            ],
     );
   }
 }
 
-class _LocationListTile extends StatelessWidget {
-  const _LocationListTile({required this.location, required this.onTap});
+/// The picker sheet frame (`PostMedium`, `PostLocation`): grabber, 22/500 title over a
+/// 14/1.45 Graphite line, the search field, an optional [header] (count or current city),
+/// the scrolling [list], an optional [footer] line and the 52 Done button; 10 24 34
+/// padding, 16 gaps, top 120 from the screen top.
+class PickerSheetFrame extends StatelessWidget {
+  const PickerSheetFrame({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    required this.search,
+    required this.list,
+    required this.done,
+    required this.maxHeight,
+    this.header,
+    this.footer,
+  });
 
-  static const _textSecondary = Color(0xFF8C8880);
-
-  final PostLocationOption location;
-  final VoidCallback onTap;
+  final String title;
+  final String subtitle;
+  final Widget search;
+  final Widget? header;
+  final List<Widget> list;
+  final Widget? footer;
+  final Widget done;
+  final double maxHeight;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
+    final c = context.studio;
+    final keyboard = MediaQuery.viewInsetsOf(context).bottom;
+    return Padding(
+      padding: EdgeInsets.only(bottom: keyboard),
+      child: SizedBox(
+        height: maxHeight,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.fromLTRB(24, 10, 24, 34),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                location.name,
-                style: GoogleFonts.inter(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: HomeFeedTokens.textInverse,
-                ),
+              const Center(child: StudioSheetGrabber()),
+              const SizedBox(height: 16),
+              Text(title, style: StudioType.title22(color: c.textPrimary)),
+              const SizedBox(height: 4),
+              Text(subtitle, style: StudioType.body14(height: 1.45, color: c.textSecondary)),
+              const SizedBox(height: 16),
+              search,
+              if (header != null) ...[const SizedBox(height: 16), header!],
+              const SizedBox(height: 16),
+              Expanded(
+                child: ListView(padding: EdgeInsets.zero, children: list),
               ),
-              const SizedBox(height: 2),
-              Text(
-                location.subtitle,
-                style: GoogleFonts.inter(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w400,
-                  color: _textSecondary,
-                ),
-              ),
+              if (footer != null) ...[const SizedBox(height: 16), footer!],
+              const SizedBox(height: 16),
+              done,
             ],
           ),
         ),

@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:path_provider/path_provider.dart';
 
 import '../config/api_config.dart';
@@ -88,6 +89,13 @@ class ApiClient {
         return handler.next(error);
       },
     ));
+  }
+
+  /// Sends every request through [adapter] instead of the network, for tests that run
+  /// real service code against a fake server.
+  @visibleForTesting
+  void debugUseAdapter(HttpClientAdapter adapter) {
+    _dio = Dio(BaseOptions(baseUrl: ApiConfig.baseUrl))..httpClientAdapter = adapter;
   }
 
   Future<Dio> get _client async {

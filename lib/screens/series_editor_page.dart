@@ -1,6 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../models/piece_summary.dart';
 import '../models/series_summary.dart';
@@ -8,11 +7,15 @@ import '../services/api_exception.dart';
 import '../services/auth_session.dart';
 import '../services/piece_service.dart';
 import '../services/series_service.dart';
-import '../theme/home_feed_tokens.dart';
+import '../theme/studio_type.dart';
 import '../theme/studio_colors.dart';
 import '../widgets/studio/studio_icon.dart';
 import '../widgets/studio/studio_top_bar.dart';
 import '../widgets/create_flow/create_series_dialog.dart';
+import '../widgets/create_flow/link_piece_sheet.dart';
+import '../widgets/create_flow/post_flow_widgets.dart';
+import '../widgets/studio/studio_button.dart';
+import '../widgets/studio/studio_toast.dart';
 import '../widgets/studio_loading.dart';
 
 class SeriesEditorPage extends StatefulWidget {
@@ -69,9 +72,7 @@ class _SeriesEditorPageState extends State<SeriesEditorPage> {
 
   void _showError(Object e) {
     final message = e is ApiException ? e.message : e.toString();
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+    showStudioToast(context, message, icon: null);
   }
 
   Future<void> _renameSeries() async {
@@ -81,6 +82,7 @@ class _SeriesEditorPageState extends State<SeriesEditorPage> {
       context,
       initialName: series.name,
       title: 'Rename series',
+      action: 'Save',
     );
     if (name == null || name == series.name || !mounted) return;
     setState(() => _busy = true);
@@ -136,24 +138,18 @@ class _SeriesEditorPageState extends State<SeriesEditorPage> {
       setState(() => _busy = false);
 
       if (available.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No pieces available to add (each piece can belong to one series)'),
-          ),
-        );
+        showStudioToast(context, 'No pieces available to add (each piece can belong to one series)', icon: null);
         return;
       }
 
-      final selected = await showModalBottomSheet<Set<String>>(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: HomeFeedTokens.background,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-        ),
-        builder: (context) => _AddPiecesSheet(pieces: available),
+      final picked = await LinkPieceSheet.show(
+        context,
+        pieces: available,
+        selectedIds: const [],
+        title: 'Add pieces',
+        mark: 'Added',
       );
-
+      final selected = picked?.map((p) => p.id).toSet();
       if (selected == null || selected.isEmpty || !mounted) return;
       setState(() => _busy = true);
       var added = 0;
@@ -163,18 +159,14 @@ class _SeriesEditorPageState extends State<SeriesEditorPage> {
           added++;
         } on ApiException catch (e) {
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(e.message)),
-          );
+          showStudioToast(context, e.message, icon: null);
         }
       }
       await _load();
       if (!mounted) return;
       setState(() => _busy = false);
       if (added > 0) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Added $added piece${added == 1 ? '' : 's'}')),
-        );
+        showStudioToast(context, 'Added $added piece${added == 1 ? '' : 's'}', icon: null);
       }
     } catch (e) {
       if (mounted) setState(() => _busy = false);
@@ -182,69 +174,59 @@ class _SeriesEditorPageState extends State<SeriesEditorPage> {
     }
   }
 
+  /// No board: the light Studio list — the count in Mono, an outline "Add pieces" button,
+  /// pieces as 52 covers with title 15/500 and × to remove, a line between.
   @override
   Widget build(BuildContext context) {
     final series = _series;
+    final c = context.studio;
+    final count = _piecesInSeries.length;
 
     return StudioLoadingGate(
       loading: _loading || _busy,
       child: Scaffold(
-        backgroundColor: HomeFeedTokens.background,
-        appBar: StudioTopBar(context: context, 
+        backgroundColor: c.background,
+        appBar: StudioTopBar(
+          context: context,
           title: series?.name ?? 'Series',
           onBack: () => Navigator.pop(context, true),
           actions: [
-            IconButton(
-              onPressed: _renameSeries,
-              tooltip: 'Rename series',
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints.tightFor(width: 44, height: 44),
-              icon: StudioIcon(
-                StudioIcons.edit,
-                size: 22,
-                color: context.studio.textPrimary,
-              ),
-            ),
+            PostIconButton(icon: StudioIcons.edit, label: 'Rename series', onTap: _renameSeries),
           ],
         ),
         body: series == null
             ? const SizedBox.shrink()
             : ListView(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
                 children: [
-                  Text(
-                    '${_piecesInSeries.length} piece${_piecesInSeries.length == 1 ? '' : 's'} in this series',
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      color: HomeFeedTokens.textSecondary,
+                  Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(text: '$count', style: StudioType.mono(14, color: c.textSecondary)),
+                        TextSpan(text: count == 1 ? ' piece in this series' : ' pieces in this series'),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    onPressed: _addPieces,
-                    icon: const Icon(Icons.add),
-                    label: const Text('Add pieces'),
+                    style: StudioType.body14(color: c.textSecondary),
                   ),
                   const SizedBox(height: 16),
+                  StudioButton(
+                    label: 'Add pieces',
+                    variant: StudioButtonVariant.outline,
+                    onPressed: _addPieces,
+                  ),
+                  const SizedBox(height: 12),
                   if (_piecesInSeries.isEmpty)
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 32),
                       child: Text(
-                        'No pieces yet. Tap Add pieces to include artwork from your profile.',
+                        'No pieces yet. Add pieces from your profile.',
                         textAlign: TextAlign.center,
-                        style: GoogleFonts.inter(
-                          fontSize: 14,
-                          height: 1.45,
-                          color: HomeFeedTokens.textSecondary,
-                        ),
+                        style: StudioType.body14(height: 1.45, color: c.textSecondary),
                       ),
                     )
                   else
                     ..._piecesInSeries.map(
-                      (piece) => _PieceRow(
-                        piece: piece,
-                        onRemove: () => _removePiece(piece.id),
-                      ),
+                      (piece) => _PieceRow(piece: piece, onRemove: () => _removePiece(piece.id)),
                     ),
                 ],
               ),
@@ -254,140 +236,43 @@ class _SeriesEditorPageState extends State<SeriesEditorPage> {
 }
 
 class _PieceRow extends StatelessWidget {
-  const _PieceRow({
-    required this.piece,
-    required this.onRemove,
-  });
+  const _PieceRow({required this.piece, required this.onRemove});
 
   final PieceSummary piece;
   final VoidCallback onRemove;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+    final c = context.studio;
+    final url = piece.mediaUrl;
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: c.line))),
       child: Row(
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
-            child: SizedBox(
-              width: 52,
-              height: 52,
-              child: piece.mediaUrl != null && piece.mediaUrl!.isNotEmpty
-                  ? CachedNetworkImage(imageUrl: piece.mediaUrl!, fit: BoxFit.cover)
-                  : ColoredBox(color: Colors.grey.shade300),
+            child: SizedBox.square(
+              dimension: 52,
+              child: url != null && url.isNotEmpty
+                  ? CachedNetworkImage(imageUrl: url, fit: BoxFit.cover)
+                  : ColoredBox(color: c.surface),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 14),
           Expanded(
             child: Text(
               piece.title,
-              style: GoogleFonts.inter(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-                color: HomeFeedTokens.textPrimary,
-              ),
+              style: StudioType.sans(15, weight: StudioType.medium, color: c.textPrimary),
             ),
           ),
-          IconButton(
-            onPressed: onRemove,
-            icon: Icon(
-              Icons.close,
-              size: 20,
-              color: HomeFeedTokens.textSecondary,
-            ),
+          PostIconButton(
+            icon: StudioIcons.close,
+            label: 'Remove ${piece.title}',
+            color: c.textTertiary,
+            onTap: onRemove,
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _AddPiecesSheet extends StatefulWidget {
-  const _AddPiecesSheet({required this.pieces});
-
-  final List<PieceSummary> pieces;
-
-  @override
-  State<_AddPiecesSheet> createState() => _AddPiecesSheetState();
-}
-
-class _AddPiecesSheetState extends State<_AddPiecesSheet> {
-  final Set<String> _selected = {};
-
-  @override
-  Widget build(BuildContext context) {
-    final bottom = MediaQuery.paddingOf(context).bottom;
-
-    return SafeArea(
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(16, 12, 16, bottom + 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'Add pieces',
-              style: GoogleFonts.inter(
-                fontSize: 17,
-                fontWeight: FontWeight.w600,
-                color: HomeFeedTokens.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.sizeOf(context).height * 0.5,
-              ),
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: widget.pieces.length,
-                itemBuilder: (context, index) {
-                  final piece = widget.pieces[index];
-                  final checked = _selected.contains(piece.id);
-                  return CheckboxListTile(
-                    value: checked,
-                    onChanged: (value) {
-                      setState(() {
-                        if (value == true) {
-                          _selected.add(piece.id);
-                        } else {
-                          _selected.remove(piece.id);
-                        }
-                      });
-                    },
-                    title: Text(
-                      piece.title,
-                      style: GoogleFonts.inter(fontSize: 15),
-                    ),
-                    secondary: ClipRRect(
-                      borderRadius: BorderRadius.circular(6),
-                      child: SizedBox(
-                        width: 44,
-                        height: 44,
-                        child: piece.mediaUrl != null
-                            ? CachedNetworkImage(imageUrl: piece.mediaUrl!, fit: BoxFit.cover)
-                            : ColoredBox(color: Colors.grey.shade300),
-                      ),
-                    ),
-                    controlAffinity: ListTileControlAffinity.leading,
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: _selected.isEmpty
-                  ? null
-                  : () => Navigator.pop(context, Set<String>.from(_selected)),
-              child: Text(
-                _selected.isEmpty
-                    ? 'Select pieces'
-                    : 'Add ${_selected.length} piece${_selected.length == 1 ? '' : 's'}',
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
