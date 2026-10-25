@@ -9,6 +9,7 @@ abstract final class StudioIcons {
   static const String _dir = 'assets/icons';
 
   static const String arrowRight = '$_dir/arrow_right.svg';
+  static const String attach = '$_dir/attach_a_photo_or_video.svg';
   static const String back = '$_dir/back.svg';
   static const String backBold = '$_dir/back_to_explore.svg';
   static const String block = '$_dir/block.svg';

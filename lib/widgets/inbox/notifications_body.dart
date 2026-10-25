@@ -5,6 +5,7 @@ import '../../models/feed_preview_item.dart';
 import '../../models/notification_item.dart';
 import '../../services/chat_socket_service.dart';
 import '../../services/connectivity_service.dart';
+import '../../services/main_nav_service.dart';
 import '../../services/notification_service.dart';
 import '../../services/order_service.dart';
 import '../../services/piece_service.dart';
@@ -160,10 +161,21 @@ class NotificationsBodyState extends State<NotificationsBody> {
       return const FlatListRowSkeleton();
     }
     if (_items.isEmpty) {
-      return const Center(
-        child: StudioEmptyState(
-          title: 'Nothing yet',
-          message: 'Saves, follows and orders show up here.',
+      // `NotifEmptyActivity`: usually a brand-new account. Explore art opens Explore.
+      return RefreshIndicator(
+        color: c.textPrimary,
+        onRefresh: () => _load(refresh: true),
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.only(top: 200, bottom: 40),
+          children: [
+            StudioEmptyState(
+              title: 'Nothing here yet',
+              message: 'Follow artists and save pieces. News about them shows up here.',
+              actionLabel: 'Explore art',
+              onAction: () => MainNavService.instance.goExplore(),
+            ),
+          ],
         ),
       );
     }

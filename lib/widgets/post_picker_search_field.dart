@@ -15,6 +15,7 @@ class PostPickerSearchField extends StatelessWidget {
     required this.onChanged,
     this.autofocus = false,
     this.focusNode,
+    this.height = 46,
   });
 
   final TextEditingController controller;
@@ -23,12 +24,15 @@ class PostPickerSearchField extends StatelessWidget {
   final bool autofocus;
   final FocusNode? focusNode;
 
+  /// 46 in picker sheets, 44 on the Messages tab (`NotifMessages`).
+  final double height;
+
   @override
   Widget build(BuildContext context) {
     final c = context.studio;
     final style = StudioType.sans(15, color: c.textPrimary);
     return Container(
-      height: 46,
+      height: height,
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
         color: c.surface,

@@ -1,21 +1,23 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/follow_request.dart';
 import '../../services/social_service.dart';
-import '../../theme/app_theme.dart';
 import '../../utils/profile_navigation.dart';
 import '../accept_decline_buttons.dart';
 import '../feed_skeleton.dart';
-import '../glass_card.dart';
-import '../home_feed/home_feed_widgets.dart';
 import '../offline_state.dart';
+import '../studio/studio.dart';
+import 'notifications_body.dart' show activityTime;
 
-/// Follow-requests list content for the Inbox page's "Requests" tab —
-/// extracted from the former standalone FollowRequestsPage, minus its own
-/// AppBar.
+/// The Inbox "Requests" tab: people asking to follow a private profile. No board of its
+/// own: rows like Activity (40 avatar, name 15/500, "@handle · 4h" 12 Graphite, 12 above
+/// and below, 1 px Line) with the small Decline / Accept pair; the `SavedEmpty` empty state.
 class FollowRequestsBody extends StatefulWidget {
-  const FollowRequestsBody({super.key});
+  const FollowRequestsBody({super.key, this.debugRequests});
+
+  /// For tests: the requests instead of loading them.
+  @visibleForTesting
+  final List<FollowRequest>? debugRequests;
 
   @override
   State<FollowRequestsBody> createState() => FollowRequestsBodyState();
@@ -30,10 +32,17 @@ class FollowRequestsBodyState extends State<FollowRequestsBody> {
   @override
   void initState() {
     super.initState();
+    final debug = widget.debugRequests;
+    if (debug != null) {
+      _requests = List.of(debug);
+      _loading = false;
+      return;
+    }
     _load();
   }
 
   Future<void> _load() async {
+    if (widget.debugRequests != null) return;
     setState(() => _loading = true);
     try {
       final requests = await SocialService.instance.listFollowRequests();
@@ -57,6 +66,7 @@ class FollowRequestsBodyState extends State<FollowRequestsBody> {
     try {
       await SocialService.instance.acceptFollowRequest(request.username);
       if (!mounted) return;
+      showStudioToast(context, '${request.name.isEmpty ? '@${request.username}' : request.name} can follow you now');
       setState(
         () => _requests.removeWhere((r) => r.username == request.username),
       );
@@ -65,9 +75,7 @@ class FollowRequestsBodyState extends State<FollowRequestsBody> {
       setState(
         () => _requests.removeWhere((r) => r.username == request.username),
       );
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('This request is no longer available')),
-      );
+      showStudioToast(context, 'This request is no longer available', icon: null);
     } finally {
       if (mounted) setState(() => _busy.remove(request.username));
     }
@@ -91,45 +99,42 @@ class FollowRequestsBodyState extends State<FollowRequestsBody> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.studio;
     if (_showOfflineState) {
       return OfflineState(onRetry: _load);
     }
     if (_loading && _requests.isEmpty) {
       return const FlatListRowSkeleton();
     }
-    if (_requests.isEmpty) {
-      return Center(
-        child: Text(
-          'No pending requests',
-          style: GoogleFonts.inter(fontSize: 14, color: AppColors.slate400),
-        ),
-      );
-    }
     return RefreshIndicator(
+      color: c.textPrimary,
       onRefresh: _load,
-      child: ListView.builder(
+      child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
-        itemCount: _requests.length,
-        itemBuilder: (context, index) {
-          final request = _requests[index];
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: _FollowRequestRow(
+        padding: EdgeInsets.fromLTRB(20, _requests.isEmpty ? 200 : 4, 20, 24),
+        children: [
+          if (_requests.isEmpty)
+            const StudioEmptyState(
+              title: 'No follow requests',
+              message: 'When your profile is private, people who ask to follow you show up here.',
+            ),
+          for (final request in _requests)
+            FollowRequestRow(
               request: request,
               busy: _busy.contains(request.username),
               onAccept: () => _accept(request),
               onDecline: () => _decline(request),
             ),
-          );
-        },
+        ],
       ),
     );
   }
 }
 
-class _FollowRequestRow extends StatelessWidget {
-  const _FollowRequestRow({
+/// 40 avatar and name open the profile; Decline / Accept on the right.
+class FollowRequestRow extends StatelessWidget {
+  const FollowRequestRow({
+    super.key,
     required this.request,
     required this.busy,
     required this.onAccept,
@@ -143,57 +148,57 @@ class _FollowRequestRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GlassCard(
-      padding: const EdgeInsets.all(12),
+    final c = context.studio;
+    final name = request.name.isEmpty ? request.username : request.name;
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: c.line))),
       child: Row(
         children: [
-          GestureDetector(
-            onTap: () => openUserProfile(context, request.username),
-            child: UserAvatar(
-              url: request.profilePhotoUrl,
-              name: request.name,
-              size: 40,
+          Expanded(
+            child: Semantics(
+              button: true,
+              child: GestureDetector(
+                onTap: () => openUserProfile(context, request.username),
+                behavior: HitTestBehavior.opaque,
+                child: Row(
+                  children: [
+                    StudioAvatar(url: request.profilePhotoUrl, size: 40),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: StudioType.sans(
+                              15,
+                              weight: StudioType.medium,
+                              color: c.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '@${request.username} · '
+                            '${activityTime(request.requestedAt, DateTime.now())}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: StudioType.caption12(color: c.textSecondary),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
           const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  request.name,
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                Text(
-                  '@${request.username} · requested ${_timeAgo(request.requestedAt)}',
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    color: AppColors.slate500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          AcceptDeclineButtons(
-            onAccept: onAccept,
-            onDecline: onDecline,
-            busy: busy,
-          ),
+          AcceptDeclineButtons(onAccept: onAccept, onDecline: onDecline, busy: busy),
         ],
       ),
     );
   }
-}
-
-String _timeAgo(DateTime dt) {
-  final diff = DateTime.now().difference(dt);
-  if (diff.inMinutes < 1) return 'now';
-  if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-  if (diff.inHours < 24) return '${diff.inHours}h ago';
-  if (diff.inDays < 7) return '${diff.inDays}d ago';
-  return '${(diff.inDays / 7).floor()}w ago';
 }
