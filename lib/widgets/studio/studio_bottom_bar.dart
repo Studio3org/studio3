@@ -6,7 +6,13 @@ import '../../theme/studio_type.dart';
 
 /// One side of the bottom bar's info row: label 12 Graphite above value Geist 17/400.
 class StudioBottomBarInfo {
-  const StudioBottomBarInfo({required this.label, required this.value, this.valueColor, this.strong = false});
+  const StudioBottomBarInfo({
+    required this.label,
+    required this.value,
+    this.valueColor,
+    this.strong = false,
+    this.mono = false,
+  });
 
   final String label;
   final String value;
@@ -14,6 +20,9 @@ class StudioBottomBarInfo {
   /// Red time remaining under 24 hours (`BidOutbid`); 500 when [strong].
   final Color? valueColor;
   final bool strong;
+
+  /// Geist Mono 14 for a date (`EvDetail` "When").
+  final bool mono;
 }
 
 /// Pinned bottom bar (`BuyPiece`; `HandoffRules` "Bottom bars"): fades in from the page over
@@ -97,10 +106,12 @@ class StudioBottomBar extends StatelessWidget {
         const SizedBox(height: 2),
         Text(
           info.value,
-          style: StudioType.header17(
-            weight: info.strong ? StudioType.medium : StudioType.regular,
-            color: info.valueColor ?? c.textPrimary,
-          ),
+          style: info.mono
+              ? StudioType.mono(14, color: info.valueColor ?? c.textPrimary)
+              : StudioType.header17(
+                  weight: info.strong ? StudioType.medium : StudioType.regular,
+                  color: info.valueColor ?? c.textPrimary,
+                ),
         ),
       ],
     );

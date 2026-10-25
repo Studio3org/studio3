@@ -1,46 +1,60 @@
+import 'dart:async';
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../config/app_link_config.dart';
 import '../models/studio_event.dart';
 import '../services/api_exception.dart';
+import '../services/auth_session.dart';
 import '../services/event_service.dart';
-import '../utils/app_destination.dart';
-import '../widgets/events/event_lineup_section.dart';
-import 'event_qr_codes_page.dart';
 import '../services/saved_content_store.dart';
-import '../theme/home_feed_tokens.dart';
-import '../widgets/home_feed/home_feed_widgets.dart';
-import '../widgets/profile_avatar.dart';
+import '../services/user_service.dart';
+import '../utils/app_destination.dart';
+import '../utils/profile_navigation.dart';
+import '../utils/require_login.dart';
+import '../widgets/events/event_detail_widgets.dart';
+import '../widgets/follow_button.dart';
+import '../widgets/piece_detail/detail_follow_state.dart';
 import '../widgets/share/share_sheet.dart';
-import '../widgets/studio_message.dart';
-import '../theme/app_fonts.dart';
+import '../widgets/studio/studio.dart';
+import 'event_qr_codes_page.dart';
 
 /// Returns the pushed route's future, so a caller that wants to know when the viewer is
 /// back — to refresh a list something on this page could have changed, an RSVP or a
 /// delete — can await it instead of guessing when to re-fetch.
 Future<void> openEventDetail(BuildContext context, StudioEvent event) {
-  return Navigator.of(context).push<void>(
-    MaterialPageRoute<void>(
-      builder: (_) => EventDetailPage(event: event),
-    ),
-  );
+  return Navigator.of(
+    context,
+  ).push<void>(MaterialPageRoute<void>(builder: (_) => EventDetailPage(event: event)));
 }
 
-/// Event detail — Figma `2783:13329`.
+/// The event page (`EvDetail`): the flyer with back, save, share and more over it; Hosted by
+/// with Follow; Details; Featured artists; Pieces at this event; Location with a map that
+/// opens directions; the host's FAQs; and the bar at the bottom with From, When and Get
+/// tickets.
+///
+/// Every event is free on the server and an RSVP is a headcount (BACKEND_CHANGES B22), so
+/// From says Free and Get tickets reserves a place straight away until Choose tickets
+/// (`EvChooseTickets`) is built. FAQs and the host's follow state are BACKEND_CHANGES B24.
 class EventDetailPage extends StatefulWidget {
-  const EventDetailPage({super.key, required this.event});
+  const EventDetailPage({super.key, required this.event, this.debugDetail});
 
   final StudioEvent event;
+
+  /// For tests: the full event, so the page neither fetches it nor the host's profile.
+  @visibleForTesting
+  final StudioEvent? debugDetail;
 
   @override
   State<EventDetailPage> createState() => _EventDetailPageState();
 }
 
-class _EventDetailPageState extends State<EventDetailPage> {
+class _EventDetailPageState extends State<EventDetailPage> with DetailFollowState<EventDetailPage> {
   final _store = SavedContentStore.instance;
-  bool _detailsExpanded = false;
-  bool _followingHost = false;
 
   /// The full event, once fetched.
   ///
@@ -53,13 +67,115 @@ class _EventDetailPageState extends State<EventDetailPage> {
 
   bool _rsvping = false;
 
+  /// Re-fetches while a piece on the bill is up for auction, so the bid under it stays
+  /// current for someone standing in the room.
+  Timer? _poll;
+  static const _pollInterval = Duration(seconds: 12);
+
+  bool get _debug => widget.debugDetail != null;
+
+  @override
+  String get followUsername => _event.hostUsername ?? '';
+
+  @override
+  void initState() {
+    super.initState();
+    _store.addListener(_onStore);
+    if (_debug) {
+      _detail = widget.debugDetail;
+      return;
+    }
+    _loadDetail();
+    _loadFollow();
+  }
+
+  @override
+  void dispose() {
+    _poll?.cancel();
+    _store.removeListener(_onStore);
+    super.dispose();
+  }
+
+  void _onStore() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _loadDetail() async {
+    try {
+      final full = await EventService.instance.getById(widget.event.id);
+      if (!mounted) return;
+      setState(() => _detail = full);
+      _syncPolling();
+    } catch (_) {
+      // The card's own fields still render. A failed refresh is not worth an error screen
+      // over content that is already on the page.
+    }
+  }
+
+  void _syncPolling() {
+    final live = _event.lineup.any((item) => item.isBiddingOpen);
+    if (live && _poll == null) {
+      _poll = Timer.periodic(_pollInterval, (_) => _loadDetail());
+    } else if (!live) {
+      _poll?.cancel();
+      _poll = null;
+    }
+  }
+
+  /// The event payload does not say whether the viewer follows the host (B24), so it comes
+  /// from the host's profile.
+  Future<void> _loadFollow() async {
+    final host = widget.event.hostUsername;
+    if (host == null || host.isEmpty || widget.event.isHost || !AuthSession.instance.isLoggedIn) {
+      return;
+    }
+    try {
+      final profile = await UserService.instance.getPublicProfile(host);
+      if (!mounted) return;
+      setState(() {
+        followState = profile.isFollowing
+            ? FollowState.following
+            : (profile.followRequestPending ? FollowState.pending : FollowState.none);
+      });
+    } catch (_) {
+      // Follow stays as Follow; tapping it still works.
+    }
+  }
+
+  /// Save on the server, then mirror locally so the Saved tab updates without a round trip.
+  Future<void> _toggleSaved() async {
+    if (!await requireLogin(
+      context,
+      title: 'Sign in to save events',
+      message: 'Log in or create a free account to save events.',
+    )) {
+      return;
+    }
+    final wasSaved = _store.isSaved(_event.id);
+    try {
+      await EventService.instance.setSaved(_event.id, saved: !wasSaved);
+      if (!mounted) return;
+      _store.toggleEvent(_event);
+    } on ApiException catch (e) {
+      if (mounted) showStudioToast(context, e.message, icon: null);
+    } catch (_) {
+      if (mounted) showStudioToast(context, 'Could not save that event.', icon: null);
+    }
+  }
+
   /// Say you're coming, or take it back.
   ///
-  /// The response carries the fresh counts, so the button and the "12 going" line update
-  /// from what the server actually recorded rather than from an optimistic guess that a
-  /// full event would get wrong.
-  Future<void> _toggleRsvp() async {
-    final going = !_event.viewerIsGoing;
+  /// The response carries the fresh counts, so the bar updates from what the server actually
+  /// recorded rather than from an optimistic guess that a full event would get wrong.
+  Future<void> _setGoing(bool going) async {
+    if (!await requireLogin(
+      context,
+      title: 'Sign in to get tickets',
+      message: 'Log in or create a free account to go to events.',
+    )) {
+      return;
+    }
+    if (!mounted) return;
     setState(() => _rsvping = true);
     try {
       final result = await EventService.instance.setRsvp(_event.id, going: going);
@@ -73,611 +189,229 @@ class _EventDetailPageState extends State<EventDetailPage> {
           isFull: result.isFull,
         );
       });
+      showStudioToast(context, result.going ? "You're going" : 'Your place is cancelled');
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _rsvping = false);
-      StudioMessage.show(context, e.message);
+      showStudioToast(context, e.message, icon: null);
       // A 409 means somebody took the last place while this screen was open, so the counts
       // on it are already wrong.
       await _loadDetail();
     } catch (_) {
       if (!mounted) return;
       setState(() => _rsvping = false);
-      StudioMessage.show(context, 'Could not update your RSVP.');
+      showStudioToast(context, 'Could not update your place.', icon: null);
     }
-  }
-
-  void _showGoingActions(BuildContext context) {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: const Color(0xFF1A1A1A),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(
-                Icons.event_busy_outlined,
-                color: Color(0xFFE05252),
-              ),
-              title: const Text(
-                'Cancel registration',
-                style: TextStyle(
-                  color: Color(0xFFE05252),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              onTap: () {
-                Navigator.pop(sheetContext);
-                _toggleRsvp();
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _store.addListener(_onStore);
-    _loadDetail();
-  }
-
-  Future<void> _loadDetail() async {
-    try {
-      final full = await EventService.instance.getById(widget.event.id);
-      if (!mounted) return;
-      setState(() => _detail = full);
-    } catch (_) {
-      // The card's own fields still render. A failed refresh is not worth an error screen
-      // over content that is already on the page.
-    }
-  }
-
-  /// Save on the server, then mirror locally so the Saved tab updates without a round trip.
-  Future<void> _toggleSaved() async {
-    final wasSaved = _store.isSaved(_event.id);
-    try {
-      await EventService.instance.setSaved(_event.id, saved: !wasSaved);
-      if (!mounted) return;
-      _store.toggleEvent(_event);
-    } on ApiException catch (e) {
-      if (!mounted) return;
-      StudioMessage.show(context, e.message);
-    } catch (_) {
-      if (!mounted) return;
-      StudioMessage.show(context, 'Could not save that event.');
-    }
-  }
-
-  @override
-  void dispose() {
-    _store.removeListener(_onStore);
-    super.dispose();
-  }
-
-  void _onStore() {
-    if (mounted) setState(() {});
-  }
-
-  TextStyle _geist({
-    required double size,
-    FontWeight weight = FontWeight.w400,
-    Color color = HomeFeedTokens.textPrimary,
-  }) {
-    return AppFonts.geist(
-      fontSize: size,
-      fontWeight: weight,
-      color: color,
-    );
   }
 
   Future<void> _share() {
-    // A real https:// link, same as pieces/series — a bare studio3:// custom
-    // scheme isn't recognized as a link by most share targets (WhatsApp,
-    // SMS, etc.), so it renders as inert text instead of something tappable,
-    // and it's dead on arrival for anyone without the app installed. The
-    // backend's /share/event page (see AppLinkConfig) redirects an install
-    // into the app and otherwise shows the event on the web.
+    // A real https:// link: the backend's /share/event page opens the app when it is
+    // installed and shows the event on the web otherwise.
     return ShareSheet.show(
       context,
-      shareText: '${_event.title} · ${_event.venue}\n${_event.scheduleLine}\n'
+      shareText:
+          '${_event.title} · ${_event.venue}\n${_event.scheduleLine}\n'
           '${AppLinkConfig.eventUrl(_event.id)}',
       copyLabel: 'Copy',
       copiedMessage: 'Copied',
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final saved = _store.isSaved(_event.id);
-    final bottomInset = MediaQuery.paddingOf(context).bottom + 88;
-    final width = MediaQuery.sizeOf(context).width;
-    final heroHeight = width * (519 / 390);
-    const scrim = Color(0xCC231F1B);
-    final details = _event.details;
-    final collapsed =
-        details.length > 180 ? '${details.substring(0, 180).trim()}...' : details;
+  void _openQrCodes() => EventQrCodesPage.open(context, eventId: _event.id, eventTitle: _event.title);
 
-    return Scaffold(
-      backgroundColor: HomeFeedTokens.detailBackground,
-      body: Column(
+  /// The ··· menu: the host's QR codes, "Can't make it" once going, and Copy link.
+  void _openMore() {
+    final event = _event;
+    showStudioSheet<void>(
+      context: context,
+      builder: (sheetContext) => StudioSheet(
+        horizontalPadding: 24,
+        gap: 6,
         children: [
-          Expanded(
-            child: ListView(
-              padding: EdgeInsets.zero,
-              children: [
-                SizedBox(
-                  height: heroHeight,
-                  width: width,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      FeedPicsumImage(url: _event.imageUrl),
-                      const DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.center,
-                            colors: [scrim, Color(0x00000000)],
-                          ),
-                        ),
-                      ),
-                      const DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.bottomCenter,
-                            end: Alignment.center,
-                            colors: [scrim, Color(0x00000000)],
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        child: SafeArea(
-                          bottom: false,
-                          child: SizedBox(
-                            height: 56,
-                            child: Row(
-                              children: [
-                                const SizedBox(width: 10),
-                                GestureDetector(
-                                  onTap: () => Navigator.of(context).pop(),
-                                  behavior: HitTestBehavior.opaque,
-                                  child: SvgPicture.asset(
-                                    'assets/piece/hero_back.svg',
-                                    width: 11,
-                                    height: 20,
-                                  ),
-                                ),
-                                const Spacer(),
-                                GestureDetector(
-                                  onTap: _toggleSaved,
-                                  behavior: HitTestBehavior.opaque,
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8),
-                                    child: SvgPicture.asset(
-                                      saved
-                                          ? 'assets/piece/hero_bookmark_fill.svg'
-                                          : 'assets/piece/hero_bookmark.svg',
-                                      width: 16,
-                                      height: 20,
-                                    ),
-                                  ),
-                                ),
-                                GestureDetector(
-                                  onTap: _share,
-                                  behavior: HitTestBehavior.opaque,
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8),
-                                    child: SvgPicture.asset(
-                                      'assets/piece/hero_share.svg',
-                                      width: 18,
-                                      height: 22,
-                                    ),
-                                  ),
-                                ),
-                                // Host-only: the codes that go beside each work in the room.
-                                if (_event.isHost)
-                                  GestureDetector(
-                                    onTap: () => EventQrCodesPage.open(
-                                      context,
-                                      eventId: _event.id,
-                                      eventTitle: _event.title,
-                                    ),
-                                    behavior: HitTestBehavior.opaque,
-                                    child: const Padding(
-                                      padding: EdgeInsets.all(8),
-                                      child: Icon(
-                                        Icons.qr_code_2,
-                                        size: 22,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                // Cancelling only makes sense once the viewer is actually
-                                // registered — moved here, off a bottom bar that used to show
-                                // both "You're going" and "Can't make it" at once for the
-                                // whole time someone was on the guest list.
-                                if (_event.viewerIsGoing && !_event.isHost)
-                                  GestureDetector(
-                                    onTap: () => _showGoingActions(context),
-                                    behavior: HitTestBehavior.opaque,
-                                    child: const Padding(
-                                      padding: EdgeInsets.all(8),
-                                      child: Icon(
-                                        Icons.more_horiz,
-                                        size: 22,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                const SizedBox(width: 10),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        left: 16,
-                        right: 16,
-                        bottom: 17,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _event.kicker,
-                              style: _geist(
-                                size: 10,
-                                color: HomeFeedTokens.textInverse,
-                              ),
-                            ),
-                            Text(
-                              _event.title,
-                              style: _geist(
-                                size: 24,
-                                weight: FontWeight.w700,
-                                color: HomeFeedTokens.textInverse,
-                              ),
-                            ),
-                            Opacity(
-                              opacity: 0.85,
-                              child: Text(
-                                _event.venue,
-                                style: _geist(
-                                  size: 13,
-                                  color: HomeFeedTokens.textInverse,
-                                ),
-                              ),
-                            ),
-                            Opacity(
-                              opacity: 0.85,
-                              child: Text(
-                                _event.scheduleLine,
-                                style: _geist(
-                                  size: 13,
-                                  color: HomeFeedTokens.textInverse,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                DecoratedBox(
-                  decoration: const BoxDecoration(
-                    border: Border(
-                      bottom: BorderSide(color: Color(0xFFC4C4C4)),
-                    ),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 16, 10, 16),
-                    child: Row(
-                      children: [
-                        ProfileAvatar(
-                          url: _event.hostAvatarUrl,
-                          size: 28,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            'Hosted by ${_event.hostName}',
-                            style: _geist(size: 12),
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: () =>
-                              setState(() => _followingHost = !_followingHost),
-                          child: Container(
-                            width: 96,
-                            height: 28,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: _followingHost
-                                  ? HomeFeedTokens.neutral800
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(
-                                color: HomeFeedTokens.neutral800,
-                              ),
-                            ),
-                            child: Text(
-                              _followingHost ? 'Following' : 'Follow',
-                              style: _geist(
-                                size: 12,
-                                color: _followingHost
-                                    ? HomeFeedTokens.textInverse
-                                    : HomeFeedTokens.neutral800,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(10, 24, 10, 0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Details',
-                        style: _geist(
-                          size: 13,
-                          weight: FontWeight.w500,
-                          color: HomeFeedTokens.textSecondary,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        _detailsExpanded ? details : collapsed,
-                        style: _geist(size: 16),
-                      ),
-                      if (details.length > 180) ...[
-                        const SizedBox(height: 6),
-                        GestureDetector(
-                          onTap: () => setState(
-                            () => _detailsExpanded = !_detailsExpanded,
-                          ),
-                          child: Text(
-                            _detailsExpanded ? 'Show less' : 'Show more',
-                            style: _geist(
-                              size: 13,
-                              color: HomeFeedTokens.textSecondary,
-                            ).copyWith(
-                              decoration: TextDecoration.underline,
-                              decorationColor: HomeFeedTokens.textSecondary,
-                            ),
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 32),
-                      Text(
-                        'Featured artists',
-                        style: _geist(
-                          size: 13,
-                          weight: FontWeight.w500,
-                          color: HomeFeedTokens.textSecondary,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                    ],
-                  ),
-                ),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.fromLTRB(26, 0, 10, 0),
-                  child: Row(
-                    children: [
-                      for (var i = 0; i < _event.artists.length; i++) ...[
-                        if (i > 0) const SizedBox(width: 16),
-                        SizedBox(
-                          width: 79,
-                          child: Column(
-                            children: [
-                              ClipOval(
-                                child: SizedBox(
-                                  width: 79,
-                                  height: 79,
-                                  child: FeedPicsumImage(
-                                    url: _event.artists[i].avatarUrl ?? '',
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                _event.artists[i].displayName,
-                                textAlign: TextAlign.center,
-                                style: _geist(size: 12),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                // The live board, shown only when something on the bill is actually being
-                // auctioned. An ordinary event keeps the designed image strip below and
-                // gains nothing from a list of prices that are not moving.
-                if (_event.lineup.any((i) => i.mode == 'bid')) ...[
-                  const SizedBox(height: 32),
-                  EventLineupSection(
-                    event: _event,
-                    onRefresh: _loadDetail,
-                    onTapPiece: (item) => openDestination(
-                      context,
-                      AppDestination(AppDestinationType.piece, item.pieceId),
-                    ),
-                  ),
-                ],
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(10, 32, 10, 0),
-                  child: Text(
-                    'Pieces at this event',
-                    style: _geist(
-                      size: 13,
-                      weight: FontWeight.w500,
-                      color: HomeFeedTokens.textSecondary,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.fromLTRB(26, 0, 10, 0),
-                  child: Row(
-                    children: [
-                      for (var i = 0; i < _event.pieceImageUrls.length; i++) ...[
-                        if (i > 0) const SizedBox(width: 8),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: SizedBox(
-                            width: i == 2 ? 128 : 180,
-                            height: 228,
-                            child: FeedPicsumImage(
-                              url: _event.pieceImageUrls[i],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(10, 32, 10, 0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Location',
-                        style: _geist(
-                          size: 13,
-                          weight: FontWeight.w500,
-                          color: HomeFeedTokens.textSecondary,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(_event.address ?? 'Location to be announced', style: _geist(size: 16)),
-                      // The map image and the FAQ list are deliberately absent rather than
-                      // faked. Neither has a backend field yet: a map needs a tile provider
-                      // nobody has chosen, and FAQs need a column and an editor in the
-                      // create flow. Showing a stock map of the wrong place, or somebody
-                      // else's answers, would be worse than showing the address alone.
-                      const SizedBox(height: 32),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-              ],
+          if (event.isHost)
+            StudioActionRow(
+              icon: StudioIcons.ticket,
+              title: 'QR codes for pieces',
+              subtitle: 'Print them to hang beside each work',
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _openQrCodes();
+              },
             ),
-          ),
-          ColoredBox(
-            color: HomeFeedTokens.detailBackground,
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(10, 16, 10, bottomInset),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Entry',
-                    style: _geist(
-                      size: 13,
-                      color: HomeFeedTokens.textSecondary,
-                    ),
-                  ),
-                  Text(_event.priceLabel, style: _geist(size: 20)),
-                  const SizedBox(height: 2),
-                  Text(
-                    _event.rsvpSummary,
-                    style: _geist(size: 13, color: HomeFeedTokens.textSecondary),
-                  ),
-                  const SizedBox(height: 16),
-                  if (_event.isHost)
-                    // A host can't RSVP to their own event, so what belongs here isn't a
-                    // button — it's the number they actually came to this page for.
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.people_alt_outlined,
-                          size: 20,
-                          color: HomeFeedTokens.textPrimary,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          _event.rsvpCount == 1
-                              ? '1 person registered'
-                              : '${_event.rsvpCount} people registered',
-                          style: _geist(size: 16, weight: FontWeight.w600),
-                        ),
-                      ],
-                    )
-                  else if (_event.viewerIsGoing)
-                    // The action that used to live here — "Can't make it" — is now behind
-                    // the three-dot menu at the top, so this bar only ever states a fact.
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.check_circle,
-                          size: 20,
-                          color: Color(0xFF2E8B57),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          "You're going",
-                          style: _geist(size: 16, weight: FontWeight.w600),
-                        ),
-                      ],
-                    )
-                  else
-                    SizedBox(
-                      width: double.infinity,
-                      height: 40,
-                      child: FilledButton(
-                        // A full event the viewer is not already on keeps its button,
-                        // disabled — so "full" reads as a fact about the event rather than
-                        // as a missing control.
-                        onPressed:
-                            _event.canRsvp && !_rsvping ? _toggleRsvp : null,
-                        style: FilledButton.styleFrom(
-                          backgroundColor: HomeFeedTokens.neutral800,
-                          foregroundColor: HomeFeedTokens.textInverse,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        child: _rsvping
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : Text(
-                                _event.rsvpCtaLabel,
-                                style: _geist(
-                                  size: 16,
-                                  color: HomeFeedTokens.textInverse,
-                                ),
-                              ),
-                      ),
-                    ),
-                ],
-              ),
+          if (event.viewerIsGoing && !event.isHost)
+            StudioActionRow(
+              icon: StudioIcons.close,
+              title: "Can't make it",
+              subtitle: 'Gives your place back',
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _setGoing(false);
+              },
             ),
+          StudioActionRow(
+            icon: StudioIcons.link,
+            title: 'Copy link',
+            onTap: () {
+              Navigator.pop(sheetContext);
+              Clipboard.setData(ClipboardData(text: AppLinkConfig.eventUrl(event.id)));
+              showStudioToast(context, 'Link copied');
+            },
           ),
         ],
       ),
     );
   }
-}
 
+  /// Directions in the phone's maps app, to the pin when there is one, else the address.
+  Future<void> _openDirections() async {
+    final event = _event;
+    final target = event.hasLocation
+        ? '${event.latitude},${event.longitude}'
+        : (event.address ?? event.venue);
+    if (target.trim().isEmpty) return;
+    final q = Uri.encodeComponent(target);
+    final apple = !kIsWeb && Platform.isIOS;
+    final uri = Uri.parse(
+      apple ? 'https://maps.apple.com/?daddr=$q' : 'https://www.google.com/maps/dir/?api=1&destination=$q',
+    );
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication).catchError((_) => false);
+    if (!opened && mounted) showStudioToast(context, 'Could not open maps.', icon: null);
+  }
+
+  Widget? _bottomBar(StudioEvent e) {
+    if (e.isOver && !e.isCancelled) return null;
+    final when = StudioBottomBarInfo(label: 'When', value: eventDayLabel(e), mono: true);
+    final from = StudioBottomBarInfo(label: 'From', value: e.priceLabel);
+    if (e.isCancelled) {
+      return const StudioBottomBar(button: StudioButton(label: 'Event cancelled', onPressed: null));
+    }
+    if (e.isHost) {
+      return StudioBottomBar(
+        left: StudioBottomBarInfo(label: 'Going', value: '${e.rsvpCount}'),
+        right: when,
+        button: StudioButton(
+          label: 'QR codes for pieces',
+          variant: StudioButtonVariant.outline,
+          height: 52,
+          onPressed: _openQrCodes,
+        ),
+      );
+    }
+    if (e.viewerIsGoing) {
+      return StudioBottomBar(
+        left: from,
+        right: when,
+        button: StudioButton(
+          label: "You're going",
+          variant: StudioButtonVariant.outline,
+          height: 52,
+          loading: _rsvping,
+          onPressed: _rsvping ? null : _openMore,
+        ),
+      );
+    }
+    return StudioBottomBar(
+      left: from,
+      right: when,
+      button: StudioButton(
+        label: e.isFull ? 'Sold out' : 'Get tickets',
+        loading: _rsvping,
+        onPressed: e.canRsvp && !_rsvping ? () => _setGoing(true) : null,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.studio;
+    final e = _event;
+    final bar = _bottomBar(e);
+    final pieces = e.lineup.where((item) => item.pieceId.isNotEmpty).toList();
+    final address = e.address?.trim() ?? '';
+
+    Widget padded(Widget child) => Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: child);
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      // White status bar icons over the flyer, like the top icons.
+      value: SystemUiOverlayStyle.light.copyWith(statusBarColor: Colors.transparent),
+      child: Scaffold(
+        backgroundColor: c.background,
+        body: Stack(
+          children: [
+            ListView(
+              padding: EdgeInsets.only(bottom: bar == null ? MediaQuery.paddingOf(context).bottom + 40 : 200),
+              children: [
+                EventHero(
+                  event: e,
+                  saved: _store.isSaved(e.id),
+                  onBack: () => Navigator.of(context).maybePop(),
+                  onSave: _toggleSaved,
+                  onShare: _share,
+                  onMore: _openMore,
+                ),
+                padded(
+                  EventHostRow(
+                    event: e,
+                    followLabel: followState.actionLabel,
+                    followFilled: followState.filled,
+                    followBusy: followBusy,
+                    onFollow: toggleFollow,
+                    onHost: () => openUserProfile(context, e.hostUsername),
+                  ),
+                ),
+                if (e.isCancelled || e.isOver)
+                  padded(
+                    Padding(
+                      padding: const EdgeInsets.only(top: 22),
+                      child: Text(
+                        e.isCancelled
+                            ? (e.cancellationReason?.trim().isNotEmpty == true
+                                  ? 'This event was cancelled. ${e.cancellationReason!.trim()}'
+                                  : 'This event was cancelled.')
+                            : 'This event has ended.',
+                        style: StudioType.body15(height: 1.5, color: c.textSecondary),
+                      ),
+                    ),
+                  ),
+                if (e.details.trim().isNotEmpty) ...[
+                  padded(const EventDetailHeading('Details', top: 22, bottom: 8)),
+                  padded(EventDetailsText(e.details.trim())),
+                ],
+                if (e.artists.isNotEmpty) ...[
+                  padded(const EventDetailHeading('Featured artists')),
+                  EventArtistsRow(
+                    artists: e.artists,
+                    onArtist: (artist) => openUserProfile(context, artist.username),
+                  ),
+                ],
+                if (pieces.isNotEmpty) ...[
+                  padded(const EventDetailHeading('Pieces at this event')),
+                  EventPiecesRow(
+                    items: pieces,
+                    onPiece: (item) =>
+                        openDestination(context, AppDestination(AppDestinationType.piece, item.pieceId)),
+                  ),
+                ],
+                if (address.isNotEmpty) ...[
+                  padded(const EventDetailHeading('Location', bottom: 8)),
+                  padded(
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Text(address, style: StudioType.body15(color: c.textPrimary)),
+                    ),
+                  ),
+                  padded(EventMapCard(onTap: _openDirections)),
+                ],
+                if (e.faqs.isNotEmpty) ...[
+                  padded(const EventDetailHeading('FAQs', bottom: 0)),
+                  for (final faq in e.faqs) padded(EventFaqRow(question: faq.question, answer: faq.answer)),
+                ],
+              ],
+            ),
+            if (bar != null) Positioned(left: 0, right: 0, bottom: 0, child: bar),
+          ],
+        ),
+      ),
+    );
+  }
+}

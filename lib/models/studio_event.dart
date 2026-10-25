@@ -41,6 +41,7 @@ class StudioEvent {
     this.cohosts = const [],
     this.artists = const [],
     this.lineup = const [],
+    this.faqs = const [],
   });
 
   final String id;
@@ -92,6 +93,10 @@ class StudioEvent {
   final List<EventPerson> cohosts;
   final List<EventPerson> artists;
   final List<EventLineupItem> lineup;
+
+  /// The host's questions and answers (`EvDetail` FAQs). The server does not send them yet
+  /// (BACKEND_CHANGES B24), so this is empty until it does.
+  final List<EventFaq> faqs;
 
   bool get isDraft => status == 'draft';
   bool get isPublished => status == 'published';
@@ -269,6 +274,7 @@ class StudioEvent {
         cohosts: cohosts,
         artists: artists,
         lineup: lineup,
+        faqs: faqs,
       );
 
   /// Enough to render a saved-events tile offline.
@@ -332,6 +338,12 @@ class StudioEvent {
               .map(EventLineupItem.fromJson)
               .toList() ??
           const [],
+      faqs: (json['faqs'] as List?)
+              ?.whereType<Map<String, dynamic>>()
+              .map(EventFaq.fromJson)
+              .where((f) => f.question.isNotEmpty)
+              .toList() ??
+          const [],
     );
   }
 
@@ -361,6 +373,19 @@ class EventPerson {
         username: json['username'] as String? ?? '',
         name: json['name'] as String?,
         avatarUrl: json['avatarUrl'] as String?,
+      );
+}
+
+/// A question the host answers on the event page.
+class EventFaq {
+  const EventFaq({required this.question, required this.answer});
+
+  final String question;
+  final String answer;
+
+  factory EventFaq.fromJson(Map<String, dynamic> json) => EventFaq(
+        question: json['question'] as String? ?? '',
+        answer: json['answer'] as String? ?? '',
       );
 }
 
