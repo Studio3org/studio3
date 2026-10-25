@@ -42,6 +42,7 @@ class StudioEvent {
     this.artists = const [],
     this.lineup = const [],
     this.faqs = const [],
+    this.ticketTypes = const [],
   });
 
   final String id;
@@ -97,6 +98,24 @@ class StudioEvent {
   /// The host's questions and answers (`EvDetail` FAQs). The server does not send them yet
   /// (BACKEND_CHANGES B24), so this is empty until it does.
   final List<EventFaq> faqs;
+
+  /// The host's ticket types (`EvChooseTickets`). Not sent by the server yet (BACKEND_CHANGES
+  /// B22); see [ticketOptions] for what the sheet shows until then.
+  final List<EventTicketType> ticketTypes;
+
+  /// What Choose tickets offers: the host's ticket types, or, while every event is a free
+  /// RSVP, one free General Admission place per person with the places left as its count.
+  List<EventTicketType> get ticketOptions => ticketTypes.isNotEmpty
+      ? ticketTypes
+      : [
+          EventTicketType(
+            id: 'rsvp',
+            name: 'General Admission',
+            includes: 'Open to everyone',
+            left: isFull ? 0 : spotsLeft,
+            perOrderLimit: 1,
+          ),
+        ];
 
   bool get isDraft => status == 'draft';
   bool get isPublished => status == 'published';
@@ -275,6 +294,7 @@ class StudioEvent {
         artists: artists,
         lineup: lineup,
         faqs: faqs,
+        ticketTypes: ticketTypes,
       );
 
   /// Enough to render a saved-events tile offline.
@@ -344,6 +364,11 @@ class StudioEvent {
               .where((f) => f.question.isNotEmpty)
               .toList() ??
           const [],
+      ticketTypes: (json['ticketTypes'] as List?)
+              ?.whereType<Map<String, dynamic>>()
+              .map(EventTicketType.fromJson)
+              .toList() ??
+          const [],
     );
   }
 
@@ -386,6 +411,51 @@ class EventFaq {
   factory EventFaq.fromJson(Map<String, dynamic> json) => EventFaq(
         question: json['question'] as String? ?? '',
         answer: json['answer'] as String? ?? '',
+      );
+}
+
+/// A kind of ticket the host sells (`EvChooseTickets`): name, price, what it includes, how
+/// many are left and how many one order may take.
+class EventTicketType {
+  const EventTicketType({
+    required this.id,
+    required this.name,
+    this.priceCents = 0,
+    this.includes,
+    this.left,
+    this.perOrderLimit,
+  });
+
+  final String id;
+  final String name;
+
+  /// 0 for a free ticket.
+  final int priceCents;
+  final String? includes;
+
+  /// Null when there is no cap.
+  final int? left;
+
+  /// Null when only [left] limits an order.
+  final int? perOrderLimit;
+
+  bool get isFree => priceCents == 0;
+  bool get isSoldOut => left == 0;
+
+  /// The most one order can hold.
+  int? get maxPerOrder {
+    final caps = [?left, ?perOrderLimit];
+    if (caps.isEmpty) return null;
+    return caps.reduce((a, b) => a < b ? a : b);
+  }
+
+  factory EventTicketType.fromJson(Map<String, dynamic> json) => EventTicketType(
+        id: json['id'] as String? ?? '',
+        name: json['name'] as String? ?? '',
+        priceCents: (json['priceCents'] as num?)?.toInt() ?? 0,
+        includes: json['includes'] as String?,
+        left: (json['left'] as num?)?.toInt(),
+        perOrderLimit: (json['perOrderLimit'] as num?)?.toInt(),
       );
 }
 

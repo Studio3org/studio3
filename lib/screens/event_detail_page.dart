@@ -16,7 +16,9 @@ import '../services/user_service.dart';
 import '../utils/app_destination.dart';
 import '../utils/profile_navigation.dart';
 import '../utils/require_login.dart';
+import '../theme/collect_detail_tokens.dart' show formatMoney;
 import '../widgets/events/event_detail_widgets.dart';
+import '../widgets/events/event_tickets_sheet.dart';
 import '../widgets/follow_button.dart';
 import '../widgets/piece_detail/detail_follow_state.dart';
 import '../widgets/share/share_sheet.dart';
@@ -37,9 +39,10 @@ Future<void> openEventDetail(BuildContext context, StudioEvent event) {
 /// opens directions; the host's FAQs; and the bar at the bottom with From, When and Get
 /// tickets.
 ///
-/// Every event is free on the server and an RSVP is a headcount (BACKEND_CHANGES B22), so
-/// From says Free and Get tickets reserves a place straight away until Choose tickets
-/// (`EvChooseTickets`) is built. FAQs and the host's follow state are BACKEND_CHANGES B24.
+/// Get tickets opens Choose tickets (`EvChooseTickets`). Every event is free on the server and
+/// an RSVP is a headcount (BACKEND_CHANGES B22), so the sheet offers one free place and Reserve
+/// saves the RSVP; paid tickets wait for checkout (`EvCheckout`). FAQs and the host's follow
+/// state are BACKEND_CHANGES B24.
 class EventDetailPage extends StatefulWidget {
   const EventDetailPage({super.key, required this.event, this.debugDetail});
 
@@ -204,6 +207,18 @@ class _EventDetailPageState extends State<EventDetailPage> with DetailFollowStat
     }
   }
 
+  /// Choose tickets, then Reserve for free tickets. Signing in is asked at Reserve, so anyone
+  /// can look at the ticket types first.
+  Future<void> _getTickets() async {
+    final choice = await EventTicketsSheet.show(context, _event);
+    if (choice == null || !mounted) return;
+    if (!choice.isFree) {
+      showStudioToast(context, 'Paid tickets are not on sale in the app yet.', icon: null);
+      return;
+    }
+    await _setGoing(true);
+  }
+
   Future<void> _share() {
     // A real https:// link: the backend's /share/event page opens the app when it is
     // installed and shows the event on the web otherwise.
@@ -281,7 +296,10 @@ class _EventDetailPageState extends State<EventDetailPage> with DetailFollowStat
   Widget? _bottomBar(StudioEvent e) {
     if (e.isOver && !e.isCancelled) return null;
     final when = StudioBottomBarInfo(label: 'When', value: eventDayLabel(e), mono: true);
-    final from = StudioBottomBarInfo(label: 'From', value: e.priceLabel);
+    final options = e.ticketOptions;
+    final lowest = options.map((t) => t.priceCents).reduce((a, b) => a < b ? a : b);
+    final from = StudioBottomBarInfo(label: 'From', value: lowest == 0 ? 'Free' : formatMoney(lowest));
+    final soldOut = e.isFull || options.every((t) => t.isSoldOut);
     if (e.isCancelled) {
       return const StudioBottomBar(button: StudioButton(label: 'Event cancelled', onPressed: null));
     }
@@ -314,9 +332,9 @@ class _EventDetailPageState extends State<EventDetailPage> with DetailFollowStat
       left: from,
       right: when,
       button: StudioButton(
-        label: e.isFull ? 'Sold out' : 'Get tickets',
+        label: soldOut ? 'Sold out' : 'Get tickets',
         loading: _rsvping,
-        onPressed: e.canRsvp && !_rsvping ? () => _setGoing(true) : null,
+        onPressed: e.canRsvp && !soldOut && !_rsvping ? _getTickets : null,
       ),
     );
   }
