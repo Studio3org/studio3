@@ -46,6 +46,20 @@ class NotificationItem {
     );
   }
 
+  NotificationItem copyWith({bool? read}) => NotificationItem(
+    id: id,
+    type: type,
+    actorName: actorName,
+    actorUsername: actorUsername,
+    actorAvatarUrl: actorAvatarUrl,
+    targetType: targetType,
+    targetId: targetId,
+    payload: payload,
+    message: message,
+    read: read ?? this.read,
+    createdAt: createdAt,
+  );
+
   String get actorDisplayName =>
       (actorName != null && actorName!.isNotEmpty) ? actorName! : 'Someone';
 
