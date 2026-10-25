@@ -8,6 +8,7 @@ import '../widgets/delete_confirmation_dialog.dart';
 import '../widgets/home_feed/home_feed_widgets.dart';
 import 'event_detail_page.dart';
 import 'event_post_page.dart';
+import 'scan_qr_page.dart';
 import '../theme/app_fonts.dart';
 
 /// The viewer's own relationship to events — what they host, and what they've registered
@@ -78,6 +79,13 @@ class _MyEventsPageState extends State<MyEventsPage>
                         color: HomeFeedTokens.textPrimary,
                       ),
                     ),
+                  ),
+                  // Scanning a piece's code at an event (it was on the Events tab header,
+                  // which `EvTab` leaves out).
+                  IconButton(
+                    icon: const Icon(Icons.qr_code_scanner, color: HomeFeedTokens.textPrimary),
+                    tooltip: 'Scan a code',
+                    onPressed: () => ScanQrPage.open(context),
                   ),
                   IconButton(
                     icon: const Icon(Icons.add, color: HomeFeedTokens.textPrimary),

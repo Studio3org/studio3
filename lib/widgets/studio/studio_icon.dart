@@ -15,6 +15,10 @@ abstract final class StudioIcons {
   static const String block = '$_dir/block.svg';
   static const String chat = '$_dir/chat.svg';
   static const String chevronRight = '$_dir/chevron_right.svg';
+  static const String chevronDown = '$_dir/chevron_down.svg';
+  static const String plus = '$_dir/plus.svg';
+  static const String sliders = '$_dir/sliders.svg';
+  static const String ticket = '$_dir/ticket.svg';
   static const String check = '$_dir/check.svg';
   static const String close = '$_dir/close.svg';
   static const String edit = '$_dir/edit_piece.svg';

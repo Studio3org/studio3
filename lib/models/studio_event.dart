@@ -157,6 +157,9 @@ class StudioEvent {
     return '$date $start – $endDate $end$_zoneSuffix';
   }
 
+  /// "CST" (the event's own zone), or empty when only an IANA name is known.
+  String get zoneLabel => _zoneSuffix.trim();
+
   /// The event's own zone, not the reader's. An event happens in one place, and shifting its
   /// time into whatever zone the phone is in makes "8PM" wrong for everyone travelling.
   String get _zoneSuffix {
