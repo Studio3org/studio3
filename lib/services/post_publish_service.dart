@@ -40,6 +40,7 @@ class PostDraft {
     this.aiDisclosed = false,
     this.altText,
     this.linkedPieceIds = const [],
+    this.linkedPieceId,
     this.isProcess = false,
     this.isForSale = false,
   });
@@ -71,6 +72,14 @@ class PostDraft {
 
   /// Scenes: the pieces it shows on, in order.
   final List<String> linkedPieceIds;
+
+  /// The single linked piece of the earlier Scene flow (restored `SceneCreatePage`); used
+  /// when [linkedPieceIds] is empty.
+  final String? linkedPieceId;
+
+  List<String> get _linkedIds => linkedPieceIds.isNotEmpty
+      ? linkedPieceIds
+      : [if (linkedPieceId != null && linkedPieceId!.isNotEmpty) linkedPieceId!];
   final bool isProcess;
   final bool isForSale;
 
@@ -168,15 +177,26 @@ class PostPublishService {
     return piece;
   }
 
+  /// One call for the earlier screens (restored from before commit 76f4ef9): a Scene posts
+  /// straight to live; a piece is saved as a draft and taken live.
+  Future<void> publish(PostDraft draft) async {
+    if (draft.postType == 'scene') {
+      await postScene(draft);
+      return;
+    }
+    final piece = await saveDraft(draft);
+    if (!piece.isLive || draft.auction == null) await goLive(piece.id);
+  }
+
   /// Draft → live.
   Future<PieceSummary> goLive(String pieceId) => _pieces.update(pieceId, {'status': 'live'});
 
   /// Posts a Scene (photo or video) straight to live — Scenes have no draft or review.
   Future<PostSummary> postScene(PostDraft draft) async {
     final linked = {
-      if (draft.linkedPieceIds.isNotEmpty) ...{
-        'linkedPieceId': draft.linkedPieceIds.first,
-        'linkedPieceIds': draft.linkedPieceIds,
+      if (draft._linkedIds.isNotEmpty) ...{
+        'linkedPieceId': draft._linkedIds.first,
+        'linkedPieceIds': draft._linkedIds,
       },
     };
     final caption = draft.description.trim();

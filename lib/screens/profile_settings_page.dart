@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../services/api_exception.dart';
 import '../services/auth_service.dart';
 import '../services/auth_session.dart';
 import '../services/device_service.dart';
+import '../services/payout_service.dart';
 import '../models/user_profile.dart';
 import '../services/theme_service.dart';
 import '../services/user_service.dart';
 import '../theme/studio_colors.dart';
 import '../utils/profile_navigation.dart';
 import '../widgets/feed_skeleton.dart';
+import '../widgets/loading/skeleton_primitives.dart';
 import '../widgets/settings_tile.dart';
 import '../widgets/studio/studio_select_row.dart';
 import '../widgets/studio/studio_top_bar.dart';
@@ -29,6 +32,7 @@ class ProfileSettingsPage extends StatefulWidget {
 
 class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
   bool _sellerEnabled = false;
+  PayoutStatus? _payoutStatus = PayoutService.instance.peekStatusCached();
   bool _loadingSeller = true;
   bool _togglingSeller = false;
   String? _profileLocation;
@@ -69,7 +73,10 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
         _profileLocation = profile.location;
         _loadingSeller = false;
       });
-      if (status.enabled) _loadAnalytics();
+      if (status.enabled) {
+        _loadAnalytics();
+        _loadPayoutStatus();
+      }
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -200,7 +207,50 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
       _togglingSeller = false;
       if (result != null) _sellerEnabled = result;
     });
-    if (result == true) _loadAnalytics();
+    if (result == true) {
+      _loadAnalytics();
+      _loadPayoutStatus();
+    } else if (result == false) {
+      await PayoutService.instance.invalidateStatus();
+      if (!mounted) return;
+      setState(() => _payoutStatus = null);
+    }
+  }
+
+  Future<void> _loadPayoutStatus({bool refresh = false}) async {
+    if (!_sellerEnabled) return;
+    try {
+      final status = await PayoutService.instance.getStatusCached(
+        forceRefresh: refresh,
+        onBackgroundUpdate: (fresh) {
+          if (mounted) setState(() => _payoutStatus = fresh);
+        },
+      );
+      if (mounted) setState(() => _payoutStatus = status);
+    } catch (_) {
+      // The row keeps its placeholder; the seller can still use the rest of settings.
+    }
+  }
+
+  Future<void> _openPayoutDashboard() async {
+    try {
+      final url = await PayoutService.instance.dashboardUrl();
+      final launched = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      if (!launched && mounted) showStudioToast(context, 'Could not open the browser.', icon: null);
+    } on ApiException catch (e) {
+      if (mounted) showStudioToast(context, e.message, icon: null);
+    } catch (_) {
+      if (mounted) showStudioToast(context, 'Could not open payouts.', icon: null);
+    }
+  }
+
+  Future<void> _openExternalLink(String url, {required String errorMessage}) async {
+    try {
+      final launched = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      if (!launched && mounted) showStudioToast(context, 'Could not open the browser.', icon: null);
+    } catch (_) {
+      if (mounted) showStudioToast(context, errorMessage, icon: null);
+    }
   }
 
   @override
@@ -271,6 +321,15 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
                 label: 'My sales',
                 onTap: () => Navigator.pushNamed(context, '/sales'),
               ),
+              PayoutSettingsTile(
+                status: _payoutStatus,
+                onStartSetup: () async {
+                  await Navigator.pushNamed(context, '/payout-setup');
+                  if (!mounted) return;
+                  _loadPayoutStatus(refresh: true);
+                },
+                onOpenDashboard: _openPayoutDashboard,
+              ),
             ],
             SettingsTile(
               icon: Icons.receipt_long_outlined,
@@ -328,6 +387,19 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
               icon: Icons.gavel_outlined,
               label: 'Terms of Use (EULA)',
               onTap: () => Navigator.pushNamed(context, '/terms'),
+            ),
+            SettingsTile(
+              icon: Icons.description_outlined,
+              label: 'Privacy policy',
+              onTap: () => _openExternalLink(
+                'https://studiosthree.com/privacy',
+                errorMessage: 'Could not open the privacy policy.',
+              ),
+            ),
+            SettingsTile(
+              icon: Icons.flag_outlined,
+              label: 'My reports',
+              onTap: () => Navigator.pushNamed(context, '/my-reports'),
             ),
 
             const _SectionHeader('Login & security'),
@@ -417,6 +489,54 @@ class _SectionHeader extends StatelessWidget {
           color: context.studio.textSecondary,
         ),
       ),
+    );
+  }
+}
+
+/// The Payouts row (restored from before commit 76f4ef9): a placeholder while the status
+/// loads, "Payout setup · Required" when Stripe still needs details, otherwise Payouts,
+/// which opens the Stripe dashboard.
+class PayoutSettingsTile extends StatelessWidget {
+  const PayoutSettingsTile({
+    super.key,
+    required this.status,
+    required this.onStartSetup,
+    required this.onOpenDashboard,
+  });
+
+  final PayoutStatus? status;
+  final VoidCallback onStartSetup;
+  final VoidCallback onOpenDashboard;
+
+  @override
+  Widget build(BuildContext context) {
+    final current = status;
+    if (current == null) {
+      return const SettingsTile(
+        icon: Icons.account_balance_outlined,
+        label: 'Payouts',
+        trailing: SkeletonShimmer(child: SkeletonBox(width: 56, height: 12, radius: 4)),
+      );
+    }
+    if (current.needsAction) {
+      return SettingsTile(
+        icon: Icons.account_balance_wallet_outlined,
+        label: 'Payout setup',
+        trailing: Text(
+          'Required',
+          style: GoogleFonts.inter(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: const Color(0xFFC47B2B),
+          ),
+        ),
+        onTap: onStartSetup,
+      );
+    }
+    return SettingsTile(
+      icon: Icons.account_balance_outlined,
+      label: 'Payouts',
+      onTap: onOpenDashboard,
     );
   }
 }

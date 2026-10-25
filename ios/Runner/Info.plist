@@ -22,12 +22,26 @@
 	<string>$(FLUTTER_BUILD_NAME)</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<!-- Custom scheme for shared piece/series links (see src/modules/share in the
+				     backend) — unlike Universal Links this needs no domain verification, so
+				     "open the app if installed" works before that's set up. -->
+				<string>studio3</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>Studio3 needs camera access so you can take a photo to post.</string>
+	<string>Studio3 needs camera access so you can take a photo to post, and scan the code beside a piece at an event.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Studio3 uses your location to show shipping addresses and nearby sellers.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

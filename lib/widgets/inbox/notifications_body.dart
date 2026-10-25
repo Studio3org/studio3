@@ -13,6 +13,7 @@ import '../../services/piece_service.dart';
 import '../../services/post_service.dart';
 import '../../theme/studio_colors.dart';
 import '../../theme/studio_type.dart';
+import '../../utils/app_destination.dart';
 import '../../utils/explore_detail_route.dart';
 import '../../utils/profile_navigation.dart';
 import '../feed_skeleton.dart';
@@ -367,6 +368,15 @@ Future<void> openNotificationTarget(BuildContext context, NotificationItem n) as
         await Navigator.of(context).pushNamed(seller ? '/sales' : '/orders');
       case 'user':
         openUserProfile(context, n.actorUsername);
+      // Events and series open through the shared destination router (restored from
+      // before commit 76f4ef9), as push notifications do.
+      case 'event' || 'series':
+        final destination = AppDestination.fromTarget(
+          n.targetType,
+          id,
+          actorUsername: n.actorUsername,
+        );
+        if (destination.isKnown) await openDestination(context, destination);
       default:
         if (n.actorUsername != null && (n.type == 'follow' || n.type == 'follow_request')) {
           openUserProfile(context, n.actorUsername);

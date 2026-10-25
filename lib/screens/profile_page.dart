@@ -25,6 +25,7 @@ import '../widgets/studio/studio_action_row.dart';
 import '../widgets/studio/studio_icon.dart';
 import '../widgets/studio/studio_sheet.dart';
 import 'profile/models/profile_series_data.dart';
+import 'series_view_page.dart';
 import 'profile/profile_constants.dart';
 import '../widgets/follow_button.dart';
 import 'profile/widgets/profile_header.dart';
@@ -653,6 +654,26 @@ class _ProfilePageState extends State<ProfilePage>
   }
 
 
+  /// The series page (restored from before commit 76f4ef9).
+  void _openSeries(ProfileSeriesData series, UserProfile? profile) {
+    final id = series.id;
+    if (id == null || id.isEmpty) return;
+    final own = AuthSession.instance.user?.username == profile?.username && !widget.viewerMode;
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => SeriesViewPage(
+          seriesId: id,
+          initialName: series.name,
+          initialPieceCount: series.pieceCount,
+          initialCoverUrl: series.stackUrls.isNotEmpty ? series.stackUrls.first : null,
+          authorName: profile?.name,
+          authorUsername: profile?.username,
+          isOwner: own,
+        ),
+      ),
+    );
+  }
+
   void _onBackToHome() {
     if (MainNavService.instance.goHome()) return;
     if (Navigator.of(context).canPop()) {
@@ -815,6 +836,7 @@ class _ProfilePageState extends State<ProfilePage>
                         sceneFilter: _sceneFilter,
                         onSceneFilterChanged: _onSceneFilterChanged,
                         onSeeAllSeries: () => _onTabChanged('series'),
+                        onSeriesTap: (series) => _openSeries(series, profile),
                       ),
                     ),
                   ],

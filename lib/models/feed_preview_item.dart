@@ -1,3 +1,4 @@
+import '../utils/media_type_utils.dart';
 import 'auction.dart';
 import 'feed_item.dart';
 import 'piece_summary.dart';
@@ -8,6 +9,9 @@ enum FeedAspectRatio { portrait3x4, landscape16x9 }
 
 enum FeedAvailabilityFilter { all, available }
 
+/// Home feed type filter (All / Piece / Scene).
+enum HomeFeedContentFilter { all, piece, scene }
+
 class RelatedScene {
   const RelatedScene({this.id, this.mediaUrl, this.mediaType, this.duration});
 
@@ -16,10 +20,7 @@ class RelatedScene {
   final String? mediaType;
   final String? duration;
 
-  bool get isVideo {
-    final t = mediaType?.toLowerCase();
-    return t == 'video' || t == 'reel' || t == 'reels';
-  }
+  bool get isVideo => isVideoMediaType(mediaType, mediaUrl);
 
   factory RelatedScene.fromPost(PostSummary post) {
     return RelatedScene(id: post.id, mediaUrl: post.mediaUrl, mediaType: post.mediaType);
@@ -56,29 +57,39 @@ class FeedPreviewItem {
     required this.aspectRatio,
     this.isProcess = false,
     this.seriesName = '',
+    this.seriesId,
     this.seriesThumbs = const [],
     this.seriesThumbUrls = const [],
     this.relatedScenes = const [],
     this.priceCents,
+    this.listingType,
+    this.auctionEndsAt,
+    this.highestBidCents,
+    this.startingBidCents,
+    this.bidIncrementCents,
+    this.bidCount = 0,
+    this.minNextBidCents,
+    this.isHighestBidder = false,
+    this.auction,
     this.shippingRegion,
     this.location,
     this.framingNote,
     this.provenanceNote,
+    this.handlingNotes,
     this.heroImageUrl,
+    this.galleryImageUrls = const [],
     this.isLiked = false,
     this.isSaved = false,
     this.likeCount = 0,
     this.commentCount = 0,
     this.authorName,
+    this.authorUsername,
     this.authorAvatarUrl,
     this.authorIsFollowing = false,
     this.status,
     this.materials = const [],
-    this.handlingNotes,
     this.styleTags = const [],
     this.seriesPieceCount,
-    this.listingType,
-    this.auction,
   });
 
   final String id;
@@ -93,27 +104,54 @@ class FeedPreviewItem {
   final FeedAspectRatio aspectRatio;
   final bool isProcess;
   final String seriesName;
+  final String? seriesId;
   final List<int> seriesThumbs;
   final List<String> seriesThumbUrls;
   final List<RelatedScene> relatedScenes;
   final int? priceCents;
+  /// `fixed` | `auction`; null when not for sale or not auction-listed.
+  final String? listingType;
+  final DateTime? auctionEndsAt;
+  final int? highestBidCents;
+
+  /// The artist's stated minimum. The first bid may land exactly on it.
+  final int? startingBidCents;
+
+  /// Banded step above the current high bid, computed server-side.
+  final int? bidIncrementCents;
+  final int bidCount;
+  final int? minNextBidCents;
+  /// Whether the viewer leads the *live* bidding. Necessarily false once the auction closes,
+  /// since there is no highest active bid any more — ask [auction] who won instead.
+  final bool isHighestBidder;
+
+  /// Everything about the auction that only exists after it closes: who won, whether their
+  /// card was declined, and how long they have before the piece passes on. Null for
+  /// fixed-price work.
+  final AuctionSummary? auction;
   final String? shippingRegion;
   final String? location;
   final String? framingNote;
   final String? provenanceNote;
+  final String? handlingNotes;
   final String? heroImageUrl;
+  /// A piece's full ordered gallery (Figma 2716:5774 cover/reorder posting
+  /// flow) — index 0 matches [heroImageUrl]. Empty for scenes/posts (still
+  /// single-image) and for pieces created before the gallery existed.
+  final List<String> galleryImageUrls;
   final bool isLiked;
   final bool isSaved;
   final int likeCount;
   final int commentCount;
   final String? authorName;
+
+  /// The artist's handle without the '@'. [handle] is the display form; this is
+  /// the value APIs key on — messaging an artist needs the username, not a label.
+  final String? authorUsername;
   final String? authorAvatarUrl;
   final bool authorIsFollowing;
   final String? status;
   final List<String> materials;
-
-  /// Piece page "Details" → Handling (`BuyPieceFull`).
-  final String? handlingNotes;
 
   /// Piece page meta line after the medium ("Oil · Figurative · Portrait").
   final List<String> styleTags;
@@ -121,17 +159,16 @@ class FeedPreviewItem {
   /// Pieces in this piece's series ("6 pieces" on the series card); null when unknown.
   final int? seriesPieceCount;
 
-  /// `fixed` or `auction` (`BuyPieceScrolled`: the auction bar).
-  final String? listingType;
-
-  /// The running or settling auction, from piece detail.
-  final AuctionSummary? auction;
-
-  bool get isAuction => listingType == 'auction';
 
   bool get isLive => status == null || status == 'live';
 
-  int get imageCount => imageSeeds.length;
+  bool get isAuction => listingType == 'auction';
+
+  /// The auction closed with a winning bid and is awaiting the winner's checkout.
+  bool get isAuctionWon => status == 'auction_won';
+
+  int get imageCount =>
+      galleryImageUrls.isNotEmpty ? galleryImageUrls.length : imageSeeds.length;
 
   /// All feed items are real/API-backed now that no dummy generator exists.
   bool get isApiBacked => true;
@@ -168,25 +205,37 @@ class FeedPreviewItem {
     FeedAspectRatio? aspectRatio,
     bool? isProcess,
     String? seriesName,
+    String? seriesId,
     List<int>? seriesThumbs,
     List<String>? seriesThumbUrls,
     List<RelatedScene>? relatedScenes,
     int? priceCents,
+    String? listingType,
+    DateTime? auctionEndsAt,
+    int? highestBidCents,
+    int? startingBidCents,
+    int? bidIncrementCents,
+    int? bidCount,
+    int? minNextBidCents,
+    bool? isHighestBidder,
+    AuctionSummary? auction,
     String? shippingRegion,
     String? location,
     String? framingNote,
     String? provenanceNote,
+    String? handlingNotes,
     String? heroImageUrl,
+    List<String>? galleryImageUrls,
     bool? isLiked,
     bool? isSaved,
     int? likeCount,
     int? commentCount,
     String? authorName,
+    String? authorUsername,
     String? authorAvatarUrl,
     bool? authorIsFollowing,
     String? status,
     List<String>? materials,
-    String? handlingNotes,
     List<String>? styleTags,
     int? seriesPieceCount,
   }) {
@@ -203,29 +252,39 @@ class FeedPreviewItem {
       aspectRatio: aspectRatio ?? this.aspectRatio,
       isProcess: isProcess ?? this.isProcess,
       seriesName: seriesName ?? this.seriesName,
+      seriesId: seriesId ?? this.seriesId,
       seriesThumbs: seriesThumbs ?? this.seriesThumbs,
       seriesThumbUrls: seriesThumbUrls ?? this.seriesThumbUrls,
       relatedScenes: relatedScenes ?? this.relatedScenes,
       priceCents: priceCents ?? this.priceCents,
+      listingType: listingType ?? this.listingType,
+      auctionEndsAt: auctionEndsAt ?? this.auctionEndsAt,
+      highestBidCents: highestBidCents ?? this.highestBidCents,
+      startingBidCents: startingBidCents ?? this.startingBidCents,
+      bidIncrementCents: bidIncrementCents ?? this.bidIncrementCents,
+      bidCount: bidCount ?? this.bidCount,
+      minNextBidCents: minNextBidCents ?? this.minNextBidCents,
+      isHighestBidder: isHighestBidder ?? this.isHighestBidder,
+      auction: auction ?? this.auction,
       shippingRegion: shippingRegion ?? this.shippingRegion,
       location: location ?? this.location,
       framingNote: framingNote ?? this.framingNote,
       provenanceNote: provenanceNote ?? this.provenanceNote,
+      handlingNotes: handlingNotes ?? this.handlingNotes,
       heroImageUrl: heroImageUrl ?? this.heroImageUrl,
+      galleryImageUrls: galleryImageUrls ?? this.galleryImageUrls,
       isLiked: isLiked ?? this.isLiked,
       isSaved: isSaved ?? this.isSaved,
       likeCount: likeCount ?? this.likeCount,
       commentCount: commentCount ?? this.commentCount,
       authorName: authorName ?? this.authorName,
+      authorUsername: authorUsername ?? this.authorUsername,
       authorAvatarUrl: authorAvatarUrl ?? this.authorAvatarUrl,
       authorIsFollowing: authorIsFollowing ?? this.authorIsFollowing,
       status: status ?? this.status,
       materials: materials ?? this.materials,
-      handlingNotes: handlingNotes ?? this.handlingNotes,
       styleTags: styleTags ?? this.styleTags,
       seriesPieceCount: seriesPieceCount ?? this.seriesPieceCount,
-      listingType: listingType,
-      auction: auction,
     );
   }
 
@@ -252,15 +311,32 @@ class FeedPreviewItem {
       dimensions: piece.dimensions ?? '',
       story: piece.caption ?? '',
       handle: username.startsWith('@') ? username : '@$username',
+      authorUsername: username,
       isAvailable: piece.isForSale,
       aspectRatio: aspectRatioFromDimensions(piece.dimensions),
       priceCents: piece.priceCents,
+      listingType: piece.listingType,
+      auctionEndsAt: piece.auctionEndsAt,
+      highestBidCents: piece.highestBidCents,
+      startingBidCents: piece.startingBidCents,
+      bidIncrementCents: piece.bidIncrementCents,
+      bidCount: piece.bidCount,
+      minNextBidCents: piece.minNextBidCents,
+      isHighestBidder: piece.isHighestBidder,
+      auction: piece.auction,
       shippingRegion: piece.shippingRegion,
       location: piece.location,
       framingNote: piece.framingMounting,
       provenanceNote: piece.provenance,
+      handlingNotes: piece.handlingNotes,
       heroImageUrl: piece.mediaUrl,
+      galleryImageUrls: ([...piece.images]
+            ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder)))
+          .map((image) => image.mediaUrl)
+          .where((url) => url.isNotEmpty)
+          .toList(growable: false),
       seriesName: series?.name ?? '',
+      seriesId: series?.id,
       seriesThumbs: seriesThumbs,
       seriesThumbUrls: seriesThumbUrls,
       isLiked: piece.isLiked,
@@ -272,11 +348,8 @@ class FeedPreviewItem {
       authorIsFollowing: piece.authorIsFollowing,
       status: piece.status,
       materials: piece.materials,
-      handlingNotes: piece.handlingNotes,
       styleTags: piece.styleTags,
       seriesPieceCount: (series?.pieceIds.isNotEmpty ?? false) ? series!.pieceIds.length : null,
-      listingType: piece.listingType,
-      auction: piece.auction,
     );
   }
 
@@ -298,6 +371,7 @@ class FeedPreviewItem {
       dimensions: '',
       story: post.caption ?? '',
       handle: username.startsWith('@') ? username : '@$username',
+      authorUsername: username,
       isAvailable: false,
       aspectRatio: isVideo ? FeedAspectRatio.landscape16x9 : FeedAspectRatio.portrait3x4,
       heroImageUrl: post.mediaUrl,
@@ -318,40 +392,67 @@ class FeedPreviewItem {
   }
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'imageSeeds': imageSeeds,
-    'title': title,
-    'medium': medium,
-    'year': year,
-    'dimensions': dimensions,
-    'story': story,
-    'handle': handle,
-    'isAvailable': isAvailable,
-    'aspectRatio': aspectRatio.name,
-    'isProcess': isProcess,
-    'seriesName': seriesName,
-    'seriesThumbs': seriesThumbs,
-    'seriesThumbUrls': seriesThumbUrls,
-    'relatedScenes': relatedScenes.map((s) => s.toJson()).toList(),
-    if (priceCents != null) 'priceCents': priceCents,
-    if (shippingRegion != null) 'shippingRegion': shippingRegion,
-    if (location != null) 'location': location,
-    if (framingNote != null) 'framingNote': framingNote,
-    if (provenanceNote != null) 'provenanceNote': provenanceNote,
-    if (heroImageUrl != null) 'heroImageUrl': heroImageUrl,
-    'isLiked': isLiked,
-    'isSaved': isSaved,
-    'likeCount': likeCount,
-    'commentCount': commentCount,
-    if (authorName != null) 'authorName': authorName,
-    if (authorAvatarUrl != null) 'authorAvatarUrl': authorAvatarUrl,
-    'authorIsFollowing': authorIsFollowing,
-    if (status != null) 'status': status,
-    'materials': materials,
-    if (handlingNotes != null) 'handlingNotes': handlingNotes,
-    'styleTags': styleTags,
-    if (seriesPieceCount != null) 'seriesPieceCount': seriesPieceCount,
-  };
+        'id': id,
+        'imageSeeds': imageSeeds,
+        'title': title,
+        'medium': medium,
+        'year': year,
+        'dimensions': dimensions,
+        'story': story,
+        'handle': handle,
+        'isAvailable': isAvailable,
+        'aspectRatio': aspectRatio.name,
+        'isProcess': isProcess,
+        'seriesName': seriesName,
+        if (seriesId != null) 'seriesId': seriesId,
+        'seriesThumbs': seriesThumbs,
+        'seriesThumbUrls': seriesThumbUrls,
+        'relatedScenes': relatedScenes.map((s) => s.toJson()).toList(),
+        if (priceCents != null) 'priceCents': priceCents,
+        if (listingType != null) 'listingType': listingType,
+        if (auctionEndsAt != null) 'auctionEndsAt': auctionEndsAt!.toIso8601String(),
+        if (highestBidCents != null) 'highestBidCents': highestBidCents,
+        if (startingBidCents != null) 'startingBidCents': startingBidCents,
+        if (bidIncrementCents != null) 'bidIncrementCents': bidIncrementCents,
+        'bidCount': bidCount,
+        if (minNextBidCents != null) 'minNextBidCents': minNextBidCents,
+        'isHighestBidder': isHighestBidder,
+        // Round-tripped explicitly. These are flattened alongside the other auction fields
+        // by the server, and a cached item that dropped them would forget, between launches,
+        // that the viewer had won a piece or that their card needed fixing.
+        if (auction != null) ...{
+          'auctionId': auction!.auctionId,
+          'auctionStatus': auction!.status,
+          'isWinner': auction!.isWinner,
+          'awaitingPayment': auction!.awaitingPayment,
+          if (auction!.winnerDeadlineAt != null)
+            'winnerDeadlineAt': auction!.winnerDeadlineAt!.toIso8601String(),
+          if (auction!.winningBidCents != null)
+            'winningBidCents': auction!.winningBidCents,
+          'hasReserve': auction!.hasReserve,
+          'reserveMet': auction!.reserveMet,
+          if (auction!.deliveryMode != null) 'deliveryMode': auction!.deliveryMode,
+        },
+        if (shippingRegion != null) 'shippingRegion': shippingRegion,
+        if (location != null) 'location': location,
+        if (framingNote != null) 'framingNote': framingNote,
+        if (provenanceNote != null) 'provenanceNote': provenanceNote,
+        if (handlingNotes != null) 'handlingNotes': handlingNotes,
+        if (heroImageUrl != null) 'heroImageUrl': heroImageUrl,
+        if (galleryImageUrls.isNotEmpty) 'galleryImageUrls': galleryImageUrls,
+        'isLiked': isLiked,
+        'isSaved': isSaved,
+        'likeCount': likeCount,
+        'commentCount': commentCount,
+        if (authorName != null) 'authorName': authorName,
+        if (authorUsername != null) 'authorUsername': authorUsername,
+        if (authorAvatarUrl != null) 'authorAvatarUrl': authorAvatarUrl,
+        'authorIsFollowing': authorIsFollowing,
+        if (status != null) 'status': status,
+        'materials': materials,
+        'styleTags': styleTags,
+        if (seriesPieceCount != null) 'seriesPieceCount': seriesPieceCount,
+      };
 
   factory FeedPreviewItem.fromCacheJson(Map<String, dynamic> json) {
     return FeedPreviewItem(
@@ -369,6 +470,7 @@ class FeedPreviewItem {
           : FeedAspectRatio.portrait3x4,
       isProcess: json['isProcess'] as bool? ?? false,
       seriesName: json['seriesName'] as String? ?? '',
+      seriesId: json['seriesId'] as String?,
       seriesThumbs: (json['seriesThumbs'] as List?)?.cast<int>() ?? const [],
       seriesThumbUrls: (json['seriesThumbUrls'] as List?)?.cast<String>() ?? const [],
       relatedScenes:
@@ -378,21 +480,34 @@ class FeedPreviewItem {
               .toList() ??
           const [],
       priceCents: json['priceCents'] as int?,
+      listingType: json['listingType'] as String?,
+      auctionEndsAt: DateTime.tryParse(json['auctionEndsAt'] as String? ?? ''),
+      highestBidCents: json['highestBidCents'] as int?,
+      startingBidCents: json['startingBidCents'] as int?,
+      bidIncrementCents: json['bidIncrementCents'] as int?,
+      bidCount: json['bidCount'] as int? ?? 0,
+      minNextBidCents: json['minNextBidCents'] as int?,
+      isHighestBidder: json['isHighestBidder'] as bool? ?? false,
+      auction: AuctionSummary.maybeFrom(json),
       shippingRegion: json['shippingRegion'] as String?,
       location: json['location'] as String?,
       framingNote: json['framingNote'] as String?,
       provenanceNote: json['provenanceNote'] as String?,
+      handlingNotes: json['handlingNotes'] as String?,
       heroImageUrl: json['heroImageUrl'] as String?,
+      galleryImageUrls:
+          (json['galleryImageUrls'] as List?)?.whereType<String>().toList() ??
+              const [],
       isLiked: json['isLiked'] as bool? ?? false,
       isSaved: json['isSaved'] as bool? ?? false,
       likeCount: json['likeCount'] as int? ?? 0,
       commentCount: json['commentCount'] as int? ?? 0,
       authorName: json['authorName'] as String?,
+      authorUsername: json['authorUsername'] as String?,
       authorAvatarUrl: json['authorAvatarUrl'] as String?,
       authorIsFollowing: json['authorIsFollowing'] as bool? ?? false,
       status: json['status'] as String?,
       materials: (json['materials'] as List?)?.whereType<String>().toList() ?? const [],
-      handlingNotes: json['handlingNotes'] as String?,
       styleTags: (json['styleTags'] as List?)?.whereType<String>().toList() ?? const [],
       seriesPieceCount: json['seriesPieceCount'] as int?,
     );
@@ -424,5 +539,9 @@ FeedAspectRatio aspectRatioFromDimensions(String? dimensions) {
 /// missing — callers already show a neutral broken-image placeholder for
 /// an unloadable URL, so there is no fake stand-in photo here.
 String feedPreviewImageUrl(FeedPreviewItem item, {int imageIndex = 0}) {
+  if (item.galleryImageUrls.isNotEmpty) {
+    final index = imageIndex.clamp(0, item.galleryImageUrls.length - 1);
+    return item.galleryImageUrls[index];
+  }
   return item.heroImageUrl ?? '';
 }

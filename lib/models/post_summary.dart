@@ -1,3 +1,4 @@
+import '../utils/media_type_utils.dart';
 import 'piece_summary.dart';
 
 class PostSummary {
@@ -122,8 +123,5 @@ class PostSummary {
     if (status != null) 'status': status,
   };
 
-  bool get isVideo {
-    final t = mediaType?.toLowerCase();
-    return t == 'video' || t == 'reel' || t == 'reels';
-  }
+  bool get isVideo => isVideoMediaType(mediaType, mediaUrl);
 }

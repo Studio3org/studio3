@@ -158,7 +158,7 @@ void main() {
     });
 
     test('the server bid summary reads into an auction; no auctionId means none', () {
-      final a = AuctionSummary.fromJson({
+      final a = AuctionSummary.maybeFrom({
         'auctionId': 'a1',
         'auctionStatus': 'live',
         'startingBidCents': 36000,
@@ -172,7 +172,7 @@ void main() {
       })!;
       expect((a.currentCents, a.bidCount, a.minNextBidCents, a.isOpen), (350000, 12, 360000, true));
       expect((a.hasReserve, a.reserveMet, a.isHighestBidder), (true, false, true));
-      expect(AuctionSummary.fromJson({'priceCents': 1}), isNull);
+      expect(AuctionSummary.maybeFrom({'priceCents': 1}), isNull);
       final piece = PieceSummary.fromJson({
         'id': 'p1',
         'title': 'T',
@@ -262,10 +262,11 @@ void main() {
       });
     }
 
-    testWidgets("the artist's own auction can't be bid on", (tester) async {
+    testWidgets("the artist's own auction offers Manage auction, not bidding", (tester) async {
       await tester.pumpWidget(_barHost(AuctionBarState.owner, _auction()));
-      expect(tester.widget<StudioButton>(find.byType(StudioButton)).onPressed, isNull);
-      expect(find.text('Your auction'), findsOneWidget);
+      expect(tester.widget<StudioButton>(find.byType(StudioButton)).onPressed, isNotNull);
+      expect(find.text('Manage auction'), findsOneWidget);
+      expect(find.text('Place a bid'), findsNothing);
     });
 
     testWidgets('on the piece page an auction piece gets the auction bar', (tester) async {

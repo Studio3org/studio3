@@ -8,6 +8,10 @@ import 'api_exception.dart';
 abstract final class MediaPurpose {
   static const profile = 'profile';
   static const cover = 'cover';
+
+  /// Event cover flyers. Distinct from [cover], which is the *profile* banner and resolves
+  /// to one fixed object per user — an event using it overwrote the host's banner.
+  static const event = 'event';
   static const piece = 'piece';
   static const post = 'post';
   static const chat = 'chat';

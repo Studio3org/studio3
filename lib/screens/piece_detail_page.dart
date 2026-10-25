@@ -14,6 +14,7 @@ import '../theme/studio_metrics.dart';
 import '../theme/studio_type.dart';
 import '../utils/content_detail_loader.dart';
 import 'edit_piece_page.dart';
+import 'series_view_page.dart';
 import 'edit_scene_page.dart';
 import 'list_piece_flow.dart';
 import '../widgets/content_actions_sheet.dart';
@@ -207,6 +208,20 @@ class _PieceDetailPageState extends State<PieceDetailPage>
             thumbSeeds: item.seriesThumbs,
             thumbUrls: item.seriesThumbUrls,
             pieceCount: item.seriesPieceCount,
+            onTap: item.seriesId == null
+                ? null
+                : () => Navigator.of(context).push<void>(
+                    MaterialPageRoute<void>(
+                      builder: (_) => SeriesViewPage(
+                        seriesId: item.seriesId!,
+                        initialName: item.seriesName,
+                        initialPieceCount: item.seriesPieceCount,
+                        authorName: item.authorName,
+                        authorUsername: item.authorUsername,
+                        isOwner: _isOwner,
+                      ),
+                    ),
+                  ),
           ),
         ),
     ];

@@ -44,6 +44,15 @@ class AppDims {
 /// Light and dark [ThemeData] built from the new-UI tokens (`StudioColors`, `StudioType`,
 /// `StudioRadius`). Both register [StudioColors] and [AuthPalette] as extensions.
 class AppTheme {
+  /// Where to look for a glyph the app fonts don't have — emoji, above all. Flutter only
+  /// resolves a glyph outside the primary font if it is told where to look; without this,
+  /// emoji in a chat message, caption or bio render blank on iOS.
+  static const List<String> emojiFallback = [
+    'Apple Color Emoji',
+    'Noto Color Emoji',
+    'Segoe UI Emoji',
+  ];
+
   AppTheme._();
 
   static ThemeData get light => _build(StudioColors.light, Brightness.light, AuthPalette.light);
@@ -103,7 +112,7 @@ class AppTheme {
       labelLarge: StudioType.sans(15, weight: StudioType.medium, color: c.textPrimary),
       labelMedium: StudioType.label13(color: c.textSecondary),
       labelSmall: StudioType.mono11(color: c.textSecondary),
-    );
+    ).apply(fontFamilyFallback: emojiFallback);
 
     final buttonShape = RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(StudioRadius.button),

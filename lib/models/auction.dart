@@ -43,6 +43,8 @@ class AuctionSummary {
     this.highestBidCents,
     this.bidIncrementCents = 0,
     this.endsAt,
+    this.opensAt,
+    this.deliveryMode,
     this.hasReserve = false,
     this.reserveMet = true,
     this.isHighestBidder = false,
@@ -62,6 +64,8 @@ class AuctionSummary {
   final int minNextBidCents;
   final int bidIncrementCents;
   final DateTime? endsAt;
+  final DateTime? opensAt;
+  final String? deliveryMode;
   final bool hasReserve;
 
   /// True when there is no reserve; the amount itself is never sent.
@@ -75,17 +79,35 @@ class AuctionSummary {
   final int? winningBidCents;
 
   bool get isOpen => status == 'live' || status == 'closing';
+
+  // Restored from models/auction_summary.dart (before commit 76f4ef9).
+  bool get isOpenForBidding => isOpen;
+  bool get isClosingSoon => status == 'closing';
+  bool get isClosed => !isOpen && status != 'draft';
+  bool get needsCheckout => isWinner && status == 'awaiting_winner';
+  bool get needsPaymentFix => isWinner && awaitingPayment;
+  bool get needsSellerDecision => status == 'needs_seller_action';
+  bool get canRelist => const {
+    'needs_seller_action',
+    'closed_no_bids',
+    'closed_reserve_not_met',
+  }.contains(status);
+  int? get displayBidCents => highestBidCents ?? startingBidCents;
   bool get isSettling => status == 'awaiting_winner' || status == 'awaiting_payment';
 
   /// What the bar shows as the amount: the highest bid, or the starting bid before any.
   int get currentCents => highestBidCents ?? startingBidCents;
 
   /// Reads the summary from a piece or bid response; null when it has no auction.
-  static AuctionSummary? fromJson(Map<String, dynamic> json) {
+  static AuctionSummary? maybeFrom(Map<String, dynamic> json) {
     final id = json['auctionId'];
     if (id is! String || id.isEmpty) return null;
+    return AuctionSummary.fromJson(json);
+  }
+
+  factory AuctionSummary.fromJson(Map<String, dynamic> json) {
     return AuctionSummary(
-      auctionId: id,
+      auctionId: json['auctionId'] as String? ?? '',
       status: json['auctionStatus'] as String? ?? 'live',
       startingBidCents: _int(json['startingBidCents']) ?? 0,
       highestBidCents: _int(json['highestBidCents']),
@@ -93,6 +115,8 @@ class AuctionSummary {
       minNextBidCents: _int(json['minNextBidCents']) ?? _int(json['startingBidCents']) ?? 0,
       bidIncrementCents: _int(json['bidIncrementCents']) ?? 0,
       endsAt: _date(json['auctionEndsAt']),
+      opensAt: _date(json['opensAt']),
+      deliveryMode: json['deliveryMode'] as String?,
       hasReserve: json['hasReserve'] == true,
       reserveMet: json['reserveMet'] != false,
       isHighestBidder: json['isHighestBidder'] == true,
@@ -102,6 +126,27 @@ class AuctionSummary {
       winningBidCents: _int(json['winningBidCents']),
     );
   }
+
+  /// The server's field names, so a cached piece keeps its auction.
+  Map<String, dynamic> toJson() => {
+    'auctionId': auctionId,
+    'auctionStatus': status,
+    'startingBidCents': startingBidCents,
+    'highestBidCents': ?highestBidCents,
+    'bidCount': bidCount,
+    'minNextBidCents': minNextBidCents,
+    'bidIncrementCents': bidIncrementCents,
+    if (endsAt != null) 'auctionEndsAt': endsAt!.toUtc().toIso8601String(),
+    if (opensAt != null) 'opensAt': opensAt!.toUtc().toIso8601String(),
+    'deliveryMode': ?deliveryMode,
+    'hasReserve': hasReserve,
+    'reserveMet': reserveMet,
+    'isHighestBidder': isHighestBidder,
+    'isWinner': isWinner,
+    'awaitingPayment': awaitingPayment,
+    if (winnerDeadlineAt != null) 'winnerDeadlineAt': winnerDeadlineAt!.toUtc().toIso8601String(),
+    'winningBidCents': ?winningBidCents,
+  };
 
   static int? _int(Object? v) => v is int ? v : (v is num ? v.toInt() : null);
 

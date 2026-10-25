@@ -34,6 +34,7 @@ class ProfileTabContent extends StatelessWidget {
     this.sceneFilter = 'all',
     this.onSceneFilterChanged,
     this.onSeeAllSeries,
+    this.onSeriesTap,
   });
 
   final String currentTab;
@@ -52,6 +53,7 @@ class ProfileTabContent extends StatelessWidget {
   final String sceneFilter;
   final ValueChanged<String>? onSceneFilterChanged;
   final VoidCallback? onSeeAllSeries;
+  final void Function(ProfileSeriesData series)? onSeriesTap;
 
   /// A sliver — must be placed directly in a `CustomScrollView.slivers` list
   /// (or a `SliverPadding`'s `sliver:`), not wrapped in `SliverToBoxAdapter`,
@@ -84,7 +86,7 @@ class ProfileTabContent extends StatelessWidget {
         return const SliverToBoxAdapter(child: SizedBox.shrink());
       }
       return SliverToBoxAdapter(
-        child: ProfileSeriesGrid(items: seriesItems, loading: loading),
+        child: ProfileSeriesGrid(items: seriesItems, loading: loading, onSeriesTap: onSeriesTap),
       );
     }
 

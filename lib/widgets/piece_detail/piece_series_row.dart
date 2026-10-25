@@ -19,6 +19,7 @@ class PieceSeriesRow extends StatelessWidget {
     this.thumbSeeds = const [],
     this.thumbUrls = const [],
     this.pieceCount,
+    this.onTap,
   });
 
   final String seriesName;
@@ -28,6 +29,9 @@ class PieceSeriesRow extends StatelessWidget {
   /// Pieces in the series; falls back to the number of covers.
   final int? pieceCount;
 
+  /// Opens the series page.
+  final VoidCallback? onTap;
+
   @override
   Widget build(BuildContext context) {
     final urls = thumbUrls.where((url) => url.isNotEmpty).toList();
@@ -36,7 +40,7 @@ class PieceSeriesRow extends StatelessWidget {
     final c = context.studio;
     final count = pieceCount ?? covers;
 
-    return Container(
+    final card = Container(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
       decoration: BoxDecoration(
         border: Border.all(color: c.line),
@@ -79,6 +83,11 @@ class PieceSeriesRow extends StatelessWidget {
           ),
         ],
       ),
+    );
+    if (onTap == null) return card;
+    return Semantics(
+      button: true,
+      child: GestureDetector(behavior: HitTestBehavior.opaque, onTap: onTap, child: card),
     );
   }
 }

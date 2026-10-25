@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+2
+version: 1.0.0+5
 
 environment:
   sdk: ^3.9.2
@@ -67,6 +67,12 @@ dependencies:
       url: https://github.com/iawtk2302/easy_video_editor.git
       ref: 17989b573f88442e49243820d7dbb7889e9cb15e
   flutter_stripe: ^14.2.0
+  mobile_scanner: 7.4.2
+  qr_flutter: 4.1.0
+  pdf: 3.13.1
+  printing: 5.15.1
+  video_thumbnail: 0.5.6
+  visibility_detector: 0.4.0+2
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -135,6 +141,13 @@ flutter:
     - assets/post/crop/
     - assets/post/adjust/
     - assets/post/create/
+    - assets/post/scene/
+    - assets/piece/
+    - assets/event/
+    # Inter + Geist, in the exact weights the app uses, under the filenames
+    # `google_fonts` looks for in the asset bundle (`<Family>-<Variant>.ttf`), so the
+    # package resolves GoogleFonts.inter()/geist() from here instead of the network.
+    - assets/google_fonts/
     - assets/nav/
     - assets/profile/
     - assets/icons/

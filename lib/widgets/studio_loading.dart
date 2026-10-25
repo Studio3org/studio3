@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_fonts.dart';
+
 import '../theme/app_theme.dart';
 import '../theme/home_feed_tokens.dart';
 import 'auth_ui.dart';
@@ -400,6 +402,45 @@ class StudioLoadingGate extends StatelessWidget {
                 : StudioLoadingOverlay(backgroundColor: backgroundColor),
           ),
       ],
+    );
+  }
+}
+
+/// Full-page cream overlay used while a scene or piece is publishing (restored from before
+/// commit 76f4ef9, for the earlier publish screens).
+class StudioPublishingOverlay extends StatelessWidget {
+  const StudioPublishingOverlay({super.key, required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: false,
+      child: ColoredBox(
+        color: HomeFeedTokens.background,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const StudioBubbleLoader(width: 88, color: HomeFeedTokens.textPrimary),
+                const SizedBox(height: 24),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: AppFonts.geist(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w500,
+                    color: HomeFeedTokens.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

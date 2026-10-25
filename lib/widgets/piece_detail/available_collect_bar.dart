@@ -20,7 +20,11 @@ class AvailableCollectBar extends StatelessWidget {
     this.onCollect,
     this.statusLabel,
     this.collected = false,
+    this.onMessage,
   });
+
+  /// The message button beside Collect, when piece messaging is on.
+  final VoidCallback? onMessage;
 
   /// "$3,500"; null or empty hides the info row.
   final String? priceDisplay;
@@ -56,6 +60,7 @@ class AvailableCollectBar extends StatelessWidget {
       child: StudioBottomBar(
         left: _hasInfo ? StudioBottomBarInfo(label: 'Price', value: priceDisplay!) : null,
         button: action,
+        messageButton: onMessage == null ? null : StudioMessageButton(onPressed: onMessage),
       ),
     );
   }

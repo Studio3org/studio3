@@ -104,7 +104,7 @@ class BidService {
     final data = _api.extractData(json) as Map<String, dynamic>;
     await BidStore.instance.recordBid(pieceId, amountCents);
     await CacheService.instance.invalidate('piece.$pieceId');
-    return AuctionSummary.fromJson(data) ??
+    return AuctionSummary.maybeFrom(data) ??
         (throw ApiException('The bid went through but the auction could not be read.'));
   }
 
@@ -116,7 +116,7 @@ class BidService {
       auth: true,
     );
     final data = _api.extractData(json);
-    return data is Map<String, dynamic> ? AuctionSummary.fromJson(data) : null;
+    return data is Map<String, dynamic> ? AuctionSummary.maybeFrom(data) : null;
   }
 
   /// `BidCheckout`: the winner's shipping. The hammer price is already paid; what is left

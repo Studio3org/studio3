@@ -7,6 +7,11 @@ import 'package:flutter/material.dart';
 /// `StudioRadius` / `StudioSpace` instead; this file is deleted in Phase 11 of
 /// docs/new-ui/NEW_UI_EXECUTION_PLAN.md once nothing imports it.
 abstract final class CollectDetailTokens {
+  static const Color statusError = Color(0xFFC03030);
+  static const double pagePadding = 10;
+  static const Color hairline = Color(0xFFC4C4C4);
+  static const Color titleHairline = Color(0xFFC8C5BC);
+  static const double collectCtaRadius = 8;
   static const Color background = Color(0xFFF5F2EE);
   static const Color textPrimary = Color(0xFF231F1B);
   static const Color textSecondary = Color(0xFF8C8880);

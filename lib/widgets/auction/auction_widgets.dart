@@ -22,7 +22,7 @@ enum AuctionBarState {
   /// The viewer bid here but someone bid higher: red "Outbid", Bid [next minimum].
   outbid,
 
-  /// The artist's own auction: the same info, no bidding.
+  /// The artist's own auction: the same info; Manage auction (extend, cancel, relist).
   owner,
 
   /// The viewer won and still has to confirm shipping: Finish checkout.
@@ -81,12 +81,12 @@ class AuctionBar extends StatelessWidget {
       AuctionBarState.open => 'Place a bid',
       AuctionBarState.leading => 'Raise your bid',
       AuctionBarState.outbid => 'Bid ${formatUsd(a?.minNextBidCents ?? 0)}',
-      AuctionBarState.owner => 'Your auction',
+      AuctionBarState.owner => 'Manage auction',
       AuctionBarState.won => 'Finish checkout',
       AuctionBarState.paymentFailed => 'Update card',
       AuctionBarState.ended => 'Auction ended',
     };
-    final enabled = state != AuctionBarState.owner && state != AuctionBarState.ended;
+    final enabled = state != AuctionBarState.ended;
 
     StudioBottomBarInfo? left;
     StudioBottomBarInfo? right;

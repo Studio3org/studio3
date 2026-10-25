@@ -13,12 +13,14 @@ import '../utils/content_detail_loader.dart';
 import '../utils/require_login.dart';
 import 'auction_flow.dart';
 import 'edit_piece_page.dart';
+import 'series_view_page.dart';
 import '../widgets/auction/auction_widgets.dart';
 import '../widgets/content_actions_sheet.dart';
 import '../widgets/piece_detail/ask_about_piece_sheet.dart';
 import '../widgets/piece_detail/available_collect_bar.dart';
 import '../widgets/piece_detail/collect_artist_row.dart';
 import '../widgets/piece_detail/collect_piece_sheet.dart';
+import '../widgets/piece_detail/manage_auction_sheet.dart';
 import '../widgets/piece_detail/detail_follow_state.dart';
 import '../widgets/piece_detail/detail_hero_image.dart';
 import '../widgets/piece_detail/detail_save_state.dart';
@@ -102,6 +104,9 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
         await openAuctionOutcome(context, pieceId: item.id, type: 'auction_payment_failed');
         if (mounted) _loadDetail();
       case AuctionBarState.owner:
+        // The seller's controls (restored from before commit 76f4ef9).
+        final changed = await ManageAuctionSheet.show(context, pieceId: item.id, auction: auction);
+        if (changed && mounted) _loadDetail();
       case AuctionBarState.ended:
         break;
     }
@@ -239,6 +244,20 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
             thumbSeeds: item.seriesThumbs,
             thumbUrls: item.seriesThumbUrls,
             pieceCount: item.seriesPieceCount,
+            onTap: item.seriesId == null
+                ? null
+                : () => Navigator.of(context).push<void>(
+                    MaterialPageRoute<void>(
+                      builder: (_) => SeriesViewPage(
+                        seriesId: item.seriesId!,
+                        initialName: item.seriesName,
+                        initialPieceCount: item.seriesPieceCount,
+                        authorName: item.authorName,
+                        authorUsername: item.authorUsername,
+                        isOwner: _isOwner,
+                      ),
+                    ),
+                  ),
           ),
         ),
     ];

@@ -1,5 +1,12 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter_native_splash/flutter_native_splash.dart';
+import 'screens/event_page.dart';
+import 'screens/my_events_page.dart';
+import 'screens/my_reports_page.dart';
+import 'screens/payout_setup_page.dart';
+import 'services/push_router_service.dart';
+import 'utils/open_at_top_observer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -57,7 +64,10 @@ import 'utils/require_login.dart';
 import 'widgets/terms_acceptance_dialog.dart';
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  final widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+  // Keeps the native/web launch splash on screen through the async setup below — without
+  // this the generated splash never gets its removal signal on web.
+  FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
   await dotenv.load(fileName: '.env');
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
@@ -74,45 +84,37 @@ Future<void> main() async {
   } catch (e) {
     debugPrint('Firebase unavailable (no config yet?): $e');
   }
-  await _preloadInterFont();
+  await _loadBundledFonts();
+  FlutterNativeSplash.remove();
   runApp(const Studio3App());
 }
 
-/// Requests every Inter weight the app uses and waits for them to finish
-/// loading before the first frame paints — otherwise the very first time
-/// each weight is used in a session (e.g. Home's header right after login),
-/// Flutter briefly paints a fallback system font whose slightly different
-/// metrics can trip a `RenderFlex` overflow in tightly-fitted layouts (see
-/// `_UnderlinedFilterTab` in `widgets/home_feed/home_feed_widgets.dart`).
-/// Bounded by a timeout so a genuinely offline first launch can't hang
-/// startup — it just falls back to the system font for that session.
-Future<void> _preloadInterFont() async {
-  for (final weight in const [
-    FontWeight.w300,
-    FontWeight.w400,
-    FontWeight.w500,
-    FontWeight.w600,
-    FontWeight.w700,
-  ]) {
-    GoogleFonts.inter(fontWeight: weight);
-    // The auth flow (login/signup/welcome/onboarding) uses Geist — preload
-    // it alongside Inter so it doesn't flash a fallback on first paint.
-    try {
-      GoogleFonts.getFont('Geist', fontWeight: weight);
-    } catch (_) {
-      // Unavailable in this google_fonts version — screens fall back to
-      // the system sans stack (see `geistText` in widgets/auth_ui.dart).
+/// Loads every Inter/Geist weight the app uses from the asset bundle
+/// (`assets/google_fonts/`) before the first frame paints, so no text waits on the network
+/// and a first use of a weight never paints in a fallback font with different metrics.
+/// Runtime fetching is off so a weight that isn't bundled shows up in debug instead of
+/// quietly going back to downloading (restored from before commit 76f4ef9).
+Future<void> _loadBundledFonts() async {
+  GoogleFonts.config.allowRuntimeFetching = false;
+  try {
+    for (final weight in const [
+      FontWeight.w300,
+      FontWeight.w400,
+      FontWeight.w500,
+      FontWeight.w600,
+      FontWeight.w700,
+      FontWeight.w800,
+    ]) {
+      GoogleFonts.inter(fontWeight: weight);
+      GoogleFonts.geist(fontWeight: weight);
     }
-  }
-  try {
-    GoogleFonts.getFont('Geist Mono');
-  } catch (_) {}
-  try {
-    await GoogleFonts.pendingFonts().timeout(const Duration(seconds: 3));
-  } catch (_) {
-    // Offline/slow first launch — proceed with the fallback font.
+    await GoogleFonts.pendingFonts();
+  } catch (e) {
+    debugPrint('Bundled font load failed: $e');
   }
 }
+
+
 
 class Studio3App extends StatelessWidget {
   const Studio3App({super.key});
@@ -130,7 +132,12 @@ class Studio3App extends StatelessWidget {
             darkTheme: AppTheme.dark,
             themeMode: ThemeService.instance.mode,
             initialRoute: resolveInitialRoute(),
-            navigatorObservers: [routeObserver],
+            navigatorObservers: [routeObserver, OpenAtTopObserver()],
+            // An emoji fallback for any Text with no style of its own (AppTheme.emojiFallback).
+            builder: (context, child) => DefaultTextStyle.merge(
+              style: const TextStyle(fontFamilyFallback: AppTheme.emojiFallback),
+              child: child!,
+            ),
             routes: {
               '/': (context) => const AuthGate(
                     child: MainShell(),
@@ -160,6 +167,9 @@ class Studio3App extends StatelessWidget {
               '/privacy-settings': (context) => const PrivacySettingsPage(),
               '/blocked-users': (context) => const BlockedUsersPage(),
               '/terms': (context) => const TermsPage(),
+              '/payout-setup': (context) => const PayoutSetupPage(),
+              '/my-reports': (context) => const MyReportsPage(),
+              '/my-events': (context) => const MyEventsPage(),
               '/profile': (context) {
                 final args = parseProfileRouteArgs(
                   ModalRoute.of(context)?.settings.arguments,
@@ -219,6 +229,7 @@ class _AuthGateState extends State<AuthGate> {
   void dispose() {
     AuthSession.instance.removeListener(_onSessionChanged);
     DeepLinkService.instance.dispose();
+    PushRouterService.instance.dispose();
     super.dispose();
   }
 
@@ -229,8 +240,13 @@ class _AuthGateState extends State<AuthGate> {
     final session = AuthSession.instance;
     if (session.isLoggedIn && !_deviceRegistered) {
       _deviceRegistered = true;
-      DeviceService.instance.registerCurrentDevice();
-      PermissionService.instance.requestNotifications();
+      // Permission first, registration second — on iOS, asking APNs for a token before
+      // the user allows notifications returns null, so the device stayed unregistered
+      // until the second launch.
+      PermissionService.instance.requestNotifications().whenComplete(() {
+        DeviceService.instance.registerCurrentDevice();
+      });
+      PushRouterService.instance.start(context);
       ChatSocketService.instance.connect();
       ConnectivityService.instance.addReconnectHook(() async {
         ChatSocketService.instance.connect();
@@ -309,6 +325,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   static const _kDiscoverPage = 1;
   static const _kReelsPage = 2;
   static const _kSavedPage = 3;
+  static const _kEventPage = 4;
 
   // How long after a nav-icon tap a second tap on the same (already active)
   // icon still counts as a double-tap → scroll-to-top-and-refresh.
@@ -344,6 +361,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   final GlobalKey<State<StatefulWidget>> _exploreKey = GlobalKey();
   final GlobalKey<State<StatefulWidget>> _reelsKey = GlobalKey();
   final GlobalKey<State<StatefulWidget>> _savedKey = GlobalKey();
+  final GlobalKey<State<StatefulWidget>> _eventKey = GlobalKey();
   final GlobalKey<State<StatefulWidget>> _profileKey = GlobalKey();
 
   // Built once — every page widget is `const` where possible so this list
@@ -357,6 +375,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       jumpRequests: _reelsJumpRequest,
     ),
     SavedPage(key: _savedKey),
+    EventPage(key: _eventKey),
   ];
 
   @override
@@ -470,6 +489,8 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
         return BottomNavIndex.home;
       case _kDiscoverPage:
         return BottomNavIndex.explore;
+      case _kEventPage:
+        return BottomNavIndex.events;
       default:
         return BottomNavIndex.none;
     }
@@ -525,10 +546,6 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       return;
     }
 
-    // Events is drawn on the bar. The events flow is not in the app, so the
-    // tap stays on the current page.
-    if (navIndex == BottomNavIndex.events) return;
-
     if (navIndex == BottomNavIndex.profile) {
       if (!AuthSession.instance.isLoggedIn) {
         requireLogin(
@@ -548,6 +565,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     final targetPage = switch (navIndex) {
       BottomNavIndex.home => _kHomePage,
       BottomNavIndex.explore => _kDiscoverPage,
+      BottomNavIndex.events => _kEventPage,
       _ => _currentPage,
     };
     _selectedNavIndex.value = navIndex;
@@ -565,6 +583,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     final key = switch (navIndex) {
       BottomNavIndex.home => _homeKey,
       BottomNavIndex.explore => _exploreKey,
+      BottomNavIndex.events => _eventKey,
       BottomNavIndex.profile => _profileKey,
       _ => null,
     };

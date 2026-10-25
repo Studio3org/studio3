@@ -1,3 +1,6 @@
+import '../services/event_service.dart';
+import 'event_detail_page.dart';
+import '../widgets/studio/studio_toast.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -303,7 +306,25 @@ class _SavedItemsViewState extends State<_SavedItemsView> {
     return visible;
   }
 
-  void _openEntry(SavedEntry entry) {
+  Future<void> _openEntry(SavedEntry entry) async {
+    // Saved events open their event page (restored from before commit 76f4ef9). Entries
+    // saved before events carried a payload are fetched, never substituted.
+    if (entry.kind == SavedContentKind.event) {
+      final cached = entry.event;
+      if (cached != null) {
+        openEventDetail(context, cached);
+        return;
+      }
+      try {
+        final event = await EventService.instance.getById(entry.id);
+        if (!mounted) return;
+        openEventDetail(context, event);
+      } catch (_) {
+        if (mounted) showStudioToast(context, 'That event is no longer available.', icon: null);
+      }
+      return;
+    }
+
     if (entry.isVideoScene && entry.feedItem != null) {
       final videoItems = _store.videoSceneFeedItems;
       final index = videoItems.indexWhere((item) => item.id == entry.id);
@@ -412,6 +433,8 @@ class _SavedItemsViewState extends State<_SavedItemsView> {
         return 'No saved pieces yet';
       case SavedContentFilter.scene:
         return 'No saved scenes yet';
+      case SavedContentFilter.event:
+        return 'No saved events yet';
     }
   }
 

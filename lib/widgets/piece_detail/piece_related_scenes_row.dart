@@ -17,9 +17,23 @@ import '../studio/studio_on_image.dart';
 ///
 /// Placed full width: the header and first card sit 20 from the left.
 class PieceRelatedScenesRow extends StatelessWidget {
-  const PieceRelatedScenesRow({super.key, required this.scenes});
+  const PieceRelatedScenesRow({
+    super.key,
+    required this.scenes,
+    this.title = 'The story behind this piece',
+    this.gap = 12,
+    this.headerPadding = const EdgeInsets.symmetric(horizontal: 20),
+    this.listPadding = const EdgeInsets.symmetric(horizontal: 20),
+  });
 
   final List<RelatedScene> scenes;
+
+  /// The header, its spacing and padding; the earlier piece body (restored
+  /// `PieceFigmaDetailBody`) sets its own.
+  final String title;
+  final double gap;
+  final EdgeInsets headerPadding;
+  final EdgeInsets listPadding;
 
   static const double cardWidth = 130;
   static const double cardHeight = 231;
@@ -33,18 +47,15 @@ class PieceRelatedScenesRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Text(
-            'The story behind this piece',
-            style: StudioType.header17(color: c.textPrimary),
-          ),
+          padding: headerPadding,
+          child: Text(title, style: StudioType.header17(color: c.textPrimary)),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: gap),
         SizedBox(
           height: cardHeight,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+            padding: listPadding,
             itemCount: scenes.length,
             separatorBuilder: (context, index) => const SizedBox(width: 10),
             itemBuilder: (context, index) {
