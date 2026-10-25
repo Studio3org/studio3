@@ -6,6 +6,7 @@ import '../theme/studio_colors.dart';
 import '../theme/studio_type.dart';
 import '../widgets/create_flow/post_flow_widgets.dart' show PostIconButton;
 import '../widgets/inbox/chats_body.dart';
+import 'new_message_page.dart';
 import '../widgets/inbox/follow_requests_body.dart';
 import '../widgets/inbox/notifications_body.dart';
 import '../widgets/studio/studio_icon.dart';
@@ -38,15 +39,41 @@ class _InboxPageState extends State<InboxPage> with SingleTickerProviderStateMix
 
   int _chatsCount = 0;
   int _requestsCount = 0;
+  final _chatsKey = GlobalKey<ChatsBodyState>();
 
   @override
   void initState() {
     super.initState();
+    _tabs.addListener(_onTab);
+    _refreshCounts();
+  }
+
+  void _onTab() {
+    if (!_tabs.indexIsChanging) setState(() {});
+  }
+
+  /// The + on the Messages tab (`NotifMessages`): New message, with the people already in
+  /// the inbox as Recent.
+  Future<void> _newMessage() async {
+    final recent = [
+      for (final c in _chatsKey.currentState?.conversations ?? const [])
+        if (c.otherPartyUsername != null && c.status != 'pending')
+          MessageContact(
+            username: c.otherPartyUsername!,
+            name: c.otherPartyDisplayName,
+            avatarUrl: c.otherPartyAvatarUrl,
+          ),
+    ];
+    await Navigator.push(
+      context,
+      MaterialPageRoute<void>(builder: (_) => NewMessagePage(recent: recent)),
+    );
     _refreshCounts();
   }
 
   @override
   void dispose() {
+    _tabs.removeListener(_onTab);
     _tabs.dispose();
     super.dispose();
   }
@@ -92,7 +119,14 @@ class _InboxPageState extends State<InboxPage> with SingleTickerProviderStateMix
                       style: StudioType.sans(16, weight: StudioType.medium, color: c.textPrimary),
                     ),
                   ),
-                  const SizedBox(width: 44),
+                  if (_tabs.index == InboxTab.chats.index)
+                    PostIconButton(
+                      icon: StudioIcons.newFolder,
+                      label: 'New message',
+                      onTap: _newMessage,
+                    )
+                  else
+                    const SizedBox(width: 44),
                 ],
               ),
             ),
@@ -107,7 +141,11 @@ class _InboxPageState extends State<InboxPage> with SingleTickerProviderStateMix
                 controller: _tabs,
                 children: [
                   NotificationsBody(onLiveNotification: () {}),
-                  ChatsBody(onCountsChanged: _refreshCounts),
+                  ChatsBody(
+                    key: _chatsKey,
+                    onCountsChanged: _refreshCounts,
+                    onNewMessage: _newMessage,
+                  ),
                   const FollowRequestsBody(),
                 ],
               ),

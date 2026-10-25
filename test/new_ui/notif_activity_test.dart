@@ -164,7 +164,7 @@ void main() {
   testWidgets('an empty Activity tab says what will show', (tester) async {
     await tester.pumpWidget(_host(const []));
     await tester.pump();
-    expect(find.text('Nothing yet'), findsOneWidget);
+    expect(find.text('Nothing here yet'), findsOneWidget);
   });
 
   testWidgets('tabs: equal 44 tabs with a Mono count, full-width rule', (tester) async {

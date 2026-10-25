@@ -7,15 +7,22 @@ class MainNavService {
 
   VoidCallback? _goHome;
   VoidCallback? _goSaved;
+  VoidCallback? _goExplore;
 
-  void register({required VoidCallback goHome, required VoidCallback goSaved}) {
+  void register({
+    required VoidCallback goHome,
+    required VoidCallback goSaved,
+    VoidCallback? goExplore,
+  }) {
     _goHome = goHome;
     _goSaved = goSaved;
+    _goExplore = goExplore;
   }
 
   void unregister() {
     _goHome = null;
     _goSaved = null;
+    _goExplore = null;
   }
 
   /// Returns true if a mounted `MainShell` switched to Home.
@@ -29,6 +36,14 @@ class MainNavService {
   /// Returns true if a mounted `MainShell` switched to Saved.
   bool goSaved() {
     final handler = _goSaved;
+    if (handler == null) return false;
+    handler();
+    return true;
+  }
+
+  /// Returns true if a mounted `MainShell` switched to Explore.
+  bool goExplore() {
+    final handler = _goExplore;
     if (handler == null) return false;
     handler();
     return true;

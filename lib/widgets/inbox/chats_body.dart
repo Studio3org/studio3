@@ -1,62 +1,75 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/chat_message.dart';
-import '../../models/follow_user_summary.dart';
 import '../../screens/conversation_thread_page.dart';
-import '../../services/auth_session.dart';
+import '../../screens/message_requests_page.dart';
 import '../../services/chat_service.dart';
-import '../../services/social_service.dart';
-import '../../theme/app_theme.dart';
-import '../accept_decline_buttons.dart';
+import '../../theme/studio_colors.dart';
+import '../../theme/studio_type.dart';
 import '../feed_skeleton.dart';
-import '../glass_card.dart';
-import '../home_feed/home_feed_widgets.dart';
+import '../post_picker_search_field.dart';
+import '../studio/studio_avatar.dart';
+import '../studio/studio_empty_state.dart';
+import '../studio/studio_icon.dart';
 
-enum _ChatsTab { all, requests }
-
-/// Chats list content for the Inbox page's "Chats" tab — extracted from the
-/// former standalone DirectMessagesPage, minus its own back-button header.
-/// Keeps its own internal All/Requests sub-switcher, plus a search bar that
-/// looks up people from the user's own following/followers lists to start
-/// or jump back into a conversation with them.
+/// The Inbox's Messages tab (`NotifMessages`).
+///
+/// "Search messages" (names and the last message, matches in 500 Ink); conversations newest
+/// first: 56 avatar, name 16/500 with the time 13 on the right, the last message 15 below —
+/// Ink with an 8 Ink dot when unread, Tertiary when read. Pending message requests sit
+/// behind a "Message requests" row at the top (the board has no sub-tabs). Tapping opens the
+/// chat. Muted chats and piece thumbnails wait on the server (BACKEND_CHANGES B8, B9).
 class ChatsBody extends StatefulWidget {
-  const ChatsBody({super.key, this.onCountsChanged});
+  const ChatsBody({
+    super.key,
+    this.onCountsChanged,
+    this.onNewMessage,
+    this.debugConversations,
+    this.debugRequests,
+  });
 
   /// Called after opening/returning from a thread so the parent can refresh badges.
   final VoidCallback? onCountsChanged;
 
+  /// "Start a message" on the empty state (`NotifEmptyMessages`): the same as the + above.
+  final VoidCallback? onNewMessage;
+
+  /// For tests: conversations and requests instead of loading them.
+  @visibleForTesting
+  final List<ConversationSummary>? debugConversations;
+  @visibleForTesting
+  final List<ConversationSummary>? debugRequests;
+
   @override
-  State<ChatsBody> createState() => _ChatsBodyState();
+  State<ChatsBody> createState() => ChatsBodyState();
 }
 
-class _ChatsBodyState extends State<ChatsBody> {
-  _ChatsTab _activeTab = _ChatsTab.all;
-
+class ChatsBodyState extends State<ChatsBody> {
   final List<ConversationSummary> _conversations = [];
+  final List<ConversationSummary> _requests = [];
   bool _loading = true;
   bool _loadingMore = false;
   String? _nextCursor;
-
-  final List<ConversationSummary> _requests = [];
-  bool _requestsLoading = true;
-  bool _requestsLoaded = false;
-  bool _requestsLoadingMore = false;
-  String? _requestsNextCursor;
-  final Set<String> _requestBusy = {};
-
   final _scrollController = ScrollController();
-
   final _searchController = TextEditingController();
-  String _searchQuery = '';
-  List<FollowUserSummary>? _connections;
-  bool _connectionsLoading = false;
+  String _query = '';
+
+  /// People from the inbox, newest first, for the New message screen's Recent list.
+  List<ConversationSummary> get conversations => List.unmodifiable(_conversations);
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    final debug = widget.debugConversations;
+    if (debug != null) {
+      _conversations.addAll(debug);
+      _requests.addAll(widget.debugRequests ?? const []);
+      _loading = false;
+      return;
+    }
     _load();
+    _loadRequests();
   }
 
   @override
@@ -69,209 +82,69 @@ class _ChatsBodyState extends State<ChatsBody> {
 
   Future<void> _load({bool append = false}) async {
     if (append && (_nextCursor == null || _nextCursor!.isEmpty)) return;
-    setState(() {
-      if (append) {
-        _loadingMore = true;
-      } else {
-        _loading = true;
-      }
-    });
+    setState(() => append ? _loadingMore = true : _loading = true);
     try {
-      final page = await ChatService.instance.getInbox(
-        cursor: append ? _nextCursor : null,
-      );
-      if (!mounted) return;
-      setState(() {
-        if (append) {
-          _conversations.addAll(page.items);
-        } else {
-          _conversations
-            ..clear()
-            ..addAll(page.items);
-        }
-        _nextCursor = page.nextCursor;
-        _loading = false;
-        _loadingMore = false;
-      });
-    } catch (_) {
+      final page = await ChatService.instance.getInbox(cursor: append ? _nextCursor : null);
       if (!mounted) return;
       setState(() {
         if (!append) _conversations.clear();
-        _loading = false;
-        _loadingMore = false;
-      });
-    }
-  }
-
-  Future<void> _loadRequests({bool append = false}) async {
-    if (append && (_requestsNextCursor == null || _requestsNextCursor!.isEmpty)) {
-      return;
-    }
-    setState(() {
-      if (append) {
-        _requestsLoadingMore = true;
-      } else {
-        _requestsLoading = true;
-      }
-    });
-    try {
-      final page = await ChatService.instance.listRequests(
-        cursor: append ? _requestsNextCursor : null,
-      );
-      if (!mounted) return;
-      setState(() {
-        if (append) {
-          _requests.addAll(page.items);
-        } else {
-          _requests
-            ..clear()
-            ..addAll(page.items);
-        }
-        _requestsNextCursor = page.nextCursor;
-        _requestsLoading = false;
-        _requestsLoadingMore = false;
-        _requestsLoaded = true;
+        _conversations.addAll(page.items);
+        _nextCursor = page.nextCursor;
       });
     } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        if (!append) _requests.clear();
-        _requestsLoading = false;
-        _requestsLoadingMore = false;
-        _requestsLoaded = true;
-      });
-    }
-  }
-
-  /// Fetches the caller's own following + followers once (lazily, on first
-  /// search) and merges them by username — this is what the search bar
-  /// filters, not every user on the app and not the conversation list.
-  Future<void> _ensureConnectionsLoaded() async {
-    if (_connections != null || _connectionsLoading) return;
-    setState(() => _connectionsLoading = true);
-    final username = AuthSession.instance.user?.username;
-    if (username == null || username.isEmpty) {
-      if (!mounted) return;
-      setState(() {
-        _connections = const [];
-        _connectionsLoading = false;
-      });
-      return;
-    }
-    try {
-      final pages = await Future.wait([
-        SocialService.instance.listFollowing(username),
-        SocialService.instance.listFollowers(username),
-      ]);
-      if (!mounted) return;
-      final byUsername = <String, FollowUserSummary>{};
-      for (final page in pages) {
-        for (final user in page.items) {
-          byUsername[user.username] = user;
-        }
+      if (mounted && !append) setState(_conversations.clear);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _loadingMore = false;
+        });
       }
-      setState(() {
-        _connections = byUsername.values.toList();
-        _connectionsLoading = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _connections = const [];
-        _connectionsLoading = false;
-      });
     }
   }
 
-  void _onSearchQueryChanged(String value) {
-    final query = value.trim();
-    setState(() => _searchQuery = query);
-    if (query.isNotEmpty) _ensureConnectionsLoaded();
-  }
-
-  List<FollowUserSummary> get _filteredConnections {
-    final connections = _connections;
-    if (connections == null || _searchQuery.isEmpty) return const [];
-    final q = _searchQuery.toLowerCase();
-    return connections
-        .where((user) =>
-            user.name.toLowerCase().contains(q) ||
-            user.username.toLowerCase().contains(q))
-        .toList();
-  }
-
-  void _onTabChanged(_ChatsTab tab) {
-    setState(() => _activeTab = tab);
-    if (tab == _ChatsTab.requests && !_requestsLoaded) _loadRequests();
+  Future<void> _loadRequests() async {
+    try {
+      final page = await ChatService.instance.listRequests();
+      if (!mounted) return;
+      setState(() {
+        _requests
+          ..clear()
+          ..addAll(page.items);
+      });
+    } catch (_) {}
   }
 
   void _onScroll() {
-    if (!_scrollController.hasClients) return;
+    if (!_scrollController.hasClients || _loadingMore || _query.isNotEmpty) return;
     final pos = _scrollController.position;
-    if (pos.pixels < pos.maxScrollExtent - 200) return;
-    if (_activeTab == _ChatsTab.all) {
-      if (_loadingMore) return;
-      if (_nextCursor == null || _nextCursor!.isEmpty) return;
-      _load(append: true);
-    } else {
-      if (_requestsLoadingMore) return;
-      if (_requestsNextCursor == null || _requestsNextCursor!.isEmpty) return;
-      _loadRequests(append: true);
-    }
+    if (pos.pixels >= pos.maxScrollExtent - 200) _load(append: true);
   }
 
-  Future<void> _openThreadWithUser(FollowUserSummary user) async {
-    // Prefer an already-loaded inbox/request row so we open with history
-    // immediately; ConversationThreadPage also resolves via API as a fallback.
-    ConversationSummary? existing;
-    for (final c in _conversations) {
-      if (c.otherPartyUsername == user.username) {
-        existing = c;
-        break;
-      }
-    }
-    if (existing == null) {
-      for (final c in _requests) {
-        if (c.otherPartyUsername == user.username) {
-          existing = c;
-          break;
-        }
-      }
-    }
-
-    if (existing != null) {
-      await _openThread(existing, isRequest: existing.status == 'pending');
-      return;
-    }
-
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ConversationThreadPage(
-          otherPartyUsername: user.username,
-          otherPartyName: user.name,
-          otherPartyAvatarUrl: user.profilePhotoUrl,
-        ),
-      ),
-    );
-    _load();
-    widget.onCountsChanged?.call();
+  List<ConversationSummary> get _visible {
+    if (_query.isEmpty) return _conversations;
+    final q = _query.toLowerCase();
+    return _conversations
+        .where(
+          (c) =>
+              c.otherPartyDisplayName.toLowerCase().contains(q) ||
+              (c.otherPartyUsername ?? '').toLowerCase().contains(q) ||
+              (c.preview ?? '').toLowerCase().contains(q),
+        )
+        .toList();
   }
 
-  Future<void> _openThread(ConversationSummary conversation, {required bool isRequest}) async {
-    // Optimistic: clear unread dot immediately when opening.
+  Future<void> _openThread(ConversationSummary conversation) async {
     if (conversation.unread) {
       setState(() {
-        final list = isRequest ? _requests : _conversations;
-        final i = list.indexWhere((c) => c.id == conversation.id);
-        if (i != -1) list[i] = list[i].copyWith(unread: false);
+        final i = _conversations.indexWhere((c) => c.id == conversation.id);
+        if (i != -1) _conversations[i] = _conversations[i].copyWith(unread: false);
       });
       widget.onCountsChanged?.call();
     }
-
     await Navigator.push(
       context,
-      MaterialPageRoute(
+      MaterialPageRoute<void>(
         builder: (context) => ConversationThreadPage(
           conversationId: conversation.id,
           otherPartyId: conversation.otherPartyId,
@@ -282,367 +155,273 @@ class _ChatsBodyState extends State<ChatsBody> {
         ),
       ),
     );
-    // Refresh both lists on return — accept/decline/read may have changed status.
+    if (widget.debugConversations != null) return;
     _load();
-    if (_requestsLoaded) _loadRequests();
+    _loadRequests();
     widget.onCountsChanged?.call();
   }
 
-  Future<void> _acceptRequest(ConversationSummary request) async {
-    setState(() => _requestBusy.add(request.id));
-    try {
-      await ChatService.instance.acceptRequest(request.id);
-      if (!mounted) return;
-      setState(() {
-        _requests.removeWhere((r) => r.id == request.id);
-        _conversations.insert(0, request.copyWith(status: 'open'));
-      });
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to accept: $e')),
-      );
-    } finally {
-      if (mounted) setState(() => _requestBusy.remove(request.id));
-    }
-  }
-
-  Future<void> _declineRequest(ConversationSummary request) async {
-    setState(() => _requestBusy.add(request.id));
-    try {
-      await ChatService.instance.declineRequest(request.id);
-    } catch (_) {
-      // Treat as handled either way.
-    } finally {
-      if (mounted) {
-        setState(() {
-          _requests.removeWhere((r) => r.id == request.id);
-          _requestBusy.remove(request.id);
-        });
-      }
-    }
+  Future<void> _openRequests() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute<void>(builder: (_) => MessageRequestsPage(initial: _requests)),
+    );
+    if (widget.debugConversations != null) return;
+    _load();
+    _loadRequests();
+    widget.onCountsChanged?.call();
   }
 
   @override
   Widget build(BuildContext context) {
+    final c = context.studio;
+    final visible = _visible;
+    // `NotifEmptyMessages`: no search bar until there is a conversation.
+    final empty = !_loading && _conversations.isEmpty && _requests.isEmpty;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-          child: TextField(
+        if (!empty) Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+          child: PostPickerSearchField(
             controller: _searchController,
-            onChanged: _onSearchQueryChanged,
-            style: GoogleFonts.inter(fontSize: 14, color: AppColors.slate900),
-            decoration: InputDecoration(
-              hintText: 'Search your connections',
-              prefixIcon: const Icon(Icons.search),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(9999),
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 10,
-              ),
-            ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-          child: Row(
-            children: [
-              FeedFilterTab(
-                label: 'All',
-                active: _activeTab == _ChatsTab.all,
-                onTap: () => _onTabChanged(_ChatsTab.all),
-              ),
-              const SizedBox(width: 24),
-              FeedFilterTab(
-                label: _requests.isEmpty
-                    ? 'Requests'
-                    : 'Requests (${_requests.length})',
-                active: _activeTab == _ChatsTab.requests,
-                onTap: () => _onTabChanged(_ChatsTab.requests),
-              ),
-            ],
+            hintText: 'Search messages',
+            height: 44,
+            onChanged: (v) => setState(() => _query = v.trim()),
           ),
         ),
         Expanded(
-          child: _searchQuery.isNotEmpty
-              ? _buildConnectionsSearchBody()
-              : (_activeTab == _ChatsTab.all
-                  ? _buildAllBody()
-                  : _buildRequestsBody()),
+          child: _loading && _conversations.isEmpty
+              ? const FlatListRowSkeleton()
+              : RefreshIndicator(
+                  color: c.textPrimary,
+                  onRefresh: () async {
+                    await Future.wait([_load(), _loadRequests()]);
+                  },
+                  child: ListView(
+                    controller: _scrollController,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                    children: [
+                      if (_requests.isNotEmpty && _query.isEmpty)
+                        _RequestsRow(count: _requests.length, onTap: _openRequests),
+                      if (visible.isEmpty)
+                        Padding(
+                          padding: EdgeInsets.only(top: empty ? 200 : 64),
+                          child: _query.isEmpty
+                              ? StudioEmptyState(
+                                  title: 'No messages yet',
+                                  message:
+                                      'Message an artist from their profile or from a piece you like.',
+                                  actionLabel: widget.onNewMessage == null
+                                      ? null
+                                      : 'Start a message',
+                                  onAction: widget.onNewMessage,
+                                )
+                              : Text(
+                                  'No conversations match “$_query”',
+                                  textAlign: TextAlign.center,
+                                  style: StudioType.body14(color: c.textSecondary),
+                                ),
+                        ),
+                      for (final conversation in visible)
+                        ConversationRow(
+                          conversation: conversation,
+                          query: _query,
+                          onTap: () => _openThread(conversation),
+                        ),
+                      if (_loadingMore)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          child: Center(
+                            child: SizedBox.square(
+                              dimension: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: c.textSecondary,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
         ),
       ],
     );
   }
+}
 
-  Widget _buildConnectionsSearchBody() {
-    if (_connectionsLoading && _connections == null) {
-      return const FlatListRowSkeleton();
-    }
-    final results = _filteredConnections;
-    if (results.isEmpty) {
-      return Center(
-        child: Text(
-          'No matches in your connections',
-          style: GoogleFonts.inter(fontSize: 14, color: AppColors.slate500),
-        ),
-      );
-    }
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      itemCount: results.length,
-      itemBuilder: (context, i) {
-        final user = results[i];
-        return Padding(
-          padding: const EdgeInsets.only(bottom: AppDims.spaceSm),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () => _openThreadWithUser(user),
-              borderRadius: BorderRadius.circular(AppDims.radiusMd),
-              child: GlassCard(
-                padding: const EdgeInsets.all(12),
-                child: Row(
+/// "6:30 PM" today, the weekday this week, "Oct 12" before.
+String conversationTime(DateTime at, DateTime now) {
+  final t = at.toLocal();
+  final today = DateTime(now.year, now.month, now.day);
+  if (!t.isBefore(today)) {
+    final hour = t.hour % 12 == 0 ? 12 : t.hour % 12;
+    return '$hour:${t.minute.toString().padLeft(2, '0')} ${t.hour < 12 ? 'AM' : 'PM'}';
+  }
+  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  if (now.difference(t) < const Duration(days: 7)) return days[t.weekday - 1];
+  return '${months[t.month - 1]} ${t.day}';
+}
+
+/// [text] with every match of [query] in 500 Ink.
+TextSpan highlightMatches(String text, String query, TextStyle match) {
+  if (query.isEmpty) return TextSpan(text: text);
+  final lower = text.toLowerCase();
+  final q = query.toLowerCase();
+  final spans = <TextSpan>[];
+  var at = 0;
+  while (true) {
+    final i = lower.indexOf(q, at);
+    if (i < 0) break;
+    if (i > at) spans.add(TextSpan(text: text.substring(at, i)));
+    spans.add(TextSpan(text: text.substring(i, i + q.length), style: match));
+    at = i + q.length;
+  }
+  if (at < text.length) spans.add(TextSpan(text: text.substring(at)));
+  return TextSpan(children: spans);
+}
+
+/// One conversation: 56 avatar, 14 gap, 12 vertical padding, no rule.
+class ConversationRow extends StatelessWidget {
+  const ConversationRow({
+    super.key,
+    required this.conversation,
+    required this.onTap,
+    this.query = '',
+    this.trailing,
+  });
+
+  final ConversationSummary conversation;
+  final String query;
+  final VoidCallback onTap;
+
+  /// Replaces the unread dot (message requests put Accept / Decline here).
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.studio;
+    final unread = conversation.unread;
+    final match = TextStyle(fontWeight: StudioType.medium, color: c.textPrimary);
+    final preview = conversation.preview ?? 'No messages yet';
+    return Semantics(
+      button: true,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Row(
+            children: [
+              StudioAvatar(url: conversation.otherPartyAvatarUrl, size: 56),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    UserAvatar(
-                      url: user.profilePhotoUrl,
-                      name: user.name,
-                      size: 48,
-                    ),
-                    const SizedBox(width: AppDims.spaceSm + 4),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            user.name,
-                            style: GoogleFonts.inter(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.slate900,
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Expanded(
+                          child: Text.rich(
+                            highlightMatches(conversation.otherPartyDisplayName, query, match),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: StudioType.sans(
+                              16,
+                              weight: StudioType.medium,
+                              color: c.textPrimary,
                             ),
                           ),
-                          Text(
-                            '@${user.username}',
-                            style: GoogleFonts.inter(
-                              fontSize: 13,
-                              color: AppColors.slate500,
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          conversationTime(conversation.updatedAt, DateTime.now()),
+                          style: StudioType.label13(color: c.textTertiary),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text.rich(
+                            highlightMatches(preview, query, match),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: StudioType.sans(
+                              15,
+                              color: unread ? c.textPrimary : c.textTertiary,
+                            ),
+                          ),
+                        ),
+                        if (trailing != null) ...[
+                          const SizedBox(width: 10),
+                          trailing!,
+                        ] else if (unread) ...[
+                          const SizedBox(width: 10),
+                          Semantics(
+                            label: 'Unread',
+                            child: Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                color: c.textPrimary,
+                                shape: BoxShape.circle,
+                              ),
                             ),
                           ),
                         ],
-                      ),
+                      ],
                     ),
                   ],
                 ),
               ),
-            ),
+            ],
           ),
-        );
-      },
-    );
-  }
-
-  Widget _buildAllBody() {
-    if (_loading) {
-      return const FlatListRowSkeleton();
-    }
-    if (_conversations.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.chat_bubble_outline_rounded, size: 48, color: AppColors.slate200),
-            const SizedBox(height: AppDims.spaceMd),
-            Text(
-              'No messages yet',
-              style: GoogleFonts.inter(fontSize: 14, color: AppColors.slate500),
-            ),
-          ],
         ),
-      );
-    }
-
-    return RefreshIndicator(
-      onRefresh: _load,
-      child: ListView.builder(
-        controller: _scrollController,
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: _conversations.length + (_loadingMore ? 1 : 0),
-        itemBuilder: (context, i) {
-          if (i >= _conversations.length) {
-            return const Padding(
-              padding: EdgeInsets.symmetric(vertical: 16),
-              child: Center(
-                child: SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              ),
-            );
-          }
-          final conversation = _conversations[i];
-          return Padding(
-            padding: const EdgeInsets.only(bottom: AppDims.spaceSm),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => _openThread(conversation, isRequest: false),
-                borderRadius: BorderRadius.circular(AppDims.radiusMd),
-                child: GlassCard(
-                  padding: const EdgeInsets.all(12),
-                  child: Row(
-                    children: [
-                      UserAvatar(
-                        url: conversation.otherPartyAvatarUrl,
-                        name: conversation.otherPartyDisplayName,
-                        size: 48,
-                      ),
-                      const SizedBox(width: AppDims.spaceSm + 4),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              conversation.otherPartyDisplayName,
-                              style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.slate900),
-                            ),
-                            Text(
-                              conversation.preview ?? 'No messages yet',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.inter(fontSize: 13, color: AppColors.slate500),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            _timeAgo(conversation.updatedAt),
-                            style: GoogleFonts.inter(fontSize: 11, color: AppColors.slate400),
-                          ),
-                          if (conversation.unread) ...[
-                            const SizedBox(height: 4),
-                            Container(width: 8, height: 8, decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.slate900)),
-                          ],
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildRequestsBody() {
-    if (_requestsLoading) {
-      return const FlatListRowSkeleton();
-    }
-    if (_requests.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.mark_email_unread_outlined, size: 48, color: AppColors.slate200),
-            const SizedBox(height: AppDims.spaceMd),
-            Text(
-              'No message requests',
-              style: GoogleFonts.inter(fontSize: 14, color: AppColors.slate500),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return RefreshIndicator(
-      onRefresh: _loadRequests,
-      child: ListView.builder(
-        controller: _scrollController,
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: _requests.length + (_requestsLoadingMore ? 1 : 0),
-        itemBuilder: (context, i) {
-          if (i >= _requests.length) {
-            return const Padding(
-              padding: EdgeInsets.symmetric(vertical: 16),
-              child: Center(
-                child: SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              ),
-            );
-          }
-          final conversation = _requests[i];
-          final busy = _requestBusy.contains(conversation.id);
-          return Padding(
-            padding: const EdgeInsets.only(bottom: AppDims.spaceSm),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => _openThread(conversation, isRequest: true),
-                borderRadius: BorderRadius.circular(AppDims.radiusMd),
-                child: GlassCard(
-                  padding: const EdgeInsets.all(12),
-                  child: Row(
-                    children: [
-                      UserAvatar(
-                        url: conversation.otherPartyAvatarUrl,
-                        name: conversation.otherPartyDisplayName,
-                        size: 48,
-                      ),
-                      const SizedBox(width: AppDims.spaceSm + 4),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              conversation.otherPartyDisplayName,
-                              style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.slate900),
-                            ),
-                            Text(
-                              conversation.preview ?? 'No messages yet',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.inter(fontSize: 13, color: AppColors.slate500),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      AcceptDeclineButtons(
-                        busy: busy,
-                        onAccept: () => _acceptRequest(conversation),
-                        onDecline: () => _declineRequest(conversation),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          );
-        },
       ),
     );
   }
 }
 
-String _timeAgo(DateTime dt) {
-  final diff = DateTime.now().difference(dt);
-  if (diff.inMinutes < 1) return 'now';
-  if (diff.inMinutes < 60) return '${diff.inMinutes}m';
-  if (diff.inHours < 24) return '${diff.inHours}h';
-  if (diff.inDays < 7) return '${diff.inDays}d';
-  return '${(diff.inDays / 7).floor()}w';
+/// "Message requests" with a Mono count and a chevron, 1 px Line under.
+class _RequestsRow extends StatelessWidget {
+  const _RequestsRow({required this.count, required this.onTap});
+
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.studio;
+    return Semantics(
+      button: true,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(border: Border(bottom: BorderSide(color: c.line))),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Message requests',
+                  style: StudioType.sans(15, weight: StudioType.medium, color: c.textPrimary),
+                ),
+              ),
+              Text('$count', style: StudioType.mono13(color: c.textSecondary)),
+              const SizedBox(width: 8),
+              StudioIcon(StudioIcons.chevronRight, size: 16, color: c.textTertiary),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

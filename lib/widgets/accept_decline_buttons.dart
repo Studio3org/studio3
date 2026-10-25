@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
-import '../theme/home_feed_tokens.dart';
+import 'studio/studio.dart';
 
-/// Shared Accept/Decline button pair for follow-requests and inquiry
-/// message-requests rows.
+/// Shared Decline / Accept pair for follow requests and message requests: small Studio
+/// buttons, Decline outlined and Accept in Ink (34 tall, radius 8, 13/500).
 class AcceptDeclineButtons extends StatelessWidget {
   const AcceptDeclineButtons({
     super.key,
@@ -20,40 +19,35 @@ class AcceptDeclineButtons extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (busy) {
-      return const SizedBox(
-        width: 20,
-        height: 20,
-        child: CircularProgressIndicator(strokeWidth: 2),
+      return SizedBox(
+        width: 34,
+        height: 34,
+        child: Center(
+          child: SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: context.studio.textPrimary,
+            ),
+          ),
+        ),
       );
     }
-    final textStyle = GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        OutlinedButton(
+        StudioButton(
+          label: 'Decline',
+          variant: StudioButtonVariant.small,
           onPressed: onDecline,
-          style: OutlinedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-            minimumSize: Size.zero,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            side: BorderSide(
-              color: HomeFeedTokens.textPrimary.withValues(alpha: 0.25),
-            ),
-          ),
-          child: Text('Decline',
-              style: textStyle.copyWith(color: HomeFeedTokens.textPrimary)),
         ),
         const SizedBox(width: 8),
-        FilledButton(
+        StudioButton(
+          label: 'Accept',
+          variant: StudioButtonVariant.small,
+          filled: true,
           onPressed: onAccept,
-          style: FilledButton.styleFrom(
-            backgroundColor: HomeFeedTokens.textPrimary,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-            minimumSize: Size.zero,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
-          child: Text('Accept',
-              style: textStyle.copyWith(color: HomeFeedTokens.textInverse)),
         ),
       ],
     );

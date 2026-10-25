@@ -58,5 +58,9 @@ class PermissionService {
     return result.isGranted;
   }
 
+  /// Whether the phone lets the app show notifications (`NotifSettings` card).
+  Future<bool> notificationsAllowed() async =>
+      (await Permission.notification.status).isGranted;
+
   Future<void> openSettings() => openAppSettings();
 }
