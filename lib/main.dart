@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'services/stripe_setup.dart';
 import 'services/auth_session.dart';
 import 'services/cache_service.dart';
 import 'services/connectivity_service.dart';
@@ -67,6 +68,7 @@ Future<void> main() async {
   await AppStateStore.instance.initialize();
   await SavedContentStore.instance.load();
   await ConnectivityService.instance.init();
+  await StripeSetup.init();
   try {
     await Firebase.initializeApp();
   } catch (e) {

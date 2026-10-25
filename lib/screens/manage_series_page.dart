@@ -7,7 +7,7 @@ import '../services/series_service.dart';
 import '../theme/studio_colors.dart';
 import '../theme/studio_type.dart';
 import '../widgets/studio/studio_top_bar.dart';
-import '../widgets/create_flow/create_series_dialog.dart';
+import '../widgets/create_flow/series_picker_sheet.dart';
 import '../widgets/create_flow/post_flow_widgets.dart';
 import '../widgets/studio/studio_empty_state.dart';
 import '../widgets/studio/studio_icon.dart';
@@ -55,10 +55,11 @@ class _ManageSeriesPageState extends State<ManageSeriesPage> {
   }
 
   Future<void> _createSeries() async {
-    final name = await CreateSeriesDialog.show(context);
-    if (name == null || !mounted) return;
+    final draft = await SeriesNewSheet.show(context, subtitle: null);
+    if (draft == null || !mounted) return;
+    final name = draft.name;
     try {
-      await SeriesService.instance.create(name: name);
+      await SeriesService.instance.create(name: name, description: draft.description);
       await _loadSeries();
       if (!mounted) return;
       showStudioToast(context, 'Series "$name" created');

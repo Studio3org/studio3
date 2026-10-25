@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/feed_item.dart';
 import '../../models/feed_preview_item.dart';
 import '../../models/notification_item.dart';
+import '../../screens/auction_flow.dart';
 import '../../services/chat_socket_service.dart';
 import '../../services/connectivity_service.dart';
 import '../../services/main_nav_service.dart';
@@ -334,10 +335,21 @@ List<(String, bool)> activityLine(NotificationItem n) {
 
 /// Opens what a notification is about: the piece or Scene, the person, or the order list
 /// (My sales for the seller). Event reminders have nowhere to go yet (no events in the app).
+/// Notifications that open an auction result (`BidWon`, `BidLost`, `BidReserveNotMet`,
+/// `BidPaymentFailed`) instead of the piece.
+const kAuctionOutcomeTypes = {
+  'auction_won',
+  'auction_lost',
+  'auction_no_sale',
+  'auction_payment_failed',
+};
+
 Future<void> openNotificationTarget(BuildContext context, NotificationItem n) async {
   final id = n.targetId;
   try {
     switch (n.targetType) {
+      case 'piece' when id != null && kAuctionOutcomeTypes.contains(n.type):
+        await openAuctionOutcome(context, pieceId: id, type: n.type);
       case 'piece':
         if (id == null) return;
         final piece = await PieceService.instance.getByIdCached(id);

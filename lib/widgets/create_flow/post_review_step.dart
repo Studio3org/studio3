@@ -15,6 +15,7 @@ class PostReviewStep extends StatelessWidget {
     required this.title,
     required this.photoCount,
     required this.forSale,
+    this.auction = false,
     required this.availabilityRows,
     required this.detailRows,
     required this.onBack,
@@ -29,6 +30,7 @@ class PostReviewStep extends StatelessWidget {
   final String title;
   final int photoCount;
   final bool forSale;
+  final bool auction;
   final List<PostReviewRow> availabilityRows;
   final List<PostReviewRow> detailRows;
   final VoidCallback onBack;
@@ -64,9 +66,9 @@ class PostReviewStep extends StatelessWidget {
                     const SizedBox(height: 20),
                     PostHeading(
                       title: 'Look it over',
-                      // No auctions in the app, so the board's "except a running auction"
-                      // is left off.
-                      subtitle: forSale
+                      subtitle: auction
+                          ? "You can edit anything after it's live, except a running auction."
+                          : forSale
                           ? "You can edit anything after it's live."
                           : 'You can list it for sale anytime from the piece page.',
                     ),

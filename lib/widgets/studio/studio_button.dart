@@ -177,18 +177,21 @@ class StudioButton extends StatelessWidget {
 }
 
 /// Outlined square message button beside the primary button: 52 × 52, radius 12, 1 px
-/// #D4D4D0, 22 px chat icon (stroke 1.7) (`BuyPiece` bottom bar).
+/// #D4D4D0, 22 px chat icon (stroke 1.7) (`BuyPiece` bottom bar). [icon] swaps the chat
+/// icon (the edit button on `ListOwnerPiece`).
 class StudioMessageButton extends StatelessWidget {
   const StudioMessageButton({
     super.key,
     required this.onPressed,
     this.semanticLabel = 'Message',
     this.size = 52,
+    this.icon = StudioIcons.chat,
   });
 
   final VoidCallback? onPressed;
   final String semanticLabel;
   final double size;
+  final String icon;
 
   @override
   Widget build(BuildContext context) {
@@ -208,7 +211,7 @@ class StudioMessageButton extends StatelessWidget {
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: onPressed,
-            child: Center(child: StudioIcon(StudioIcons.chat, size: 22, color: c.textPrimary)),
+            child: Center(child: StudioIcon(icon, size: 22, color: c.textPrimary)),
           ),
         ),
       ),

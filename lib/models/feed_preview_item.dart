@@ -1,3 +1,4 @@
+import 'auction.dart';
 import 'feed_item.dart';
 import 'piece_summary.dart';
 import 'post_summary.dart';
@@ -76,6 +77,8 @@ class FeedPreviewItem {
     this.handlingNotes,
     this.styleTags = const [],
     this.seriesPieceCount,
+    this.listingType,
+    this.auction,
   });
 
   final String id;
@@ -117,6 +120,14 @@ class FeedPreviewItem {
 
   /// Pieces in this piece's series ("6 pieces" on the series card); null when unknown.
   final int? seriesPieceCount;
+
+  /// `fixed` or `auction` (`BuyPieceScrolled`: the auction bar).
+  final String? listingType;
+
+  /// The running or settling auction, from piece detail.
+  final AuctionSummary? auction;
+
+  bool get isAuction => listingType == 'auction';
 
   bool get isLive => status == null || status == 'live';
 
@@ -213,6 +224,8 @@ class FeedPreviewItem {
       handlingNotes: handlingNotes ?? this.handlingNotes,
       styleTags: styleTags ?? this.styleTags,
       seriesPieceCount: seriesPieceCount ?? this.seriesPieceCount,
+      listingType: listingType,
+      auction: auction,
     );
   }
 
@@ -262,6 +275,8 @@ class FeedPreviewItem {
       handlingNotes: piece.handlingNotes,
       styleTags: piece.styleTags,
       seriesPieceCount: (series?.pieceIds.isNotEmpty ?? false) ? series!.pieceIds.length : null,
+      listingType: piece.listingType,
+      auction: piece.auction,
     );
   }
 

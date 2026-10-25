@@ -54,12 +54,23 @@ class _FakeServer implements HttpClientAdapter {
         _uploads++;
         data = {'url': 'https://cdn.test/sarah/${body!['purpose']}/$_uploads', 'devMode': true};
       case 'POST /api/pieces':
-        data = {...body!, 'id': 'p1', 'mediaUrl': body['mediaUrl'], 'status': 'draft'};
+        data = {...body!, 'id': 'p1', 'mediaUrl': body['mediaUrl'], 'status': body['status']};
       case 'PATCH /api/pieces/p1':
         final created = bodies('POST', '/api/pieces').first!;
         data = {...created, 'id': 'p1', 'status': body!['status']};
       case 'POST /api/posts':
         data = {...body!, 'id': 's1'};
+      case 'GET /api/users/sarah/posts':
+        data = [
+          {
+            'id': 's9',
+            'mediaType': 'image',
+            'status': 'live',
+            'linkedPieceIds': ['old'],
+          },
+        ];
+      case 'PATCH /api/posts/s9':
+        data = {'id': 's9', ...body!};
       case 'GET /api/user/me/commission-quote':
         final cents = int.parse(options.uri.queryParameters['priceCents']!);
         data = {'priceCents': cents, 'netCents': cents * 80 ~/ 100, 'commissionBps': 2000};
@@ -462,6 +473,87 @@ void main() {
         PostImageTransform()..rotationDegrees = -90,
       );
       expect(w / h, closeTo(3 / 4, 0.01));
+    });
+  });
+
+  testWidgets('piece at auction: terms on review, created live with the auction, Scene linked', (
+    tester,
+  ) async {
+    AuthSession.instance.sellerEnabled = true;
+    tester.view.physicalSize = const Size(390, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      _page(
+        PostCreatePage(
+          postType: 'piece',
+          imagePaths: [_portrait],
+          transforms: [PostImageTransform()],
+          previewImageIndex: 0,
+          onClose: () {},
+          debugLocation: _dallas,
+          debugMediumIds: const ['oil'],
+        ),
+      ),
+    );
+    await tester.pump();
+
+    // Availability: Auction, a starting bid, 8 days, a private reserve.
+    await tester.tap(find.text('Auction'));
+    await tester.pump(const Duration(milliseconds: 400));
+    await _type(tester, 0, '360');
+    await _type(tester, 1, '1200');
+    await tester.tap(find.bySemanticsLabel('More days'));
+    await tester.pump();
+    expect(find.text('8 days'), findsOneWidget);
+    await tester.tap(find.text('Continue'));
+    await tester.pump();
+
+    // Details, with a related Scene.
+    await _type(tester, 0, 'Portrait Dream');
+    await _type(tester, 2, '24');
+    await _type(tester, 3, '36');
+    await _type(tester, 4, '1.5');
+    await _type(tester, 5, '8');
+    await _tapAndRun(tester, 'Related Scenes', ms: 600);
+    // The page loads its Scenes from initState, inside the fake clock.
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 200));
+      await _settle(tester, rounds: 1);
+    }
+    expect(find.text('0 linked'), findsOneWidget);
+    await tester.tap(
+      find.byWidgetPredicate((w) => w is Semantics && w.properties.label == 'Scene'),
+    );
+    await tester.pump();
+    expect(find.text('1 linked'), findsOneWidget);
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+    await _tapAndRun(tester, 'Continue', ms: 500);
+
+    // Review.
+    expect(
+      find.text("You can edit anything after it's live, except a running auction."),
+      findsOneWidget,
+    );
+    for (final text in ['Auction', r'$360', '8 days', r'$1,200 · private']) {
+      expect(find.text(text), findsWidgets, reason: text);
+    }
+    await _tapAndRun(tester, 'Publish');
+    expect(find.text('Portrait Dream is live'), findsOneWidget);
+
+    final created = _server.bodies('POST', '/api/pieces').single!;
+    expect(created['status'], 'live');
+    expect(created['isForSale'], true);
+    expect(created['listingType'], 'auction');
+    expect(created['priceCents'], 36000);
+    expect(created['auctionDurationDays'], 8);
+    expect(created['reserveCents'], 120000);
+    // Created live: no draft to take live.
+    expect(_server.bodies('PATCH', '/api/pieces/p1'), isEmpty);
+    expect(_server.bodies('PATCH', '/api/posts/s9').single, {
+      'linkedPieceIds': ['old', 'p1'],
     });
   });
 }

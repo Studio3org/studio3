@@ -2,9 +2,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
+import '../../models/auction.dart';
 import '../../models/collect_checkout.dart';
 import '../../models/feed_preview_item.dart';
 import '../../services/api_exception.dart';
+import '../../services/bid_service.dart';
 import '../../services/order_service.dart';
 import '../../theme/collect_detail_tokens.dart' show formatMoney, formatMoneyAmount;
 import '../../theme/studio_colors.dart';
@@ -22,24 +24,43 @@ import 'collect_shipping_sheet.dart';
 /// Checkout (`BuyCheckoutEmpty` → `BuyCheckoutReady`), kept as a sheet: piece summary,
 /// Shipping and Payment rows, order summary with "–" until an address is set, "All sales
 /// are final. See terms" above "Collect this piece".
+///
+/// For an auction winner ([auction]; `BidCheckout`): "[artist] · won at auction" and the
+/// winning bid, a "Time left to pay" box when there is a deadline, Payment shows the card
+/// they bid with, the summary starts with Winning bid, and "Pay and collect" confirms
+/// shipping (`auction-checkout`) then pays the rest (shipping and tax; the winning bid was
+/// charged when the auction closed).
 class CollectPieceSheet extends StatefulWidget {
   const CollectPieceSheet({
     super.key,
     required this.item,
     @visibleForTesting this.initialShipping,
     @visibleForTesting this.initialPayment,
+    this.auction,
+    @visibleForTesting this.debugCard,
   });
 
   final FeedPreviewItem item;
+
+  /// Set when the viewer won this piece at auction.
+  final AuctionSummary? auction;
+
+  /// Tests only: the card the winner bid with, instead of loading it.
+  final SavedCard? debugCard;
 
   /// Tests only: start with shipping / payment already chosen (`BuyCheckoutReady`).
   final CollectShippingSelection? initialShipping;
   final CollectPaymentMethod? initialPayment;
 
-  static Future<void> show(BuildContext context, {required FeedPreviewItem item}) {
+  static Future<void> show(
+    BuildContext context, {
+    required FeedPreviewItem item,
+    AuctionSummary? auction,
+  }) {
     return showStudioSheet<void>(
       context: context,
-      builder: (context) => CollectPieceSheet(item: item),
+      useRootNavigator: auction != null,
+      builder: (context) => CollectPieceSheet(item: item, auction: auction),
     );
   }
 
@@ -51,8 +72,20 @@ class _CollectPieceSheetState extends State<CollectPieceSheet> {
   late CollectShippingSelection? _shipping = widget.initialShipping;
   late CollectPaymentMethod? _payment = widget.initialPayment;
   bool _collecting = false;
+  late SavedCard? _card = widget.debugCard;
 
   FeedPreviewItem get item => widget.item;
+  AuctionSummary? get _auction => widget.auction;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_auction != null && _card == null) {
+      BidService.instance.cards().then((cards) {
+        if (mounted && cards.isNotEmpty) setState(() => _card = cards.first);
+      }, onError: (Object _) {});
+    }
+  }
 
   String get _imageUrl {
     final url = item.heroImageUrl;
@@ -66,7 +99,8 @@ class _CollectPieceSheetState extends State<CollectPieceSheet> {
     return '\$${amount.contains('.') ? amount : '$amount.00'}';
   }
 
-  int get _artworkCents => item.priceCents ?? 0;
+  int get _artworkCents =>
+      _auction?.winningBidCents ?? _auction?.currentCents ?? item.priceCents ?? 0;
   int get _shippingCents => _shipping?.method.priceCents ?? 0;
   int get _taxCents => (_artworkCents * 0.0825).round();
   int get _totalCents => _artworkCents + _shippingCents + _taxCents;
@@ -89,6 +123,35 @@ class _CollectPieceSheetState extends State<CollectPieceSheet> {
     final result = await CollectPaymentSheet.show(context, initial: _payment);
     if (!mounted || result == null) return;
     setState(() => _payment = result);
+  }
+
+  /// `BidCheckout`: confirm shipping, pay the rest, then the collect confirmation.
+  Future<void> _onPayAndCollect() async {
+    final shipping = _shipping;
+    if (shipping == null || _collecting) return;
+    setState(() => _collecting = true);
+    try {
+      final result = await BidService.instance.auctionCheckout(
+        item.id,
+        addressId: shipping.address.id,
+        shippingMethod: shipping.method.id,
+      );
+      if (result.balanceDueCents > 0) await BidService.instance.payBalance(result.order.id);
+      final order = await OrderService.instance.getOrder(result.order.id);
+      if (!mounted) return;
+      Navigator.pop(context);
+      await CollectOrderConfirmationSheet.show(context, order: order, item: item);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _collecting = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _collecting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not finish checkout. Please try again.')),
+      );
+    }
   }
 
   Future<void> _onCollect() async {
@@ -166,9 +229,19 @@ class _CollectPieceSheetState extends State<CollectPieceSheet> {
                 _PieceSummary(
                   imageUrl: _imageUrl,
                   title: item.title,
-                  artistName: item.displayName,
-                  priceDisplay: item.priceCents == null ? null : formatMoney(item.priceCents!),
+                  artistName: _auction == null
+                      ? item.displayName
+                      : '${item.displayName} · won at auction',
+                  priceDisplay: _auction != null
+                      ? formatMoney(_artworkCents)
+                      : item.priceCents == null
+                      ? null
+                      : formatMoney(item.priceCents!),
                 ),
+                if (_auction?.winnerDeadlineAt != null) ...[
+                  const SizedBox(height: 18),
+                  _TimeLeftBox(deadline: _auction!.winnerDeadlineAt!),
+                ],
                 const SizedBox(height: 18),
                 DecoratedBox(
                   decoration: BoxDecoration(
@@ -189,15 +262,17 @@ class _CollectPieceSheetState extends State<CollectPieceSheet> {
                       ),
                       _NavRow(
                         label: 'Payment',
-                        value: _payment?.label,
+                        value: _auction != null ? _card?.label : _payment?.label,
                         placeholder: 'Add a payment method',
-                        onTap: _openPayment,
+                        onTap: _auction != null ? null : _openPayment,
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 18),
                 _OrderSummary(
+                  artworkLabel: _auction != null ? 'Winning bid' : 'Artwork',
+                  taxLabel: _auction != null ? 'Sales tax' : 'Tax',
                   artwork: _cents(_artworkCents),
                   shipping: shipping == null ? null : _cents(_shippingCents),
                   tax: shipping == null ? null : _cents(_taxCents),
@@ -219,12 +294,16 @@ class _CollectPieceSheetState extends State<CollectPieceSheet> {
                 const _SalesFinalLine(),
                 const SizedBox(height: 8 + 4),
                 StudioButton(
-                  label: 'Collect this piece',
+                  label: _auction != null ? 'Pay and collect' : 'Collect this piece',
                   height: StudioSize.buttonPrimaryTall,
                   loading: _collecting,
                   // Enabled once shipping is set, as before: payment is not charged yet
                   // (Stripe pending), so it is not required (section 0.3).
-                  onPressed: shipping == null ? null : _onCollect,
+                  onPressed: shipping == null
+                      ? null
+                      : _auction != null
+                      ? _onPayAndCollect
+                      : _onCollect,
                 ),
               ],
             ),
@@ -343,7 +422,9 @@ class _NavRow extends StatelessWidget {
   final String label;
   final String? value;
   final String placeholder;
-  final VoidCallback onTap;
+
+  /// Null: shown only (the winner's card), no chevron.
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -376,8 +457,10 @@ class _NavRow extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 12),
-              StudioIcon(StudioIcons.chevronRight, size: 16, color: c.textTertiary),
+              if (onTap != null) ...[
+                const SizedBox(width: 12),
+                StudioIcon(StudioIcons.chevronRight, size: 16, color: c.textTertiary),
+              ],
             ],
           ),
         ),
@@ -392,12 +475,16 @@ class _NavRow extends StatelessWidget {
 /// the app has neither today.
 class _OrderSummary extends StatelessWidget {
   const _OrderSummary({
+    this.artworkLabel = 'Artwork',
+    this.taxLabel = 'Tax',
     required this.artwork,
     required this.shipping,
     required this.tax,
     required this.total,
   });
 
+  final String artworkLabel;
+  final String taxLabel;
   final String artwork;
   final String? shipping;
   final String? tax;
@@ -439,9 +526,9 @@ class _OrderSummary extends StatelessWidget {
           style: StudioType.sans(15, weight: StudioType.medium, color: c.textPrimary),
         ),
         const SizedBox(height: 6),
-        line('Artwork', artwork),
+        line(artworkLabel, artwork),
         line('Shipping', shipping),
-        line('Tax', tax),
+        line(taxLabel, tax),
         Container(
           margin: const EdgeInsets.only(top: 6),
           padding: const EdgeInsets.only(top: 6),
@@ -502,6 +589,36 @@ class _SalesFinalLineState extends State<_SalesFinalLine> {
         ],
       ),
       textAlign: TextAlign.center,
+    );
+  }
+}
+
+/// `BidCheckout`: Surface box, radius 12, 14 16 padding: "Time left to pay" 14 and the
+/// Mono countdown.
+class _TimeLeftBox extends StatelessWidget {
+  const _TimeLeftBox({required this.deadline});
+
+  final DateTime deadline;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.studio;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: c.surface,
+        borderRadius: BorderRadius.circular(StudioRadius.button),
+      ),
+      child: Row(
+        children: [
+          Text('Time left to pay', style: StudioType.body14(color: c.textPrimary)),
+          const Spacer(),
+          Text(
+            auctionCountdown(deadline, DateTime.now()),
+            style: StudioType.mono(14, color: c.textPrimary),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -18,7 +18,8 @@ import 'package:studio3/widgets/studio/studio_select_row.dart';
 
 import 'golden_harness.dart';
 
-/// `PostAvailFixed`, `PostNFSAvail` (docs/new-ui/NEW_UI_EXECUTION_PLAN.md, Phase 8). The last
+/// `PostAvailFixed`, `PostAvailAuction`, `PostNFSAvail` (docs/new-ui/NEW_UI_EXECUTION_PLAN.md,
+/// Phase 8). The last
 /// test writes the golden for the board comparison
 /// (`NEW_UI_GOLDENS=1 flutter test ... --update-goldens`).
 late String _photo;
@@ -39,9 +40,12 @@ Future<CommissionQuote?> _standard(int cents) async => CommissionQuote(
 
 Widget _step({
   bool forSale = true,
+  SaleMode? mode,
   bool dark = false,
   String price = '',
-  ValueChanged<bool>? onChanged,
+  String start = '',
+  String reserve = '',
+  ValueChanged<SaleMode>? onChanged,
   VoidCallback? onContinue,
   VoidCallback? onBack,
   VoidCallback? onEdit,
@@ -56,12 +60,17 @@ Widget _step({
     builder: (context, setState) => PostAvailabilityStep(
       cover: const ColoredBox(color: Color(0xFF6FA3B0)),
       photoCount: 4,
-      forSale: forSale,
-      onForSaleChanged: (v) {
+      mode: mode ??= forSale ? SaleMode.fixed : SaleMode.notForSale,
+      onModeChanged: (v) {
         onChanged?.call(v);
-        setState(() => forSale = v);
+        setState(() => mode = v);
       },
       priceController: TextEditingController(text: price),
+      startingBidController: _startController ??= TextEditingController(text: start),
+      reserveController: _reserveController ??= TextEditingController(text: reserve),
+      durationDays: _days,
+      onDurationChanged: (d) => setState(() => _days = d),
+      now: DateTime(2026, 10, 25, 18, 40),
       onBack: onBack ?? () {},
       onEdit: onEdit ?? () {},
       onContinue: onContinue ?? () {},
@@ -69,6 +78,13 @@ Widget _step({
     ),
   ),
 );
+
+TextEditingController? _startController;
+TextEditingController? _reserveController;
+int _days = 7;
+
+Finder _info(String label) =>
+    find.byWidgetPredicate((w) => w is StudioInfoButton && w.semanticLabel == label);
 
 Finder _row(String title) =>
     find.byWidgetPredicate((w) => w is StudioSelectRow && w.title == title);
@@ -84,6 +100,12 @@ Finder get _earnings => find.byWidgetPredicate(
 );
 
 void main() {
+  setUp(() {
+    _startController = null;
+    _reserveController = null;
+    _days = 7;
+  });
+
   setUpAll(() async {
     dotenv.loadFromString(envString: '', isOptional: true);
     await loadStudioFonts();
@@ -113,14 +135,13 @@ void main() {
       expect(heading.style!.color, c.textPrimary);
       expect(find.text('This decides what details we ask for next.'), findsOneWidget);
 
-      // Only the two options that exist: no Auction.
       final rows = tester.widgetList<StudioSelectRow>(find.byType(StudioSelectRow)).toList();
-      expect(rows.map((r) => r.title), ['Fixed price', 'Not for sale']);
-      expect(rows.map((r) => r.selected), [true, false]);
+      expect(rows.map((r) => r.title), ['Fixed price', 'Auction', 'Not for sale']);
+      expect(rows.map((r) => r.selected), [true, false, false]);
+      expect(rows[1].subtitle, '3 to 14 days, highest bid wins');
       expect(rows.first.titleSize, 19);
       expect(rows.first.subtitleSize, 13);
       expect(rows.last.divider, isFalse);
-      expect(find.text('Auction'), findsNothing);
 
       final price = tester.widget<StudioUnderlineField>(find.byType(StudioUnderlineField));
       expect((price.label, price.valueSize), ('Price', 18));
@@ -138,10 +159,80 @@ void main() {
       expect(find.byType(StudioUnderlineField), findsNothing);
       expect(_earnings, findsNothing);
       final rows = tester.widgetList<StudioSelectRow>(find.byType(StudioSelectRow)).toList();
-      expect(rows.map((r) => r.selected), [false, true]);
+      expect(rows.map((r) => r.selected), [false, false, true]);
+      expect(_continue(tester).onPressed, isNotNull);
+    });
+
+    testWidgets('auction: starting bid, duration with the end date, private reserve ($theme)', (
+      tester,
+    ) async {
+      setBoardViewport(tester, height: 900);
+      await tester.pumpWidget(
+        _step(dark: dark, mode: SaleMode.auction, start: r'$360', reserve: r'$1,200'),
+      );
+      await tester.pump(const Duration(milliseconds: 400));
+      final fields = tester.widgetList<StudioUnderlineField>(find.byType(StudioUnderlineField));
+      expect(fields.map((f) => f.label), ['Starting bid', 'Reserve price']);
+      expect(find.text('7 days'), findsOneWidget);
+      expect(tester.widget<Text>(find.text('7 days')).style!.fontFamily, contains('Mono'));
+      expect(find.text('optional · private'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is RichText && w.text.toPlainText() == 'Ends Nov 1 · 6:40 PM',
+        ),
+        findsOneWidget,
+      );
+      expect(_earnings, findsNothing);
       expect(_continue(tester).onPressed, isNotNull);
     });
   }
+
+  testWidgets('auction duration stays within 3 to 14 days', (tester) async {
+    setBoardViewport(tester, height: 900);
+    await tester.pumpWidget(_step(mode: SaleMode.auction, start: r'$360'));
+    await tester.pump(const Duration(milliseconds: 400));
+    for (var i = 0; i < 6; i++) {
+      await tester.tap(find.bySemanticsLabel('Fewer days'));
+      await tester.pump();
+    }
+    expect(find.text('3 days'), findsOneWidget);
+    for (var i = 0; i < 14; i++) {
+      await tester.tap(find.bySemanticsLabel('More days'));
+      await tester.pump();
+    }
+    expect(find.text('14 days'), findsOneWidget);
+  });
+
+  testWidgets('auction: Continue needs a starting bid, and a reserve no lower than it', (
+    tester,
+  ) async {
+    setBoardViewport(tester, height: 900);
+    await tester.pumpWidget(_step(mode: SaleMode.auction));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(_continue(tester).onPressed, isNull);
+    await tester.enterText(find.byType(TextField).first, '360');
+    await tester.pump();
+    expect(_continue(tester).onPressed, isNotNull);
+    await tester.enterText(find.byType(TextField).last, '200');
+    await tester.pump();
+    expect(_continue(tester).onPressed, isNull);
+    expect(find.text('Set it at or above the starting bid.'), findsOneWidget);
+    await tester.enterText(find.byType(TextField).last, '1200');
+    await tester.pump();
+    expect(_continue(tester).onPressed, isNotNull);
+  });
+
+  testWidgets('auction tooltips explain timing and the reserve', (tester) async {
+    setBoardViewport(tester, height: 900);
+    await tester.pumpWidget(_step(mode: SaleMode.auction, start: r'$360'));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(_info('What is a reserve price?'));
+    await tester.pump();
+    expect(find.textContaining('Bidders never see it.'), findsOneWidget);
+    await tester.tap(_info('What is auction timing?'));
+    await tester.pump();
+    expect(find.textContaining('There are no extensions'), findsOneWidget);
+  });
 
   testWidgets('Continue is off until a price above 0; price formats as typed', (tester) async {
     setBoardViewport(tester);
@@ -186,7 +277,7 @@ void main() {
     await tester.pumpWidget(
       _step(
         price: r'$10',
-        onChanged: (v) => calls.add('forSale:$v'),
+        onChanged: (v) => calls.add('mode:${v.name}'),
         onBack: () => calls.add('back'),
         onEdit: () => calls.add('edit'),
         onContinue: () => calls.add('continue'),
@@ -201,7 +292,7 @@ void main() {
     await tester.tap(find.bySemanticsLabel('Back'));
     await tester.tap(find.text('Edit'));
     await tester.tap(find.text('Continue'));
-    expect(calls, ['forSale:false', 'forSale:true', 'back', 'edit', 'continue']);
+    expect(calls, ['mode:notForSale', 'mode:fixed', 'back', 'edit', 'continue']);
   });
 
   testWidgets('info button explains the commission', (tester) async {
@@ -297,6 +388,15 @@ void main() {
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/PostAvailFixed.png'));
   }, skip: Platform.environment['NEW_UI_GOLDENS'] != '1');
 
+  testWidgets('golden: PostAvailAuction', (tester) async {
+    setBoardViewport(tester, height: 900);
+    await tester.pumpWidget(_step(mode: SaleMode.auction, start: r'$360', reserve: r'$1,200'));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(_info('What is a reserve price?'));
+    await tester.pump();
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/PostAvailAuction.png'));
+  }, skip: Platform.environment['NEW_UI_GOLDENS'] != '1');
+
   testWidgets('golden: PostNFSAvail', (tester) async {
     setBoardViewport(tester);
     await tester.pumpWidget(_step(forSale: false));
@@ -304,3 +404,4 @@ void main() {
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/PostNFSAvail.png'));
   }, skip: Platform.environment['NEW_UI_GOLDENS'] != '1');
 }
+

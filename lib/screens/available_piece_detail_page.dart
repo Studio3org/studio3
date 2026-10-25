@@ -4,13 +4,16 @@ import 'package:flutter/services.dart';
 import '../models/feed_preview_item.dart';
 import '../services/api_exception.dart';
 import '../services/auth_session.dart';
+import '../services/bid_service.dart';
 import '../services/piece_service.dart';
 import '../services/report_service.dart';
 import '../theme/collect_detail_tokens.dart' show formatMoney;
 import '../theme/studio_colors.dart';
 import '../utils/content_detail_loader.dart';
 import '../utils/require_login.dart';
+import 'auction_flow.dart';
 import 'edit_piece_page.dart';
+import '../widgets/auction/auction_widgets.dart';
 import '../widgets/content_actions_sheet.dart';
 import '../widgets/piece_detail/ask_about_piece_sheet.dart';
 import '../widgets/piece_detail/available_collect_bar.dart';
@@ -29,7 +32,8 @@ import '../widgets/piece_detail/piece_series_row.dart';
 
 /// Piece page for a fixed-price piece (`BuyPiece`, `BuyPieceFull`): image with white top
 /// icons, artist row, title block, description, Made with, The story behind this piece,
-/// Details, series card, and the fixed Price / Collect bar.
+/// Details, series card, and the fixed Price / Collect bar. An auction piece
+/// (`BuyPieceScrolled`, `BidLeading`, `BidOutbid`) has the auction bar instead.
 class AvailablePieceDetailPage extends StatefulWidget {
   const AvailablePieceDetailPage({
     super.key,
@@ -58,8 +62,50 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
   FeedPreviewItem get saveItem => _item;
 
   @override
-  double get saveToastBottomMargin =>
-      AvailableCollectBar.totalHeight(context, hasInfo: _priceDisplay != null) + 16;
+  double get saveToastBottomMargin => _barHeight + 16;
+
+  /// The bar's height, for the scroll padding and the save toast.
+  double get _barHeight {
+    final base = AvailableCollectBar.totalHeight(
+      context,
+      hasInfo: item.isAuction || _priceDisplay != null,
+    );
+    final reserveNote = item.auction?.hasReserve == true && item.auction?.reserveMet == false;
+    return base + (item.isAuction && reserveNote ? 21 : 0);
+  }
+
+  /// The viewer's own top bid here, from this phone (`BidStore`).
+  int? _myTopBid;
+
+  AuctionBarState get _auctionState => auctionBarState(
+    auction: item.auction,
+    isOwner: _isOwner,
+    myTopBidCents: _myTopBid,
+  );
+
+  Future<void> _onAuctionAction() async {
+    final auction = item.auction;
+    if (auction == null) return;
+    switch (_auctionState) {
+      case AuctionBarState.open:
+      case AuctionBarState.leading:
+      case AuctionBarState.outbid:
+        final after = await startBidding(context, pieceId: item.id, auction: auction);
+        if (after != null && mounted) {
+          setState(() => _myTopBid = BidStore.instance.topBidNow(item.id));
+          await _loadDetail();
+        }
+      case AuctionBarState.won:
+        await CollectPieceSheet.show(context, item: item, auction: auction);
+        if (mounted) _loadDetail();
+      case AuctionBarState.paymentFailed:
+        await openAuctionOutcome(context, pieceId: item.id, type: 'auction_payment_failed');
+        if (mounted) _loadDetail();
+      case AuctionBarState.owner:
+      case AuctionBarState.ended:
+        break;
+    }
+  }
 
   String? get _priceDisplay => item.priceCents == null ? null : formatMoney(item.priceCents!);
 
@@ -81,6 +127,9 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
     likeCount = _item.likeCount;
     applyFollowState(_item);
     _loadDetail();
+    BidStore.instance.topBid(_item.id).then((top) {
+      if (mounted && top != null) setState(() => _myTopBid = top);
+    });
   }
 
   Future<void> _loadDetail() async {
@@ -171,7 +220,7 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
   Widget build(BuildContext context) {
     final c = context.studio;
     final price = _priceDisplay;
-    final collectBarHeight = AvailableCollectBar.totalHeight(context, hasInfo: price != null);
+    final collectBarHeight = _barHeight;
     final isLive = item.isLive;
     final sold = item.status == 'sold';
     final details = PieceDetailsSection.rowsFor(item);
@@ -276,12 +325,24 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
                 ),
               ],
             ),
-            AvailableCollectBar(
-              priceDisplay: price,
-              onCollect: isLive ? _onCollect : null,
-              statusLabel: isLive || sold ? null : _statusLabel(item.status),
-              collected: sold,
-            ),
+            if (item.isAuction && !sold)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: AuctionBar(
+                  auction: item.auction,
+                  state: _auctionState,
+                  onPrimary: _onAuctionAction,
+                ),
+              )
+            else
+              AvailableCollectBar(
+                priceDisplay: price,
+                onCollect: isLive ? _onCollect : null,
+                statusLabel: isLive || sold ? null : _statusLabel(item.status),
+                collected: sold,
+              ),
           ],
         ),
       ),

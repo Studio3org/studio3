@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import '../data/post_material_options.dart';
 import '../models/listing_details.dart';
 import '../models/piece_summary.dart';
+import '../models/auction.dart';
 import '../models/post_image_transform.dart';
 import '../models/post_summary.dart';
 import '../services/api_exception.dart';
@@ -31,6 +32,9 @@ class PostDraft {
     this.listingDetails,
     this.selectedSeriesId,
     this.newSeriesName,
+    this.newSeriesDescription,
+    this.auction,
+    this.relatedScenes = const [],
     this.transforms = const [],
     this.previewImageIndex = 0,
     this.aiDisclosed = false,
@@ -59,6 +63,7 @@ class PostDraft {
   final ListingDetails? listingDetails;
   final String? selectedSeriesId;
   final String? newSeriesName;
+  final String? newSeriesDescription;
   final List<PostImageTransform> transforms;
   final int previewImageIndex;
   final bool aiDisclosed;
@@ -68,6 +73,12 @@ class PostDraft {
   final List<String> linkedPieceIds;
   final bool isProcess;
   final bool isForSale;
+
+  /// Set when the piece is posted for auction (`PostAvailAuction`).
+  final AuctionTerms? auction;
+
+  /// Pieces: Scenes to link to it once it exists (`PostRelatedScenes`).
+  final List<PostSummary> relatedScenes;
 
   bool get isVideo => mediaKind == 'video';
 }
@@ -83,6 +94,11 @@ class PostPublishService {
 
   /// Uploads a piece's photos and saves it as a **draft** (with its series), so a failure
   /// after this point loses nothing (`PostError`). [goLive] then publishes it.
+  ///
+  /// An auction is created **live** instead: the server opens an auction only when its
+  /// piece is created live, and a draft auction taken live later never opens
+  /// (BACKEND_CHANGES B16). Its series is then best-effort, so a failure there doesn't
+  /// leave a live auction behind an error screen.
   Future<PieceSummary> saveDraft(PostDraft draft) async {
     if (draft.imagePaths.isEmpty) throw Exception('No image selected');
     final images = <Map<String, dynamic>>[];
@@ -123,13 +139,16 @@ class PostPublishService {
       if (materials.isNotEmpty) 'materials': materials,
       if (draft.styleTags.isNotEmpty) 'styleTags': draft.styleTags,
       if (draft.location != null && draft.location!.isNotEmpty) 'location': draft.location,
-      'status': 'draft',
+      'status': draft.auction != null ? 'live' : 'draft',
       'aiDisclosed': draft.aiDisclosed,
       if (draft.altText != null && draft.altText!.trim().isNotEmpty)
         'altText': draft.altText!.trim(),
       if (draft.isForSale) ...{
         'isForSale': true,
-        if (details?.priceCents != null) 'priceCents': details!.priceCents,
+        if (draft.auction != null)
+          ...draft.auction!.toJson()
+        else if (details?.priceCents != null)
+          'priceCents': details!.priceCents,
         if (details?.weightKg != null) 'weightKg': details!.weightKg,
         // The city the piece is in is where it ships from.
         if (draft.location != null && draft.location!.isNotEmpty)
@@ -138,6 +157,13 @@ class PostPublishService {
     };
 
     final piece = await _pieces.create(body);
+    await _linkScenes(draft.relatedScenes, piece.id);
+    if (draft.auction != null) {
+      try {
+        await _assignPieceToSeries(draft, piece.id);
+      } catch (_) {}
+      return piece;
+    }
     await _assignPieceToSeries(draft, piece.id);
     return piece;
   }
@@ -234,10 +260,27 @@ class PostPublishService {
     }
   }
 
+  /// Adds [pieceId] to each Scene's linked pieces. Best-effort: a Scene that can't be
+  /// updated doesn't stop the piece being saved.
+  Future<void> _linkScenes(List<PostSummary> scenes, String pieceId) async {
+    for (final scene in scenes) {
+      if (scene.linkedPieceIds.contains(pieceId)) continue;
+      try {
+        await _posts.update(scene.id, {
+          'linkedPieceIds': [...scene.linkedPieceIds, pieceId],
+        });
+      } catch (_) {}
+    }
+  }
+
   Future<void> _assignPieceToSeries(PostDraft draft, String pieceId) async {
     final newName = draft.newSeriesName?.trim();
     if (newName != null && newName.isNotEmpty) {
-      await _series.create(name: newName, pieceIds: [pieceId]);
+      await _series.create(
+        name: newName,
+        description: draft.newSeriesDescription,
+        pieceIds: [pieceId],
+      );
       return;
     }
 

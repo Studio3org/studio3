@@ -66,6 +66,7 @@ dependencies:
     git:
       url: https://github.com/iawtk2302/easy_video_editor.git
       ref: 17989b573f88442e49243820d7dbb7889e9cb15e
+  flutter_stripe: ^14.2.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

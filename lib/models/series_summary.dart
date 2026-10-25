@@ -32,6 +32,7 @@ class SeriesSummary {
     required this.id,
     required this.name,
     required this.pieceCount,
+    this.description,
     this.previewPieces = const [],
     this.pieceIds = const [],
   });
@@ -39,6 +40,9 @@ class SeriesSummary {
   final String id;
   final String name;
   final int pieceCount;
+
+  /// Shown at the top of the series page (`SeriesNew`, `SeriesEdit`); up to 300 characters.
+  final String? description;
   final List<SeriesPreviewPiece> previewPieces;
   final List<String> pieceIds;
 
@@ -48,6 +52,9 @@ class SeriesSummary {
     return SeriesSummary(
       id: json['id'] as String? ?? '',
       name: json['name'] as String? ?? '',
+      description: (json['description'] as String?)?.trim().isEmpty ?? true
+          ? null
+          : (json['description'] as String).trim(),
       pieceCount: _intFrom(json['pieceCount']) ??
           (pieceIds is List ? pieceIds.length : previews is List ? previews.length : 0),
       previewPieces: previews is List

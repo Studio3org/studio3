@@ -1,3 +1,4 @@
+import 'auction.dart';
 import 'post_summary.dart';
 import 'series_summary.dart';
 
@@ -36,6 +37,9 @@ class PieceSummary {
     this.aiDisclosed = false,
     this.altText,
     this.relatedPosts,
+    this.weightKg,
+    this.listingType,
+    this.auctionJson,
   });
 
   final String id;
@@ -77,6 +81,33 @@ class PieceSummary {
   final List<PostSummary>? relatedPosts;
 
   bool get isLive => status == null || status == 'live';
+
+  /// For shipping quotes; never shown.
+  final double? weightKg;
+
+  /// `fixed` or `auction`.
+  final String? listingType;
+
+  /// The bid summary fields as sent with piece detail (`auctionId`, `highestBidCents`, …).
+  final Map<String, dynamic>? auctionJson;
+
+  bool get isAuction => listingType == 'auction';
+
+  /// The running or settling auction, when piece detail sent one.
+  AuctionSummary? get auction => auctionJson == null ? null : AuctionSummary.fromJson(auctionJson!);
+
+  static const _auctionKeys = [
+    'auctionId', 'auctionStatus', 'startingBidCents', 'highestBidCents', 'bidCount',
+    'minNextBidCents', 'bidIncrementCents', 'opensAt', 'auctionEndsAt', 'hasReserve',
+    'reserveMet', 'deliveryMode', 'isHighestBidder', 'isWinner', 'awaitingPayment',
+    'winnerDeadlineAt', 'winningBidCents',
+  ];
+
+  /// Copies the bid summary fields out of [json] (a piece or bid response).
+  static Map<String, dynamic>? auctionFieldsOf(Map<String, dynamic> json) {
+    if (json['auctionId'] is! String) return null;
+    return {for (final k in _auctionKeys) if (json.containsKey(k)) k: json[k]};
+  }
 
   factory PieceSummary.fromJson(Map<String, dynamic> json) {
     final author = json['author'] as Map<String, dynamic>?;
@@ -128,6 +159,9 @@ class PieceSummary {
           const [],
       aiDisclosed: json['aiDisclosed'] as bool? ?? false,
       altText: json['altText'] as String?,
+      weightKg: (json['weightKg'] as num?)?.toDouble(),
+      listingType: json['listingType'] as String?,
+      auctionJson: auctionFieldsOf(json),
       relatedPosts: relatedPostsJson is List
           ? relatedPostsJson
               .whereType<Map<String, dynamic>>()
@@ -197,6 +231,9 @@ class PieceSummary {
         'styleTags': styleTags,
         'aiDisclosed': aiDisclosed,
         if (altText != null) 'altText': altText,
+        if (weightKg != null) 'weightKg': weightKg,
+        if (listingType != null) 'listingType': listingType,
+        ...?auctionJson,
         if (relatedPosts != null)
           'relatedPosts': relatedPosts!.map((p) => p.toJson()).toList(),
       };

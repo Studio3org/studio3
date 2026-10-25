@@ -10,10 +10,12 @@ import '../services/post_service.dart';
 import '../services/report_service.dart';
 import '../theme/home_feed_tokens.dart';
 import '../theme/studio_colors.dart';
+import '../theme/studio_metrics.dart';
 import '../theme/studio_type.dart';
 import '../utils/content_detail_loader.dart';
 import 'edit_piece_page.dart';
 import 'edit_scene_page.dart';
+import 'list_piece_flow.dart';
 import '../widgets/content_actions_sheet.dart';
 import '../widgets/piece_detail/ask_about_piece_sheet.dart';
 import '../widgets/piece_detail/detail_hero_image.dart';
@@ -30,7 +32,10 @@ import '../widgets/piece_detail/piece_share_sheet.dart';
 import '../widgets/piece_detail/collect_artist_row.dart';
 import '../widgets/piece_detail/piece_page_sections.dart';
 import '../widgets/piece_detail/piece_series_row.dart';
+import '../widgets/studio/studio_bottom_bar.dart';
+import '../widgets/studio/studio_button.dart';
 import '../widgets/studio/studio_chip.dart';
+import '../widgets/studio/studio_icon.dart';
 
 /// Detail page for a piece that is not for sale (`PieceNotForSale`; your own piece:
 /// `ListOwnerPiece`, top part) and for Scenes, which keep their current layout.
@@ -66,7 +71,8 @@ class _PieceDetailPageState extends State<PieceDetailPage>
 
   FeedPreviewItem get item => _item;
 
-  String get _authorHandle => item.handle.startsWith('@') ? item.handle.substring(1) : item.handle;
+  String get _authorHandle =>
+      item.handle.startsWith('@') ? item.handle.substring(1) : item.handle;
 
   @override
   String get followUsername => _authorHandle;
@@ -75,7 +81,9 @@ class _PieceDetailPageState extends State<PieceDetailPage>
   void _onMore() {
     showContentActionsSheet(
       context,
-      target: item.isScene ? ReportTarget.post(item.id) : ReportTarget.piece(item.id),
+      target: item.isScene
+          ? ReportTarget.post(item.id)
+          : ReportTarget.piece(item.id),
       authorUsername: _authorHandle,
       // Everything from this artist is hidden now, including this page.
       onBlocked: () {
@@ -118,17 +126,21 @@ class _PieceDetailPageState extends State<PieceDetailPage>
       }
     } catch (e) {
       if (!mounted) return;
-      final message = e is ApiException ? e.message : 'Could not load for editing';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      final message = e is ApiException
+          ? e.message
+          : 'Could not load for editing';
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
     }
   }
 
   Future<void> _onAskAboutPiece() async {
     final sent = await AskAboutPieceSheet.show(context, pieceId: item.id);
     if (sent == true && mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Message sent to the artist')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Message sent to the artist')),
+      );
     }
   }
 
@@ -159,19 +171,33 @@ class _PieceDetailPageState extends State<PieceDetailPage>
     return item.isScene ? _buildScene(context) : _buildPiece(context);
   }
 
+  /// Your own piece that isn't for sale and hasn't sold (`ListOwnerPiece`).
+  bool get _canList => _isOwner && item.status != 'sold' && !item.isAvailable;
+
+  /// "List for sale" (`ListOwnerPiece` → `PostListLater`).
+  void _onListForSale() =>
+      startListingLater(context, pieceId: item.id, onListed: _loadDetail);
+
   /// `PieceNotForSale`: same image, top icons, artist row and body as the fixed-price page,
-  /// with no bottom bar and the not-for-sale line under the dimensions.
+  /// with no bottom bar and the not-for-sale line under the dimensions. Your own piece
+  /// (`ListOwnerPiece`) gets the bar with List for sale and the edit button; the board's
+  /// "Saved by [N] people" needs a save count (BACKEND_CHANGES B17).
   Widget _buildPiece(BuildContext context) {
     final c = context.studio;
+    final canList = _canList;
     final details = PieceDetailsSection.rowsFor(item);
-    Widget padded(Widget child) =>
-        Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: child);
+    Widget padded(Widget child) => Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: child,
+    );
 
     final sections = <Widget>[
       padded(PieceTitleBlock(item: item, status: _statusLine(c))),
       if (item.story.trim().isNotEmpty) padded(PieceDescription(item.story)),
-      if (item.materials.isNotEmpty) padded(PieceMadeWith(materials: item.materials)),
-      if (item.relatedScenes.isNotEmpty) PieceRelatedScenesRow(scenes: item.relatedScenes),
+      if (item.materials.isNotEmpty)
+        padded(PieceMadeWith(materials: item.materials)),
+      if (item.relatedScenes.isNotEmpty)
+        PieceRelatedScenesRow(scenes: item.relatedScenes),
       if (details.isNotEmpty) padded(PieceDetailsSection(rows: details)),
       if (item.seriesName.isNotEmpty &&
           (item.seriesThumbUrls.isNotEmpty || item.seriesThumbs.isNotEmpty))
@@ -187,72 +213,110 @@ class _PieceDetailPageState extends State<PieceDetailPage>
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       // White status bar icons over the image, like the top icons.
-      value: SystemUiOverlayStyle.light.copyWith(statusBarColor: Colors.transparent),
+      value: SystemUiOverlayStyle.light.copyWith(
+        statusBarColor: Colors.transparent,
+      ),
       child: Scaffold(
         backgroundColor: c.background,
-        body: DetailScrollHandoff(
-          tappedIndex: widget.tappedIndex,
-          filter: widget.filter,
-          onWillAdvance: widget.onWillAdvance,
-          // No bar: 48 under the content, as the board's main padding.
-          bottomInset: MediaQuery.paddingOf(context).bottom,
-          slivers: [
-            SliverToBoxAdapter(
-              child: Stack(
-                children: [
-                  AspectRatio(
-                    aspectRatio: item.aspectRatioValue,
-                    child: DetailHeroImage(item: item, initialImageIndex: widget.initialImageIndex),
+        body: Stack(
+          children: [
+            DetailScrollHandoff(
+              tappedIndex: widget.tappedIndex,
+              filter: widget.filter,
+              onWillAdvance: widget.onWillAdvance,
+              // No bar: 48 under the content, as the board's main padding.
+              bottomInset: canList
+                  ? 28 +
+                        StudioSize.buttonPrimary +
+                        16 +
+                        MediaQuery.paddingOf(context).bottom
+                  : MediaQuery.paddingOf(context).bottom,
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Stack(
+                    children: [
+                      AspectRatio(
+                        aspectRatio: item.aspectRatioValue,
+                        child: DetailHeroImage(
+                          item: item,
+                          initialImageIndex: widget.initialImageIndex,
+                        ),
+                      ),
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        child: PieceTopIcons(
+                          isOwner: _isOwner,
+                          saved: saved,
+                          onBack: () => Navigator.pop(context),
+                          onSave: toggleSave,
+                          onShare: () => PieceShareSheet.show(
+                            context,
+                            item,
+                            imageIndex: widget.initialImageIndex,
+                          ),
+                          onMore: _onMore,
+                          onEdit: _onEdit,
+                        ),
+                      ),
+                    ],
                   ),
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    child: PieceTopIcons(
-                      isOwner: _isOwner,
-                      saved: saved,
-                      onBack: () => Navigator.pop(context),
-                      onSave: toggleSave,
-                      onShare: () =>
-                          PieceShareSheet.show(context, item, imageIndex: widget.initialImageIndex),
-                      onMore: _onMore,
-                      onEdit: _onEdit,
-                    ),
+                ),
+                SliverToBoxAdapter(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      CollectArtistRow(
+                        item: item,
+                        followState: followState,
+                        followBusy: followBusy,
+                        onFollowToggle: toggleFollow,
+                        isOwner: _isOwner,
+                      ),
+                      // Like and comment stay on the page (plan rule 4); Save and Share are in
+                      // the top icons.
+                      PieceActionBar(
+                        liked: liked,
+                        saved: saved,
+                        onLike: toggleLike,
+                        onComment: () => PieceCommentSheet.show(
+                          context,
+                          contentId: item.id,
+                          isScene: item.isScene,
+                        ),
+                        onShare: () {},
+                        onSave: toggleSave,
+                        showSave: false,
+                      ),
+                      const SizedBox(height: 8),
+                      for (var i = 0; i < sections.length; i++) ...[
+                        if (i > 0) const SizedBox(height: 26),
+                        sections[i],
+                      ],
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-            SliverToBoxAdapter(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  CollectArtistRow(
-                    item: item,
-                    followState: followState,
-                    followBusy: followBusy,
-                    onFollowToggle: toggleFollow,
-                    isOwner: _isOwner,
+            if (canList)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: StudioBottomBar(
+                  button: StudioButton(
+                    label: 'List for sale',
+                    fontSize: 16,
+                    onPressed: _onListForSale,
                   ),
-                  // Like and comment stay on the page (plan rule 4); Save and Share are in
-                  // the top icons.
-                  PieceActionBar(
-                    liked: liked,
-                    saved: saved,
-                    onLike: toggleLike,
-                    onComment: () =>
-                        PieceCommentSheet.show(context, contentId: item.id, isScene: item.isScene),
-                    onShare: () {},
-                    onSave: toggleSave,
-                    showSave: false,
+                  messageButton: StudioMessageButton(
+                    icon: StudioIcons.edit,
+                    semanticLabel: 'Edit piece',
+                    onPressed: _onEdit,
                   ),
-                  const SizedBox(height: 8),
-                  for (var i = 0; i < sections.length; i++) ...[
-                    if (i > 0) const SizedBox(height: 26),
-                    sections[i],
-                  ],
-                ],
+                ),
               ),
-            ),
           ],
         ),
       ),
@@ -264,7 +328,8 @@ class _PieceDetailPageState extends State<PieceDetailPage>
   /// own piece the line is the pill alone: the board's "[N] people saved this" needs a save
   /// count the piece payload does not have. A sold piece shows the Collected chip instead.
   Widget _statusLine(StudioColors c) {
-    if (item.status == 'sold') return const StudioStatusChip(StudioStatus.collected);
+    if (item.status == 'sold')
+      return const StudioStatusChip(StudioStatus.collected);
     return Row(
       children: [
         const StudioStatusChip(StudioStatus.notForSale),
@@ -295,7 +360,10 @@ class _PieceDetailPageState extends State<PieceDetailPage>
               children: [
                 AspectRatio(
                   aspectRatio: item.aspectRatioValue,
-                  child: DetailHeroImage(item: item, initialImageIndex: widget.initialImageIndex),
+                  child: DetailHeroImage(
+                    item: item,
+                    initialImageIndex: widget.initialImageIndex,
+                  ),
                 ),
                 Positioned(
                   top: MediaQuery.paddingOf(context).top + 8,
@@ -305,7 +373,8 @@ class _PieceDetailPageState extends State<PieceDetailPage>
                     icon: const Icon(Icons.arrow_back_ios_new_rounded),
                     color: HomeFeedTokens.textPrimary,
                     style: IconButton.styleFrom(
-                      backgroundColor: HomeFeedTokens.detailBackground.withValues(alpha: 0.7),
+                      backgroundColor: HomeFeedTokens.detailBackground
+                          .withValues(alpha: 0.7),
                     ),
                   ),
                 ),
@@ -318,7 +387,8 @@ class _PieceDetailPageState extends State<PieceDetailPage>
                       icon: const Icon(Icons.edit_outlined),
                       color: HomeFeedTokens.textPrimary,
                       style: IconButton.styleFrom(
-                        backgroundColor: HomeFeedTokens.detailBackground.withValues(alpha: 0.7),
+                        backgroundColor: HomeFeedTokens.detailBackground
+                            .withValues(alpha: 0.7),
                       ),
                     ),
                   )
@@ -332,7 +402,8 @@ class _PieceDetailPageState extends State<PieceDetailPage>
                       icon: const Icon(Icons.more_horiz_rounded),
                       color: HomeFeedTokens.textPrimary,
                       style: IconButton.styleFrom(
-                        backgroundColor: HomeFeedTokens.detailBackground.withValues(alpha: 0.7),
+                        backgroundColor: HomeFeedTokens.detailBackground
+                            .withValues(alpha: 0.7),
                       ),
                     ),
                   ),
@@ -347,10 +418,16 @@ class _PieceDetailPageState extends State<PieceDetailPage>
                   liked: liked,
                   saved: saved,
                   onLike: toggleLike,
-                  onComment: () =>
-                      PieceCommentSheet.show(context, contentId: item.id, isScene: item.isScene),
-                  onShare: () =>
-                      PieceShareSheet.show(context, item, imageIndex: widget.initialImageIndex),
+                  onComment: () => PieceCommentSheet.show(
+                    context,
+                    contentId: item.id,
+                    isScene: item.isScene,
+                  ),
+                  onShare: () => PieceShareSheet.show(
+                    context,
+                    item,
+                    imageIndex: widget.initialImageIndex,
+                  ),
                   onSave: toggleSave,
                 ),
                 const Divider(height: 1, color: Color(0xFFE8E5DF)),
@@ -412,7 +489,8 @@ class _PieceDetailPageState extends State<PieceDetailPage>
                       ),
                       if (item.materials.isNotEmpty)
                         GestureDetector(
-                          onTap: () => showMaterialsSheet(context, item.materials),
+                          onTap: () =>
+                              showMaterialsSheet(context, item.materials),
                           child: Text(
                             'View Materials →',
                             style: GoogleFonts.inter(

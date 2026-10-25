@@ -37,3 +37,10 @@
 -dontwarn com.google.android.play.core.tasks.OnFailureListener
 -dontwarn com.google.android.play.core.tasks.OnSuccessListener
 -dontwarn com.google.android.play.core.tasks.Task
+
+# Stripe (flutter_stripe): the Android SDK's push provisioning classes are optional and
+# absent; keep the SDK's own classes for its reflection-based (de)serialization.
+-dontwarn com.stripe.android.pushProvisioning.**
+-dontwarn com.reactnativestripesdk.pushprovisioning.**
+-keep class com.stripe.android.** { *; }
+-keep class com.reactnativestripesdk.** { *; }

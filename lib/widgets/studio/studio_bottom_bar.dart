@@ -6,10 +6,14 @@ import '../../theme/studio_type.dart';
 
 /// One side of the bottom bar's info row: label 12 Graphite above value Geist 17/400.
 class StudioBottomBarInfo {
-  const StudioBottomBarInfo({required this.label, required this.value});
+  const StudioBottomBarInfo({required this.label, required this.value, this.valueColor, this.strong = false});
 
   final String label;
   final String value;
+
+  /// Red time remaining under 24 hours (`BidOutbid`); 500 when [strong].
+  final Color? valueColor;
+  final bool strong;
 }
 
 /// Pinned bottom bar (`BuyPiece`; `HandoffRules` "Bottom bars"): fades in from the page over
@@ -23,9 +27,17 @@ class StudioBottomBar extends StatelessWidget {
     this.left,
     this.right,
     this.messageButton,
+    this.leftChild,
+    this.note,
   });
 
   final StudioBottomBarInfo? left;
+
+  /// Replaces [left] with a custom block (the bid status on `BidLeading` / `BidOutbid`).
+  final Widget? leftChild;
+
+  /// A line under the info row, 6 closer (`BidLeading` "Reserve not met yet").
+  final Widget? note;
   final StudioBottomBarInfo? right;
   final Widget button;
 
@@ -49,15 +61,19 @@ class StudioBottomBar extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (left != null || right != null) ...[
+            if (left != null || right != null || leftChild != null) ...[
               Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  if (left != null) _info(c, left!, CrossAxisAlignment.start),
+                  if (leftChild != null)
+                    leftChild!
+                  else if (left != null)
+                    _info(c, left!, CrossAxisAlignment.start),
                   const Spacer(),
                   if (right != null) _info(c, right!, CrossAxisAlignment.end),
                 ],
               ),
+              if (note != null) ...[const SizedBox(height: 6), note!],
               const SizedBox(height: 12),
             ],
             Row(
@@ -81,7 +97,10 @@ class StudioBottomBar extends StatelessWidget {
         const SizedBox(height: 2),
         Text(
           info.value,
-          style: StudioType.header17(weight: StudioType.regular, color: c.textPrimary),
+          style: StudioType.header17(
+            weight: info.strong ? StudioType.medium : StudioType.regular,
+            color: info.valueColor ?? c.textPrimary,
+          ),
         ),
       ],
     );

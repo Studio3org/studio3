@@ -43,6 +43,8 @@ class PieceDetailsStep extends StatefulWidget {
     required this.onStyle,
     required this.onMaterials,
     required this.onSeries,
+    this.relatedScenesCount = 0,
+    this.onRelatedScenes,
     required this.onBack,
     required this.onContinue,
   });
@@ -60,6 +62,10 @@ class PieceDetailsStep extends StatefulWidget {
   final VoidCallback onStyle;
   final VoidCallback onMaterials;
   final VoidCallback onSeries;
+
+  /// Related Scenes (`PostRelatedScenes`): how many are linked, and the picker.
+  final int relatedScenesCount;
+  final VoidCallback? onRelatedScenes;
   final VoidCallback onBack;
   final VoidCallback onContinue;
 
@@ -171,37 +177,9 @@ class PieceDetailsStepState extends State<PieceDetailsStep> {
     );
   }
 
-  void _pickFraming() {
-    showStudioSheet<void>(
-      context: context,
-      builder: (sheetContext) {
-        final c = sheetContext.studio;
-        return StudioSheet(
-          horizontalPadding: 24,
-          gap: 0,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Text('Framing', style: StudioType.title22(color: c.textPrimary)),
-            ),
-            for (final option in kFramingOptions)
-              StudioSelectRow(
-                title: option,
-                selected: _framing == option,
-                divider: option != kFramingOptions.last,
-                titleSize: 17,
-                titleLetterSpacing: 0,
-                verticalPadding: 16,
-                ruleInset: 14,
-                onTap: () {
-                  setState(() => _framing = option);
-                  Navigator.pop(sheetContext);
-                },
-              ),
-          ],
-        );
-      },
-    );
+  Future<void> _pickFraming() async {
+    final picked = await showFramingSheet(context, selected: _framing);
+    if (picked != null && mounted) setState(() => _framing = picked);
   }
 
   @override
@@ -325,6 +303,17 @@ class PieceDetailsStepState extends State<PieceDetailsStep> {
                       value: widget.series,
                       onTap: widget.onSeries,
                     ),
+                    if (widget.onRelatedScenes != null)
+                      PostChevronRow(
+                        label: 'Related Scenes',
+                        value: widget.relatedScenesCount > 0
+                            ? '${widget.relatedScenesCount}'
+                            : null,
+                        mono: true,
+                        info: 'Scenes that show how this piece came together. They appear on '
+                            'the piece under The story behind this piece.',
+                        onTap: widget.onRelatedScenes!,
+                      ),
                     if (!_additionalOpen)
                       PostChevronRow(
                         label: 'Additional details',
@@ -657,4 +646,36 @@ class _UnitToggle extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The Framing sheet: "Framing" 22/500 and [kFramingOptions] as option rows; tapping one
+/// returns it.
+Future<String?> showFramingSheet(BuildContext context, {String? selected}) {
+  return showStudioSheet<String>(
+    context: context,
+    builder: (sheetContext) {
+      final c = sheetContext.studio;
+      return StudioSheet(
+        horizontalPadding: 24,
+        gap: 0,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text('Framing', style: StudioType.title22(color: c.textPrimary)),
+          ),
+          for (final option in kFramingOptions)
+            StudioSelectRow(
+              title: option,
+              selected: selected == option,
+              divider: option != kFramingOptions.last,
+              titleSize: 17,
+              titleLetterSpacing: 0,
+              verticalPadding: 16,
+              ruleInset: 14,
+              onTap: () => Navigator.pop(sheetContext, option),
+            ),
+        ],
+      );
+    },
+  );
 }

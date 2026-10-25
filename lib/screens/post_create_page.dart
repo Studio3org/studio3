@@ -6,6 +6,7 @@ import '../data/post_location_options.dart';
 import '../data/post_material_options.dart';
 import '../data/post_picker_options.dart';
 import '../models/feed_item.dart';
+import '../models/auction.dart';
 import '../models/feed_preview_item.dart';
 import '../models/piece_summary.dart';
 import '../models/post_image_transform.dart';
@@ -32,6 +33,7 @@ import '../widgets/post_crop_preview.dart';
 import '../widgets/seller_mode_required_dialog.dart';
 import '../widgets/studio/studio_toast.dart';
 import 'add_materials_page.dart';
+import 'related_scenes_page.dart';
 
 /// Steps after the photos. Pieces: availability (`PostAvailFixed`) → details
 /// (`PostDetailsForSale`) → review (`PostReview`) → published (`PostSuccess`) or failed
@@ -134,11 +136,14 @@ class _PostCreatePageState extends State<PostCreatePage> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _priceController = TextEditingController();
+  final _startingBidController = TextEditingController();
+  final _reserveController = TextEditingController();
+  int _auctionDays = AuctionTerms.defaultDays;
   final _detailsKey = GlobalKey<PieceDetailsStepState>();
   late final PostPublisher _publisher = widget.publisher ?? PostPublisher.api();
 
   late _CreateStep _step;
-  bool _listForSale = false;
+  SaleMode _mode = SaleMode.notForSale;
   bool _publishing = false;
   late PostLocationOption? _location = widget.debugLocation;
   late final List<String> _mediumIds = List.of(widget.debugMediumIds);
@@ -146,8 +151,10 @@ class _PostCreatePageState extends State<PostCreatePage> {
   final List<PostMaterialOption> _materials = [];
   String? _seriesId;
   String? _newSeriesName;
+  String? _newSeriesDescription;
   String? _seriesLabel;
   final List<SceneLinkedPiece> _linkedPieces = [];
+  final List<PostSummary> _relatedScenes = [];
   CommissionQuote? _reviewQuote;
 
   /// The piece once saved as a draft; publishing again only takes it live.
@@ -157,13 +164,26 @@ class _PostCreatePageState extends State<PostCreatePage> {
   PostSummary? _postedScene;
 
   bool get _isPiece => widget.postType == 'piece';
+  bool get _listForSale => _mode != SaleMode.notForSale;
   double? get _price => PostAvailabilityStep.parsePrice(_priceController.text);
+
+  /// The auction's terms when posting one (`PostAvailAuction`).
+  AuctionTerms? get _auction {
+    if (_mode != SaleMode.auction) return null;
+    final start = PostAvailabilityStep.parseCents(_startingBidController.text);
+    if (start == null) return null;
+    return AuctionTerms(
+      startingBidCents: start,
+      durationDays: _auctionDays,
+      reserveCents: PostAvailabilityStep.parseCents(_reserveController.text),
+    );
+  }
 
   @override
   void initState() {
     super.initState();
     _step = _isPiece ? _CreateStep.availability : _CreateStep.details;
-    _listForSale = _isPiece && AuthSession.instance.sellerEnabled;
+    if (_isPiece && AuthSession.instance.sellerEnabled) _mode = SaleMode.fixed;
     final linked = widget.initialLinkedPiece;
     if (linked != null) {
       _linkedPieces.add(
@@ -183,31 +203,30 @@ class _PostCreatePageState extends State<PostCreatePage> {
     _titleController.dispose();
     _descriptionController.dispose();
     _priceController.dispose();
+    _startingBidController.dispose();
+    _reserveController.dispose();
     super.dispose();
   }
 
   void _onSessionChanged() {
     if (!mounted) return;
     if (_isPiece && AuthSession.instance.sellerEnabled && !_listForSale) {
-      setState(() => _listForSale = true);
+      setState(() => _mode = SaleMode.fixed);
     }
   }
 
-  Future<void> _onListForSaleChanged(bool value) async {
-    if (!value) {
-      // The price stays typed in case they switch back; it is only sent for a sale.
-      setState(() => _listForSale = false);
-      return;
-    }
-    if (AuthSession.instance.sellerEnabled) {
-      setState(() => _listForSale = true);
+  /// Selling (fixed price or auction) needs seller mode; Not for sale never does.
+  Future<void> _onModeChanged(SaleMode mode) async {
+    if (mode == SaleMode.notForSale || AuthSession.instance.sellerEnabled) {
+      // What was typed stays in case they switch back; it is only sent for that mode.
+      setState(() => _mode = mode);
       return;
     }
     final switchToSeller = await showSellerModeRequiredDialog(context);
     if (!mounted || switchToSeller != true) return;
     await Navigator.pushNamed(context, '/profile-settings');
     if (mounted && AuthSession.instance.sellerEnabled) {
-      setState(() => _listForSale = true);
+      setState(() => _mode = mode);
     }
   }
 
@@ -279,18 +298,31 @@ class _PostCreatePageState extends State<PostCreatePage> {
       context,
       selectedSeriesId: _seriesId,
       newSeriesName: _newSeriesName,
+      newSeriesDescription: _newSeriesDescription,
     );
     if (result == null || !mounted) return;
     setState(() {
       if (!result.hasSelection) {
         _seriesId = null;
         _newSeriesName = null;
+        _newSeriesDescription = null;
         _seriesLabel = null;
       } else {
         _seriesId = result.selectedSeriesId;
         _newSeriesName = result.newSeriesName;
+        _newSeriesDescription = result.newSeriesDescription;
         _seriesLabel = result.displayLabel;
       }
+    });
+  }
+
+  Future<void> _openRelatedScenes() async {
+    final picked = await RelatedScenesPage.open(context, selected: _relatedScenes);
+    if (picked == null || !mounted) return;
+    setState(() {
+      _relatedScenes
+        ..clear()
+        ..addAll(picked);
     });
   }
 
@@ -363,7 +395,9 @@ class _PostCreatePageState extends State<PostCreatePage> {
 
   PostDraft _buildDraft() {
     final details = _isPiece
-        ? _detailsKey.currentState?.buildListingDetails(priceUsd: _listForSale ? _price : null)
+        ? _detailsKey.currentState?.buildListingDetails(
+            priceUsd: _mode == SaleMode.fixed ? _price : null,
+          )
         : null;
     return PostDraft(
       postType: widget.postType,
@@ -380,11 +414,14 @@ class _PostCreatePageState extends State<PostCreatePage> {
       listingDetails: details,
       selectedSeriesId: _seriesId,
       newSeriesName: _newSeriesName,
+      newSeriesDescription: _newSeriesDescription,
       transforms: widget.transforms,
       previewImageIndex: widget.previewImageIndex,
       aiDisclosed: _detailsKey.currentState?.aiDisclosed ?? false,
       linkedPieceIds: _linkedPieces.map((p) => p.id).toList(),
       isForSale: _isPiece && _listForSale,
+      auction: _isPiece ? _auction : null,
+      relatedScenes: _isPiece ? List.of(_relatedScenes) : const [],
     );
   }
 
@@ -411,7 +448,7 @@ class _PostCreatePageState extends State<PostCreatePage> {
   void _toReview() {
     setState(() => _step = _CreateStep.review);
     final price = _price;
-    if (_listForSale && price != null) {
+    if (_mode == SaleMode.fixed && price != null) {
       _quote((price * 100).round()).then(
         (q) {
           if (mounted) setState(() => _reviewQuote = q);
@@ -432,7 +469,10 @@ class _PostCreatePageState extends State<PostCreatePage> {
         _draftPiece = piece;
         _savedAt = DateTime.now();
       }
-      final live = await _publisher.goLive(piece.id);
+      // An auction is created live (its clock starts then), so there is no draft to publish.
+      final live = piece.isLive && _mode == SaleMode.auction
+          ? piece
+          : await _publisher.goLive(piece.id);
       if (!mounted) return;
       setState(() {
         _publishedPiece = live;
@@ -522,9 +562,13 @@ class _PostCreatePageState extends State<PostCreatePage> {
         return PostAvailabilityStep(
           cover: _cover(),
           photoCount: widget.imagePaths.length,
-          forSale: _listForSale,
-          onForSaleChanged: _onListForSaleChanged,
+          mode: _mode,
+          onModeChanged: _onModeChanged,
           priceController: _priceController,
+          startingBidController: _startingBidController,
+          reserveController: _reserveController,
+          durationDays: _auctionDays,
+          onDurationChanged: (days) => setState(() => _auctionDays = days),
           onBack: _goBack,
           onEdit: () => widget.onEdit?.call(),
           onContinue: () => setState(() => _step = _CreateStep.details),
@@ -546,6 +590,8 @@ class _PostCreatePageState extends State<PostCreatePage> {
           onStyle: _openStylePicker,
           onMaterials: _openMaterialsPage,
           onSeries: _openSeriesPicker,
+          relatedScenesCount: _relatedScenes.length,
+          onRelatedScenes: _openRelatedScenes,
           onBack: _goBack,
           onContinue: _toReview,
         );
@@ -577,22 +623,34 @@ class _PostCreatePageState extends State<PostCreatePage> {
 
   Widget _buildReview() {
     final details = _detailsKey.currentState?.buildListingDetails(
-      priceUsd: _listForSale ? _price : null,
+      priceUsd: _mode == SaleMode.fixed ? _price : null,
     );
     final price = _price;
     final quote = _reviewQuote;
     final weight = details?.weight;
+    final auction = _auction;
     return PostReviewStep(
       cover: _cover(),
       title: _titleText,
       photoCount: widget.imagePaths.length,
       forSale: _listForSale,
+      auction: auction != null,
       availabilityRows: [
-        PostReviewRow('Selling', _listForSale ? 'Fixed price' : 'Not for sale'),
-        if (_listForSale && price != null)
+        PostReviewRow('Selling', switch (_mode) {
+          SaleMode.fixed => 'Fixed price',
+          SaleMode.auction => 'Auction',
+          SaleMode.notForSale => 'Not for sale',
+        }),
+        if (_mode == SaleMode.fixed && price != null)
           PostReviewRow('Price', formatUsd((price * 100).round()), small: true),
-        if (_listForSale && quote != null)
+        if (_mode == SaleMode.fixed && quote != null)
           PostReviewRow('You receive', formatUsd(quote.netCents), small: true),
+        if (auction != null) ...[
+          PostReviewRow('Starting bid', formatUsd(auction.startingBidCents), small: true),
+          PostReviewRow('Duration', '${auction.durationDays} days', mono: true),
+          if (auction.reserveCents != null)
+            PostReviewRow('Reserve', '${formatUsd(auction.reserveCents!)} · private', small: true),
+        ],
       ],
       detailRows: [
         if (details?.dimensionsLabel != null)
@@ -644,7 +702,11 @@ class _PostCreatePageState extends State<PostCreatePage> {
         photoCount: widget.imagePaths.length,
         authorName: authorName,
         avatarUrl: user?.profilePhotoUrl,
-        priceLabel: _listForSale && price != null ? formatUsd((price * 100).round()) : null,
+        priceLabel: switch (_mode) {
+          SaleMode.fixed when price != null => formatUsd((price * 100).round()),
+          SaleMode.auction when _auction != null => formatUsd(_auction!.startingBidCents),
+          _ => null,
+        },
         onClose: widget.onClose,
         onAddScene: () => _addSceneForPiece(piece),
         onShare: () => PieceShareSheet.show(context, item),

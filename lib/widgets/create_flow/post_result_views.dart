@@ -112,11 +112,17 @@ class PostPublishedView extends StatelessWidget {
     required this.onShare,
     required this.onView,
     this.coverAspect = 3 / 4,
+    this.heading,
+    this.subheading = "Here's how collectors see it in the feed.",
   });
 
   final String title;
   final Widget cover;
   final double coverAspect;
+
+  /// "[title] is live" by default; "[title] is listed" after listing later (`ListDone`).
+  final String? heading;
+  final String subheading;
   final int photoCount;
   final String authorName;
   final String? avatarUrl;
@@ -145,10 +151,13 @@ class PostPublishedView extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text('$title is live', style: StudioType.title30(color: c.textPrimary)),
+                    Text(
+                      heading ?? '$title is live',
+                      style: StudioType.title30(color: c.textPrimary),
+                    ),
                     const SizedBox(height: 6),
                     Text(
-                      "Here's how collectors see it in the feed.",
+                      subheading,
                       style: StudioType.sans(15, color: c.textSecondary),
                     ),
                     const SizedBox(height: 20),
