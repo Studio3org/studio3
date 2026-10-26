@@ -249,7 +249,7 @@ class _CollectPieceSheetState extends State<CollectPieceSheet> {
                   ),
                   child: Column(
                     children: [
-                      _NavRow(
+                      CheckoutNavRow(
                         label: 'Shipping',
                         value: shipping == null
                             ? null
@@ -260,7 +260,7 @@ class _CollectPieceSheetState extends State<CollectPieceSheet> {
                         placeholder: 'Add a delivery address',
                         onTap: _openShipping,
                       ),
-                      _NavRow(
+                      CheckoutNavRow(
                         label: 'Payment',
                         value: _auction != null ? _card?.label : _payment?.label,
                         placeholder: 'Add a payment method',
@@ -409,10 +409,11 @@ class _PieceSummary extends StatelessWidget {
   }
 }
 
-/// Shipping / Payment row: label 13 Graphite over the value 15 (placeholder #A3A3A3 until
+/// A checkout row (Shipping, Payment; `EvCheckout` Tickets, Sent to): label 13 Graphite over the value 15 (placeholder #A3A3A3 until
 /// set), 16 px chevron, 18 above and below, 1 px Line under.
-class _NavRow extends StatelessWidget {
-  const _NavRow({
+class CheckoutNavRow extends StatelessWidget {
+  const CheckoutNavRow({
+    super.key,
     required this.label,
     required this.value,
     required this.placeholder,

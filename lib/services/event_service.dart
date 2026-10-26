@@ -1,6 +1,12 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter_stripe/flutter_stripe.dart';
+
+import '../models/event_order.dart';
 import '../models/event_qr_code.dart';
 import '../models/studio_event.dart';
 import 'api_client.dart';
+import 'api_exception.dart';
+import 'stripe_setup.dart';
 import 'cache_service.dart';
 import 'connectivity_service.dart';
 
@@ -114,6 +120,49 @@ class EventService {
       auth: true,
     );
     return EventRsvpResult.fromJson(_api.extractData(json) as Map<String, dynamic>);
+  }
+
+  // --- paid tickets (BACKEND_CHANGES B22; not on the server yet) ---------------------------
+
+  static List<Map<String, dynamic>> _items(Map<EventTicketType, int> counts) => [
+    for (final e in counts.entries)
+      if (e.value > 0) {'ticketTypeId': e.key.id, 'quantity': e.value},
+  ];
+
+  /// The server's price for these tickets: service fee, sales tax and total.
+  Future<EventOrderQuote> quoteOrder(String eventId, Map<EventTicketType, int> counts) async {
+    final json = await _api.post(
+      '/api/events/$eventId/orders/quote',
+      body: {'items': _items(counts)},
+      auth: true,
+    );
+    return EventOrderQuote.fromJson(_api.extractData(json) as Map<String, dynamic>);
+  }
+
+  /// Places the order and pays for it with Stripe's payment sheet. Throws [ApiException] when
+  /// a type sold out or went over its limit in the meantime (409), and
+  /// [StripeException] when the buyer closes the payment sheet.
+  Future<EventOrder> placeOrder(String eventId, Map<EventTicketType, int> counts) async {
+    final json = await _api.post(
+      '/api/events/$eventId/orders',
+      body: {'items': _items(counts)},
+      auth: true,
+    );
+    final order = EventOrder.fromJson(_api.extractData(json) as Map<String, dynamic>);
+    final secret = order.clientSecret;
+    if (secret == null) return order;
+    if (!StripeSetup.ready) {
+      if (kDebugMode) return order;
+      throw ApiException('Card payments are not set up in this build yet.');
+    }
+    await Stripe.instance.initPaymentSheet(
+      paymentSheetParameters: SetupPaymentSheetParameters(
+        paymentIntentClientSecret: secret,
+        merchantDisplayName: 'Studio 3',
+      ),
+    );
+    await Stripe.instance.presentPaymentSheet();
+    return order;
   }
 
   /// Who is coming. Host-only — an attendee list is not public.

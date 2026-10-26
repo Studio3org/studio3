@@ -23,20 +23,21 @@ const _vip = EventTicketType(
   perOrderLimit: 4,
 );
 
-StudioEvent _event({List<EventTicketType> types = const [], int? spotsLeft, bool full = false}) => StudioEvent(
-  id: 'ev1',
-  title: 'Inside the Mind of an Artist',
-  startsAt: DateTime(2037, 11, 21, 20),
-  endsAt: DateTime(2037, 11, 21, 22),
-  category: 'gallery_walk',
-  venueName: 'Dec on Dragon',
-  address: '1414 Dragon St, Dallas, TX 75201',
-  hostUsername: 'amara',
-  hostName: 'Amara Osei',
-  spotsLeft: spotsLeft,
-  isFull: full,
-  ticketTypes: types,
-);
+StudioEvent _event({List<EventTicketType> types = const [], int? spotsLeft, bool full = false}) =>
+    StudioEvent(
+      id: 'ev1',
+      title: 'Inside the Mind of an Artist',
+      startsAt: DateTime(2037, 11, 21, 20),
+      endsAt: DateTime(2037, 11, 21, 22),
+      category: 'gallery_walk',
+      venueName: 'Dec on Dragon',
+      address: '1414 Dragon St, Dallas, TX 75201',
+      hostUsername: 'amara',
+      hostName: 'Amara Osei',
+      spotsLeft: spotsLeft,
+      isFull: full,
+      ticketTypes: types,
+    );
 
 Widget _app(StudioEvent event, {bool dark = false}) => MaterialApp(
   key: UniqueKey(),
@@ -49,8 +50,7 @@ Widget _app(StudioEvent event, {bool dark = false}) => MaterialApp(
 
 Finder _button(String label) => find.byWidgetPredicate((w) => w is StudioButton && w.label == label);
 
-Finder _card(String name) =>
-    find.byWidgetPredicate((w) => w is EventTicketCard && w.type.name == name);
+Finder _card(String name) => find.byWidgetPredicate((w) => w is EventTicketCard && w.type.name == name);
 
 Future<void> _open(WidgetTester tester, StudioEvent event, {bool dark = false}) async {
   setBoardViewport(tester);
@@ -90,7 +90,10 @@ void main() {
       await _open(tester, _event(spotsLeft: 18), dark: dark);
       expect(find.byType(EventTicketsSheet), findsOneWidget);
       final title = tester.widget<Text>(
-        find.descendant(of: find.byType(EventTicketsSheet), matching: find.text('Inside the Mind of an Artist')),
+        find.descendant(
+          of: find.byType(EventTicketsSheet),
+          matching: find.text('Inside the Mind of an Artist'),
+        ),
       );
       expect((title.style!.fontSize, title.style!.fontWeight), (20, StudioType.medium));
       expect(find.text('General Admission'), findsOneWidget);
@@ -103,9 +106,17 @@ void main() {
         find.byWidgetPredicate((w) => w is Semantics && w.properties.label == 'One more General Admission'),
       );
       expect(plus.properties.enabled, isFalse);
-      final border = (tester.widget<Container>(
-        find.descendant(of: _card('General Admission'), matching: find.byType(Container)).first,
-      ).decoration! as BoxDecoration).border! as Border;
+      final border =
+          (tester
+                          .widget<Container>(
+                            find
+                                .descendant(of: _card('General Admission'), matching: find.byType(Container))
+                                .first,
+                          )
+                          .decoration!
+                      as BoxDecoration)
+                  .border!
+              as Border;
       expect(border.top.color, dark ? const Color(0xFF5A5A57) : const Color(0xFFB8B8B4));
       expect(find.textContaining('1 ticket', findRichText: true), findsOneWidget);
       expect(_button('Reserve'), findsOneWidget);
@@ -143,7 +154,15 @@ void main() {
   });
 
   testWidgets('a sold-out type stays as a grey card with Sold out', (tester) async {
-    await _open(tester, _event(types: [_ga, const EventTicketType(id: 'x', name: 'VIP', priceCents: 2500, left: 0)]));
+    await _open(
+      tester,
+      _event(
+        types: [
+          _ga,
+          const EventTicketType(id: 'x', name: 'VIP', priceCents: 2500, left: 0),
+        ],
+      ),
+    );
     expect(find.descendant(of: _card('VIP'), matching: find.text('Sold out')), findsOneWidget);
     expect(find.bySemanticsLabel('One more VIP'), findsNothing);
   });

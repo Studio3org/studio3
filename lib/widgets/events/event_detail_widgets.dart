@@ -33,8 +33,10 @@ String? eventPiecePriceLine(EventLineupItem item) {
   return null;
 }
 
-class _Cover extends StatelessWidget {
-  const _Cover({required this.url});
+/// An event flyer or piece image: the photo, or a plain Surface fill while it loads or when
+/// there is none.
+class EventCover extends StatelessWidget {
+  const EventCover({super.key, required this.url});
 
   final String url;
 
@@ -82,7 +84,7 @@ class EventHero extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          _Cover(url: event.imageUrl),
+          EventCover(url: event.imageUrl),
           const DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -376,7 +378,11 @@ class EventPiecesRow extends StatelessWidget {
                     children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(StudioRadius.card),
-                        child: SizedBox(width: 150, height: 200, child: _Cover(url: items[i].mediaUrl ?? '')),
+                        child: SizedBox(
+                          width: 150,
+                          height: 200,
+                          child: EventCover(url: items[i].mediaUrl ?? ''),
+                        ),
                       ),
                       const SizedBox(height: 8),
                       Text(

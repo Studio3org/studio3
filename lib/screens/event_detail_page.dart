@@ -23,6 +23,7 @@ import '../widgets/follow_button.dart';
 import '../widgets/piece_detail/detail_follow_state.dart';
 import '../widgets/share/share_sheet.dart';
 import '../widgets/studio/studio.dart';
+import 'event_checkout_page.dart';
 import 'event_qr_codes_page.dart';
 
 /// Returns the pushed route's future, so a caller that wants to know when the viewer is
@@ -41,8 +42,8 @@ Future<void> openEventDetail(BuildContext context, StudioEvent event) {
 ///
 /// Get tickets opens Choose tickets (`EvChooseTickets`). Every event is free on the server and
 /// an RSVP is a headcount (BACKEND_CHANGES B22), so the sheet offers one free place and Reserve
-/// saves the RSVP; paid tickets wait for checkout (`EvCheckout`). FAQs and the host's follow
-/// state are BACKEND_CHANGES B24.
+/// saves the RSVP; paid tickets go through checkout (`EvCheckout`) once the server sells them.
+/// FAQs and the host's follow state are BACKEND_CHANGES B24.
 class EventDetailPage extends StatefulWidget {
   const EventDetailPage({super.key, required this.event, this.debugDetail});
 
@@ -212,11 +213,27 @@ class _EventDetailPageState extends State<EventDetailPage> with DetailFollowStat
   Future<void> _getTickets() async {
     final choice = await EventTicketsSheet.show(context, _event);
     if (choice == null || !mounted) return;
-    if (!choice.isFree) {
-      showStudioToast(context, 'Paid tickets are not on sale in the app yet.', icon: null);
+    if (choice.isFree) {
+      await _setGoing(true);
       return;
     }
-    await _setGoing(true);
+    // Paid tickets: checkout signs in first, like Reserve.
+    if (!await requireLogin(
+      context,
+      title: 'Sign in to get tickets',
+      message: 'Log in or create a free account to go to events.',
+    )) {
+      return;
+    }
+    if (!mounted) return;
+    final outcome = await EventCheckoutPage.open(context, event: _event, choice: choice);
+    if (!mounted || outcome == null) return;
+    if (outcome == EventCheckoutOutcome.reserveInstead) {
+      await _setGoing(true);
+      return;
+    }
+    showStudioToast(context, "You're going");
+    await _loadDetail();
   }
 
   Future<void> _share() {

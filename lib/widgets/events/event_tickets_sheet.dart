@@ -14,6 +14,16 @@ class EventTicketChoice {
   final Map<EventTicketType, int> counts;
 
   int get count => counts.values.fold(0, (a, b) => a + b);
+
+  /// How many of [type] (matched by id, so a refreshed event still finds it).
+  int countOf(EventTicketType type) =>
+      counts.entries.where((e) => e.key.id == type.id).fold(0, (sum, e) => sum + e.value);
+
+  /// `1 General Admission, 1 VIP`.
+  String get summary => [
+    for (final e in counts.entries)
+      if (e.value > 0) '${e.value} ${e.key.name}',
+  ].join(', ');
   int get totalCents => counts.entries.fold(0, (sum, e) => sum + e.key.priceCents * e.value);
 
   /// Only free tickets: Reserve, no payment (`HandoffEvents`).
@@ -36,19 +46,26 @@ String eventStartLabel(StudioEvent e) {
 /// it. Grabber; the name 20/500 with the Mono start time and venue 13 Graphite; one card per
 /// ticket type; the count and total; then Reserve (free) or Continue to payment.
 class EventTicketsSheet extends StatefulWidget {
-  const EventTicketsSheet({super.key, required this.event});
+  const EventTicketsSheet({super.key, required this.event, this.initial});
 
   final StudioEvent event;
 
+  /// What was picked before (changing the tickets from checkout).
+  final EventTicketChoice? initial;
+
   /// Opens the sheet; null when it is closed without choosing.
-  static Future<EventTicketChoice?> show(BuildContext context, StudioEvent event) {
+  static Future<EventTicketChoice?> show(
+    BuildContext context,
+    StudioEvent event, {
+    EventTicketChoice? initial,
+  }) {
     return showGeneralDialog<EventTicketChoice>(
       context: context,
       barrierDismissible: true,
       barrierLabel: 'Close',
       barrierColor: Colors.transparent,
       transitionDuration: const Duration(milliseconds: 280),
-      pageBuilder: (context, _, _) => EventTicketsSheet(event: event),
+      pageBuilder: (context, _, _) => EventTicketsSheet(event: event, initial: initial),
       transitionBuilder: (context, animation, _, child) {
         final t = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
         return AnimatedBuilder(
@@ -83,12 +100,16 @@ class _EventTicketsSheetState extends State<EventTicketsSheet> {
   late final List<EventTicketType> _types = widget.event.ticketOptions;
   late final Map<EventTicketType, int> _counts = {
     for (final type in _types)
-      // One type with places left (a free RSVP): already at 1, so Reserve is one tap.
-      type: _types.length == 1 && !type.isSoldOut ? 1 : 0,
+      type:
+          widget.initial?.countOf(type) ??
+          // One type with places left (a free RSVP): already at 1, so Reserve is one tap.
+          (_types.length == 1 && !type.isSoldOut ? 1 : 0),
   };
 
-  EventTicketChoice get _choice =>
-      EventTicketChoice({for (final e in _counts.entries) if (e.value > 0) e.key: e.value});
+  EventTicketChoice get _choice => EventTicketChoice({
+    for (final e in _counts.entries)
+      if (e.value > 0) e.key: e.value,
+  });
 
   void _change(EventTicketType type, int by) => setState(() => _counts[type] = (_counts[type] ?? 0) + by);
 
@@ -125,12 +146,18 @@ class _EventTicketsSheetState extends State<EventTicketsSheet> {
                 ),
               ),
               const SizedBox(height: 18),
-              Text(e.title, style: StudioType.sans(20, weight: StudioType.medium, color: c.textPrimary)),
+              Text(
+                e.title,
+                style: StudioType.sans(20, weight: StudioType.medium, color: c.textPrimary),
+              ),
               const SizedBox(height: 4),
               Text.rich(
                 TextSpan(
                   children: [
-                    TextSpan(text: eventStartLabel(e), style: StudioType.mono(13, color: c.textSecondary)),
+                    TextSpan(
+                      text: eventStartLabel(e),
+                      style: StudioType.mono(13, color: c.textSecondary),
+                    ),
                     if (e.venue.isNotEmpty) TextSpan(text: ' · ${e.venue}'),
                   ],
                 ),
@@ -162,7 +189,10 @@ class _EventTicketsSheetState extends State<EventTicketsSheet> {
                     child: Text.rich(
                       TextSpan(
                         children: [
-                          TextSpan(text: '${choice.count}', style: StudioType.mono(13, color: c.textSecondary)),
+                          TextSpan(
+                            text: '${choice.count}',
+                            style: StudioType.mono(13, color: c.textSecondary),
+                          ),
                           TextSpan(text: choice.count == 1 ? ' ticket' : ' tickets'),
                           if (!choice.isFree) const TextSpan(text: ' · tax and fees included'),
                         ],
@@ -241,14 +271,23 @@ class EventTicketCard extends StatelessWidget {
             textBaseline: TextBaseline.alphabetic,
             children: [
               Expanded(
-                child: Text(type.name, style: StudioType.sans(16, weight: StudioType.medium, color: ink)),
+                child: Text(
+                  type.name,
+                  style: StudioType.sans(16, weight: StudioType.medium, color: ink),
+                ),
               ),
-              Text(type.isFree ? 'Free' : formatMoney(type.priceCents), style: StudioType.sans(16, color: ink)),
+              Text(
+                type.isFree ? 'Free' : formatMoney(type.priceCents),
+                style: StudioType.sans(16, color: ink),
+              ),
             ],
           ),
           if (type.includes?.trim().isNotEmpty == true) ...[
             const SizedBox(height: 4),
-            Text(type.includes!.trim(), style: StudioType.label13(color: soldOut ? c.textTertiary : c.textSecondary)),
+            Text(
+              type.includes!.trim(),
+              style: StudioType.label13(color: soldOut ? c.textTertiary : c.textSecondary),
+            ),
           ],
           const SizedBox(height: 10),
           SizedBox(
