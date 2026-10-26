@@ -18,9 +18,8 @@ import 'golden_harness.dart';
 const _ga = EventTicketType(id: 'ga', name: 'General Admission', includes: 'Open to everyone', left: 18);
 const _vip = EventTicketType(id: 'vip', name: 'VIP', priceCents: 2500, includes: 'Early entry', left: 3);
 const _quote = EventOrderQuote(
-  serviceFeeCents: 200,
   taxCents: 223,
-  totalCents: 2923,
+  totalCents: 2723,
   refundPolicy: 'Refunds up to 24 hours before the event.',
 );
 const _choice = EventTicketChoice({_ga: 1, _vip: 1});
@@ -124,14 +123,15 @@ void main() {
 
       expect(_summaryLine('General Admission × 1', 'Free'), findsOneWidget);
       expect(_summaryLine('VIP × 1', r'$25.00'), findsOneWidget);
-      expect(_summaryLine('Service fee', r'$2.00'), findsOneWidget);
+      // No buyer fee anywhere (`EvCheckout`, `HandoffPipeline`): the full price plus sales tax.
+      expect(find.text('Service fee'), findsNothing);
       expect(_summaryLine('Sales tax', r'$2.23'), findsOneWidget);
-      final total = tester.widget<Text>(find.text(r'$29.23'));
+      final total = tester.widget<Text>(find.text(r'$27.23'));
       expect(total.style!.fontWeight, StudioType.medium);
-      expect(tester.widget<Text>(find.text('Service fee')).style!.color, c.textSecondary);
+      expect(tester.widget<Text>(find.text('Sales tax')).style!.color, c.textSecondary);
 
       expect(find.textContaining('Refunds up to 24 hours', findRichText: true), findsOneWidget);
-      expect(tester.widget<StudioButton>(_button(r'Confirm and pay $29.23')).onPressed, isNotNull);
+      expect(tester.widget<StudioButton>(_button(r'Confirm and pay $27.23')).onPressed, isNotNull);
     });
   }
 

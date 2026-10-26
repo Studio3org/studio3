@@ -548,6 +548,9 @@ void main() {
         ),
       );
       expect(find.text("Your card didn't go through"), findsOneWidget);
+      // The ! ring and the title in red; the line under it stays Graphite (`BidPaymentFailed`).
+      expect(tester.widget<Text>(find.text("Your card didn't go through")).style!.color, StudioColors.light.alert);
+      expect(tester.widget<Text>(find.text('!')).style!.color, StudioColors.light.alert);
       expect(
         find.text('Bodies in Color is still yours. Update your card to finish paying.'),
         findsOneWidget,

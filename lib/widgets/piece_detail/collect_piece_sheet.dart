@@ -272,7 +272,6 @@ class _CollectPieceSheetState extends State<CollectPieceSheet> {
                 const SizedBox(height: 18),
                 _OrderSummary(
                   artworkLabel: _auction != null ? 'Winning bid' : 'Artwork',
-                  taxLabel: _auction != null ? 'Sales tax' : 'Tax',
                   artwork: _cents(_artworkCents),
                   shipping: shipping == null ? null : _cents(_shippingCents),
                   tax: shipping == null ? null : _cents(_taxCents),
@@ -470,14 +469,13 @@ class CheckoutNavRow extends StatelessWidget {
   }
 }
 
-/// "Order summary" 15/500, then Artwork, Shipping and Tax (14, label Graphite, 6 above and
-/// below), a 1 px Line and Total 15/500. Until an address is set, Shipping, Tax and Total
-/// show "–" in Mono with the line about shipping and tax under them. No Insurance or Fees:
-/// the app has neither today.
+/// "Order summary" 15/500, then Artwork, Shipping and Sales tax (14, label Graphite, 6 above
+/// and below), a 1 px Line and Total 15/500. Until an address is set, Shipping, Sales tax and
+/// Total show "–" in Mono with the line about shipping and tax under them. No buyer fee ever
+/// (`HandoffPipeline`: buyers pay the price plus sales tax); no Insurance until B19.
 class _OrderSummary extends StatelessWidget {
   const _OrderSummary({
     this.artworkLabel = 'Artwork',
-    this.taxLabel = 'Tax',
     required this.artwork,
     required this.shipping,
     required this.tax,
@@ -485,7 +483,6 @@ class _OrderSummary extends StatelessWidget {
   });
 
   final String artworkLabel;
-  final String taxLabel;
   final String artwork;
   final String? shipping;
   final String? tax;
@@ -529,7 +526,7 @@ class _OrderSummary extends StatelessWidget {
         const SizedBox(height: 6),
         line(artworkLabel, artwork),
         line('Shipping', shipping),
-        line(taxLabel, tax),
+        line('Sales tax', tax),
         Container(
           margin: const EdgeInsets.only(top: 6),
           padding: const EdgeInsets.only(top: 6),

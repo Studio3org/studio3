@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -563,56 +564,62 @@ class _PieceCard extends StatelessWidget {
   }
 }
 
-/// Surface box, radius 12, 12 14 padding, 13 / 1.45 Graphite with the amount 500 Ink and a
-/// 24 info button that explains the commission.
-class _EarningsLine extends StatelessWidget {
+/// Surface box, radius 12, 12 14 padding, 13 / 1.45 Body with the amount 500 Ink:
+/// "You'll receive $2,880 after the 20% fee. See fees" (`PostAvailFixed`, `ListPricing`). The
+/// rate is the account's own, from the quote; never "founding artist" (`NotePostAvailFixed`).
+/// See fees is an underlined Ink link to the seller terms (the in-app Terms page).
+class _EarningsLine extends StatefulWidget {
   const _EarningsLine({required this.quote, required this.priced});
 
   final CommissionQuote quote;
   final bool priced;
 
   @override
+  State<_EarningsLine> createState() => _EarningsLineState();
+}
+
+class _EarningsLineState extends State<_EarningsLine> {
+  late final TapGestureRecognizer _seeFees = TapGestureRecognizer()
+    ..onTap = () => Navigator.of(context).pushNamed('/terms');
+
+  @override
+  void dispose() {
+    _seeFees.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final c = context.studio;
     final style = StudioType.sans(13, height: 1.45, color: c.textBody);
-    final rate =
-        '${formatPercent(quote.commissionBps)} ${quote.reducedRate ? 'founding artist ' : ''}'
-        'commission';
-    return StudioTooltip(
-      message:
-          'The commission comes out of the price you set, never on top of it. '
-          'Card processing is included.',
-      builder: (context, toggle) => Container(
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-        decoration: BoxDecoration(
-          color: c.surface,
-          borderRadius: BorderRadius.circular(StudioRadius.button),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    final rate = '${formatPercent(widget.quote.commissionBps)} fee';
+    final link = TextSpan(
+      text: 'See fees',
+      recognizer: _seeFees,
+      style: TextStyle(color: c.textPrimary, decoration: TextDecoration.underline, decorationColor: c.textPrimary),
+    );
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: c.surface,
+        borderRadius: BorderRadius.circular(StudioRadius.button),
+      ),
+      child: Text.rich(
+        TextSpan(
           children: [
-            // Flexible, as the board's span: the info button follows the text.
-            Flexible(
-              child: Text.rich(
-                priced
-                    ? TextSpan(
-                        children: [
-                          const TextSpan(text: "You'll receive "),
-                          TextSpan(
-                            text: formatUsd(quote.netCents),
-                            style: TextStyle(fontWeight: StudioType.medium, color: c.textPrimary),
-                          ),
-                          TextSpan(text: ' after the $rate.'),
-                        ],
-                      )
-                    : TextSpan(text: "You'll receive your price less the $rate."),
-                style: style,
+            if (widget.priced) ...[
+              const TextSpan(text: "You'll receive "),
+              TextSpan(
+                text: formatUsd(widget.quote.netCents),
+                style: TextStyle(fontWeight: StudioType.medium, color: c.textPrimary),
               ),
-            ),
-            const SizedBox(width: 8),
-            StudioInfoButton(onTap: toggle, semanticLabel: 'What is the commission?'),
+              TextSpan(text: ' after the $rate. '),
+            ] else
+              TextSpan(text: "You'll receive your price less the $rate. "),
+            link,
           ],
         ),
+        style: style,
       ),
     );
   }

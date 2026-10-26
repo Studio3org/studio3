@@ -202,9 +202,10 @@ class PieceDetailsStepState extends State<PieceDetailsStep> {
                   children: [
                     PostHeading(
                       title: 'Tell us about it',
+                      // Not for sale has no line once nothing is missing (`PostNFSDetails`).
                       subtitle: missing > 0
                           ? 'Fields with a red dot still need something.'
-                          : 'What collectors see on the piece page.',
+                          : (widget.forSale ? 'What collectors see on the piece page.' : null),
                     ),
                     const SizedBox(height: 22),
                     StudioUnderlineField(

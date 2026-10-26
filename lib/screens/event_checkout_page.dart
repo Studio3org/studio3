@@ -33,7 +33,7 @@ String eventCheckoutMoney(int cents) =>
 /// Checkout for paid tickets (`EvCheckout`), laid out like buying a piece: the event (56 × 74
 /// flyer, name 16/500, Mono start time, venue and city), rows for Tickets (change them),
 /// Sent to (the account email) and Payment, then the order summary (each type × count, Free
-/// when free, Service fee, Sales tax, Total), the refund line and "Confirm and pay $…".
+/// when free, Sales tax, Total; no buyer fee), the refund line and "Confirm and pay $…".
 ///
 /// The server prices the order (fee and tax) and takes the payment: BACKEND_CHANGES B22. Until
 /// it can, the fee, tax and total show "–" and the button stays off. Orders of free tickets
@@ -254,7 +254,7 @@ class _EventCheckoutPageState extends State<EventCheckoutPage> {
   }
 }
 
-/// "Order summary" 15/500; each type × count (Free when free), Service fee, Sales tax (14,
+/// "Order summary" 15/500; each type × count (Free when free), Sales tax (14,
 /// label Graphite, 6 above and below); a Line, then Total 15/500. "–" in Mono until the server
 /// has priced the order.
 class _EventOrderSummary extends StatelessWidget {
@@ -303,7 +303,6 @@ class _EventOrderSummary extends StatelessWidget {
               '${e.key.name} × ${e.value}',
               e.key.isFree ? 'Free' : eventCheckoutMoney(e.key.priceCents * e.value),
             ),
-        line('Service fee', q == null ? null : eventCheckoutMoney(q.serviceFeeCents)),
         line('Sales tax', q == null ? null : eventCheckoutMoney(q.taxCents)),
         Container(
           margin: const EdgeInsets.only(top: 6),
@@ -316,7 +315,7 @@ class _EventOrderSummary extends StatelessWidget {
         if (q == null) ...[
           const SizedBox(height: 8),
           Text(
-            'The service fee and tax are added once the order is priced.',
+            'Tax is added once the order is priced.',
             style: StudioType.caption12(color: c.textSecondary),
           ),
         ],

@@ -9,7 +9,9 @@ import '../../theme/studio_metrics.dart';
 /// The iridescent fill (`.holo` on the boards): a 115° gradient drawn at 300 % of the box
 /// and slid left–right over 6 s, ease-in-out. Static when reduced motion is on.
 ///
-/// Used ONLY for the Collected chip and the collect confirmation (`HandoffRules`).
+/// Used only where `HandoffRules` puts it: the Collected chip and the collect confirmation,
+/// event tickets, the frame on Your event is live, and the frame around the preview on every
+/// Published or Listed screen (pieces and Scenes).
 /// As a frame, set [padding]: the child covers the middle and the gradient shows around it
 /// (`CollectConfirm`: 4 px around the art, 1.5 px around the provenance card).
 class StudioIridescent extends StatefulWidget {

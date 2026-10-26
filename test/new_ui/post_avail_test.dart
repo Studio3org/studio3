@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -56,6 +57,7 @@ Widget _step({
   theme: AppTheme.light,
   darkTheme: AppTheme.dark,
   themeMode: dark ? ThemeMode.dark : ThemeMode.light,
+  routes: {'/terms': (_) => const Scaffold(body: Text('terms page'))},
   home: StatefulBuilder(
     builder: (context, setState) => PostAvailabilityStep(
       cover: const ColoredBox(color: Color(0xFF6FA3B0)),
@@ -147,7 +149,7 @@ void main() {
       expect((price.label, price.valueSize), ('Price', 18));
       expect(
         _plain(tester, _earnings),
-        "You'll receive \$3,060 after the 15% founding artist commission.",
+        "You'll receive \$3,060 after the 15% fee. See fees",
       );
       expect(_continue(tester).onPressed, isNotNull);
     });
@@ -250,17 +252,17 @@ void main() {
     expect(_continue(tester).onPressed, isNull);
   });
 
-  testWidgets('standard rate says "20% commission"; before a price, the rate alone', (
+  testWidgets("the account's own rate as a fee, never 'founding'; before a price, the rate alone", (
     tester,
   ) async {
     setBoardViewport(tester);
     await tester.pumpWidget(_step(quote: _standard));
     await tester.pump(const Duration(milliseconds: 400));
-    expect(_plain(tester, _earnings), "You'll receive your price less the 20% commission.");
+    expect(_plain(tester, _earnings), "You'll receive your price less the 20% fee. See fees");
 
     await tester.enterText(find.byType(TextField), '125.5');
     await tester.pump(const Duration(milliseconds: 400));
-    expect(_plain(tester, _earnings), "You'll receive \$100.40 after the 20% commission.");
+    expect(_plain(tester, _earnings), "You'll receive \$100.40 after the 20% fee. See fees");
   });
 
   testWidgets('a failed quote hides the earnings line', (tester) async {
@@ -295,13 +297,22 @@ void main() {
     expect(calls, ['mode:notForSale', 'mode:fixed', 'back', 'edit', 'continue']);
   });
 
-  testWidgets('info button explains the commission', (tester) async {
+  testWidgets('See fees opens the seller terms (no info button)', (tester) async {
     setBoardViewport(tester);
     await tester.pumpWidget(_step(price: r'$3,600'));
     await tester.pump(const Duration(milliseconds: 400));
-    await tester.tap(find.byType(StudioInfoButton));
-    await tester.pump();
-    expect(find.textContaining('comes out of the price you set'), findsOneWidget);
+    expect(find.byType(StudioInfoButton), findsNothing);
+    expect(find.textContaining('founding', findRichText: true), findsNothing);
+    final rich = tester.widget<RichText>(_earnings);
+    TapGestureRecognizer? link;
+    rich.text.visitChildren((span) {
+      if (span is TextSpan && span.text == 'See fees') link = span.recognizer as TapGestureRecognizer?;
+      return true;
+    });
+    expect(link, isNotNull);
+    link!.onTap!();
+    await tester.pumpAndSettle();
+    expect(find.text('terms page'), findsOneWidget);
   });
 
   testWidgets('375 wide at text scale 1.4 does not overflow', (tester) async {

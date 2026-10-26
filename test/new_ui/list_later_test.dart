@@ -145,12 +145,15 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     expect(
       find.byWidgetPredicate(
-        (w) => w is RichText && w.text.toPlainText().contains(r'$3,060 after the 15% founding'),
+        (w) => w is RichText && w.text.toPlainText().contains(r'$3,060 after the 15% fee. See fees'),
       ),
       findsOneWidget,
     );
     await tester.tap(find.text('List it'));
-    await tester.pumpAndSettle();
+    // The listed screen's iridescent frame keeps moving, so pump instead of settling.
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 300));
+    }
     expect(patches.single, {
       'isForSale': true,
       'listingType': 'fixed',

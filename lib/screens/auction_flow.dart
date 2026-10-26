@@ -386,8 +386,8 @@ class _BackToExplore extends StatelessWidget {
   }
 }
 
-/// "Your card didn't go through" (`BidPaymentFailed`): the 48 ring with "!", the 28/500
-/// title, "[Title] is still yours…", Time left in Mono 22, "[Card] · declined" in Mono 11;
+/// "Your card didn't go through" (`BidPaymentFailed`): the 48 ring with "!" and the 28/500
+/// title in red (#B3261E), "[Title] is still yours…", Time left in Mono 22, "[Card] · declined" in Mono 11;
 /// Update card (a new card, then the server tries again) and "Try the same card again".
 class BidPaymentFailedPage extends StatefulWidget {
   const BidPaymentFailedPage({
@@ -485,11 +485,11 @@ class _BidPaymentFailedPageState extends State<BidPaymentFailedPage> {
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(color: c.textPrimary, width: 1.5),
+                      border: Border.all(color: c.alert, width: 1.5),
                     ),
                     child: Text(
                       '!',
-                      style: StudioType.sans(22, weight: StudioType.medium, color: c.textPrimary),
+                      style: StudioType.sans(22, weight: StudioType.medium, color: c.alert),
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -501,7 +501,7 @@ class _BidPaymentFailedPageState extends State<BidPaymentFailedPage> {
                       weight: StudioType.medium,
                       letterSpacing: -0.5,
                       height: 1.1,
-                      color: c.textPrimary,
+                      color: c.alert,
                     ),
                   ),
                   const SizedBox(height: 14),

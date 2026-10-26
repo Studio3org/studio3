@@ -8,6 +8,7 @@ import '../studio/studio_avatar.dart';
 import '../studio/studio_button.dart';
 import '../studio/studio_chip.dart';
 import '../studio/studio_icon.dart';
+import '../studio/studio_iridescent.dart';
 import 'post_flow_widgets.dart';
 
 /// Close 22 at the top right (12 8 padding).
@@ -97,7 +98,8 @@ class PostActionCard extends StatelessWidget {
 
 /// "[Title] is live" (`PostSuccess`, `PostNFSDone`): the feed card as collectors see it
 /// (photo 300 tall with the photo dots, avatar 32, name 14/500, title 13, and Available +
-/// price or Not for sale), then Add a Scene, Share your piece and View piece.
+/// price or Not for sale) in the iridescent frame, then Add a Scene, Share your piece and View
+/// piece. A piece not for sale has no line under the heading (`PostNFSDone`).
 class PostPublishedView extends StatelessWidget {
   const PostPublishedView({
     super.key,
@@ -113,7 +115,7 @@ class PostPublishedView extends StatelessWidget {
     required this.onView,
     this.coverAspect = 3 / 4,
     this.heading,
-    this.subheading = "Here's how collectors see it in the feed.",
+    this.subheading,
   });
 
   final String title;
@@ -122,7 +124,10 @@ class PostPublishedView extends StatelessWidget {
 
   /// "[title] is live" by default; "[title] is listed" after listing later (`ListDone`).
   final String? heading;
-  final String subheading;
+
+  /// The line under the heading. By default "Here's how collectors see it in the feed." for a
+  /// piece for sale, and none for one not for sale.
+  final String? subheading;
   final int photoCount;
   final String authorName;
   final String? avatarUrl;
@@ -137,6 +142,7 @@ class PostPublishedView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.studio;
+    final sub = subheading ?? (priceLabel == null ? null : "Here's how collectors see it in the feed.");
     return Scaffold(
       backgroundColor: c.background,
       body: SafeArea(
@@ -155,11 +161,10 @@ class PostPublishedView extends StatelessWidget {
                       heading ?? '$title is live',
                       style: StudioType.title30(color: c.textPrimary),
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      subheading,
-                      style: StudioType.sans(15, color: c.textSecondary),
-                    ),
+                    if (sub != null) ...[
+                      const SizedBox(height: 6),
+                      Text(sub, style: StudioType.sans(15, color: c.textSecondary)),
+                    ],
                     const SizedBox(height: 20),
                     _FeedPreview(
                       cover: cover,
@@ -263,14 +268,12 @@ class _FeedPreview extends StatelessWidget {
     final c = context.studio;
     return Semantics(
       label: 'Feed preview',
-      child: Container(
+      child: _PostedFrame(
+        child: Container(
         decoration: BoxDecoration(
           color: c.card,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(color: c.line, offset: const Offset(0, 1)),
-            const BoxShadow(color: Color(0x14111111), offset: Offset(0, 18), blurRadius: 40),
-          ],
+          boxShadow: [BoxShadow(color: c.line, offset: const Offset(0, 1))],
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
@@ -336,12 +339,48 @@ class _FeedPreview extends StatelessWidget {
                       ],
                     )
                   else
-                    const StudioStatusChip(StudioStatus.notForSale),
+                    // Plain text, never a chip (`HandoffRules`, `PostNFSDone`).
+                    Text('Not for sale', style: StudioType.label13(color: c.textSecondary)),
                 ],
               ),
             ),
           ],
         ),
+      ),
+      ),
+    );
+  }
+}
+
+/// The iridescent frame around the preview on every Published or Listed screen (`PostSuccess`,
+/// `ListDone`, `PostNFSDone`, `ScenePosted`, `ScenePhotoPosted`; `HandoffRules`): 5 of the
+/// shifting gradient at radius 20 with the board's soft shadow; the preview inside at
+/// [innerRadius].
+class _PostedFrame extends StatelessWidget {
+  const _PostedFrame({
+    required this.child,
+    this.width,
+    this.height,
+    this.innerRadius = 16,
+    this.shadowColor = const Color(0x14111111),
+  });
+
+  final Widget child;
+  final double? width;
+  final double? height;
+  final double innerRadius;
+  final Color shadowColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return StudioIridescent(
+      padding: const EdgeInsets.all(5),
+      borderRadius: BorderRadius.circular(20),
+      boxShadow: [BoxShadow(color: shadowColor, offset: const Offset(0, 18), blurRadius: 40)],
+      child: SizedBox(
+        width: width,
+        height: height,
+        child: ClipRRect(borderRadius: BorderRadius.circular(innerRadius), child: child),
       ),
     );
   }
@@ -410,21 +449,13 @@ class SceneLiveView extends StatelessWidget {
                     ),
                     const SizedBox(height: 16),
                     Center(
-                      child: Container(
+                      child: _PostedFrame(
                         width: 240,
                         height: 427,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Color(0x24111111),
-                              offset: Offset(0, 18),
-                              blurRadius: 40,
-                            ),
-                          ],
-                        ),
+                        innerRadius: 14,
+                        shadowColor: const Color(0x24111111),
                         child: ClipRRect(
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(14),
                           child: Stack(
                             fit: StackFit.expand,
                             children: [
@@ -591,7 +622,8 @@ class _Stack extends StatelessWidget {
   }
 }
 
-/// "Couldn't publish" (`PostError`): an Ink-ringed "!" (no red), the reason, and when the
+/// "Couldn't publish" (`PostError`): the "!" ring and the title in red (#B3261E), the reason in
+/// Graphite, and when the
 /// piece was saved first, "Saved as draft · [time]" in Mono with Go to drafts. Try again
 /// retries.
 class PostErrorView extends StatelessWidget {
@@ -650,11 +682,11 @@ class PostErrorView extends StatelessWidget {
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        border: Border.all(color: c.textPrimary, width: 1.5),
+                        border: Border.all(color: c.alert, width: 1.5),
                       ),
                       child: Text(
                         '!',
-                        style: StudioType.sans(22, weight: StudioType.medium, color: c.textPrimary),
+                        style: StudioType.sans(22, weight: StudioType.medium, color: c.alert),
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -666,7 +698,7 @@ class PostErrorView extends StatelessWidget {
                         weight: StudioType.medium,
                         height: 1.1,
                         letterSpacing: -0.5,
-                        color: c.textPrimary,
+                        color: c.alert,
                       ),
                     ),
                     const SizedBox(height: 14),

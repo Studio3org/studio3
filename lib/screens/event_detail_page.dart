@@ -13,7 +13,6 @@ import '../services/user_service.dart';
 import '../utils/app_destination.dart';
 import '../utils/profile_navigation.dart';
 import '../utils/require_login.dart';
-import '../utils/money_format.dart' show formatMoney;
 import '../widgets/events/event_detail_widgets.dart';
 import '../widgets/events/event_tickets_sheet.dart';
 import '../widgets/follow_button.dart';
@@ -339,8 +338,7 @@ class _EventDetailPageState extends State<EventDetailPage> with DetailFollowStat
     if (e.isOver && !e.isCancelled) return null;
     final when = StudioBottomBarInfo(label: 'When', value: eventDayLabel(e), mono: true);
     final options = e.ticketOptions;
-    final lowest = options.map((t) => t.priceCents).reduce((a, b) => a < b ? a : b);
-    final from = StudioBottomBarInfo(label: 'From', value: lowest == 0 ? 'Free' : formatMoney(lowest));
+    final from = StudioBottomBarInfo(label: 'Tickets', value: eventTicketRange(options));
     final soldOut = e.isFull || options.every((t) => t.isSoldOut);
     if (e.isCancelled) {
       return const StudioBottomBar(button: StudioButton(label: 'Event cancelled', onPressed: null));
@@ -370,7 +368,8 @@ class _EventDetailPageState extends State<EventDetailPage> with DetailFollowStat
         ),
       );
     }
-    // `EvSoldOut`: the grey bar; Save is how to hear if tickets open up (no waitlist at launch).
+    // `EvSoldOut`: the grey bar; Save is how to hear if tickets open up. The board now has a
+    // waitlist instead (Phase 13, 17.8), which needs BACKEND_CHANGES B22.
     if (soldOut) return EventSoldOutBar(saved: _store.isSaved(e.id), onSave: _toggleSaved);
     return StudioBottomBar(
       left: from,

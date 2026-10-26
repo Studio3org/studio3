@@ -51,6 +51,27 @@ String? eventPiecePriceLine(EventLineupItem item) {
   return null;
 }
 
+/// How a piece sold at the event reaches its buyer, as the host set it (`NoteEvDetail`):
+/// "Pickup at the event" or "Ships after the event". Nothing for work only on show, or once it
+/// has sold.
+String? eventPieceDeliveryLine(EventLineupItem item) {
+  if (item.mode != 'sale' && !item.isAuction) return null;
+  if (item.pieceStatus == 'sold' || (item.auction?.isClosed ?? false)) return null;
+  return switch (item.deliveryMode) {
+    'pickup' => 'Pickup at the event',
+    'ship' => 'Ships after the event',
+    _ => null,
+  };
+}
+
+/// The bar's Tickets value (`EvDetail`): "Free", "$25", "Free to $25" or "$10 to $25".
+String eventTicketRange(List<EventTicketType> options) {
+  if (options.isEmpty) return 'Free';
+  final prices = options.map((t) => t.priceCents).toList()..sort();
+  String money(int cents) => cents == 0 ? 'Free' : formatMoney(cents);
+  return prices.first == prices.last ? money(prices.first) : '${money(prices.first)} to ${money(prices.last)}';
+}
+
 /// An event flyer or piece image: the photo, or a plain Surface fill while it loads or when
 /// there is none.
 class EventCover extends StatelessWidget {
@@ -418,6 +439,10 @@ class EventPiecesRow extends StatelessWidget {
                       if (eventPiecePriceLine(items[i]) case final line?) ...[
                         const SizedBox(height: 4),
                         Text(line, style: StudioType.label13(color: c.textPrimary)),
+                      ],
+                      if (eventPieceDeliveryLine(items[i]) case final delivery?) ...[
+                        const SizedBox(height: 2),
+                        Text(delivery, style: StudioType.caption12(color: c.textSecondary)),
                       ],
                     ],
                   ),

@@ -126,7 +126,9 @@ void main() {
 
     expect(find.text('Order summary'), findsOneWidget);
     expect(find.text('Artwork'), findsOneWidget);
-    // Shipping, Tax and Total wait for an address, in Mono.
+    expect(find.text('Sales tax'), findsOneWidget); // fixed price too, never "Tax" (`BuyCheckoutEmpty`)
+    expect(find.text('Tax'), findsNothing);
+    // Shipping, Sales tax and Total wait for an address, in Mono.
     final dashes = tester.widgetList<Text>(find.text('–')).toList();
     expect(dashes, hasLength(3));
     for (final dash in dashes) {

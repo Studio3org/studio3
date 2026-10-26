@@ -69,28 +69,29 @@ void main() {
   });
   tearDown(() => AuthSession.instance.user = null);
 
-  testWidgets('visitor: no bar; Not for sale pill and the save line under the facts', (
+  testWidgets('visitor: no bar; Not for sale as plain text and the save line under the facts', (
     tester,
   ) async {
     await _pump(tester, _piece());
     expect(find.byType(AvailableCollectBar), findsNothing);
     expect(find.text('Collect'), findsNothing);
 
-    final chip = tester.widget<StudioStatusChip>(find.byType(StudioStatusChip));
-    expect(chip.status, StudioStatus.notForSale);
-    final pillText = tester.widget<Text>(find.text('Not for sale'));
-    expect(pillText.style!.fontFamily, StudioType.geistMono);
-    expect(pillText.style!.fontSize, 11);
+    // Plain 13/500 Ink, never a chip (`PieceNotForSale`, `HandoffRules`).
+    expect(find.byType(StudioStatusChip), findsNothing);
+    final label = tester.widget<Text>(find.text('Not for sale'));
+    expect(label.style!.fontFamily, isNot(StudioType.geistMono));
+    expect((label.style!.fontSize, label.style!.fontWeight), (13, StudioType.medium));
+    expect(label.style!.color, StudioColors.light.textPrimary);
     final line = tester.widget<Text>(find.text("Save it to hear if it's ever listed."));
     expect(line.style!.fontSize, 13);
     expect(line.style!.color, StudioColors.light.textSecondary);
     // The line sits under the Mono facts, 8 + 6 below them.
     final facts = tester.getRect(find.text('24 × 36 in · 2025'));
-    expect(tester.getRect(find.byType(StudioStatusChip)).top - facts.bottom, 14);
-    // 10 between pill and line.
+    expect(tester.getRect(find.text('Not for sale')).top - facts.bottom, closeTo(14, 1));
+    // 10 between the label and the line.
     expect(
       tester.getTopLeft(find.text("Save it to hear if it's ever listed.")).dx -
-          tester.getTopRight(find.byType(StudioStatusChip)).dx,
+          tester.getTopRight(find.text('Not for sale')).dx,
       10,
     );
 

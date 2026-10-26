@@ -164,12 +164,12 @@ class PostTextLink extends StatelessWidget {
   }
 }
 
-/// `title30` heading with the 15/1.45 Graphite line 8 under it.
+/// `title30` heading with the 15/1.45 Graphite line 8 under it (none when [subtitle] is null).
 class PostHeading extends StatelessWidget {
   const PostHeading({super.key, required this.title, required this.subtitle});
 
   final String title;
-  final String subtitle;
+  final String? subtitle;
 
   @override
   Widget build(BuildContext context) {
@@ -178,8 +178,10 @@ class PostHeading extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(title, style: StudioType.title30(color: c.textPrimary)),
-        const SizedBox(height: 8),
-        Text(subtitle, style: StudioType.body15(color: c.textSecondary)),
+        if (subtitle != null) ...[
+          const SizedBox(height: 8),
+          Text(subtitle!, style: StudioType.body15(color: c.textSecondary)),
+        ],
       ],
     );
   }
@@ -227,34 +229,50 @@ class PostChevronRow extends StatelessWidget {
           decoration: BoxDecoration(
             border: divider ? Border(bottom: BorderSide(color: c.line)) : null,
           ),
+          // The label group on the left and the value + chevron on the right edge; either side
+          // shrinks with an ellipsis before it can push the row past the screen. (A Flexible
+          // label next to an Expanded value split the spare width and left the value short of
+          // the edge.)
           child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Shrinks with an ellipsis before it can push the row past the screen.
               Flexible(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: StudioType.sans(16, color: c.textPrimary),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: StudioType.sans(16, color: c.textPrimary),
+                      ),
+                    ),
+                    if (required) const StudioRequiredDot(),
+                    if (toggle != null)
+                      StudioInfoButton(onTap: toggle, semanticLabel: 'What is ${label.toLowerCase()}?'),
+                  ],
                 ),
               ),
-              if (required) const StudioRequiredDot(),
-              if (toggle != null)
-                StudioInfoButton(onTap: toggle, semanticLabel: 'What is ${label.toLowerCase()}?'),
               const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  empty ? placeholder : value!,
-                  textAlign: TextAlign.right,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: empty
-                      ? StudioType.body14(color: c.textPlaceholder)
-                      : valueStyle,
+              Flexible(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        empty ? placeholder : value!,
+                        textAlign: TextAlign.right,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: empty ? StudioType.body14(color: c.textPlaceholder) : valueStyle,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    StudioIcon(StudioIcons.chevronRight, size: 16, color: c.textTertiary),
+                  ],
                 ),
               ),
-              const SizedBox(width: 8),
-              StudioIcon(StudioIcons.chevronRight, size: 16, color: c.textTertiary),
             ],
           ),
         ),

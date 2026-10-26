@@ -120,7 +120,7 @@ void main() {
       final title = tester.widget<Text>(find.text('Inside the Mind of an Artist'));
       expect((title.style!.fontSize, title.style!.fontWeight), (28, StudioType.medium));
       expect(find.text('GALLERY WALK'), findsOneWidget);
-      expect(find.text('Sat, Nov 21 · 8:00 PM – 10:00 PM'), findsOneWidget);
+      expect(find.text('Sat, Nov 21 · 8:00 – 10:00 PM'), findsOneWidget);
 
       // Hosted by with Follow.
       expect(find.textContaining('Hosted by', findRichText: true), findsOneWidget);
@@ -149,8 +149,8 @@ void main() {
       await tester.pump();
       expect(find.textContaining('Street parking'), findsOneWidget);
 
-      // The bar: From Free, When in Mono 14, Get tickets.
-      expect(find.text('From'), findsOneWidget);
+      // The bar: Tickets with the price range (Free), When in Mono 14, Get tickets.
+      expect(find.text('Tickets'), findsOneWidget);
       expect(find.text('Free'), findsOneWidget);
       final when = tester.widget<Text>(find.text('Sat, Nov 21'));
       expect(when.style!.fontFamily, contains('Mono'));

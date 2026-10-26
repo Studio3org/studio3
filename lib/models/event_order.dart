@@ -1,15 +1,13 @@
-/// What paid tickets cost once the server has priced the order (`EvCheckout`): each ticket
-/// type's line, the service fee (paid tickets only), sales tax and the total. The server
-/// prices it so the app never works out fees or tax itself (BACKEND_CHANGES B22).
+/// What paid tickets cost once the server has priced the order (`EvCheckout`): sales tax and
+/// the total on top of the full ticket prices. Buyers never pay a fee (`HandoffPipeline`); the
+/// server prices it so the app never works out tax itself (BACKEND_CHANGES B22).
 class EventOrderQuote {
   const EventOrderQuote({
-    required this.serviceFeeCents,
     required this.taxCents,
     required this.totalCents,
     this.refundPolicy,
   });
 
-  final int serviceFeeCents;
   final int taxCents;
   final int totalCents;
 
@@ -17,7 +15,6 @@ class EventOrderQuote {
   final String? refundPolicy;
 
   factory EventOrderQuote.fromJson(Map<String, dynamic> json) => EventOrderQuote(
-    serviceFeeCents: (json['serviceFeeCents'] as num?)?.toInt() ?? 0,
     taxCents: (json['taxCents'] as num?)?.toInt() ?? 0,
     totalCents: (json['totalCents'] as num?)?.toInt() ?? 0,
     refundPolicy: json['refundPolicy'] as String?,

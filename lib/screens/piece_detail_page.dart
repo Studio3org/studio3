@@ -338,8 +338,8 @@ class _PieceDetailPageState extends State<PieceDetailPage>
     );
   }
 
-  /// The "Not for sale" Mono pill and, for visitors, "Save it to hear if it's ever listed."
-  /// (13 Graphite), 10 apart. Saving is what subscribes them to the listing notice. On your
+  /// "Not for sale" as plain 13/500 Ink text, never a chip (`PieceNotForSale`, `HandoffRules`)
+  /// and, for visitors, "Save it to hear if it's ever listed." (13 Graphite), 10 apart. Saving is what subscribes them to the listing notice. On your
   /// own piece the line is the pill alone: the board's "[N] people saved this" needs a save
   /// count the piece payload does not have. A sold piece shows the Collected chip instead.
   Widget _statusLine(StudioColors c) {
@@ -347,7 +347,7 @@ class _PieceDetailPageState extends State<PieceDetailPage>
       return const StudioStatusChip(StudioStatus.collected);
     return Row(
       children: [
-        const StudioStatusChip(StudioStatus.notForSale),
+        Text('Not for sale', style: StudioType.label13(weight: StudioType.medium, color: c.textPrimary)),
         if (!_isOwner) ...[
           const SizedBox(width: 10),
           Flexible(

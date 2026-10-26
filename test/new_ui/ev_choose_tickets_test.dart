@@ -142,7 +142,7 @@ void main() {
 
     await tester.tap(find.bySemanticsLabel('One more VIP'));
     await tester.pump();
-    expect(find.textContaining('2 tickets · tax and fees included', findRichText: true), findsOneWidget);
+    expect(find.textContaining('2 tickets · tax added at checkout', findRichText: true), findsOneWidget);
     expect(find.text(r'$25'), findsNWidgets(2)); // the VIP price and the total
     expect(_button('Continue to payment'), findsOneWidget);
 

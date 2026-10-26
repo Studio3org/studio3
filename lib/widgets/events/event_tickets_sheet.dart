@@ -34,12 +34,14 @@ class EventTicketChoice {
 Color _pickedBorder(BuildContext context) =>
     Theme.of(context).brightness == Brightness.dark ? const Color(0xFF5A5A57) : const Color(0xFFB8B8B4);
 
-/// `Sat, Nov 21 · 8:00 PM`.
+/// `Sat, Nov 21 · 8:00 PM CST`: every event time shows the event's zone (`NoteEvDetail`), when
+/// it is known.
 String eventStartLabel(StudioEvent e) {
   final d = e.startsAt;
   final hour = d.hour % 12 == 0 ? 12 : d.hour % 12;
   final suffix = d.hour < 12 ? 'AM' : 'PM';
-  return '${eventDayLabel(e)} · $hour:${d.minute.toString().padLeft(2, '0')} $suffix';
+  final zone = e.zoneLabel.isEmpty ? '' : ' ${e.zoneLabel}';
+  return '${eventDayLabel(e)} · $hour:${d.minute.toString().padLeft(2, '0')} $suffix$zone';
 }
 
 /// Choose tickets (`EvChooseTickets`): a sheet over the event page, which blurs (14) behind
@@ -194,7 +196,7 @@ class _EventTicketsSheetState extends State<EventTicketsSheet> {
                             style: StudioType.mono(13, color: c.textSecondary),
                           ),
                           TextSpan(text: choice.count == 1 ? ' ticket' : ' tickets'),
-                          if (!choice.isFree) const TextSpan(text: ' · tax and fees included'),
+                          if (!choice.isFree) const TextSpan(text: ' · tax added at checkout'),
                         ],
                       ),
                       style: StudioType.label13(color: c.textSecondary),

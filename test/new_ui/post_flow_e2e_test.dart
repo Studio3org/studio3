@@ -204,7 +204,7 @@ void main() {
     expect(_server.bodies('GET', '/api/user/me/commission-quote'), isNotEmpty);
     expect(
       find.byWidgetPredicate(
-        (w) => w is RichText && w.text.toPlainText().contains(r'$2,880 after the 20% commission'),
+        (w) => w is RichText && w.text.toPlainText().contains(r'$2,880 after the 20% fee'),
       ),
       findsOneWidget,
     );

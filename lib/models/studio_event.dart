@@ -173,14 +173,16 @@ class StudioEvent {
     return '${_weekday(startsAt)} · ${_shortTime(startsAt)}$zone';
   }
 
-  /// Detail line: `Sat, Jul 25 · 8:00 PM – 10:00 PM CST`.
+  /// Detail line: `Sat, Jul 25 · 8:00 – 10:00 PM CST` (`EvDetail`); the first AM / PM is left out
+  /// when both times share it.
   String get scheduleLine {
     final sameDay = startsAt.year == endsAt.year &&
         startsAt.month == endsAt.month &&
         startsAt.day == endsAt.day;
     final date = '${_weekday(startsAt)}, ${_month(startsAt)} ${startsAt.day}';
-    final start = _longTime(startsAt);
     final end = _longTime(endsAt);
+    final sameHalf = (startsAt.hour < 12) == (endsAt.hour < 12);
+    final start = sameDay && sameHalf ? _longTime(startsAt).split(' ').first : _longTime(startsAt);
     if (sameDay) return '$date · $start – $end$_zoneSuffix';
     final endDate = '${_weekday(endsAt)}, ${_month(endsAt)} ${endsAt.day}';
     return '$date $start – $endDate $end$_zoneSuffix';

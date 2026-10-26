@@ -86,7 +86,7 @@ void main() {
         expect(find.text('Save it to hear if tickets open up'), findsOneWidget);
         expect(tester.widget<StudioButton>(_button('Save')).variant, StudioButtonVariant.outline);
         expect(_button('Get tickets'), findsNothing);
-        expect(find.text('From'), findsNothing);
+        expect(find.text('Tickets'), findsNothing);
       });
     }
 
