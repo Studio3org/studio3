@@ -6,12 +6,11 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../models/event_qr_code.dart';
 import '../services/api_exception.dart';
 import '../services/event_service.dart';
-import '../theme/home_feed_tokens.dart';
 import '../utils/event_qr_pdf.dart';
 import '../utils/qr_image_share.dart';
-import '../widgets/share/share_sheet.dart';
 import '../widgets/loading/app_skeletons.dart';
-import '../theme/app_fonts.dart';
+import '../widgets/share/share_sheet.dart';
+import '../widgets/studio/studio.dart';
 
 /// The codes a host puts beside each work in the room.
 ///
@@ -29,11 +28,7 @@ class EventQrCodesPage extends StatefulWidget {
   final String eventId;
   final String eventTitle;
 
-  static Future<void> open(
-    BuildContext context, {
-    required String eventId,
-    required String eventTitle,
-  }) {
+  static Future<void> open(BuildContext context, {required String eventId, required String eventTitle}) {
     return Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
         builder: (_) => EventQrCodesPage(eventId: eventId, eventTitle: eventTitle),
@@ -64,17 +59,11 @@ class _EventQrCodesPageState extends State<EventQrCodesPage> {
     if (codes == null || _buildingPdf) return;
     setState(() => _buildingPdf = true);
     try {
-      final bytes = await EventQrPdf.build(
-        eventTitle: widget.eventTitle,
-        codes: codes,
-      );
+      final bytes = await EventQrPdf.build(eventTitle: widget.eventTitle, codes: codes);
       if (!mounted) return;
       await Printing.sharePdf(bytes: bytes, filename: _filename());
     } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not build the PDF. Please try again.')),
-      );
+      if (mounted) showStudioToast(context, 'Could not build the PDF. Please try again.', icon: null);
     } finally {
       if (mounted) setState(() => _buildingPdf = false);
     }
@@ -121,84 +110,63 @@ class _EventQrCodesPageState extends State<EventQrCodesPage> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.studio;
     final codes = _codes;
     return Scaffold(
-      backgroundColor: HomeFeedTokens.background,
-      appBar: AppBar(
-        backgroundColor: HomeFeedTokens.background,
-        elevation: 0,
-        title: Text(
-          'Codes for the room',
-          style: AppFonts.inter(fontSize: 17, fontWeight: FontWeight.w500),
-        ),
-        actions: [
-          if (_codes != null)
-            IconButton(
-              tooltip: 'Download as PDF',
-              onPressed: _buildingPdf ? null : _downloadPdf,
-              icon: _buildingPdf
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.picture_as_pdf_outlined),
-            ),
-        ],
-      ),
-      // App bar and its export action stay put; only the code list
-      // placeholds while it is fetched.
+      backgroundColor: c.background,
+      appBar: StudioTopBar(context: context, title: 'Codes for the room'),
+      // The top bar stays put; only the code list placeholds while it is fetched.
       body: _loading && codes == null
           ? const CardListSkeleton(height: 120)
           : _error != null
-              ? _Message(text: _error!, onRetry: _load)
-              : codes == null || codes.pieces.isEmpty
-                  ? const _Message(
-                      text: 'Nothing on the bill yet. Add work to this event and its codes '
-                          'will appear here.',
-                    )
-                  : ListView(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
-                      children: [
-                        Text(
-                          'Put one beside each piece. Anyone can scan it to see the work and '
-                          'bid — no account needed to look.',
-                          style: AppFonts.inter(
-                            fontSize: 13,
-                            height: 1.4,
-                            color: HomeFeedTokens.textSecondary,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        _DownloadButton(
-                          loading: _buildingPdf,
-                          onTap: _downloadPdf,
-                          count: codes.pieces.length + 1,
-                        ),
-                        const SizedBox(height: 20),
-                        _QrCard(
-                          title: widget.eventTitle,
-                          subtitle: 'The event itself',
-                          url: codes.eventUrl,
-                        ),
-                        const SizedBox(height: 12),
-                        for (final piece in codes.pieces) ...[
-                          _QrCard(
-                            title: piece.title ?? 'Untitled',
-                            subtitle: [
-                              if (piece.artistName != null) piece.artistName!,
-                              piece.modeLabel,
-                            ].join(' · '),
-                            url: piece.url,
-                          ),
-                          const SizedBox(height: 12),
-                        ],
-                      ],
-                    ),
+          ? Center(
+              child: StudioEmptyState(
+                title: "The codes didn't load",
+                message: _error,
+                actionLabel: 'Try again',
+                onAction: _load,
+              ),
+            )
+          : codes == null || codes.pieces.isEmpty
+          ? const Center(
+              child: StudioEmptyState(
+                title: 'Nothing on the bill yet',
+                message: 'Add work to this event and its codes will appear here.',
+              ),
+            )
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(StudioSpace.marginPage, 8, StudioSpace.marginPage, 40),
+              children: [
+                Text(
+                  'Put one beside each piece. Anyone can scan it to see the work and '
+                  'bid — no account needed to look.',
+                  style: StudioType.label13(color: c.textSecondary),
+                ),
+                const SizedBox(height: 14),
+                // The primary action on this screen: a finished sheet, ready to print and cut.
+                StudioButton(
+                  label: _buildingPdf ? 'Building…' : 'Download ${codes.pieces.length + 1} cards as PDF',
+                  loading: _buildingPdf,
+                  onPressed: _buildingPdf ? null : _downloadPdf,
+                ),
+                const SizedBox(height: 20),
+                _QrCard(title: widget.eventTitle, subtitle: 'The event itself', url: codes.eventUrl),
+                for (final piece in codes.pieces) ...[
+                  const SizedBox(height: 12),
+                  _QrCard(
+                    title: piece.title ?? 'Untitled',
+                    subtitle: [if (piece.artistName != null) piece.artistName!, piece.modeLabel].join(' · '),
+                    url: piece.url,
+                  ),
+                ],
+              ],
+            ),
     );
   }
 }
 
+/// One code: a Card at radius 14 with a Line, the code on white (it must scan in either theme),
+/// the title 15/500, the line 12 Graphite and three 13/500 text actions.
 class _QrCard extends StatelessWidget {
   const _QrCard({required this.title, required this.subtitle, required this.url});
 
@@ -208,12 +176,13 @@ class _QrCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.studio;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: HomeFeedTokens.skeletonBase),
+        color: c.card,
+        borderRadius: BorderRadius.circular(StudioRadius.panel),
+        border: Border.all(color: c.line),
       ),
       child: Row(
         children: [
@@ -221,11 +190,19 @@ class _QrCard extends StatelessWidget {
           // measurably harder for a camera to lock onto.
           Container(
             padding: const EdgeInsets.all(8),
-            color: Colors.white,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(StudioRadius.small),
+            ),
             child: QrImageView(
               data: url,
               size: 96,
               version: QrVersions.auto,
+              eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: StudioColors.ink),
+              dataModuleStyle: const QrDataModuleStyle(
+                dataModuleShape: QrDataModuleShape.square,
+                color: StudioColors.ink,
+              ),
               // Medium recovery: enough to survive a scuff or a thumbprint on a printed
               // card without making the code denser than a phone can read across a room.
               errorCorrectionLevel: QrErrorCorrectLevel.M,
@@ -240,30 +217,20 @@ class _QrCard extends StatelessWidget {
                   title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: AppFonts.inter(fontSize: 15, fontWeight: FontWeight.w500),
+                  style: StudioType.sans(15, weight: StudioType.medium, color: c.textPrimary),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: AppFonts.inter(
-                    fontSize: 12,
-                    color: HomeFeedTokens.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Row(
+                Text(subtitle, style: StudioType.caption12(color: c.textSecondary)),
+                Wrap(
+                  spacing: 14,
                   children: [
                     _SmallAction(
                       label: 'Copy link',
                       onTap: () async {
                         await Clipboard.setData(ClipboardData(text: url));
-                        if (!context.mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Link copied')),
-                        );
+                        if (context.mounted) showStudioToast(context, 'Link copied');
                       },
                     ),
-                    const SizedBox(width: 12),
                     _SmallAction(
                       label: 'Share link',
                       onTap: () => ShareSheet.show(
@@ -273,21 +240,17 @@ class _QrCard extends StatelessWidget {
                         copiedMessage: 'Copied',
                       ),
                     ),
-                    const SizedBox(width: 12),
                     // The other half of the job the PDF does not cover: sending one artist
                     // the code for their own piece, or dropping a single code into a poster.
                     _SmallAction(
                       label: 'Share code',
                       onTap: () async {
-                        final messenger = ScaffoldMessenger.of(context);
                         try {
                           await QrImageShare.share(title: title, url: url);
                         } catch (_) {
-                          messenger.showSnackBar(
-                            const SnackBar(
-                              content: Text('Could not share that code.'),
-                            ),
-                          );
+                          if (context.mounted) {
+                            showStudioToast(context, 'Could not share that code.', icon: null);
+                          }
                         }
                       },
                     ),
@@ -302,6 +265,7 @@ class _QrCard extends StatelessWidget {
   }
 }
 
+/// 13/500 Ink text with a 44 tall tap area.
 class _SmallAction extends StatelessWidget {
   const _SmallAction({required this.label, required this.onTap});
 
@@ -310,86 +274,20 @@ class _SmallAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Text(
-        label,
-        style: AppFonts.inter(
-          fontSize: 13,
-          fontWeight: FontWeight.w500,
-          color: HomeFeedTokens.textPrimary,
-        ),
-      ),
-    );
-  }
-}
-
-class _Message extends StatelessWidget {
-  const _Message({required this.text, this.onRetry});
-
-  final String text;
-  final VoidCallback? onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              text,
-              textAlign: TextAlign.center,
-              style: AppFonts.inter(fontSize: 14, height: 1.4),
+    return Semantics(
+      button: true,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          height: StudioSize.tapTarget,
+          child: Center(
+            widthFactor: 1,
+            child: Text(
+              label,
+              style: StudioType.label13(weight: StudioType.medium, color: context.studio.textPrimary),
             ),
-            if (onRetry != null) ...[
-              const SizedBox(height: 12),
-              TextButton(onPressed: onRetry, child: const Text('Try again')),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-
-/// The primary action on this screen: a finished sheet, ready to print and cut.
-class _DownloadButton extends StatelessWidget {
-  const _DownloadButton({
-    required this.loading,
-    required this.onTap,
-    required this.count,
-  });
-
-  final bool loading;
-  final VoidCallback onTap;
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      height: 44,
-      child: FilledButton.icon(
-        onPressed: loading ? null : onTap,
-        style: FilledButton.styleFrom(
-          backgroundColor: HomeFeedTokens.neutral800,
-          foregroundColor: HomeFeedTokens.textInverse,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
-        icon: loading
-            ? const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : const Icon(Icons.download_outlined, size: 18),
-        label: Text(
-          loading ? 'Building…' : 'Download $count cards as PDF',
-          style: AppFonts.inter(fontSize: 15, fontWeight: FontWeight.w500),
+          ),
         ),
       ),
     );
