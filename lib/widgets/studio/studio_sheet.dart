@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../theme/studio_colors.dart';
 import '../../theme/studio_metrics.dart';
+import '../../theme/studio_type.dart';
+import 'studio_button.dart';
 
 /// Opens a board-style bottom sheet: scrim, 24 top corners, height from content and never
 /// above 90 % of the screen (`HandoffSizes`). Build the content with [StudioSheet].
@@ -92,4 +94,40 @@ class StudioSheetGrabber extends StatelessWidget {
       ),
     );
   }
+}
+
+/// A yes / no question as a sheet, like Block (`HandoffRules`: decisions are sheets, the action
+/// in Ink, never red): the question 22, what happens 14 Graphite, then the action and Cancel.
+/// True only when the action was chosen.
+Future<bool> showStudioConfirm(
+  BuildContext context, {
+  required String title,
+  String? message,
+  required String confirmLabel,
+  String cancelLabel = 'Cancel',
+  bool useRootNavigator = false,
+}) async {
+  final confirmed = await showStudioSheet<bool>(
+    context: context,
+    useRootNavigator: useRootNavigator,
+    builder: (sheetContext) {
+      final c = sheetContext.studio;
+      return StudioSheet(
+        horizontalPadding: StudioSpace.marginForm,
+        gap: 14,
+        children: [
+          Text(title, style: StudioType.title22(color: c.textPrimary)),
+          if (message != null) Text(message, style: StudioType.body14(color: c.textSecondary)),
+          const SizedBox(height: 2),
+          StudioButton(label: confirmLabel, onPressed: () => Navigator.pop(sheetContext, true)),
+          StudioButton(
+            label: cancelLabel,
+            variant: StudioButtonVariant.text,
+            onPressed: () => Navigator.pop(sheetContext, false),
+          ),
+        ],
+      );
+    },
+  );
+  return confirmed == true;
 }

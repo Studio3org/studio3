@@ -1,7 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
-import '../theme/home_feed_tokens.dart';
+import '../theme/studio_colors.dart';
 
 /// Profile cover banner — network URL or bundled art default.
 class ProfileCoverImage extends StatelessWidget {
@@ -62,17 +62,10 @@ class ProfileCoverImage extends StatelessWidget {
       width: width,
       height: height,
       gaplessPlayback: true,
-      errorBuilder: (context, error, stackTrace) => ColoredBox(
-        color: Colors.grey.shade300,
-        child: Icon(
-          Icons.palette_outlined,
-          size: 48,
-          color: Colors.grey.shade600,
-        ),
-      ),
+      errorBuilder: (context, error, stackTrace) => ColoredBox(color: context.studio.surface),
     );
   }
 
-  Widget _neutralPlaceholder() =>
-      const ColoredBox(color: HomeFeedTokens.background);
+  /// The theme's Surface while the real cover is on its way.
+  Widget _neutralPlaceholder() => Builder(builder: (context) => ColoredBox(color: context.studio.surface));
 }

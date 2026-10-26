@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_fonts.dart';
-
 import '../theme/app_theme.dart';
-import '../theme/home_feed_tokens.dart';
+import '../theme/studio_colors.dart';
+import '../theme/studio_type.dart';
 import 'auth_ui.dart';
 
 /// Exact Figma geometry for node `2559:1688` ("Logo for loading screen").
@@ -295,7 +294,7 @@ class StudioLoadingBody extends StatelessWidget {
     return Center(
       child: StudioBubbleLoader(
         width: width,
-        color: color ?? HomeFeedTokens.textPrimary,
+        color: color ?? context.studio.textPrimary,
       ),
     );
   }
@@ -310,19 +309,10 @@ class StudioLoadingOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final c = context.studio;
     return ColoredBox(
-      color: backgroundColor ?? HomeFeedTokens.background,
-      child: Center(
-        child: StudioBubbleLoader(
-          width: 128,
-          color:
-              dotColor ??
-              (scheme.brightness == Brightness.dark
-                  ? scheme.onSurface
-                  : HomeFeedTokens.textPrimary),
-        ),
-      ),
+      color: backgroundColor ?? c.background,
+      child: Center(child: StudioBubbleLoader(width: 128, color: dotColor ?? c.textPrimary)),
     );
   }
 }
@@ -406,7 +396,7 @@ class StudioLoadingGate extends StatelessWidget {
   }
 }
 
-/// Full-page cream overlay used while a scene or piece is publishing (restored from before
+/// Full-page overlay (the page colour) used while a scene or piece is publishing (restored from before
 /// commit 76f4ef9, for the earlier publish screens).
 class StudioPublishingOverlay extends StatelessWidget {
   const StudioPublishingOverlay({super.key, required this.message});
@@ -415,26 +405,23 @@ class StudioPublishingOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.studio;
     return PopScope(
       canPop: false,
       child: ColoredBox(
-        color: HomeFeedTokens.background,
+        color: c.background,
         child: Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const StudioBubbleLoader(width: 88, color: HomeFeedTokens.textPrimary),
+                StudioBubbleLoader(width: 88, color: c.textPrimary),
                 const SizedBox(height: 24),
                 Text(
                   message,
                   textAlign: TextAlign.center,
-                  style: AppFonts.geist(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w500,
-                    color: HomeFeedTokens.textPrimary,
-                  ),
+                  style: StudioType.sans(18, weight: StudioType.medium, color: c.textPrimary),
                 ),
               ],
             ),
