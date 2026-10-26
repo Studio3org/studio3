@@ -21,6 +21,7 @@ class StudioUnderlineField extends StatefulWidget {
     this.helper,
     this.errorText,
     this.unit,
+    this.prefix,
     this.trailing,
     this.labelTrailing,
     this.required = false,
@@ -61,6 +62,9 @@ class StudioUnderlineField extends StatefulWidget {
   /// text plus an icon).
   final String? errorText;
   final String? unit;
+
+  /// Grey text before the value, e.g. "@" on a username (`EditProfile`).
+  final String? prefix;
   final Widget? trailing;
 
   /// After the label: usually a [StudioInfoButton].
@@ -185,6 +189,8 @@ class _StudioUnderlineFieldState extends State<StudioUnderlineField> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
+                if (widget.prefix != null)
+                  Text(widget.prefix!, style: valueStyle.copyWith(color: c.textTertiary)),
                 Expanded(
                   child: TextField(
                     controller: _controller,

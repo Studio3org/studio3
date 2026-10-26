@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/studio_colors.dart';
+import '../theme/studio_type.dart';
 import 'profile_cover_image.dart';
 import 'studio/studio_avatar.dart';
 import 'studio/studio_icon.dart';
@@ -50,11 +51,19 @@ class ProfileEditHeader extends StatelessWidget {
           Positioned(
             right: 6,
             top: _coverHeight - 50,
-            child: StudioTopIcon(
-              icon: StudioIcons.camera,
-              size: 22,
-              onTap: onChangeCover,
-              semanticLabel: 'Change cover photo',
+            // "Change cover" as plain white text on the image (`EditProfile`, `HandoffRules`).
+            child: Semantics(
+              button: true,
+              label: 'Change cover photo',
+              excludeSemantics: true,
+              child: GestureDetector(
+                onTap: onChangeCover,
+                behavior: HitTestBehavior.opaque,
+                child: const Padding(
+                  padding: EdgeInsets.all(8),
+                  child: StudioImageLabel('Change cover', mono: false, size: 12, weight: StudioType.medium),
+                ),
+              ),
             ),
           ),
           Positioned(
@@ -76,15 +85,16 @@ class ProfileEditHeader extends StatelessWidget {
                       Positioned(
                         right: 0,
                         bottom: 0,
+                        // The pencil badge (`EditProfile`): 28, Gallery White with a Line, 14 Ink pencil.
                         child: Container(
-                          width: 30,
-                          height: 30,
+                          width: 28,
+                          height: 28,
                           decoration: BoxDecoration(
-                            color: c.textPrimary,
+                            color: c.background,
                             shape: BoxShape.circle,
-                            border: Border.all(color: c.background, width: 2),
+                            border: Border.all(color: c.line),
                           ),
-                          child: Center(child: StudioIcon(StudioIcons.camera, size: 15, color: c.background)),
+                          child: Center(child: StudioIcon(StudioIcons.edit, size: 14, color: c.textPrimary)),
                         ),
                       ),
                     ],

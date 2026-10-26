@@ -60,11 +60,12 @@ void main() {
       expect(find.byType(ProfileEditHeader), findsOneWidget);
       expect(find.bySemanticsLabel('Change cover photo'), findsOneWidget);
       expect(find.bySemanticsLabel('Change profile photo'), findsOneWidget);
-      // Name, Username, Bio, Location, Pronouns and the Banner rule picker.
-      expect(find.byType(StudioUnderlineField), findsNWidgets(6));
+      // `EditProfile`: Name, Username, Bio as underline fields (and Pronouns and the Banner rule
+      // picker, kept below); Location and Website as rows with a chevron.
+      expect(find.byType(StudioUnderlineField), findsNWidgets(5));
+      expect(find.text('Location'), findsOneWidget);
+      expect(find.text('Website'), findsOneWidget);
       // Location is picked from the city sheet (a real place), never typed or raw GPS.
-      final location = find.byWidgetPredicate((w) => w is StudioUnderlineField && w.label == 'Location');
-      expect(tester.widget<StudioUnderlineField>(location).readOnly, isTrue);
       expect(find.text('Use my current location'), findsNothing);
       expect(find.text('PINNED BANNER'), findsOneWidget);
       expect(_button('Pin a piece or post'), findsOneWidget);

@@ -39,12 +39,12 @@ abstract final class AuthValidators {
     return null;
   }
 
+  /// At least 8 characters, as the server checks and the boards say (`SignIn3Profile`,
+  /// `LoginReset`: "At least 8 characters"; no other rules).
   static String? password(String? value) {
     final v = value ?? '';
     if (v.isEmpty) return 'Password is required';
     if (v.length < 8) return 'At least 8 characters';
-    if (!RegExp(r'[A-Z]').hasMatch(v)) return 'Include an uppercase letter';
-    if (!RegExp(r'[0-9]').hasMatch(v)) return 'Include a number';
     return null;
   }
 

@@ -10,8 +10,6 @@ import 'package:studio3/screens/signup_page.dart';
 import 'package:studio3/screens/terms_page.dart';
 import 'package:studio3/screens/welcome_page.dart';
 import 'package:studio3/theme/app_theme.dart';
-import 'package:studio3/theme/studio_colors.dart';
-import 'package:studio3/theme/studio_metrics.dart';
 import 'package:studio3/utils/require_login.dart';
 import 'package:studio3/widgets/auth_ui.dart';
 import 'package:studio3/widgets/studio/studio.dart';
@@ -72,19 +70,6 @@ Future<void> _surface(WidgetTester tester, Size size) async {
   addTearDown(() => tester.binding.setSurfaceSize(null));
 }
 
-double? _spanFontSize(InlineSpan span) {
-  if (span is TextSpan && span.style?.fontSize != null && span.text != null && span.text!.isNotEmpty) {
-    return span.style!.fontSize;
-  }
-  if (span is TextSpan) {
-    for (final child in span.children ?? const <InlineSpan>[]) {
-      final size = _spanFontSize(child);
-      if (size != null) return size;
-    }
-  }
-  return null;
-}
-
 double _contrast(Color a, Color b) {
   double lin(double channel) {
     final v = channel > 1 ? channel / 255 : channel;
@@ -110,7 +95,7 @@ void main() {
   });
 
   for (final dark in [false, true]) {
-    testWidgets('login frame, fields and disabled Login (${dark ? 'dark' : 'light'})', (tester) async {
+    testWidgets('first screen: haze, logo, Email and a grey Continue; no browsing, no legal line (${dark ? 'dark' : 'light'})', (tester) async {
       await _surface(tester, const Size(390, 844));
       await tester.pumpWidget(_routed(home: const LoginPage(), dark: dark));
       await tester.pump();
@@ -118,84 +103,69 @@ void main() {
       expect(find.byType(StudioHaze), findsOneWidget);
       expect(tester.state<StudioHazeState>(find.byType(StudioHaze)).isDrifting, isTrue);
       expect(find.byType(StudioLogo), findsOneWidget);
-      expect(find.text('Username or email'), findsOneWidget);
-      expect(find.text('Password'), findsOneWidget);
-      expect(find.text('Remember me'), findsOneWidget);
-      expect(find.text('Forgot login?'), findsOneWidget);
-      expect(find.textContaining('I agree to the', skipOffstage: false), findsNothing);
-      expect(find.textContaining('By continuing, you agree', skipOffstage: false), findsWidgets);
-      expect(find.text('Look around first', skipOffstage: false), findsOneWidget);
+      expect(find.text('Email'), findsOneWidget);
+      expect(find.text('you@email.com'), findsOneWidget);
+      // An account is required (`HandoffAccount`): no guest link, no password here, no legal line.
+      expect(find.text('Look around first', skipOffstage: false), findsNothing);
+      expect(find.byType(AuthGuestLink), findsNothing);
+      expect(find.text('Password'), findsNothing);
+      expect(find.textContaining('By continuing, you agree', skipOffstage: false), findsNothing);
 
       final haze = tester.widget<ColoredBox>(
         find.descendant(of: find.byType(StudioHaze), matching: find.byType(ColoredBox)).first,
       );
-      expect(
-        haze.color,
-        dark ? StudioColors.dark.signInBackground : StudioColors.light.signInBackground,
-      );
+      expect(haze.color, dark ? StudioColors.dark.signInBackground : StudioColors.light.signInBackground);
 
-      final login = find.widgetWithText(StudioButton, 'Login');
-      expect(tester.getSize(login).height, StudioSize.buttonPrimary);
-      expect(tester.widget<StudioButton>(login).onPressed, isNull);
-
+      final cont = find.widgetWithText(StudioButton, 'Continue');
+      expect(tester.getSize(cont).height, StudioSize.buttonPrimary);
+      expect(tester.widget<StudioButton>(cont).onPressed, isNull);
       final formPadding = tester.widgetList<Padding>(find.byType(Padding)).where((padding) {
         final insets = padding.padding;
         return insets is EdgeInsets && insets.left == 24 && insets.right == 24 && insets.bottom == 28;
       });
       expect(formPadding, isNotEmpty);
-
-      final legal = tester.widget<RichText>(
-        find.byWidgetPredicate(
-          (widget) => widget is RichText && widget.text.toPlainText().startsWith('By continuing, you agree'),
-        ),
-      );
-      expect(_spanFontSize(legal.text), 11);
-
-      expect(tester.getSize(find.widgetWithText(TextButton, 'Forgot login?')).height, greaterThanOrEqualTo(44));
     });
   }
 
-  testWidgets('login enables only when the current fields are valid, and the links still route', (tester) async {
-    await _surface(tester, const Size(390, 900));
+  testWidgets('Continue with an email opens Welcome back: the email, Password with the eye, Forgot password?, Log in', (tester) async {
+    await _surface(tester, const Size(390, 844));
     await tester.pumpWidget(_routed(home: const LoginPage()));
     await tester.pump();
-
-    await tester.enterText(find.byType(TextField).at(0), 'amara');
-    await tester.enterText(find.byType(TextField).at(1), 'secret');
+    await tester.enterText(find.byType(TextField), 'jordan@email.com');
     await tester.pump();
-    expect(tester.widget<StudioButton>(find.widgetWithText(StudioButton, 'Login')).onPressed, isNotNull);
-
-    await tester.ensureVisible(find.text('Forgot login?'));
-    await tester.tap(find.text('Forgot login?'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(find.text('Forgot login?'), findsWidgets);
-    expect(find.text('Send reset link'), findsOneWidget);
-
-    Navigator.of(tester.element(find.text('Send reset link'))).pop();
+    expect(tester.widget<StudioButton>(find.widgetWithText(StudioButton, 'Continue')).onPressed, isNotNull);
+    await tester.tap(find.widgetWithText(StudioButton, 'Continue'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
-    final signUp = find.byType(AuthLinkFooter);
-    await tester.ensureVisible(signUp);
-    await tester.tap(signUp);
+    // `LoginPassword`: 28/500 title, the email 15 Graphite, Password 13 Tertiary over 18.
+    final title = tester.widget<Text>(find.text('Welcome back'));
+    expect((title.style!.fontSize, title.style!.fontWeight), (28, StudioType.medium));
+    final email = tester.widget<Text>(find.text('jordan@email.com'));
+    expect((email.style!.fontSize, email.style!.color), (15, StudioColors.light.textSecondary));
+    expect(find.text('Password'), findsOneWidget);
+    expect(find.byTooltip('Show password'), findsOneWidget);
+    expect(tester.widget<TextField>(find.byType(TextField)).obscureText, isTrue);
+    await tester.tap(find.byTooltip('Show password'));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(find.text('Email'), findsOneWidget);
+    expect(tester.widget<TextField>(find.byType(TextField)).obscureText, isFalse);
+    expect(find.text('Forgot password?'), findsOneWidget);
+    expect(tester.widget<StudioButton>(find.widgetWithText(StudioButton, 'Log in')).onPressed, isNull);
+    await tester.enterText(find.byType(TextField), 'secret-pass');
+    await tester.pump();
+    expect(tester.widget<StudioButton>(find.widgetWithText(StudioButton, 'Log in')).onPressed, isNotNull);
+    // Until the server can tell a new email from a known one (B30), new people start here.
+    expect(find.textContaining('Create an account', findRichText: true), findsOneWidget);
 
-    Navigator.of(tester.element(find.text('Email'))).pop();
+    // Back returns to the first screen.
+    await tester.tap(find.byTooltip('Back'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
-
-    final guest = find.byType(AuthGuestLink);
-    await tester.ensureVisible(guest);
-    await tester.tap(guest);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(find.text('home'), findsOneWidget);
+    expect(find.text('Welcome back'), findsNothing);
+    expect(find.widgetWithText(StudioButton, 'Continue'), findsOneWidget);
   });
 
-  testWidgets('login back still pops, haze is still when motion is reduced, and small and large phones do not overflow', (tester) async {
+  testWidgets('first screen: back pops, the haze is still with reduced motion, small and large phones fit', (tester) async {
     await _surface(tester, const Size(390, 844));
     await tester.pumpWidget(
       _routed(
@@ -225,8 +195,7 @@ void main() {
       await tester.pumpWidget(_routed(home: const LoginPage(), textScaler: const TextScaler.linear(1.4)));
       await tester.pump();
       expect(tester.takeException(), isNull);
-      await tester.ensureVisible(find.text('Look around first'));
-      expect(find.text('Login'), findsOneWidget);
+      expect(find.text('Continue'), findsOneWidget);
     }
   });
 
@@ -268,7 +237,7 @@ void main() {
       await tester.tap(find.text('Log in'));
       await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
-      expect(find.text('Username or email'), findsOneWidget);
+      expect(find.text('you@email.com'), findsOneWidget);
 
       tester.state<NavigatorState>(find.byType(Navigator)).pop();
       await tester.pump();
@@ -286,28 +255,23 @@ void main() {
         tester.widgetList<TextField>(find.byType(TextField)).any((field) => field.controller?.text == 'amara@studio.test'),
         isTrue,
       );
-      expect(find.textContaining('I agree to the'), findsOneWidget);
+      // The Terms agreement moved to profile setup (`SignIn3Profile`).
+      expect(find.textContaining('I agree to the'), findsNothing);
     });
   }
 
-  testWidgets('signup starts on email, with terms, and stays off the network until Continue', (tester) async {
+  testWidgets('a direct sign-up starts on email (no terms there, no browsing), Continue once valid', (tester) async {
     await _surface(tester, const Size(390, 900));
     await tester.pumpWidget(_routed(home: const SignUpPage()));
     await tester.pump();
     expect(find.byType(StudioHaze), findsOneWidget);
     expect(find.text('Email'), findsOneWidget);
     expect(find.text('you@email.com'), findsOneWidget);
-    expect(find.textContaining('I agree to the'), findsOneWidget);
-    expect(find.textContaining('Privacy Policy'), findsOneWidget);
-    expect(find.text('Look around first'), findsOneWidget);
+    expect(find.textContaining('I agree to the'), findsNothing);
+    expect(find.text('Look around first'), findsNothing);
     expect(tester.widget<StudioButton>(find.widgetWithText(StudioButton, 'Continue')).onPressed, isNull);
 
     await tester.enterText(find.byType(TextField), 'amara@studio.test');
-    await tester.pump();
-    expect(tester.widget<StudioButton>(find.widgetWithText(StudioButton, 'Continue')).onPressed, isNull);
-
-    await tester.ensureVisible(find.textContaining('I agree to the'));
-    await tester.tap(find.textContaining('I agree to the'));
     await tester.pump();
     expect(tester.widget<StudioButton>(find.widgetWithText(StudioButton, 'Continue')).onPressed, isNotNull);
   });
@@ -345,30 +309,43 @@ void main() {
     expect(find.text('Email'), findsOneWidget);
   });
 
-  testWidgets('profile step is one screen in board order, then password', (tester) async {
-    await _surface(tester, const Size(390, 844));
+  testWidgets('profile step (`SignIn3Profile`): Name, Username, Password, Phone, then the unticked Terms box; Continue waits for both', (tester) async {
+    await _surface(tester, const Size(390, 960));
     await tester.pumpWidget(_routed(home: const SignUpPage(initialStepIndex: 2)));
     await tester.pump();
     expect(find.text('Set up your profile'), findsOneWidget);
     expect(find.text('Add a photo'), findsOneWidget);
     expect(find.text('Optional'), findsOneWidget);
-    expect(find.text('Name'), findsOneWidget);
-    expect(find.text('Username'), findsOneWidget);
-    expect(find.text('Phone'), findsOneWidget);
-    expect(find.text('Text me about events and new work'), findsOneWidget);
     expect(find.bySemanticsLabel('Step 2 of 3'), findsOneWidget);
+    // No marketing texts here (they live in notification settings), and no password step after.
+    expect(find.text('Text me about events and new work'), findsNothing);
+    expect(find.text('Set password'), findsNothing);
+    expect(find.text('Confirm password'), findsNothing);
 
-    final name = tester.getTopLeft(find.text('Name'));
-    final username = tester.getTopLeft(find.text('Username'));
-    final phone = tester.getTopLeft(find.text('Phone'));
-    expect(name.dy, lessThan(username.dy));
-    expect(username.dy, lessThan(phone.dy));
+    final y = [for (final label in ['Name', 'Username', 'Password', 'Phone']) tester.getTopLeft(find.text(label)).dy];
+    expect(y, [...y]..sort());
     expect(find.textContaining('For shipping and delivery updates', skipOffstage: false), findsWidgets);
 
-    await tester.pumpWidget(_routed(home: const SignUpPage(initialStepIndex: 3)));
+    final terms = find.byType(AuthTermsCheckbox);
+    expect(tester.widget<AuthTermsCheckbox>(terms).value, isFalse);
+    expect(find.textContaining('Terms of Service', findRichText: true), findsWidgets);
+    expect(find.textContaining('Privacy Policy', findRichText: true), findsWidgets);
+    expect(tester.getTopLeft(terms).dy, greaterThan(tester.getTopLeft(find.text('Phone')).dy));
+
+    final fields = find.byType(TextField);
+    await tester.enterText(fields.at(0), 'Jordan Lee');
+    await tester.enterText(fields.at(1), 'jordanlee');
+    await tester.enterText(fields.at(2), 'longenough');
     await tester.pump();
-    expect(find.text('Set password'), findsOneWidget);
-    expect(find.text('Create Account'), findsOneWidget);
+    expect(tester.widget<StudioButton>(find.widgetWithText(StudioButton, 'Continue')).onPressed, isNull);
+    await tester.tap(find.byType(AuthTermsCheckbox));
+    await tester.pump();
+    expect(tester.widget<AuthTermsCheckbox>(terms).value, isTrue);
+    expect(tester.widget<StudioButton>(find.widgetWithText(StudioButton, 'Continue')).onPressed, isNotNull);
+    // A short password keeps it grey.
+    await tester.enterText(fields.at(2), 'short');
+    await tester.pump();
+    expect(tester.widget<StudioButton>(find.widgetWithText(StudioButton, 'Continue')).onPressed, isNull);
   });
 
   testWidgets('role step keeps the current roles and requires one before continuing', (tester) async {
@@ -433,7 +410,7 @@ void main() {
     await tester.tap(find.text('Log in'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
-    expect(find.text('Username or email'), findsOneWidget);
+    expect(find.text('you@email.com'), findsOneWidget);
   });
 
   testWidgets('terms page and the required pop-up restyle and still open the terms', (tester) async {
@@ -476,8 +453,8 @@ void main() {
     await tester.pumpWidget(_routed(home: const ForgotPasswordPage(), textScaler: const TextScaler.linear(1.3)));
     await tester.pump();
     expect(tester.takeException(), isNull);
-    expect(find.text('Forgot login?'), findsOneWidget);
-    expect(find.text('Send reset link'), findsOneWidget);
+    expect(find.text('Forgot your password?'), findsOneWidget);
+    expect(find.text('Send the email'), findsOneWidget);
     expect(tester.getSize(find.byTooltip('Back')), const Size(44, 44));
 
     await tester.pumpWidget(

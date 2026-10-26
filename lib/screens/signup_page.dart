@@ -13,9 +13,9 @@ import '../widgets/studio/studio.dart';
 import '../widgets/studio_loading.dart';
 import 'terms_page.dart';
 
-/// Choices collected on the profile screen that register does not accept.
-/// The photo path is uploaded once the account exists. The marketing switch
-/// is kept for the screen only: there is no saved preference for it.
+/// Choices collected on the profile screen that register does not accept: the photo path,
+/// uploaded once the account exists. (Marketing texts are not asked here: `NoteSignIn3Profile`
+/// puts text preferences in notification settings.)
 class SignupExtras {
   static String? photoPath;
   static bool marketingTexts = false;
@@ -25,17 +25,23 @@ enum _SignUpStep {
   email,
   emailVerify,
   profile,
-  password,
 }
 
+/// Sign-up for a new email (Flow 1): the code (`SignIn2Code`), then profile setup
+/// (`SignIn3Profile`: photo, name, username, password, phone, the Terms and Privacy box and
+/// Continue, which creates the account). The email step is only for a direct `/signup`; from
+/// Welcome back the email is known and it starts at the code.
 class SignUpPage extends StatefulWidget {
-  const SignUpPage({super.key, this.initialStepIndex = 0, this.initialEmail});
+  const SignUpPage({super.key, this.initialStepIndex = 0, this.initialEmail, this.startAtCode = false});
 
-  /// 0 email, 1 code, 2 profile, 3 password.
+  /// 0 email, 1 code, 2 profile.
   final int initialStepIndex;
 
-  /// Filled when the sign-in sheet Continue opens this screen.
+  /// The email already entered on the first screen.
   final String? initialEmail;
+
+  /// Send the code to [initialEmail] straight away and open on the code step.
+  final bool startAtCode;
 
   @override
   State<SignUpPage> createState() => _SignUpPageState();
@@ -50,25 +56,25 @@ class _SignUpPageState extends State<SignUpPage> {
     _step = _SignUpStep.values[widget.initialStepIndex.clamp(0, _SignUpStep.values.length - 1)];
     final email = widget.initialEmail?.trim();
     if (email != null && email.isNotEmpty) _emailController.text = email;
+    if (widget.startAtCode && AuthValidators.email(_emailController.text) == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _continueEmail());
+    }
   }
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _usernameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
 
-  bool _agreedToTerms =
-      AuthSession.instance.termsAgreedOnDevice == kTermsVersion;
+  /// Unticked until they tick it (`NoteSignIn3Profile`: its own action, nothing bundled).
+  bool _agreedToTerms = false;
   bool _obscurePassword = true;
-  bool _obscureConfirm = true;
   bool _submitted = false;
   bool _loading = false;
   String _otp = '';
   String? _otpError;
 
   String? _photoPath;
-  bool _marketingTexts = false;
   final _picker = ImagePicker();
 
   bool _checkingUsername = false;
@@ -83,19 +89,6 @@ class _SignUpPageState extends State<SignUpPage> {
 
   String get _fullName => _nameController.text.trim();
 
-  double get _passwordStrength {
-    final p = _passwordController.text;
-    if (p.isEmpty) return 0;
-    var score = 0.0;
-    if (p.length >= 8) score += 0.25;
-    if (p.length >= 12) score += 0.15;
-    if (RegExp(r'[A-Z]').hasMatch(p)) score += 0.2;
-    if (RegExp(r'[a-z]').hasMatch(p)) score += 0.15;
-    if (RegExp(r'[0-9]').hasMatch(p)) score += 0.15;
-    if (RegExp(r'[!@#$%^&*(),.?":{}|<>]').hasMatch(p)) score += 0.1;
-    return score.clamp(0.0, 1.0);
-  }
-
   @override
   void dispose() {
     _usernameDebounce?.cancel();
@@ -105,12 +98,12 @@ class _SignUpPageState extends State<SignUpPage> {
     _usernameController.dispose();
     _phoneController.dispose();
     _passwordController.dispose();
-    _confirmPasswordController.dispose();
     super.dispose();
   }
 
   void _goBack() {
-    if (_step == _SignUpStep.email) {
+    // Started from Welcome back: back from the code returns there, not to an email step.
+    if (_step == _SignUpStep.email || (widget.startAtCode && _step == _SignUpStep.emailVerify)) {
       Navigator.maybePop(context);
       return;
     }
@@ -120,7 +113,6 @@ class _SignUpPageState extends State<SignUpPage> {
       _step = switch (_step) {
         _SignUpStep.emailVerify => _SignUpStep.email,
         _SignUpStep.profile => _SignUpStep.emailVerify,
-        _SignUpStep.password => _SignUpStep.profile,
         _SignUpStep.email => _SignUpStep.email,
       };
     });
@@ -134,7 +126,7 @@ class _SignUpPageState extends State<SignUpPage> {
 
   Future<void> _continueEmail() async {
     setState(() => _submitted = true);
-    if (AuthValidators.email(_emailController.text) != null || !_agreedToTerms) return;
+    if (AuthValidators.email(_emailController.text) != null) return;
 
     // Navigate immediately rather than waiting on the network — sending
     // the code is inherently slow (backend cold start, SMTP delivery) and
@@ -262,10 +254,20 @@ class _SignUpPageState extends State<SignUpPage> {
     }
   }
 
+  bool get _profileReady =>
+      _nameController.text.trim().isNotEmpty &&
+      AuthValidators.username(_usernameController.text) == null &&
+      _usernameAvailable != false &&
+      AuthValidators.password(_passwordController.text) == null &&
+      (_phoneController.text.trim().isEmpty || AuthValidators.phone(_phoneController.text) == null) &&
+      _agreedToTerms;
+
+  /// Continue on profile setup: the username is checked once more, then the account is made.
   Future<void> _continueProfile() async {
     setState(() => _submitted = true);
     if (_nameError() != null) return;
     if (AuthValidators.username(_usernameController.text) != null) return;
+    if (AuthValidators.password(_passwordController.text) != null || !_agreedToTerms) return;
     final phone = _phoneController.text.trim();
     if (phone.isNotEmpty && AuthValidators.phone(phone) != null) return;
 
@@ -274,32 +276,22 @@ class _SignUpPageState extends State<SignUpPage> {
       final result = await AuthService.instance.checkUsername(_usernameController.text);
       if (!result.available) {
         setState(() {
+          _loading = false;
           _usernameAvailable = false;
           _usernameApiMessage = result.message ?? 'Username is not available';
           _usernameSuggestions = result.suggestions;
         });
         return;
       }
-      setState(() {
-        _submitted = false;
-        _step = _SignUpStep.password;
-      });
     } catch (e) {
       if (mounted) showAuthError(context, e);
-    } finally {
       if (mounted) setState(() => _loading = false);
+      return;
     }
+    await _createAccount();
   }
 
   Future<void> _createAccount() async {
-    setState(() => _submitted = true);
-    final passErr = AuthValidators.password(_passwordController.text);
-    final confirmErr = AuthValidators.confirmPassword(
-      _confirmPasswordController.text,
-      _passwordController.text,
-    );
-    if (passErr != null || confirmErr != null) return;
-
     setState(() => _loading = true);
     try {
       final user = await AuthService.instance.register(
@@ -313,7 +305,7 @@ class _SignUpPageState extends State<SignUpPage> {
             : _phoneController.text.trim(),
       );
       SignupExtras.photoPath = _photoPath;
-      SignupExtras.marketingTexts = _marketingTexts && _phoneController.text.trim().isNotEmpty;
+      SignupExtras.marketingTexts = false;
       await AuthSession.instance.saveTermsAgreedOnDevice(kTermsVersion);
       if (!mounted) return;
       // Clear the whole stack so a guest MainShell that pushed login/sign-up
@@ -371,28 +363,19 @@ class _SignUpPageState extends State<SignUpPage> {
       _SignUpStep.profile => Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _marketingSwitch(),
+            AuthTermsCheckbox(
+              value: _agreedToTerms,
+              showError: _submitted,
+              onChanged: (v) => setState(() => _agreedToTerms = v),
+            ),
             const SizedBox(height: 20),
             AuthPrimaryButton(
               label: 'Continue',
-              enabled: _nameController.text.trim().isNotEmpty &&
-                  AuthValidators.username(_usernameController.text) == null &&
-                  _usernameAvailable != false &&
-                  (_phoneController.text.trim().isEmpty ||
-                      AuthValidators.phone(_phoneController.text) == null),
+              enabled: _profileReady,
+              loading: _loading,
               onPressed: _continueProfile,
             ),
           ],
-        ),
-      _SignUpStep.password => AuthPrimaryButton(
-          label: 'Create Account',
-          enabled: AuthValidators.password(_passwordController.text) == null &&
-              AuthValidators.confirmPassword(
-                    _confirmPasswordController.text,
-                    _passwordController.text,
-                  ) ==
-                  null,
-          onPressed: _createAccount,
         ),
       _ => null,
     };
@@ -402,7 +385,6 @@ class _SignUpPageState extends State<SignUpPage> {
     return switch (_step) {
       _SignUpStep.emailVerify => _buildOtpStep(key: const ValueKey('otp')),
       _SignUpStep.profile => _buildProfileStep(key: const ValueKey('profile')),
-      _SignUpStep.password => _buildPasswordStep(key: const ValueKey('password')),
       _SignUpStep.email => const SizedBox.shrink(),
     };
   }
@@ -423,26 +405,17 @@ class _SignUpPageState extends State<SignUpPage> {
           onChanged: (_) => setState(() {}),
         ),
         const SizedBox(height: 14),
-        AuthTermsCheckbox(
-          value: _agreedToTerms,
-          showError: _submitted,
-          onChanged: (v) => setState(() => _agreedToTerms = v),
-        ),
-        const SizedBox(height: 14),
         AuthPrimaryButton(
           label: 'Continue',
-          enabled: AuthValidators.email(_emailController.text) == null && _agreedToTerms,
+          enabled: AuthValidators.email(_emailController.text) == null,
           loading: _loading,
           onPressed: _continueEmail,
         ),
-        const AuthGuestLink(label: 'Look around first'),
         AuthLinkFooter(
           prompt: 'Already have an account? ',
-          actionLabel: 'Sign in',
+          actionLabel: 'Log in',
           onTap: () => Navigator.pushNamed(context, '/login'),
         ),
-        const SizedBox(height: 14),
-        const AuthLegalLine(),
       ],
     );
   }
@@ -626,6 +599,25 @@ class _SignUpPageState extends State<SignUpPage> {
         ],
         const SizedBox(height: 28),
         StudioUnderlineField(
+          label: 'Password',
+          controller: _passwordController,
+          obscureText: _obscurePassword,
+          hint: 'At least 8 characters',
+          valueSize: 19,
+          labelGap: 8,
+          underlineGap: 10,
+          labelColor: c.textTertiary,
+          errorText: _submitted ? AuthValidators.password(_passwordController.text) : null,
+          autofillHints: const [AutofillHints.newPassword],
+          textInputAction: TextInputAction.next,
+          onChanged: (_) => setState(() {}),
+          trailing: AuthEyeButton(
+            obscured: _obscurePassword,
+            onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+          ),
+        ),
+        const SizedBox(height: 28),
+        StudioUnderlineField(
           label: 'Phone',
           controller: _phoneController,
           mono: true,
@@ -641,99 +633,7 @@ class _SignUpPageState extends State<SignUpPage> {
               ? AuthValidators.phone(_phoneController.text)
               : null,
           textInputAction: TextInputAction.done,
-          onChanged: (value) {
-            setState(() {
-              if (value.trim().isEmpty) _marketingTexts = false;
-            });
-          },
-        ),
-      ],
-    );
-  }
-
-  Widget _marketingSwitch() {
-    final c = context.studio;
-    final phoneAdded = _phoneController.text.trim().isNotEmpty;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        StudioSwitch(
-          value: phoneAdded && _marketingTexts,
-          semanticLabel: 'Text me about events and new work',
-          onChanged: phoneAdded
-              ? (next) => setState(() => _marketingTexts = next)
-              : (_) => setState(() => _marketingTexts = false),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Text me about events and new work',
-                style: StudioType.body15(color: c.textPrimary).copyWith(fontWeight: StudioType.medium),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'From Studio 3 and artists you follow. Message and data rates may apply. Reply STOP to opt out anytime.',
-                style: StudioType.caption12(height: 1.5, color: c.textTertiary),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPasswordStep({required Key key}) {
-    final c = context.studio;
-    final strength = _passwordStrength;
-    return Column(
-      key: key,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const AuthPageTitle(
-          title: 'Set password',
-          subtitle: 'Create a strong password for your account',
-        ),
-        const SizedBox(height: 28),
-        AuthIconInput(
-          controller: _passwordController,
-          placeholder: 'Password',
-          obscureText: _obscurePassword,
-          errorText: _submitted ? AuthValidators.password(_passwordController.text) : null,
-          textInputAction: TextInputAction.next,
           onChanged: (_) => setState(() {}),
-          onToggleVisibility: () => setState(() => _obscurePassword = !_obscurePassword),
-        ),
-        if (_passwordController.text.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(2),
-            child: LinearProgressIndicator(
-              value: strength,
-              minHeight: 3,
-              backgroundColor: c.line,
-              color: strength < 0.4
-                  ? c.alert
-                  : strength < 0.7
-                      ? c.textSecondary
-                      : c.positive,
-            ),
-          ),
-        ],
-        const SizedBox(height: 14),
-        AuthIconInput(
-          controller: _confirmPasswordController,
-          placeholder: 'Confirm password',
-          obscureText: _obscureConfirm,
-          errorText: _submitted
-              ? AuthValidators.confirmPassword(_confirmPasswordController.text, _passwordController.text)
-              : null,
-          textInputAction: TextInputAction.done,
-          onSubmitted: (_) => _createAccount(),
-          onChanged: (_) => setState(() {}),
-          onToggleVisibility: () => setState(() => _obscureConfirm = !_obscureConfirm),
         ),
       ],
     );

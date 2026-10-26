@@ -685,6 +685,21 @@ class AuthTermsCheckbox extends StatelessWidget {
       height: 1.45,
       color: showError && !value ? c.textPrimary : c.textSecondary,
     );
+    InlineSpan link(String label) => WidgetSpan(
+      alignment: PlaceholderAlignment.baseline,
+      baseline: TextBaseline.alphabetic,
+      child: GestureDetector(
+        onTap: () => Navigator.pushNamed(context, '/terms'),
+        child: Text(
+          label,
+          style: base.copyWith(
+            color: c.textPrimary,
+            decoration: TextDecoration.underline,
+            decorationColor: c.textPrimary,
+          ),
+        ),
+      ),
+    );
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -719,25 +734,13 @@ class AuthTermsCheckbox extends StatelessWidget {
                 style: base,
                 children: [
                   const TextSpan(text: 'I agree to the '),
-                  WidgetSpan(
-                    alignment: PlaceholderAlignment.baseline,
-                    baseline: TextBaseline.alphabetic,
-                    child: GestureDetector(
-                      onTap: () => Navigator.pushNamed(context, '/terms'),
-                      child: Text(
-                        'Terms of Use (EULA)',
-                        style: base.copyWith(
-                          color: c.textPrimary,
-                          fontWeight: StudioType.medium,
-                          decoration: TextDecoration.underline,
-                          decorationColor: c.textPrimary,
-                        ),
-                      ),
-                    ),
-                  ),
+                  link('Terms of Service'),
+                  const TextSpan(text: ' and '),
+                  // No separate policy page yet: both open the in-app Terms.
+                  link('Privacy Policy'),
+                  // Kept for App Store review (guideline 1.2): the agreement covers this.
                   const TextSpan(
-                    text: '. Studio3 has zero tolerance for objectionable '
-                        'content or abusive users.',
+                    text: '. Studio 3 has zero tolerance for objectionable content or abusive users.',
                   ),
                 ],
               ),
@@ -829,6 +832,36 @@ class SignInLaunchScaffold extends StatelessWidget {
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final logoHeight = (constraints.maxHeight * 0.42).clamp(120.0, 309.0);
+                final back = SizedBox(
+                  height: 44,
+                  child: showBack
+                      ? Align(
+                          alignment: Alignment.centerLeft,
+                          child: _AuthBackButton(onPressed: onBackPressed ?? () => Navigator.maybePop(context)),
+                        )
+                      : null,
+                );
+                final formBlock = Padding(padding: const EdgeInsets.fromLTRB(24, 16, 24, 28), child: form);
+                // With room to spare, the logo sits in the middle of the space above the form
+                // (`SignInFirst`) and shrinks if it must. With the keyboard up or large text, the
+                // whole screen scrolls instead. (The form is about 260 tall at normal text size.)
+                final textScale = MediaQuery.textScalerOf(context).scale(16) / 16;
+                if (constraints.maxHeight >= 44 + logoHeight + 260 * textScale) {
+                  return Column(
+                    children: [
+                      back,
+                      Expanded(
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(maxHeight: logoHeight),
+                            child: const FittedBox(fit: BoxFit.contain, child: StudioLogo.signIn()),
+                          ),
+                        ),
+                      ),
+                      formBlock,
+                    ],
+                  );
+                }
                 return SingleChildScrollView(
                   child: ConstrainedBox(
                     constraints: BoxConstraints(minHeight: constraints.maxHeight),
@@ -837,30 +870,14 @@ class SignInLaunchScaffold extends StatelessWidget {
                       children: [
                         Column(
                           children: [
-                            SizedBox(
-                              height: 44,
-                              child: showBack
-                                  ? Align(
-                                      alignment: Alignment.centerLeft,
-                                      child: _AuthBackButton(
-                                        onPressed: onBackPressed ?? () => Navigator.maybePop(context),
-                                      ),
-                                    )
-                                  : null,
-                            ),
+                            back,
                             SizedBox(
                               height: logoHeight,
-                              child: const FittedBox(
-                                fit: BoxFit.contain,
-                                child: StudioLogo.signIn(),
-                              ),
+                              child: const FittedBox(fit: BoxFit.contain, child: StudioLogo.signIn()),
                             ),
                           ],
                         ),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(24, 16, 24, 28),
-                          child: form,
-                        ),
+                        formBlock,
                       ],
                     ),
                   ),
@@ -884,6 +901,7 @@ class SignInStepScaffold extends StatelessWidget {
     this.progressCurrent,
     this.progressTotal = 3,
     this.bottom,
+    this.bodyTop = 40,
   });
 
   final Widget body;
@@ -893,6 +911,10 @@ class SignInStepScaffold extends StatelessWidget {
   final int? progressCurrent;
   final int progressTotal;
   final Widget? bottom;
+
+  /// Space above the body: 40 on the sign-up steps, 24 on the log-in boards (`LoginPassword`,
+  /// `LoginReset`).
+  final double bodyTop;
 
   @override
   Widget build(BuildContext context) {
@@ -922,7 +944,7 @@ class SignInStepScaffold extends StatelessWidget {
             ),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(28, 40, 28, 24),
+                padding: EdgeInsets.fromLTRB(28, bodyTop, 28, 24),
                 child: body,
               ),
             ),
@@ -955,6 +977,34 @@ class _AuthBackButton extends StatelessWidget {
         padding: EdgeInsets.zero,
       ),
       icon: StudioIcon(StudioIcons.backBold, size: 22, color: context.studio.textPrimary),
+    );
+  }
+}
+
+/// The eye on a password field (`LoginPassword`, `LoginReset`, `SignIn3Profile`): 20 Graphite in a
+/// 44 tap area; crossed out while the password shows.
+class AuthEyeButton extends StatelessWidget {
+  const AuthEyeButton({super.key, required this.obscured, required this.onPressed});
+
+  final bool obscured;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: obscured ? 'Show password' : 'Hide password',
+      onPressed: onPressed,
+      style: IconButton.styleFrom(
+        fixedSize: const Size(44, 32),
+        minimumSize: const Size(44, 32),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        padding: EdgeInsets.zero,
+      ),
+      icon: StudioIcon(
+        obscured ? StudioIcons.eye : StudioIcons.eyeOff,
+        size: 20,
+        color: context.studio.textSecondary,
+      ),
     );
   }
 }

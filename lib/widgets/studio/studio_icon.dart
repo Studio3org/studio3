@@ -25,6 +25,8 @@ abstract final class StudioIcons {
   static const String check = '$_dir/check.svg';
   static const String close = '$_dir/close.svg';
   static const String edit = '$_dir/edit_piece.svg';
+  static const String eye = '$_dir/eye.svg';
+  static const String eyeOff = '$_dir/eye_off.svg';
   static const String events = '$_dir/events.svg';
   static const String folder = '$_dir/folder.svg';
   static const String folderOptions = '$_dir/conversation_options.svg';

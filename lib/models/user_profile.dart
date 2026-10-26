@@ -22,6 +22,7 @@ class UserProfile {
     this.onboardingComplete = false,
     this.sellerEnabled = false,
     this.canChangeUsername = true,
+    this.lastUsernameChangeAt,
     this.followingCount = 0,
     this.followersCount = 0,
     this.piecesCount = 0,
@@ -62,6 +63,9 @@ class UserProfile {
   final bool onboardingComplete;
   final bool sellerEnabled;
   final bool canChangeUsername;
+
+  /// When the username last changed; it can change again 30 days later (own profile only).
+  final DateTime? lastUsernameChangeAt;
   final int followingCount;
   final int followersCount;
   final int piecesCount;
@@ -120,6 +124,7 @@ class UserProfile {
       sellerEnabled:
           json['sellerEnabled'] as bool? ?? json['isSeller'] as bool? ?? false,
       canChangeUsername: json['canChangeUsername'] as bool? ?? true,
+      lastUsernameChangeAt: DateTime.tryParse(json['lastUsernameChangeAt'] as String? ?? '')?.toLocal(),
       followingCount: _intFrom(json['followingCount'] ?? json['following']),
       followersCount: _intFrom(json['followersCount'] ?? json['followers']),
       piecesCount: _intFrom(json['piecesCount'] ?? json['pieces']),
@@ -174,6 +179,7 @@ class UserProfile {
       onboardingComplete: onboardingComplete,
       sellerEnabled: sellerEnabled,
       canChangeUsername: canChangeUsername,
+      lastUsernameChangeAt: lastUsernameChangeAt,
       followingCount: followingCount,
       followersCount: followersCount ?? this.followersCount,
       piecesCount: piecesCount,

@@ -198,9 +198,9 @@ class Studio3App extends StatelessWidget {
   }
 }
 
-/// Lets signed-out guests browse (App Store guideline 5.1.1(v)) but sends a
-/// session that just ended back to /login, routes non-onboarded accounts to
-/// onboarding, and makes accounts agree to the current Terms of Use.
+/// Sends anyone signed out to sign-in ([kAccountRequired]; without it, guests browse and only a
+/// session that just ended goes back to /login), routes non-onboarded accounts to onboarding,
+/// and makes accounts agree to the current Terms of Use.
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key, required this.child});
 
@@ -255,10 +255,10 @@ class _AuthGateState extends State<AuthGate> {
     if (!session.isLoggedIn) {
       _deviceRegistered = false;
       ChatSocketService.instance.disconnect();
-      // Starting signed out is fine — that's a guest browsing. Only a
-      // session that ends while the app is open (logout, revoked refresh
-      // token, account deletion) goes back to the login screen.
-      if (_wasLoggedIn) {
+      // An account is required, so signed out always means sign-in. Without that rule,
+      // starting signed out is a guest browsing, and only a session that ends while the app
+      // is open (logout, revoked refresh token, account deletion) goes back to sign-in.
+      if (kAccountRequired || _wasLoggedIn) {
         _wasLoggedIn = false;
         Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
       }

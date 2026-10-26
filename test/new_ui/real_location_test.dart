@@ -284,8 +284,9 @@ void main() {
       setBoardViewport(tester, height: 1400);
       await tester.pumpWidget(MaterialApp(theme: AppTheme.light, home: const EditProfilePage()));
       await _settle(tester);
-      final field = find.byWidgetPredicate((w) => w is StudioUnderlineField && w.label == 'Location');
-      expect(tester.widget<StudioUnderlineField>(field).readOnly, isTrue);
+      // A row that opens the city sheet (`EditProfile`), not a field to type in.
+      final field = find.text('Location');
+      expect(find.byWidgetPredicate((w) => w is StudioUnderlineField && w.label == 'Location'), findsNothing);
       expect(find.text('Use my current location'), findsNothing); // no raw-GPS button
 
       await tester.tap(field);

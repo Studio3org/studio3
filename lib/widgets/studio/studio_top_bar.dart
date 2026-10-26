@@ -17,6 +17,7 @@ class StudioTopBar extends StatelessWidget implements PreferredSizeWidget {
     required BuildContext context,
     required this.title,
     this.onBack,
+    this.leading,
     this.actions,
     this.bottom,
     this.automaticallyImplyLeading = true,
@@ -26,6 +27,9 @@ class StudioTopBar extends StatelessWidget implements PreferredSizeWidget {
 
   /// Defaults to popping the route. Pass this when the pop result matters.
   final VoidCallback? onBack;
+
+  /// In place of the back chevron, e.g. Cancel on `EditProfile`.
+  final Widget? leading;
 
   final List<Widget>? actions;
   final PreferredSizeWidget? bottom;
@@ -78,7 +82,9 @@ class StudioTopBar extends StatelessWidget implements PreferredSizeWidget {
             padding: const EdgeInsets.fromLTRB(8, 12, 8, 0),
             child: Row(
               children: [
-                if (showBack)
+                if (leading != null)
+                  leading!
+                else if (showBack)
                   _BackButton(onPressed: onBack ?? () => Navigator.maybePop(context))
                 else
                   const SizedBox(width: StudioSize.tapTarget),
