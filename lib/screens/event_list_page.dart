@@ -11,10 +11,19 @@ import 'event_detail_page.dart';
 /// "See all" and a category from the Events tab: the events as `EvTab` list rows under the
 /// shared top bar. No board of its own (plan section 17: See-all pages).
 class EventListPage extends StatefulWidget {
-  const EventListPage({super.key, required this.title, required this.load, this.debugNow});
+  const EventListPage({
+    super.key,
+    required this.title,
+    required this.load,
+    this.newestFirst = false,
+    this.debugNow,
+  });
 
   final String title;
   final Future<List<StudioEvent>> Function() load;
+
+  /// Latest first (Past events); soonest first otherwise.
+  final bool newestFirst;
 
   @visibleForTesting
   final DateTime? debugNow;
@@ -50,7 +59,8 @@ class _EventListPageState extends State<EventListPage> {
       final events = await widget.load();
       if (!mounted) return;
       setState(() {
-        _events = events..sort((a, b) => a.startsAt.compareTo(b.startsAt));
+        _events = events
+          ..sort((a, b) => widget.newestFirst ? b.startsAt.compareTo(a.startsAt) : a.startsAt.compareTo(b.startsAt));
         _failed = false;
       });
     } catch (_) {

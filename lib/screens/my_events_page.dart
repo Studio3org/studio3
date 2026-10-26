@@ -3,164 +3,278 @@ import 'package:flutter/material.dart';
 import '../models/studio_event.dart';
 import '../services/api_exception.dart';
 import '../services/event_service.dart';
-import '../theme/home_feed_tokens.dart';
 import '../widgets/delete_confirmation_dialog.dart';
-import '../widgets/home_feed/home_feed_widgets.dart';
+import '../widgets/events/your_events_widgets.dart';
+import '../widgets/studio/studio.dart';
 import 'event_detail_page.dart';
+import 'event_list_page.dart';
 import 'event_post_page.dart';
 import 'scan_qr_page.dart';
-import '../theme/app_fonts.dart';
 
-/// The viewer's own relationship to events — what they host, and what they've registered
-/// for — as opposed to the Events tab's browse, or Saved's bookmarks of other people's.
+/// Your events (`EvMyTickets`), from the ticket icon on the Events tab: one page that scrolls.
+/// Upcoming (the next event as a large card, the rest as rows), Saved (a sideways row of
+/// flyers), then rows for the events the viewer hosts and for past events. Nothing at all:
+/// the empty state with the grey logo mark.
 ///
-/// Two tabs rather than two screens: a host is very often also a guest at somebody else's
-/// event, and switching between "mine" and "I'm going to" is a tab flick, not a navigation.
+/// "Going" is an RSVP today, with no ticket count or QR code (BACKEND_CHANGES B22), so the
+/// large card's button opens the event. Scanning a piece's code at an event sits in the
+/// header's right slot; hosting moved to "Events you host".
 class MyEventsPage extends StatefulWidget {
-  const MyEventsPage({super.key});
+  const MyEventsPage({super.key, this.debugGoing, this.debugSaved, this.debugHosting, this.debugNow});
+
+  /// For tests: the three lists and the clock.
+  @visibleForTesting
+  final List<StudioEvent>? debugGoing;
+  @visibleForTesting
+  final List<StudioEvent>? debugSaved;
+  @visibleForTesting
+  final List<StudioEvent>? debugHosting;
+  @visibleForTesting
+  final DateTime? debugNow;
 
   static void open(BuildContext context) {
-    Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(builder: (_) => const MyEventsPage()),
-    );
+    Navigator.of(context).push<void>(MaterialPageRoute<void>(builder: (_) => const MyEventsPage()));
   }
 
   @override
   State<MyEventsPage> createState() => _MyEventsPageState();
 }
 
-class _MyEventsPageState extends State<MyEventsPage>
-    with SingleTickerProviderStateMixin {
-  late final TabController _tabs = TabController(length: 2, vsync: this);
-  final _hostingKey = GlobalKey<_EventScopeListState>();
+class _MyEventsPageState extends State<MyEventsPage> {
+  List<StudioEvent>? _going;
+  List<StudioEvent> _saved = const [];
+  List<StudioEvent> _hosting = const [];
+  bool _failed = false;
 
-  @override
-  void dispose() {
-    _tabs.dispose();
-    super.dispose();
-  }
-
-  Future<void> _hostEvent() async {
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(builder: (_) => const EventPostPage()),
-    );
-    // Publishing (or saving a draft) happens on that flow's own screens, well after this
-    // future resolves on the first pop — reload regardless of what actually happened rather
-    // than trying to thread a "something changed" signal back through several screens.
-    _hostingKey.currentState?.reload();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: HomeFeedTokens.detailBackground,
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(4, 8, 16, 4),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      size: 18,
-                      color: HomeFeedTokens.textPrimary,
-                    ),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                  Expanded(
-                    child: Text(
-                      'My events',
-                      style: AppFonts.inter(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        color: HomeFeedTokens.textPrimary,
-                      ),
-                    ),
-                  ),
-                  // Scanning a piece's code at an event (it was on the Events tab header,
-                  // which `EvTab` leaves out).
-                  IconButton(
-                    icon: const Icon(Icons.qr_code_scanner, color: HomeFeedTokens.textPrimary),
-                    tooltip: 'Scan a code',
-                    onPressed: () => ScanQrPage.open(context),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.add, color: HomeFeedTokens.textPrimary),
-                    tooltip: 'Host an event',
-                    onPressed: _hostEvent,
-                  ),
-                ],
-              ),
-            ),
-            TabBar(
-              controller: _tabs,
-              labelColor: HomeFeedTokens.textPrimary,
-              unselectedLabelColor: HomeFeedTokens.textSecondary,
-              indicatorColor: HomeFeedTokens.textPrimary,
-              labelStyle: AppFonts.inter(fontSize: 14, fontWeight: FontWeight.w600),
-              unselectedLabelStyle: AppFonts.inter(fontSize: 14),
-              tabs: const [
-                Tab(text: 'My events'),
-                Tab(text: 'Registered'),
-              ],
-            ),
-            const Divider(height: 1, color: Color(0xFFE5E1D8)),
-            Expanded(
-              child: TabBarView(
-                controller: _tabs,
-                children: [
-                  _EventScopeList(key: _hostingKey, scope: 'hosting'),
-                  const _EventScopeList(scope: 'going'),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _EventScopeList extends StatefulWidget {
-  const _EventScopeList({super.key, required this.scope});
-
-  /// `hosting` or `going` — the two scopes [EventService.list] understands for this page.
-  final String scope;
-
-  @override
-  State<_EventScopeList> createState() => _EventScopeListState();
-}
-
-class _EventScopeListState extends State<_EventScopeList>
-    with AutomaticKeepAliveClientMixin {
-  List<StudioEvent>? _events;
-  String? _error;
-
-  @override
-  bool get wantKeepAlive => true;
+  bool get _debug => widget.debugGoing != null;
+  DateTime get _now => widget.debugNow ?? DateTime.now();
 
   @override
   void initState() {
     super.initState();
-    reload();
+    if (_debug) {
+      _going = widget.debugGoing;
+      _saved = widget.debugSaved ?? const [];
+      _hosting = widget.debugHosting ?? const [];
+      return;
+    }
+    _load();
   }
 
-  Future<void> reload() async {
-    setState(() => _error = null);
+  Future<void> _load() async {
+    if (_debug) return;
+    final service = EventService.instance;
+    // Saved and hosting failing should not hide the events the viewer is going to.
+    Future<List<StudioEvent>> orEmpty(Future<List<StudioEvent>> f) => f.catchError((_) => <StudioEvent>[]);
     try {
-      final events = await EventService.instance.list(scope: widget.scope);
+      final results = await Future.wait([
+        service.list(scope: 'going'),
+        orEmpty(service.list(scope: 'saved')),
+        orEmpty(service.list(scope: 'hosting')),
+      ]);
       if (!mounted) return;
-      setState(() => _events = events);
-    } on ApiException catch (e) {
-      if (!mounted) return;
-      setState(() => _error = e.message);
+      setState(() {
+        _going = results[0];
+        _saved = results[1];
+        _hosting = results[2];
+        _failed = false;
+      });
     } catch (_) {
-      if (!mounted) return;
-      setState(() => _error = "Couldn't load your events.");
+      if (mounted) setState(() => _failed = true);
     }
+  }
+
+  Future<void> _open(StudioEvent event) async {
+    await openEventDetail(context, event);
+    _load();
+  }
+
+  void _openPast(List<StudioEvent> past) {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => EventListPage(
+          title: 'Past events',
+          newestFirst: true,
+          debugNow: widget.debugNow,
+          load: () async => _debug
+              ? past
+              : (await EventService.instance.list(scope: 'going')).where((e) => e.isOver).toList(),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openHosting() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(builder: (_) => HostedEventsPage(debugEvents: _debug ? _hosting : null)),
+    );
+    _load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.studio;
+    final going = _going;
+    final now = _now;
+    Widget body;
+    if (going == null) {
+      body = _failed
+          ? Center(
+              child: StudioEmptyState(
+                title: "Your events didn't load",
+                actionLabel: 'Try again',
+                onAction: _load,
+              ),
+            )
+          : Center(
+              child: SizedBox.square(
+                dimension: 20,
+                child: CircularProgressIndicator(strokeWidth: 2, color: c.textSecondary),
+              ),
+            );
+    } else {
+      bool ahead(StudioEvent e) => !e.isOver && !e.isCancelled;
+      final upcoming = going.where(ahead).toList()..sort((a, b) => a.startsAt.compareTo(b.startsAt));
+      final past = going.where((e) => e.isOver).toList();
+      final goingIds = {for (final e in going) e.id};
+      // Saved: bookmarked but not going; gone once it ends.
+      final saved = _saved.where((e) => ahead(e) && !goingIds.contains(e.id)).toList()
+        ..sort((a, b) => a.startsAt.compareTo(b.startsAt));
+      if (upcoming.isEmpty && saved.isEmpty && past.isEmpty && _hosting.isEmpty) {
+        body = Center(
+          child: StudioEmptyState(
+            title: 'No events yet',
+            message: 'Events you get tickets for or save show up here.',
+            actionLabel: 'Browse events',
+            onAction: () => Navigator.of(context).maybePop(),
+          ),
+        );
+      } else {
+        final children = <Widget>[];
+        if (upcoming.isNotEmpty) {
+          children.add(const YourEventsLabel('Upcoming'));
+          children.add(
+            NextEventCard(
+              event: upcoming.first,
+              now: now,
+              buttonLabel: 'View event',
+              onTap: () => _open(upcoming.first),
+            ),
+          );
+          for (var i = 1; i < upcoming.length; i++) {
+            if (i == 1) children.add(const SizedBox(height: 14));
+            final e = upcoming[i];
+            children.add(YourEventRow(event: e, line: e.venue, first: i == 1, onTap: () => _open(e)));
+          }
+        }
+        if (saved.isNotEmpty) {
+          children.add(const YourEventsLabel('Saved'));
+          children.add(
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              clipBehavior: Clip.none,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (var i = 0; i < saved.length; i++) ...[
+                    if (i > 0) const SizedBox(width: 12),
+                    SavedEventCard(event: saved[i], onTap: () => _open(saved[i])),
+                  ],
+                ],
+              ),
+            ),
+          );
+        }
+        if (_hosting.isNotEmpty) {
+          children.add(const SizedBox(height: 30));
+          children.add(
+            YourEventsLinkRow(label: 'Events you host', detail: '${_hosting.length}', onTap: _openHosting),
+          );
+        }
+        if (past.isNotEmpty) {
+          children.add(SizedBox(height: _hosting.isNotEmpty ? 0 : 30));
+          children.add(YourEventsLinkRow(label: 'Past events', onTap: () => _openPast(past)));
+        }
+        body = RefreshIndicator(
+          color: c.textPrimary,
+          onRefresh: _load,
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: EdgeInsets.fromLTRB(24, 8, 24, 40 + MediaQuery.paddingOf(context).bottom),
+            children: children,
+          ),
+        );
+      }
+    }
+
+    return Scaffold(
+      backgroundColor: c.background,
+      appBar: StudioTopBar(
+        context: context,
+        title: 'Your events',
+        actions: [
+          // Scanning the code beside a piece at an event (the Events tab header leaves it out).
+          IconButton(
+            onPressed: () => ScanQrPage.open(context),
+            tooltip: 'Scan a code',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints.tightFor(width: 44, height: 44),
+            icon: StudioIcon(StudioIcons.scan, size: 22, color: c.textPrimary),
+          ),
+        ],
+      ),
+      body: body,
+    );
+  }
+}
+
+/// Events you host (no board; `EvMyTickets` row style): drafts, published and cancelled, newest
+/// first, each with its state or headcount; + hosts another; ··· deletes.
+class HostedEventsPage extends StatefulWidget {
+  const HostedEventsPage({super.key, this.debugEvents});
+
+  @visibleForTesting
+  final List<StudioEvent>? debugEvents;
+
+  @override
+  State<HostedEventsPage> createState() => _HostedEventsPageState();
+}
+
+class _HostedEventsPageState extends State<HostedEventsPage> {
+  List<StudioEvent>? _events;
+  bool _failed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _events = widget.debugEvents;
+    if (_events == null) _load();
+  }
+
+  Future<void> _load() async {
+    if (widget.debugEvents != null) return;
+    try {
+      final events = await EventService.instance.list(scope: 'hosting');
+      if (!mounted) return;
+      setState(() {
+        _events = events;
+        _failed = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _failed = true);
+    }
+  }
+
+  Future<void> _host() async {
+    await Navigator.of(context).push<void>(MaterialPageRoute<void>(builder: (_) => const EventPostPage()));
+    // Publishing (or saving a draft) happens on that flow's own screens, well after this
+    // future resolves on the first pop — reload regardless of what actually happened.
+    _load();
+  }
+
+  Future<void> _open(StudioEvent event) async {
+    await openEventDetail(context, event);
+    _load();
   }
 
   Future<void> _delete(StudioEvent event) async {
@@ -173,313 +287,104 @@ class _EventScopeListState extends State<_EventScopeList>
     } catch (e) {
       if (!mounted) return;
       setState(() => _events = previous);
-      final message = e is ApiException ? e.message : 'Failed to delete event';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      showStudioToast(context, e is ApiException ? e.message : 'Could not delete the event.', icon: null);
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    super.build(context);
-    final events = _events;
-
-    if (events == null && _error == null) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (_error != null && events == null) {
-      return _EmptyState(
-        message: _error!,
-        actionLabel: 'Retry',
-        onAction: reload,
-      );
-    }
-    if (events!.isEmpty) {
-      return _EmptyState(
-        message: widget.scope == 'hosting'
-            ? "You haven't hosted an event yet"
-            : "You haven't registered for an event yet",
-      );
-    }
-
-    return RefreshIndicator(
-      onRefresh: reload,
-      child: ListView.separated(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-        physics: const AlwaysScrollableScrollPhysics(),
-        itemCount: events.length,
-        separatorBuilder: (_, _) => const SizedBox(height: 12),
-        itemBuilder: (context, index) {
-          final event = events[index];
-          return _EventRow(
-            event: event,
-            showParticipantCount: widget.scope == 'hosting',
-            // Awaited so a cancelled RSVP or a deleted event on the detail page is reflected
-            // here the moment the viewer is back, rather than on this list's next visit.
-            onTap: () async {
-              await openEventDetail(context, event);
-              if (mounted) reload();
-            },
-            onDelete: widget.scope == 'hosting' ? () => _delete(event) : null,
-          );
-        },
-      ),
-    );
-  }
-}
-
-/// One event, one row: cover on the left, everything else to its right — the same shape as
-/// every other list in the app (Saved, a profile grid's list mode), rather than the card
-/// grids the Events tab itself uses.
-class _EventRow extends StatelessWidget {
-  const _EventRow({
-    required this.event,
-    required this.showParticipantCount,
-    required this.onTap,
-    this.onDelete,
-  });
-
-  final StudioEvent event;
-
-  /// True on "My events" — the number the host actually opened this list to see. False on
-  /// "Registered", where the viewer is one of that number, not the person counting it.
-  final bool showParticipantCount;
-
-  final VoidCallback onTap;
-  final VoidCallback? onDelete;
-
-  void _showActions(BuildContext context) {
-    final delete = onDelete;
-    if (delete == null) return;
-    showModalBottomSheet<void>(
+  void _menu(StudioEvent event) {
+    showStudioSheet<void>(
       context: context,
-      backgroundColor: const Color(0xFF1A1A1A),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.delete_outline, color: Color(0xFFE05252)),
-              title: const Text(
-                'Delete',
-                style: TextStyle(
-                  color: Color(0xFFE05252),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              onTap: () {
-                Navigator.pop(sheetContext);
-                delete();
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFE5E1D8)),
+      builder: (sheetContext) => StudioSheet(
+        horizontalPadding: 24,
+        gap: 6,
+        children: [
+          StudioActionRow(
+            icon: StudioIcons.deleteFolder,
+            title: 'Delete event',
+            subtitle: event.isDraft ? null : 'Guests are told it is off',
+            onTap: () {
+              Navigator.pop(sheetContext);
+              _delete(event);
+            },
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: SizedBox(
-                  width: 88,
-                  height: 88,
-                  child: event.imageUrl.isNotEmpty
-                      ? FeedPicsumImage(url: event.imageUrl)
-                      : ColoredBox(
-                          color: HomeFeedTokens.textPrimary.withValues(alpha: 0.06),
-                          child: const Icon(
-                            Icons.event_outlined,
-                            color: HomeFeedTokens.textSecondary,
-                          ),
-                        ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        if (event.isDraft) ...[
-                          const _Tag(label: 'Draft', color: Color(0xFF8A6D00)),
-                          const SizedBox(width: 6),
-                        ] else if (event.status == 'cancelled') ...[
-                          const _Tag(label: 'Cancelled', color: Color(0xFFB3261E)),
-                          const SizedBox(width: 6),
-                        ],
-                        Expanded(
-                          child: Text(
-                            event.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppFonts.inter(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: HomeFeedTokens.textPrimary,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      event.venue.isEmpty
-                          ? event.whenLabel
-                          : '${event.venue} · ${event.whenLabel}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppFonts.inter(
-                        fontSize: 12,
-                        color: HomeFeedTokens.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    if (showParticipantCount)
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.people_alt_outlined,
-                            size: 14,
-                            color: HomeFeedTokens.textSecondary,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            event.rsvpCount == 1
-                                ? '1 registered'
-                                : '${event.rsvpCount} registered',
-                            style: AppFonts.inter(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: HomeFeedTokens.textPrimary,
-                            ),
-                          ),
-                        ],
-                      )
-                    else if (event.viewerIsGoing)
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.check_circle,
-                            size: 14,
-                            color: Color(0xFF2E8B57),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            "You're going",
-                            style: AppFonts.inter(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: const Color(0xFF2E8B57),
-                            ),
-                          ),
-                          // Ticket download belongs here once paid entry exists — [isFree]
-                          // is always true today, so there is never a ticket to fetch yet.
-                        ],
-                      ),
-                  ],
-                ),
-              ),
-              if (onDelete != null)
-                GestureDetector(
-                  onTap: () => _showActions(context),
-                  behavior: HitTestBehavior.opaque,
-                  child: const Padding(
-                    padding: EdgeInsets.fromLTRB(8, 0, 0, 0),
-                    child: Icon(
-                      Icons.more_horiz,
-                      size: 20,
-                      color: HomeFeedTokens.textSecondary,
-                    ),
-                  ),
-                ),
-            ],
+        ],
+      ),
+    );
+  }
+
+  String _line(StudioEvent e) {
+    if (e.isDraft) return 'Draft';
+    if (e.isCancelled) return 'Cancelled';
+    final going = e.rsvpCount == 1 ? '1 going' : '${e.rsvpCount} going';
+    return [e.venue, going].where((p) => p.isNotEmpty).join(' · ');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.studio;
+    final events = _events;
+    return Scaffold(
+      backgroundColor: c.background,
+      appBar: StudioTopBar(
+        context: context,
+        title: 'Events you host',
+        actions: [
+          IconButton(
+            onPressed: _host,
+            tooltip: 'Host an event',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints.tightFor(width: 44, height: 44),
+            icon: StudioIcon(StudioIcons.plus, size: 22, color: c.textPrimary),
           ),
-        ),
+        ],
       ),
-    );
-  }
-}
-
-class _Tag extends StatelessWidget {
-  const _Tag({required this.label, required this.color});
-
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        label,
-        style: AppFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: color),
-      ),
-    );
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.message, this.actionLabel, this.onAction});
-
-  final String message;
-  final String? actionLabel;
-  final VoidCallback? onAction;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) => SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(minHeight: constraints.maxHeight),
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+      body: events == null
+          ? Center(
+              child: _failed
+                  ? StudioEmptyState(title: "Your events didn't load", actionLabel: 'Try again', onAction: _load)
+                  : SizedBox.square(
+                      dimension: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: c.textSecondary),
+                    ),
+            )
+          : events.isEmpty
+          ? Center(
+              child: StudioEmptyState(
+                title: "You haven't hosted an event yet",
+                actionLabel: 'Host an event',
+                onAction: _host,
+              ),
+            )
+          : RefreshIndicator(
+              color: c.textPrimary,
+              onRefresh: _load,
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 40),
                 children: [
-                  Text(
-                    message,
-                    textAlign: TextAlign.center,
-                    style: AppFonts.inter(
-                      fontSize: 14,
-                      color: HomeFeedTokens.textSecondary,
+                  for (var i = 0; i < events.length; i++)
+                    YourEventRow(
+                      event: events[i],
+                      line: _line(events[i]),
+                      first: i == 0,
+                      onTap: () => _open(events[i]),
+                      trailing: Semantics(
+                        button: true,
+                        label: 'More',
+                        excludeSemantics: true,
+                        child: GestureDetector(
+                          onTap: () => _menu(events[i]),
+                          behavior: HitTestBehavior.opaque,
+                          child: SizedBox.square(
+                            dimension: 44,
+                            child: Center(child: StudioIcon(StudioIcons.more, size: 20, color: c.textTertiary)),
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                  if (actionLabel != null && onAction != null) ...[
-                    const SizedBox(height: 12),
-                    TextButton(onPressed: onAction, child: Text(actionLabel!)),
-                  ],
                 ],
               ),
             ),
-          ),
-        ),
-      ),
     );
   }
 }
