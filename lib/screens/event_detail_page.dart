@@ -1,10 +1,7 @@
 import 'dart:async';
-import 'dart:io' show Platform;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../config/app_link_config.dart';
 import '../models/studio_event.dart';
@@ -314,21 +311,7 @@ class _EventDetailPageState extends State<EventDetailPage> with DetailFollowStat
     );
   }
 
-  /// Directions in the phone's maps app, to the pin when there is one, else the address.
-  Future<void> _openDirections() async {
-    final event = _event;
-    final target = event.hasLocation
-        ? '${event.latitude},${event.longitude}'
-        : (event.address ?? event.venue);
-    if (target.trim().isEmpty) return;
-    final q = Uri.encodeComponent(target);
-    final apple = !kIsWeb && Platform.isIOS;
-    final uri = Uri.parse(
-      apple ? 'https://maps.apple.com/?daddr=$q' : 'https://www.google.com/maps/dir/?api=1&destination=$q',
-    );
-    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication).catchError((_) => false);
-    if (!opened && mounted) showStudioToast(context, 'Could not open maps.', icon: null);
-  }
+  Future<void> _openDirections() => openEventDirections(context, _event);
 
   Widget? _bottomBar(StudioEvent e) {
     if (e.isOver && !e.isCancelled) return null;

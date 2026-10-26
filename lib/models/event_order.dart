@@ -38,3 +38,30 @@ class EventOrder {
     clientSecret: json['clientSecret'] as String?,
   );
 }
+
+/// One admission (`EvTicket`): its own QR code, scanned in once at the door.
+class EventTicket {
+  const EventTicket({required this.id, required this.code, required this.typeName, this.number, this.scannedAt});
+
+  final String id;
+
+  /// What the QR code holds.
+  final String code;
+  final String typeName;
+
+  /// The short number printed under the code ("S3-T-8KQ2"); the code itself when absent.
+  final String? number;
+
+  /// Set once it has been scanned in.
+  final DateTime? scannedAt;
+
+  String get label => number?.isNotEmpty == true ? number! : code;
+
+  factory EventTicket.fromJson(Map<String, dynamic> json) => EventTicket(
+        id: json['id'] as String? ?? '',
+        code: json['code'] as String? ?? '',
+        typeName: json['ticketTypeName'] as String? ?? json['typeName'] as String? ?? 'Ticket',
+        number: json['number'] as String?,
+        scannedAt: DateTime.tryParse(json['scannedAt'] as String? ?? '')?.toLocal(),
+      );
+}

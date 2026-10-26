@@ -43,6 +43,7 @@ class StudioEvent {
     this.lineup = const [],
     this.faqs = const [],
     this.ticketTypes = const [],
+    this.ticketCount = 0,
   });
 
   final String id;
@@ -102,6 +103,10 @@ class StudioEvent {
   /// The host's ticket types (`EvChooseTickets`). Not sent by the server yet (BACKEND_CHANGES
   /// B22); see [ticketOptions] for what the sheet shows until then.
   final List<EventTicketType> ticketTypes;
+
+  /// How many tickets the viewer holds (`EvMyTickets` "2 tickets"). 0 for an RSVP, which has
+  /// no ticket codes (BACKEND_CHANGES B22).
+  final int ticketCount;
 
   /// What Choose tickets offers: the host's ticket types, or, while every event is a free
   /// RSVP, one free General Admission place per person with the places left as its count.
@@ -295,6 +300,7 @@ class StudioEvent {
         lineup: lineup,
         faqs: faqs,
         ticketTypes: ticketTypes,
+        ticketCount: ticketCount,
       );
 
   /// Enough to render a saved-events tile offline.
@@ -364,6 +370,7 @@ class StudioEvent {
               .where((f) => f.question.isNotEmpty)
               .toList() ??
           const [],
+      ticketCount: (json['ticketCount'] as num?)?.toInt() ?? 0,
       ticketTypes: (json['ticketTypes'] as List?)
               ?.whereType<Map<String, dynamic>>()
               .map(EventTicketType.fromJson)

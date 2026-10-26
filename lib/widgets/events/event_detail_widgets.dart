@@ -1,9 +1,27 @@
+import 'dart:io' show Platform;
+
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/studio_event.dart';
 import '../../theme/collect_detail_tokens.dart' show formatMoney;
 import '../studio/studio.dart';
+
+/// Directions in the phone's maps app (Apple Maps on iOS, else Google Maps), to the pin when
+/// there is one, else the address (`EvDetail` map, `EvTicket` Directions).
+Future<void> openEventDirections(BuildContext context, StudioEvent event) async {
+  final target = event.hasLocation ? '${event.latitude},${event.longitude}' : (event.address ?? event.venue);
+  if (target.trim().isEmpty) return;
+  final q = Uri.encodeComponent(target);
+  final apple = !kIsWeb && Platform.isIOS;
+  final uri = Uri.parse(
+    apple ? 'https://maps.apple.com/?daddr=$q' : 'https://www.google.com/maps/dir/?api=1&destination=$q',
+  );
+  final opened = await launchUrl(uri, mode: LaunchMode.externalApplication).catchError((_) => false);
+  if (!opened && context.mounted) showStudioToast(context, 'Could not open maps.', icon: null);
+}
 
 /// `Sat, Nov 21`: the When value in the bottom bar (`EvDetail`).
 String eventDayLabel(StudioEvent e) {

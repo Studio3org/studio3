@@ -165,6 +165,18 @@ class EventService {
     return order;
   }
 
+  /// The viewer's tickets for one event, each with its own code (`EvTicket`).
+  Future<List<EventTicket>> myTickets(String eventId) async {
+    final json = await _api.get('/api/user/me/tickets?eventId=$eventId', auth: true);
+    final data = _api.extractData(json);
+    final list = data is Map<String, dynamic> ? data['tickets'] : data;
+    return (list as List? ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map(EventTicket.fromJson)
+        .where((t) => t.code.isNotEmpty)
+        .toList();
+  }
+
   /// Who is coming. Host-only — an attendee list is not public.
   Future<List<EventPerson>> attendees(String eventId) async {
     final json = await _api.get('/api/events/$eventId/attendees', auth: true);

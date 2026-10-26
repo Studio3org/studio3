@@ -6,6 +6,7 @@ import '../widgets/events/event_detail_widgets.dart' show EventCover;
 import '../widgets/events/event_tab_widgets.dart' show eventCity;
 import '../widgets/events/event_tickets_sheet.dart';
 import '../widgets/studio/studio.dart';
+import 'event_ticket_page.dart';
 import 'my_events_page.dart';
 
 /// `GA · VIP`: each type's initials when it has several words, else its name.
@@ -24,9 +25,9 @@ String eventTicketWhen(StudioEvent e) => eventStartLabel(e).replaceAll(',', '').
 /// as a ticket that rises in straight, a line about where the tickets are, then Add to
 /// calendar and the way to the tickets.
 ///
-/// Add to Apple Wallet needs a pass the server signs (BACKEND_CHANGES B25), and per-ticket
-/// codes come with paid tickets (B22), so today Add to calendar leads and "Your events" opens
-/// the events the viewer is going to.
+/// Add to Apple Wallet needs a pass the server signs (BACKEND_CHANGES B25), so Add to calendar
+/// leads. View tickets opens the tickets (`EvTicket`, B22); a free reservation has no ticket
+/// codes, so it says "Your events" and opens those.
 class EventConfirmedPage extends StatefulWidget {
   const EventConfirmedPage({super.key, required this.event, required this.choice, this.email});
 
@@ -202,7 +203,9 @@ class _EventConfirmedPageState extends State<EventConfirmedPage> with SingleTick
                       label: paid ? 'View tickets' : 'Your events',
                       variant: StudioButtonVariant.outline,
                       height: 48,
-                      onPressed: () => MyEventsPage.open(context),
+                      onPressed: () => paid
+                          ? EventTicketPage.open(context, widget.event)
+                          : MyEventsPage.open(context),
                     ),
                   ],
                 ),

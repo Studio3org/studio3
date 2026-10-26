@@ -9,6 +9,7 @@ import '../widgets/studio/studio.dart';
 import 'event_detail_page.dart';
 import 'event_list_page.dart';
 import 'event_post_page.dart';
+import 'event_ticket_page.dart';
 import 'scan_qr_page.dart';
 
 /// Your events (`EvMyTickets`), from the ticket icon on the Events tab: one page that scrolls.
@@ -16,8 +17,8 @@ import 'scan_qr_page.dart';
 /// flyers), then rows for the events the viewer hosts and for past events. Nothing at all:
 /// the empty state with the grey logo mark.
 ///
-/// "Going" is an RSVP today, with no ticket count or QR code (BACKEND_CHANGES B22), so the
-/// large card's button opens the event. Scanning a piece's code at an event sits in the
+/// With tickets (BACKEND_CHANGES B22) the card shows the count and Show tickets opens them
+/// (`EvTicket`); an RSVP has neither, so its button says View event and opens the event. Scanning a piece's code at an event sits in the
 /// header's right slot; hosting moved to "Events you host".
 class MyEventsPage extends StatefulWidget {
   const MyEventsPage({super.key, this.debugGoing, this.debugSaved, this.debugHosting, this.debugNow});
@@ -89,6 +90,18 @@ class _MyEventsPageState extends State<MyEventsPage> {
     _load();
   }
 
+  /// An event with tickets opens them (`EvTicket`); an RSVP opens the event.
+  Future<void> _openGoing(StudioEvent event) async {
+    if (event.ticketCount > 0) {
+      await EventTicketPage.open(context, event);
+    } else {
+      await _open(event);
+    }
+  }
+
+  static String? _ticketCount(StudioEvent e) =>
+      e.ticketCount <= 0 ? null : (e.ticketCount == 1 ? '1 ticket' : '${e.ticketCount} tickets');
+
   void _openPast(List<StudioEvent> past) {
     Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
@@ -157,14 +170,22 @@ class _MyEventsPageState extends State<MyEventsPage> {
             NextEventCard(
               event: upcoming.first,
               now: now,
-              buttonLabel: 'View event',
-              onTap: () => _open(upcoming.first),
+              detail: _ticketCount(upcoming.first),
+              buttonLabel: upcoming.first.ticketCount > 0 ? 'Show tickets' : 'View event',
+              onTap: () => _openGoing(upcoming.first),
             ),
           );
           for (var i = 1; i < upcoming.length; i++) {
             if (i == 1) children.add(const SizedBox(height: 14));
             final e = upcoming[i];
-            children.add(YourEventRow(event: e, line: e.venue, first: i == 1, onTap: () => _open(e)));
+            children.add(
+              YourEventRow(
+                event: e,
+                line: [e.venue, ?_ticketCount(e)].where((p) => p.isNotEmpty).join(' · '),
+                first: i == 1,
+                onTap: () => _openGoing(e),
+              ),
+            );
           }
         }
         if (saved.isNotEmpty) {
