@@ -24,6 +24,7 @@ import '../widgets/piece_detail/detail_follow_state.dart';
 import '../widgets/share/share_sheet.dart';
 import '../widgets/studio/studio.dart';
 import 'event_checkout_page.dart';
+import 'event_confirmed_page.dart';
 import 'event_qr_codes_page.dart';
 
 /// Returns the pushed route's future, so a caller that wants to know when the viewer is
@@ -170,20 +171,21 @@ class _EventDetailPageState extends State<EventDetailPage> with DetailFollowStat
   /// Say you're coming, or take it back.
   ///
   /// The response carries the fresh counts, so the bar updates from what the server actually
-  /// recorded rather than from an optimistic guess that a full event would get wrong.
-  Future<void> _setGoing(bool going) async {
+  /// recorded rather than from an optimistic guess that a full event would get wrong. True
+  /// when the server took it.
+  Future<bool> _setGoing(bool going) async {
     if (!await requireLogin(
       context,
       title: 'Sign in to get tickets',
       message: 'Log in or create a free account to go to events.',
     )) {
-      return;
+      return false;
     }
-    if (!mounted) return;
+    if (!mounted) return false;
     setState(() => _rsvping = true);
     try {
       final result = await EventService.instance.setRsvp(_event.id, going: going);
-      if (!mounted) return;
+      if (!mounted) return false;
       setState(() {
         _rsvping = false;
         _detail = _event.copyWith(
@@ -193,18 +195,29 @@ class _EventDetailPageState extends State<EventDetailPage> with DetailFollowStat
           isFull: result.isFull,
         );
       });
-      showStudioToast(context, result.going ? "You're going" : 'Your place is cancelled');
+      // Going opens the confirmation (`EvConfirmed`) from the caller.
+      if (!result.going) showStudioToast(context, 'Your place is cancelled');
+      return true;
     } on ApiException catch (e) {
-      if (!mounted) return;
+      if (!mounted) return false;
       setState(() => _rsvping = false);
       showStudioToast(context, e.message, icon: null);
       // A 409 means somebody took the last place while this screen was open, so the counts
       // on it are already wrong.
       await _loadDetail();
+      return false;
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted) return false;
       setState(() => _rsvping = false);
       showStudioToast(context, 'Could not update your place.', icon: null);
+      return false;
+    }
+  }
+
+  /// Reserve the free tickets in [choice], then You're going.
+  Future<void> _reserve(EventTicketChoice choice) async {
+    if (await _setGoing(true) && mounted) {
+      await EventConfirmedPage.open(context, event: _event, choice: choice);
     }
   }
 
@@ -214,7 +227,7 @@ class _EventDetailPageState extends State<EventDetailPage> with DetailFollowStat
     final choice = await EventTicketsSheet.show(context, _event);
     if (choice == null || !mounted) return;
     if (choice.isFree) {
-      await _setGoing(true);
+      await _reserve(choice);
       return;
     }
     // Paid tickets: checkout signs in first, like Reserve.
@@ -229,11 +242,18 @@ class _EventDetailPageState extends State<EventDetailPage> with DetailFollowStat
     final outcome = await EventCheckoutPage.open(context, event: _event, choice: choice);
     if (!mounted || outcome == null) return;
     if (outcome == EventCheckoutOutcome.reserveInstead) {
-      await _setGoing(true);
+      final free = _event.ticketOptions.firstWhere((t) => t.isFree, orElse: () => _event.ticketOptions.first);
+      await _reserve(EventTicketChoice({free: 1}));
       return;
     }
-    showStudioToast(context, "You're going");
     await _loadDetail();
+    if (!mounted) return;
+    await EventConfirmedPage.open(
+      context,
+      event: _event,
+      choice: choice,
+      email: UserService.instance.peekMeCached()?.email,
+    );
   }
 
   Future<void> _share() {

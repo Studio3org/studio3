@@ -40,6 +40,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCalendarsUsageDescription</key>
+	<string>Studio3 adds events you are going to to your calendar.</string>
+	<key>NSCalendarsWriteOnlyAccessUsageDescription</key>
+	<string>Studio3 adds events you are going to to your calendar.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Studio3 needs camera access so you can take a photo to post, and scan the code beside a piece at an event.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
