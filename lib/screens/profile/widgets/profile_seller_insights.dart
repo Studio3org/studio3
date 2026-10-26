@@ -27,6 +27,14 @@ Future<bool?> toggleSellerMode({
     }
   }
 
+  // Selling needs a real place on the profile (the server takes an empty one without
+  // complaint), chosen from search in Edit profile.
+  if ((profileLocation?.trim() ?? '').isEmpty) {
+    if (context.mounted) {
+      showStudioToast(context, 'Add your city in Edit profile first, then switch to seller mode.', icon: null);
+    }
+    return null;
+  }
   try {
     await UserService.instance.enableSeller(
       location: profileLocation?.trim() ?? '',

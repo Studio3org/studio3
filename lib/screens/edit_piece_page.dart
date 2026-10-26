@@ -92,7 +92,7 @@ class _EditPiecePageState extends State<EditPiecePage> {
     ChooseLocationSheet.show(
       context,
       // The sheet closes itself after Done.
-      onLocationSelected: (loc) => setState(() => _shippingRegion = loc.name),
+      onLocationSelected: (loc) => setState(() => _shippingRegion = loc.displayName),
     );
   }
 

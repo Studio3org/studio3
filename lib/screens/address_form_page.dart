@@ -1,14 +1,19 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../models/address.dart';
 import '../models/collect_shipping_address.dart' show kUsStates;
+import '../models/street_address.dart';
 import '../services/address_service.dart';
 import '../services/api_exception.dart';
+import '../services/location_search_service.dart';
 import '../theme/studio_colors.dart';
 import '../theme/studio_metrics.dart';
 import '../theme/studio_type.dart';
+import '../widgets/post_picker_search_field.dart';
 import '../widgets/studio/studio_button.dart';
 import '../widgets/studio/studio_checkbox.dart';
 import '../widgets/studio/studio_field.dart';
@@ -16,9 +21,14 @@ import '../widgets/studio/studio_select_row.dart';
 import '../widgets/studio/studio_sheet.dart';
 import '../widgets/studio/studio_top_bar.dart';
 
-/// Address form (`BuyAddress`): underline fields in the board's order and widths, ZIP and
-/// phone in Mono 18 with the phone's helper line, the default-address checkbox, and the
-/// pinned 54 button. Same fields and save behaviour as before.
+/// Address form (`BuyAddress`): "Search your address" fills the fields (a real US street
+/// address from search, or the one the phone is at); underline fields in the board's order
+/// and widths, ZIP and phone in Mono 18 with the phone's helper line, the default-address
+/// checkbox, and the pinned 54 button.
+///
+/// The coordinates saved are always the address's own: from the search result, or looked
+/// up from what was typed when saving. Never the phone's position on its own, which may be
+/// nowhere near the address.
 class AddressFormPage extends StatefulWidget {
   const AddressFormPage({super.key, this.existing});
 
@@ -41,6 +51,14 @@ class _AddressFormPageState extends State<AddressFormPage> {
   String? _state;
   double? _latitude;
   double? _longitude;
+
+  /// The address [_latitude] and [_longitude] belong to; when the fields no longer match it
+  /// they are looked up again on save.
+  String? _coordsFor;
+  final _search = TextEditingController();
+  Timer? _debounce;
+  List<StreetAddress> _matches = const [];
+  bool _searching = false;
   bool _isDefault = false;
   bool _saving = false;
   bool _locating = false;
@@ -64,8 +82,12 @@ class _AddressFormPageState extends State<AddressFormPage> {
     _state = e?.state;
     _latitude = e?.latitude;
     _longitude = e?.longitude;
+    if (_latitude != null && _longitude != null) _coordsFor = _addressKey();
     _isDefault = e?.isDefault ?? false;
   }
+
+  String _addressKey() =>
+      [_line1.text, _city.text, _state ?? '', _zip.text].map((s) => s.trim().toLowerCase()).join('|');
 
   @override
   void dispose() {
@@ -78,7 +100,48 @@ class _AddressFormPageState extends State<AddressFormPage> {
     _city.dispose();
     _zip.dispose();
     _stateText.dispose();
+    _search.dispose();
+    _debounce?.cancel();
     super.dispose();
+  }
+
+  void _onSearch(String value) {
+    _debounce?.cancel();
+    if (value.trim().length < 3) {
+      setState(() {
+        _matches = const [];
+        _searching = false;
+      });
+      return;
+    }
+    setState(() => _searching = true);
+    _debounce = Timer(const Duration(milliseconds: 400), () async {
+      final found = await LocationSearchService.searchAddresses(value);
+      if (!mounted) return;
+      setState(() {
+        _matches = found;
+        _searching = false;
+      });
+    });
+  }
+
+  /// Fills the fields from a found address, with its coordinates.
+  void _fill(StreetAddress a) {
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _line1.text = a.line1;
+      _city.text = a.city;
+      if (a.state.isNotEmpty) {
+        _state = a.state;
+        _stateText.text = a.state;
+      }
+      _zip.text = a.zip;
+      _latitude = a.lat;
+      _longitude = a.lng;
+      _coordsFor = _addressKey();
+      _search.clear();
+      _matches = const [];
+    });
   }
 
   bool get _canSave =>
@@ -107,14 +170,16 @@ class _AddressFormPageState extends State<AddressFormPage> {
         return;
       }
       final position = await Geolocator.getCurrentPosition();
+      // The street address the phone is at, into the fields; not bare coordinates.
+      final here = await LocationSearchService.reverseAddress(position.latitude, position.longitude);
       if (!mounted) return;
-      setState(() {
-        _latitude = position.latitude;
-        _longitude = position.longitude;
-      });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Location captured')));
+      if (here == null) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Could not find a street address here. Search for it instead.')));
+        return;
+      }
+      _fill(here);
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -134,6 +199,20 @@ class _AddressFormPageState extends State<AddressFormPage> {
       _saving = true;
       _error = null;
     });
+    // Typed or changed since it was found: look up where this address is. If it can't be
+    // found it is saved without coordinates rather than with somewhere else's.
+    if (_coordsFor != _addressKey()) {
+      final at = await LocationSearchService.geocodeAddress(
+        line1: _line1.text.trim(),
+        city: _city.text.trim(),
+        state: _state!,
+        zip: _zip.text.trim(),
+      );
+      if (!mounted) return;
+      _latitude = at?.lat;
+      _longitude = at?.lng;
+      _coordsFor = _addressKey();
+    }
     final address = Address(
       id: widget.existing?.id ?? '',
       label: _label.text.trim().isEmpty ? null : _label.text.trim(),
@@ -215,6 +294,50 @@ class _AddressFormPageState extends State<AddressFormPage> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
               children: [
+                PostPickerSearchField(
+                  controller: _search,
+                  hintText: 'Search your address',
+                  height: 48,
+                  onChanged: _onSearch,
+                ),
+                if (_searching)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 16),
+                    child: Center(
+                      child: SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: c.textSecondary),
+                      ),
+                    ),
+                  )
+                else if (_matches.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Column(
+                      children: [
+                        for (var i = 0; i < _matches.length; i++)
+                          StudioListRow(
+                            title: _matches[i].line1,
+                            subtitle: [
+                              _matches[i].city,
+                              [_matches[i].state, _matches[i].zip].where((s) => s.isNotEmpty).join(' '),
+                            ].where((s) => s.isNotEmpty).join(', '),
+                            selected: false,
+                            divider: i < _matches.length - 1,
+                            onTap: () => _fill(_matches[i]),
+                          ),
+                      ],
+                    ),
+                  )
+                else if (_search.text.trim().length >= 3)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Text(
+                      'No street address found. Type it in below.',
+                      style: StudioType.caption12(color: c.textSecondary),
+                    ),
+                  ),
+                gap,
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -328,7 +451,7 @@ class _AddressFormPageState extends State<AddressFormPage> {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: StudioButton(
-                    label: _latitude != null ? 'Location captured' : 'Use my current location',
+                    label: 'Use my current location',
                     variant: StudioButtonVariant.small,
                     loading: _locating,
                     onPressed: _locating ? null : _useCurrentLocation,

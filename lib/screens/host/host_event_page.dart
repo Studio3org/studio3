@@ -292,6 +292,7 @@ class _HostEventPageState extends State<HostEventPage> {
       searchHint: 'Search a venue or address',
       currentLabel: 'Use where I am now',
       footnote: 'Guests see the venue and its address on the event page.',
+      cityOnly: false,
       onLocationSelected: (l) => setState(() => _location = l),
     );
   }

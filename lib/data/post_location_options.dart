@@ -1,3 +1,5 @@
+import '../models/street_address.dart';
+
 /// A location result for the create-post flow, sourced from live search
 /// (see `LocationSearchService`) rather than a fixed list.
 class PostLocationOption {
@@ -40,6 +42,35 @@ class PostLocationOption {
       name: name,
       subtitle: subtitle,
       displayName: displayName.isNotEmpty ? displayName : name,
+      lat: double.tryParse(json['lat']?.toString() ?? ''),
+      lng: double.tryParse(json['lon']?.toString() ?? ''),
+    );
+  }
+
+  /// The city a Nominatim result (with `addressdetails=1`) is in: "Dallas, TX" in the US,
+  /// "Paris, France" elsewhere. Null when it isn't in a city or town.
+  static PostLocationOption? cityFromNominatim(Map<String, dynamic> json) {
+    final a = json['address'];
+    if (a is! Map) return null;
+    String part(List<String> keys) {
+      for (final k in keys) {
+        final v = a[k];
+        if (v is String && v.trim().isNotEmpty) return v.trim();
+      }
+      return '';
+    }
+
+    final city = part(['city', 'town', 'village', 'hamlet', 'municipality']);
+    if (city.isEmpty) return null;
+    final country = part(['country']);
+    final state = part(['state']);
+    final code = StreetAddress.usStateCode(a);
+    final displayName = code.isNotEmpty ? '$city, $code' : [city, country].where((s) => s.isNotEmpty).join(', ');
+    return PostLocationOption(
+      id: json['place_id']?.toString() ?? displayName,
+      name: city,
+      subtitle: [if (state.isNotEmpty && state != city) state, country].where((s) => s.isNotEmpty).join(', '),
+      displayName: displayName,
       lat: double.tryParse(json['lat']?.toString() ?? ''),
       lng: double.tryParse(json['lon']?.toString() ?? ''),
     );

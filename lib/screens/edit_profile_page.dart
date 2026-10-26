@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 
 import '../services/api_exception.dart';
 import '../services/auth_service.dart';
@@ -10,6 +9,7 @@ import '../services/auth_session.dart';
 import '../services/user_service.dart';
 import '../widgets/studio/studio.dart';
 import '../utils/profile_photo_upload.dart';
+import '../widgets/choose_location_sheet.dart';
 import '../widgets/labeled_dropdown.dart';
 import '../widgets/profile_edit_header.dart';
 import '../widgets/settings_tile.dart' show SettingsSectionLabel;
@@ -44,7 +44,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
   String? _coverPhotoUrl;
   double? _latitude;
   double? _longitude;
-  bool _locating = false;
   Timer? _usernameDebounce;
 
   String _username = '';
@@ -131,31 +130,21 @@ class _EditProfilePageState extends State<EditProfilePage> {
     return pickAndUploadPhoto(context, purpose);
   }
 
-  Future<void> _useCurrentLocation() async {
-    setState(() => _locating = true);
-    try {
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        if (!mounted) return;
-        showStudioToast(context, 'Location permission denied', icon: null);
-        return;
-      }
-      final position = await Geolocator.getCurrentPosition();
-      if (!mounted) return;
-      setState(() {
-        _latitude = position.latitude;
-        _longitude = position.longitude;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      showStudioToast(context, 'Could not get current location', icon: null);
-    } finally {
-      if (mounted) setState(() => _locating = false);
-    }
+  /// Location is a real place: a city found by search, or the city the phone is in
+  /// ("Dallas, TX"), with that city's coordinates for Sellers near you. Never free text, and
+  /// never the phone's raw position.
+  void _pickLocation() {
+    FocusScope.of(context).unfocus();
+    ChooseLocationSheet.show(
+      context,
+      subtitle: 'The city you work from. It shows on your profile.',
+      footnote: 'Only the city shows. Sellers near you uses it to find artists close by.',
+      onLocationSelected: (place) => setState(() {
+        _locationController.text = place.displayName;
+        _latitude = place.lat;
+        _longitude = place.lng;
+      }),
+    );
   }
 
   Future<void> _save() async {
@@ -240,15 +229,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   gap,
                   StudioUnderlineField(label: 'Bio', controller: _bioController, maxLines: 4, minLines: 1),
                   gap,
-                  StudioUnderlineField(label: 'Location', controller: _locationController),
-                  const SizedBox(height: 4),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: _LocationButton(
-                      locating: _locating,
-                      captured: _latitude != null,
-                      onTap: _useCurrentLocation,
-                    ),
+                  // Read-only: tapping opens the city search (`ChooseLocationSheet`).
+                  StudioUnderlineField(
+                    label: 'Location',
+                    controller: _locationController,
+                    hint: 'Choose your city',
+                    readOnly: true,
+                    onTap: _pickLocation,
+                    trailing: StudioIcon(StudioIcons.chevronRight, size: 18, color: c.textPlaceholder),
                   ),
                   gap,
                   StudioUnderlineField(label: 'Pronouns', controller: _pronounsController),
@@ -302,41 +290,3 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
 /// "Use my current location" (or "Location captured"): the location icon 16 and 13/500 Ink,
 /// a small spinner while it looks.
-class _LocationButton extends StatelessWidget {
-  const _LocationButton({required this.locating, required this.captured, required this.onTap});
-
-  final bool locating;
-  final bool captured;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.studio;
-    return Semantics(
-      button: true,
-      child: GestureDetector(
-        onTap: locating ? null : onTap,
-        behavior: HitTestBehavior.opaque,
-        child: SizedBox(
-          height: StudioSize.tapTarget,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              locating
-                  ? SizedBox.square(
-                      dimension: 14,
-                      child: CircularProgressIndicator(strokeWidth: 1.5, color: c.textSecondary),
-                    )
-                  : StudioIcon(StudioIcons.location, size: 16, color: c.textPrimary),
-              const SizedBox(width: 8),
-              Text(
-                captured ? 'Location captured' : 'Use my current location',
-                style: StudioType.label13(weight: StudioType.medium, color: c.textPrimary),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}

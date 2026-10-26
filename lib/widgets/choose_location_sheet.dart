@@ -17,7 +17,11 @@ import 'studio/studio_toast.dart';
 /// Location picker (`PostLocation`): live city search via `LocationSearchService`
 /// (Nominatim) and "Use my current city". The chosen city takes the left line; Done
 /// confirms it. Only the city is ever public — the footer says so. An event's venue
-/// (`HostDetails`) passes its own [searchHint], [currentLabel] and [footnote].
+/// (`HostDetails`) passes its own [searchHint], [currentLabel] and [footnote], and
+/// [cityOnly] false to find venues and street addresses.
+///
+/// Every choice is a real, named place from search, or the place the phone's GPS position is
+/// in; raw coordinates are never the answer.
 class ChooseLocationSheet extends StatefulWidget {
   const ChooseLocationSheet({
     super.key,
@@ -27,6 +31,7 @@ class ChooseLocationSheet extends StatefulWidget {
     this.searchHint = 'Search cities',
     this.currentLabel = 'Use my current city',
     this.footnote = pieceFootnote,
+    this.cityOnly = true,
   });
 
   static const pieceFootnote =
@@ -41,6 +46,10 @@ class ChooseLocationSheet extends StatefulWidget {
   /// The line under the list; none when null.
   final String? footnote;
 
+  /// Cities and towns only ("Dallas, TX"); "Use my current city" gives the city the phone is
+  /// in, not its street address.
+  final bool cityOnly;
+
   /// Opens the sheet; [onLocationSelected] runs once Done is tapped (the sheet closes
   /// itself).
   static Future<void> show(
@@ -51,6 +60,7 @@ class ChooseLocationSheet extends StatefulWidget {
     String searchHint = 'Search cities',
     String currentLabel = 'Use my current city',
     String? footnote = pieceFootnote,
+    bool cityOnly = true,
   }) {
     return showStudioSheet<void>(
       context: context,
@@ -61,6 +71,7 @@ class ChooseLocationSheet extends StatefulWidget {
         searchHint: searchHint,
         currentLabel: currentLabel,
         footnote: footnote,
+        cityOnly: cityOnly,
       ),
     );
   }
@@ -95,7 +106,9 @@ class _ChooseLocationSheetState extends State<ChooseLocationSheet> {
     }
     setState(() => _searching = true);
     _debounce = Timer(const Duration(milliseconds: 400), () async {
-      final results = await LocationSearchService.search(value);
+      final results = widget.cityOnly
+          ? await LocationSearchService.searchCities(value)
+          : await LocationSearchService.search(value);
       if (!mounted) return;
       setState(() {
         _results = results;
@@ -120,10 +133,11 @@ class _ChooseLocationSheetState extends State<ChooseLocationSheet> {
       final location = await LocationSearchService.reverseGeocode(
         position.latitude,
         position.longitude,
+        cityOnly: widget.cityOnly,
       );
       if (!mounted) return;
       if (location == null) {
-        showStudioToast(context, 'Could not find your city', icon: null);
+        showStudioToast(context, widget.cityOnly ? 'Could not find your city' : 'Could not find where you are', icon: null);
         return;
       }
       setState(() {
