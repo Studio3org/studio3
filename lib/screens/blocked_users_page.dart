@@ -1,19 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../models/blocked_user.dart';
 import '../services/social_service.dart';
-import '../theme/app_theme.dart';
-import '../theme/home_feed_tokens.dart';
-import '../widgets/studio/studio_top_bar.dart';
 import '../utils/profile_navigation.dart';
-import '../widgets/glass_card.dart';
-import '../widgets/home_feed/home_feed_widgets.dart';
+import '../widgets/studio/studio.dart';
 import '../widgets/offline_state.dart';
 import '../widgets/studio_loading.dart';
 
 class BlockedUsersPage extends StatefulWidget {
-  const BlockedUsersPage({super.key});
+  const BlockedUsersPage({super.key, this.debugBlocked});
+
+  /// For tests: the list, instead of asking the server.
+  @visibleForTesting
+  final List<BlockedUser>? debugBlocked;
 
   @override
   State<BlockedUsersPage> createState() => _BlockedUsersPageState();
@@ -32,6 +31,14 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
   }
 
   Future<void> _load() async {
+    final given = widget.debugBlocked;
+    if (given != null) {
+      setState(() {
+        _blocked = [...given];
+        _loading = false;
+      });
+      return;
+    }
     setState(() => _loading = true);
     try {
       final blocked = await SocialService.instance.listBlocked();
@@ -51,26 +58,13 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
   }
 
   Future<void> _unblock(BlockedUser user) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text('Unblock @${user.username}?'),
-        content: const Text(
-          'They will be able to follow and message you again.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Unblock'),
-          ),
-        ],
-      ),
+    final confirmed = await showStudioConfirm(
+      context,
+      title: 'Unblock @${user.username}?',
+      message: 'They will be able to follow and message you again.',
+      confirmLabel: 'Unblock',
     );
-    if (confirmed != true) return;
+    if (!confirmed || !mounted) return;
     setState(() => _busy.add(user.username));
     try {
       await SocialService.instance.unblockUser(user.username);
@@ -78,9 +72,7 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
       setState(() => _blocked.removeWhere((b) => b.username == user.username));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to unblock: $e')));
+      showStudioToast(context, 'Could not unblock. Try again.', icon: null);
     } finally {
       if (mounted) setState(() => _busy.remove(user.username));
     }
@@ -89,7 +81,7 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: HomeFeedTokens.background,
+      backgroundColor: context.studio.background,
       appBar: StudioTopBar(context: context, title: 'Blocked accounts'),
       body: SafeArea(child: _buildBody()),
     );
@@ -103,69 +95,69 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
       return const StudioLoadingBody();
     }
     if (_blocked.isEmpty) {
-      return Center(
-        child: Text(
-          'No blocked accounts',
-          style: GoogleFonts.inter(fontSize: 14, color: AppColors.slate400),
+      return const Center(
+        child: StudioEmptyState(
+          title: 'No blocked accounts',
+          message: "People you block can't message you or see your work in their feeds.",
         ),
       );
     }
+    final c = context.studio;
     return RefreshIndicator(
+      color: c.textPrimary,
       onRefresh: _load,
       child: ListView.builder(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(StudioSpace.marginPage, 4, StudioSpace.marginPage, 40),
         itemCount: _blocked.length,
         itemBuilder: (context, index) {
           final user = _blocked[index];
           final busy = _busy.contains(user.username);
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: GlassCard(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                children: [
-                  GestureDetector(
+          // Avatar 40, name 14/500 over the handle 12 Graphite, the small outline Unblock;
+          // 12 above and below, a Line under (the follow list rows).
+          return Container(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(border: Border(bottom: BorderSide(color: c.line))),
+            child: Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
                     onTap: () => openUserProfile(context, user.username),
-                    child: UserAvatar(
-                      url: user.profilePhotoUrl,
-                      name: user.name,
-                      size: 40,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    behavior: HitTestBehavior.opaque,
+                    child: Row(
                       children: [
-                        Text(
-                          user.name,
-                          style: GoogleFonts.inter(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        Text(
-                          '@${user.username}',
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
-                            color: AppColors.slate500,
+                        StudioAvatar(url: user.profilePhotoUrl, size: 40, semanticLabel: user.name),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                user.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: StudioType.body14(weight: StudioType.medium, color: c.textPrimary),
+                              ),
+                              Text(
+                                '@${user.username}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: StudioType.caption12(color: c.textSecondary),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
                   ),
-                  OutlinedButton(
-                    onPressed: busy ? null : () => _unblock(user),
-                    child: busy
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Unblock'),
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 12),
+                StudioButton(
+                  label: 'Unblock',
+                  variant: StudioButtonVariant.small,
+                  loading: busy,
+                  onPressed: busy ? null : () => _unblock(user),
+                ),
+              ],
             ),
           );
         },

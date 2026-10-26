@@ -3,18 +3,16 @@ import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../services/api_exception.dart';
 import '../services/auth_service.dart';
 import '../services/auth_session.dart';
 import '../services/user_service.dart';
-import '../theme/home_feed_tokens.dart';
-import '../widgets/studio/studio_top_bar.dart';
+import '../widgets/studio/studio.dart';
 import '../utils/profile_photo_upload.dart';
 import '../widgets/labeled_dropdown.dart';
 import '../widgets/profile_edit_header.dart';
-import '../widgets/profile_field.dart';
+import '../widgets/settings_tile.dart' show SettingsSectionLabel;
 import '../widgets/studio_loading.dart';
 import 'profile_banner_picker_sheet.dart';
 
@@ -143,9 +141,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Location permission denied')),
-        );
+        showStudioToast(context, 'Location permission denied', icon: null);
         return;
       }
       final position = await Geolocator.getCurrentPosition();
@@ -156,9 +152,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       });
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not get current location')),
-      );
+      showStudioToast(context, 'Could not get current location', icon: null);
     } finally {
       if (mounted) setState(() => _locating = false);
     }
@@ -189,14 +183,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
         bannerTargetId: _bannerTargetId,
       );
       if (!mounted) return;
+      showStudioToast(context, 'Profile updated');
       Navigator.pop(context, true);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Profile updated')));
     } catch (e) {
       if (!mounted) return;
-      final message = e is ApiException ? e.message : e.toString();
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(message)));
+      showStudioToast(context, e is ApiException ? e.message : 'Could not save your profile.', icon: null);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -204,18 +195,21 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.studio;
+    const gap = SizedBox(height: 22);
     return StudioLoadingGate(
       loading: _loading || _saving,
       child: Scaffold(
-        backgroundColor: HomeFeedTokens.background,
-        appBar: StudioTopBar(context: context, 
+        backgroundColor: c.background,
+        appBar: StudioTopBar(
+          context: context,
           title: 'Edit profile',
           actions: [
             StudioSaveAction(onPressed: _saving || _loading ? null : _save),
           ],
         ),
         body: ListView(
-          padding: EdgeInsets.zero,
+          padding: EdgeInsets.only(bottom: 40 + MediaQuery.paddingOf(context).bottom),
           children: [
             ProfileEditHeader(
               coverUrl: _coverPhotoUrl,
@@ -230,117 +224,72 @@ class _EditProfilePageState extends State<EditProfilePage> {
               },
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+              padding: const EdgeInsets.fromLTRB(StudioSpace.marginForm, 24, StudioSpace.marginForm, 0),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: HomeFeedTokens.detailBackground,
-                      borderRadius: BorderRadius.circular(HomeFeedTokens.cardRadius),
-                      border: Border.all(
-                        color: HomeFeedTokens.textPrimary.withValues(alpha: 0.06),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: HomeFeedTokens.textPrimary.withValues(alpha: 0.04),
-                          blurRadius: 16,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        const SizedBox(height: 8),
-                        ProfileField(label: 'Name', controller: _nameController),
-                        _fieldDivider(),
-                        ProfileField(
-                          label: 'Username',
-                          controller: _usernameController,
-                          enabled: _canChangeUsername,
-                          onChanged: _onUsernameChanged,
-                          error: _usernameError,
-                        ),
-                        _fieldDivider(),
-                        ProfileField(
-                            label: 'Bio', controller: _bioController, maxLines: 3),
-                        _fieldDivider(),
-                        ProfileField(
-                            label: 'Location', controller: _locationController),
-                        const SizedBox(height: 8),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: TextButton.icon(
-                            onPressed: _locating ? null : _useCurrentLocation,
-                            icon: _locating
-                                ? const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
-                                  )
-                                : const Icon(Icons.my_location, size: 18),
-                            label: Text(
-                              _latitude != null
-                                  ? 'Location captured'
-                                  : 'Use my current location',
-                            ),
-                          ),
-                        ),
-                        _fieldDivider(),
-                        ProfileField(
-                            label: 'Pronouns', controller: _pronounsController),
-                        const SizedBox(height: 8),
-                      ],
+                  StudioUnderlineField(label: 'Name', controller: _nameController),
+                  gap,
+                  StudioUnderlineField(
+                    label: 'Username',
+                    controller: _usernameController,
+                    enabled: _canChangeUsername,
+                    onChanged: _onUsernameChanged,
+                    errorText: _usernameError,
+                  ),
+                  gap,
+                  StudioUnderlineField(label: 'Bio', controller: _bioController, maxLines: 4, minLines: 1),
+                  gap,
+                  StudioUnderlineField(label: 'Location', controller: _locationController),
+                  const SizedBox(height: 4),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: _LocationButton(
+                      locating: _locating,
+                      captured: _latitude != null,
+                      onTap: _useCurrentLocation,
                     ),
                   ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'Pinned banner',
-                    style: GoogleFonts.inter(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: HomeFeedTokens.textPrimary,
-                    ),
-                  ),
+                  gap,
+                  StudioUnderlineField(label: 'Pronouns', controller: _pronounsController),
+                  const SettingsSectionLabel('Pinned banner', top: 34),
                   const SizedBox(height: 4),
                   Text(
                     'A piece or post highlighted on your profile — separate from '
                     'the cover photo above.',
-                    style: GoogleFonts.inter(
-                      fontSize: 13,
-                      color: HomeFeedTokens.textSecondary,
-                    ),
+                    style: StudioType.label13(color: c.textSecondary),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                   LabeledDropdown(
                     label: 'Banner rule',
                     value: _bannerAutoRule,
                     options: _bannerRuleOptions,
                     onChanged: (v) => setState(() => _bannerAutoRule = v),
                   ),
-                  const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    onPressed: _pickBanner,
-                    icon: const Icon(Icons.push_pin_outlined, size: 18),
-                    label: Text(
-                      _bannerTargetId != null
-                          ? 'Change pinned banner'
-                          : 'Pin a piece or post',
-                    ),
-                  ),
-                  if (_bannerMediaUrl != null) ...[
-                    const SizedBox(height: 10),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: CachedNetworkImage(
-                        imageUrl: _bannerMediaUrl!,
-                        height: 80,
-                        width: 80,
-                        fit: BoxFit.cover,
+                  const SizedBox(height: 18),
+                  Row(
+                    children: [
+                      if (_bannerMediaUrl != null) ...[
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(StudioRadius.small),
+                          child: CachedNetworkImage(
+                            imageUrl: _bannerMediaUrl!,
+                            height: 64,
+                            width: 64,
+                            fit: BoxFit.cover,
+                            errorWidget: (_, _, _) => ColoredBox(color: c.surface),
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                      ],
+                      StudioButton(
+                        label: _bannerTargetId != null ? 'Change pinned banner' : 'Pin a piece or post',
+                        variant: StudioButtonVariant.outline,
+                        expand: false,
+                        onPressed: _pickBanner,
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -349,9 +298,45 @@ class _EditProfilePageState extends State<EditProfilePage> {
       ),
     );
   }
+}
 
-  Widget _fieldDivider() => Divider(
-        height: 24,
-        color: HomeFeedTokens.textPrimary.withValues(alpha: 0.08),
-      );
+/// "Use my current location" (or "Location captured"): the location icon 16 and 13/500 Ink,
+/// a small spinner while it looks.
+class _LocationButton extends StatelessWidget {
+  const _LocationButton({required this.locating, required this.captured, required this.onTap});
+
+  final bool locating;
+  final bool captured;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.studio;
+    return Semantics(
+      button: true,
+      child: GestureDetector(
+        onTap: locating ? null : onTap,
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          height: StudioSize.tapTarget,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              locating
+                  ? SizedBox.square(
+                      dimension: 14,
+                      child: CircularProgressIndicator(strokeWidth: 1.5, color: c.textSecondary),
+                    )
+                  : StudioIcon(StudioIcons.location, size: 16, color: c.textPrimary),
+              const SizedBox(width: 8),
+              Text(
+                captured ? 'Location captured' : 'Use my current location',
+                style: StudioType.label13(weight: StudioType.medium, color: c.textPrimary),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

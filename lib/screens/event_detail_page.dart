@@ -13,7 +13,7 @@ import '../services/user_service.dart';
 import '../utils/app_destination.dart';
 import '../utils/profile_navigation.dart';
 import '../utils/require_login.dart';
-import '../theme/collect_detail_tokens.dart' show formatMoney;
+import '../utils/money_format.dart' show formatMoney;
 import '../widgets/events/event_detail_widgets.dart';
 import '../widgets/events/event_tickets_sheet.dart';
 import '../widgets/follow_button.dart';
@@ -22,15 +22,16 @@ import '../widgets/share/share_sheet.dart';
 import '../widgets/studio/studio.dart';
 import 'event_checkout_page.dart';
 import 'event_confirmed_page.dart';
-import 'event_qr_codes_page.dart';
+import 'host/host_manage_page.dart';
 
 /// Returns the pushed route's future, so a caller that wants to know when the viewer is
 /// back — to refresh a list something on this page could have changed, an RSVP or a
 /// delete — can await it instead of guessing when to re-fetch.
-Future<void> openEventDetail(BuildContext context, StudioEvent event) {
+/// [openTickets] opens Choose tickets as soon as the page is up (the feed card's Get tickets).
+Future<void> openEventDetail(BuildContext context, StudioEvent event, {bool openTickets = false}) {
   return Navigator.of(
     context,
-  ).push<void>(MaterialPageRoute<void>(builder: (_) => EventDetailPage(event: event)));
+  ).push<void>(MaterialPageRoute<void>(builder: (_) => EventDetailPage(event: event, openTickets: openTickets)));
 }
 
 /// The event page (`EvDetail`): the flyer with back, save, share and more over it; Hosted by
@@ -43,9 +44,12 @@ Future<void> openEventDetail(BuildContext context, StudioEvent event) {
 /// saves the RSVP; paid tickets go through checkout (`EvCheckout`) once the server sells them.
 /// FAQs and the host's follow state are BACKEND_CHANGES B24.
 class EventDetailPage extends StatefulWidget {
-  const EventDetailPage({super.key, required this.event, this.debugDetail});
+  const EventDetailPage({super.key, required this.event, this.debugDetail, this.openTickets = false});
 
   final StudioEvent event;
+
+  /// Open Choose tickets once the page is up.
+  final bool openTickets;
 
   /// For tests: the full event, so the page neither fetches it nor the host's profile.
   @visibleForTesting
@@ -90,6 +94,21 @@ class _EventDetailPageState extends State<EventDetailPage> with DetailFollowStat
     _loadDetail();
     _loadFollow();
   }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (widget.openTickets && !_ticketsOpened) {
+      _ticketsOpened = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final e = _event;
+        final soldOut = e.isFull || e.ticketOptions.every((t) => t.isSoldOut);
+        if (mounted && e.canRsvp && !soldOut && !e.viewerIsGoing) _getTickets();
+      });
+    }
+  }
+
+  bool _ticketsOpened = false;
 
   @override
   void dispose() {
@@ -266,7 +285,10 @@ class _EventDetailPageState extends State<EventDetailPage> with DetailFollowStat
     );
   }
 
-  void _openQrCodes() => EventQrCodesPage.open(context, eventId: _event.id, eventTitle: _event.title);
+  Future<void> _manage() async {
+    await HostManagePage.open(context, _event);
+    _loadDetail();
+  }
 
   /// The ··· menu: the host's QR codes, "Can't make it" once going, and Copy link.
   void _openMore() {
@@ -280,11 +302,11 @@ class _EventDetailPageState extends State<EventDetailPage> with DetailFollowStat
           if (event.isHost)
             StudioActionRow(
               icon: StudioIcons.ticket,
-              title: 'QR codes for pieces',
-              subtitle: 'Print them to hang beside each work',
+              title: 'Manage event',
+              subtitle: 'Guests, piece QR codes, edit or cancel',
               onTap: () {
                 Navigator.pop(sheetContext);
-                _openQrCodes();
+                _manage();
               },
             ),
           if (event.viewerIsGoing && !event.isHost)
@@ -328,10 +350,10 @@ class _EventDetailPageState extends State<EventDetailPage> with DetailFollowStat
         left: StudioBottomBarInfo(label: 'Going', value: '${e.rsvpCount}'),
         right: when,
         button: StudioButton(
-          label: 'QR codes for pieces',
+          label: 'Manage event',
           variant: StudioButtonVariant.outline,
           height: 52,
-          onPressed: _openQrCodes,
+          onPressed: _manage,
         ),
       );
     }

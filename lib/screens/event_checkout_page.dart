@@ -8,7 +8,7 @@ import '../models/studio_event.dart';
 import '../services/api_exception.dart';
 import '../services/event_service.dart';
 import '../services/user_service.dart';
-import '../theme/collect_detail_tokens.dart' show formatMoney;
+import '../utils/money_format.dart' show formatMoney;
 import '../widgets/events/event_tab_widgets.dart' show eventCity;
 import '../widgets/events/event_tickets_sheet.dart';
 import '../widgets/events/event_detail_widgets.dart' show EventCover;

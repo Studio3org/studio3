@@ -70,12 +70,19 @@ abstract final class PostStyleOptions {
 abstract final class EventCategoryOptions {
   EventCategoryOptions._();
 
+  /// Every category the server accepts (`EVENT_CATEGORIES`), in sentence case as the hosting
+  /// boards write them (`HostDetails` "Gallery walk").
   static const all = <PostPickerOption>[
-    PostPickerOption(id: 'workshop', name: 'Workshop'),
-    PostPickerOption(id: 'gallery_walk', name: 'Gallery Walk'),
+    PostPickerOption(id: 'gallery_walk', name: 'Gallery walk'),
     PostPickerOption(id: 'exhibition', name: 'Exhibition'),
-    PostPickerOption(id: 'talks_panels', name: 'Talks & Panels'),
-    PostPickerOption(id: 'demos_performances', name: 'Demos & Performances'),
+    PostPickerOption(id: 'workshop', name: 'Workshop'),
+    PostPickerOption(id: 'talks_panels', name: 'Talks and panels'),
+    PostPickerOption(id: 'demos_performances', name: 'Demos and performances'),
+    PostPickerOption(id: 'studio_visit', name: 'Studio visit'),
+    PostPickerOption(id: 'popup', name: 'Pop-up'),
+    PostPickerOption(id: 'market', name: 'Market'),
+    PostPickerOption(id: 'auction', name: 'Auction'),
+    PostPickerOption(id: 'other', name: 'Other'),
   ];
 
   static PostPickerOption? byId(String id) {

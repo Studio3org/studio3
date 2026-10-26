@@ -7,7 +7,7 @@ import '../services/auth_session.dart';
 import '../services/bid_service.dart';
 import '../services/piece_service.dart';
 import '../services/report_service.dart';
-import '../theme/collect_detail_tokens.dart' show formatMoney;
+import '../utils/money_format.dart' show formatMoney;
 import '../theme/studio_colors.dart';
 import '../utils/content_detail_loader.dart';
 import '../utils/require_login.dart';

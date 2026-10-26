@@ -11,7 +11,7 @@ import '../widgets/post_picker_search_field.dart';
 import '../widgets/studio/studio.dart';
 import 'event_detail_page.dart';
 import 'event_list_page.dart';
-import 'event_post_page.dart';
+import 'host/host_event_page.dart';
 import 'my_events_page.dart';
 
 /// The Events tab (`EvTab`): + to host, "Near me ▾", the ticket for Your events; search;
@@ -143,9 +143,7 @@ class _EventPageState extends State<EventPage> with ScrollsToTopOnDoubleTap<Even
       return;
     }
     if (!mounted) return;
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(builder: (_) => const EventPostPage()),
-    );
+    await HostEventPage.open(context);
   }
 
   Future<void> _yourEvents() async {
