@@ -1,23 +1,21 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../models/order.dart';
 import '../services/api_exception.dart';
 import '../services/order_service.dart';
-import '../theme/app_theme.dart';
-import '../theme/home_feed_tokens.dart';
-import '../widgets/studio/studio_top_bar.dart';
-import '../widgets/glass_card.dart';
+import '../widgets/orders/order_row.dart';
+import '../widgets/settings_tile.dart' show SettingsSectionLabel;
+import '../widgets/studio/studio.dart';
 
 class OrderDetailPage extends StatefulWidget {
-  const OrderDetailPage({
-    super.key,
-    required this.orderId,
-    this.isSeller = false,
-  });
+  const OrderDetailPage({super.key, required this.orderId, this.isSeller = false, this.debugOrder});
 
   final String orderId;
   final bool isSeller;
+
+  /// For tests: the order, instead of asking the server.
+  @visibleForTesting
+  final Order? debugOrder;
 
   @override
   State<OrderDetailPage> createState() => _OrderDetailPageState();
@@ -36,6 +34,14 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   }
 
   Future<void> _load() async {
+    final given = widget.debugOrder;
+    if (given != null) {
+      setState(() {
+        _order = given;
+        _loading = false;
+      });
+      return;
+    }
     setState(() {
       _loading = true;
       _error = null;
@@ -59,10 +65,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   Future<void> _updateStatus(String status) async {
     setState(() => _updating = true);
     try {
-      final order = await OrderService.instance.updateOrderStatus(
-        widget.orderId,
-        status,
-      );
+      final order = await OrderService.instance.updateOrderStatus(widget.orderId, status);
       if (!mounted) return;
       setState(() {
         _order = order;
@@ -71,107 +74,81 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _updating = false);
-      final message = e is ApiException ? e.message : 'Could not update order';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      showStudioToast(context, e is ApiException ? e.message : 'Could not update order', icon: null);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: HomeFeedTokens.background,
+      backgroundColor: context.studio.background,
       appBar: StudioTopBar(context: context, title: 'Order details'),
       body: _buildBody(),
     );
   }
 
   Widget _buildBody() {
+    final c = context.studio;
     if (_loading) {
-      return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+      return Center(
+        child: SizedBox.square(
+          dimension: 20,
+          child: CircularProgressIndicator(strokeWidth: 2, color: c.textSecondary),
+        ),
+      );
     }
     final order = _order;
     if (order == null) {
       return Center(
-        child: Text(
-          _error ?? 'Order not found',
-          style: GoogleFonts.inter(fontSize: 14, color: AppColors.slate400),
+        child: StudioEmptyState(
+          title: "This order didn't load",
+          message: _error,
+          actionLabel: 'Try again',
+          onAction: _load,
         ),
       );
     }
 
     final address = order.shippingAddress;
+    final line = StudioType.body15(color: c.textPrimary);
+    final actions = widget.isSeller ? _sellerActions(order) : _buyerActions(order);
 
     return ListView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(StudioSpace.marginForm, 8, StudioSpace.marginForm, 40),
       children: [
-        GlassCard(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Status',
-                style: GoogleFonts.inter(fontSize: 12, color: AppColors.slate500),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                order.status.replaceAll('_', ' '),
-                style: GoogleFonts.inter(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.slate900,
-                ),
-              ),
-            ],
-          ),
+        Text('Status', style: StudioType.label13(color: c.textSecondary)),
+        const SizedBox(height: 4),
+        Text(
+          orderStatusLabel(order.status),
+          // Ink, except the status colours (Completed green, Cancelled grey).
+          style: StudioType.header17(color: orderStatusColor(c, order.status, neutral: c.textPrimary)),
         ),
-        const SizedBox(height: 16),
-        if (address != null)
-          GlassCard(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Shipping address',
-                  style: GoogleFonts.inter(fontSize: 12, color: AppColors.slate500),
-                ),
-                const SizedBox(height: 8),
-                Text(address.fullName, style: GoogleFonts.inter(fontSize: 14)),
-                Text(address.line1, style: GoogleFonts.inter(fontSize: 14)),
-                if (address.line2 != null && address.line2!.isNotEmpty)
-                  Text(address.line2!, style: GoogleFonts.inter(fontSize: 14)),
-                Text(
-                  '${address.city}, ${address.state} ${address.zip}',
-                  style: GoogleFonts.inter(fontSize: 14),
-                ),
-              ],
-            ),
-          ),
-        const SizedBox(height: 16),
-        GlassCard(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Order summary',
-                style: GoogleFonts.inter(fontSize: 12, color: AppColors.slate500),
-              ),
-              const SizedBox(height: 12),
-              _SummaryLine(label: 'Piece', value: order.artworkDisplay),
-              const SizedBox(height: 6),
-              _SummaryLine(label: 'Shipping', value: order.shippingDisplay),
-              const SizedBox(height: 6),
-              _SummaryLine(label: 'Tax', value: order.taxDisplay),
-              const Divider(height: 20),
-              _SummaryLine(label: 'Total', value: order.totalDisplay, bold: true),
-            ],
-          ),
+        if (address != null) ...[
+          const SettingsSectionLabel('Shipping address', top: 28),
+          const SizedBox(height: 8),
+          Text(address.fullName, style: line),
+          Text(address.line1, style: line),
+          if (address.line2 != null && address.line2!.isNotEmpty) Text(address.line2!, style: line),
+          Text('${address.city}, ${address.state} ${address.zip}', style: line),
+        ],
+        const SizedBox(height: 28),
+        Text(
+          'Order summary',
+          style: StudioType.sans(15, weight: StudioType.medium, color: c.textPrimary),
         ),
-        const SizedBox(height: 24),
-        if (widget.isSeller) ..._sellerActions(order),
-        if (!widget.isSeller) ..._buyerActions(order),
+        const SizedBox(height: 6),
+        _SummaryLine(label: 'Piece', value: order.artworkDisplay),
+        _SummaryLine(label: 'Shipping', value: order.shippingDisplay),
+        _SummaryLine(label: 'Tax', value: order.taxDisplay),
+        Container(
+          margin: const EdgeInsets.only(top: 6),
+          padding: const EdgeInsets.only(top: 6),
+          decoration: BoxDecoration(
+            border: Border(top: BorderSide(color: c.line)),
+          ),
+          child: _SummaryLine(label: 'Total', value: order.totalDisplay, bold: true),
+        ),
+        if (actions.isNotEmpty) ...[const SizedBox(height: 28), ...actions],
       ],
     );
   }
@@ -185,8 +162,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
       actions.add(_actionButton('Mark as completed', () => _updateStatus('completed')));
     }
     if (order.status == 'pending_payment' || order.status == 'paid') {
-      actions.add(_actionButton('Cancel order', () => _updateStatus('cancelled'),
-          destructive: true));
+      actions.add(_actionButton('Cancel order', () => _updateStatus('cancelled'), secondary: true));
     }
     return actions;
   }
@@ -194,31 +170,26 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   List<Widget> _buyerActions(Order order) {
     final actions = <Widget>[];
     if (order.status == 'pending_payment' || order.status == 'paid') {
-      actions.add(_actionButton('Cancel order', () => _updateStatus('cancelled'),
-          destructive: true));
+      actions.add(_actionButton('Cancel order', () => _updateStatus('cancelled'), secondary: true));
     }
     return actions;
   }
 
-  Widget _actionButton(String label, VoidCallback onTap, {bool destructive = false}) {
+  /// The order's next step in Ink; Cancel order as an outline (never red, `HandoffRules`).
+  Widget _actionButton(String label, VoidCallback onTap, {bool secondary = false}) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: SizedBox(
-        height: 44,
-        width: double.infinity,
-        child: ElevatedButton(
-          onPressed: _updating ? null : onTap,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: destructive ? Colors.red.shade50 : AppColors.slate900,
-            foregroundColor: destructive ? Colors.red.shade700 : AppColors.white,
-          ),
-          child: Text(label),
-        ),
+      padding: const EdgeInsets.only(bottom: 10),
+      child: StudioButton(
+        label: label,
+        variant: secondary ? StudioButtonVariant.outline : StudioButtonVariant.primary,
+        loading: _updating && !secondary,
+        onPressed: _updating ? null : onTap,
       ),
     );
   }
 }
 
+/// 14 Graphite label and Ink value, 6 above and below; Total 15/500 (the checkout summary).
 class _SummaryLine extends StatelessWidget {
   const _SummaryLine({required this.label, required this.value, this.bold = false});
 
@@ -228,26 +199,17 @@ class _SummaryLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Text(
-          label,
-          style: GoogleFonts.inter(
-            fontSize: 13,
-            fontWeight: bold ? FontWeight.w600 : FontWeight.w400,
-            color: AppColors.slate700,
-          ),
-        ),
-        const Spacer(),
-        Text(
-          value,
-          style: GoogleFonts.inter(
-            fontSize: 13,
-            fontWeight: bold ? FontWeight.w600 : FontWeight.w400,
-            color: AppColors.slate900,
-          ),
-        ),
-      ],
+    final c = context.studio;
+    final strong = StudioType.sans(15, weight: StudioType.medium, color: c.textPrimary);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Text(label, style: bold ? strong : StudioType.body14(color: c.textSecondary)),
+          const Spacer(),
+          Text(value, style: bold ? strong : StudioType.body14(color: c.textPrimary)),
+        ],
+      ),
     );
   }
 }

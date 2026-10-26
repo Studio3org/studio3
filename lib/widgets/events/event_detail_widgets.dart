@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/studio_event.dart';
-import '../../theme/collect_detail_tokens.dart' show formatMoney;
+import '../../utils/money_format.dart' show formatMoney;
 import '../studio/studio.dart';
 
 /// Directions in the phone's maps app (Apple Maps on iOS, else Google Maps), to the pin when

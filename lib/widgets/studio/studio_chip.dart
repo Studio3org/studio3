@@ -15,6 +15,7 @@ class StudioChip extends StatelessWidget {
     required this.onTap,
     this.leading,
     this.horizontalPadding = 14,
+    this.dense = false,
   });
 
   final String label;
@@ -22,6 +23,9 @@ class StudioChip extends StatelessWidget {
   final VoidCallback? onTap;
   final Widget? leading;
   final double horizontalPadding;
+
+  /// 32 tall, 0 12 padding, 13 regular (`HostLineup` piece chips).
+  final bool dense;
 
   @override
   Widget build(BuildContext context) {
@@ -35,8 +39,8 @@ class StudioChip extends StatelessWidget {
         onTap: onTap,
         child: AnimatedContainer(
           duration: StudioMotion.quick,
-          height: 36,
-          padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+          height: dense ? 32 : 36,
+          padding: EdgeInsets.symmetric(horizontal: dense ? 12 : horizontalPadding),
           decoration: BoxDecoration(
             color: selected ? c.buttonFill : c.card,
             borderRadius: BorderRadius.circular(StudioRadius.round),
@@ -54,7 +58,9 @@ class StudioChip extends StatelessWidget {
               ],
               Text(
                 label,
-                style: StudioType.body14(weight: StudioType.medium, color: fg),
+                style: dense
+                    ? StudioType.label13(color: fg)
+                    : StudioType.body14(weight: StudioType.medium, color: fg),
               ),
             ],
           ),

@@ -3,6 +3,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../services/permission_service.dart';
 import '../utils/app_destination.dart';
+import '../widgets/studio/studio.dart';
 
 /// Scanning the code beside a work in the room.
 ///
@@ -95,14 +96,11 @@ class _ScanQrPageState extends State<ScanQrPage> {
 
   @override
   Widget build(BuildContext context) {
+    // A camera screen: Ink in both themes, white type (like the dark edit screens).
+    const white = StudioColors.galleryWhite;
+    final alert = StudioColors.dark.alert;
     return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        title: const Text('Scan a code'),
-      ),
+      backgroundColor: StudioColors.ink,
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -113,32 +111,84 @@ class _ScanQrPageState extends State<ScanQrPage> {
           ),
           const _ScanReticle(),
           Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(6, 8, 6, 0),
+                child: Row(
+                  children: [
+                    StudioTopIcon(
+                      icon: StudioIcons.back,
+                      onTap: () => Navigator.of(context).maybePop(),
+                      semanticLabel: 'Back',
+                    ),
+                    Expanded(
+                      child: Text(
+                        'Scan a code',
+                        textAlign: TextAlign.center,
+                        style: StudioType.sans(16, weight: StudioType.medium, color: white),
+                      ),
+                    ),
+                    const SizedBox(width: 44),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
             left: 24,
             right: 24,
             bottom: 48,
             child: Column(
               children: [
                 Text(
-                  _error ??
-                      'Point your camera at the code beside a piece to see it and bid.',
+                  _error ?? 'Point your camera at the code beside a piece to see it and bid.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: _error == null ? Colors.white70 : const Color(0xFFE5837A),
-                    fontSize: 14,
-                    height: 1.4,
-                  ),
+                  style: StudioType.body14(color: _error == null ? StudioColors.onDarkSecondary : alert),
                 ),
                 if (_error != null) ...[
                   const SizedBox(height: 8),
-                  TextButton(
-                    onPressed: () => setState(() => _error = null),
-                    child: const Text('Try again'),
-                  ),
+                  _DarkTextButton(label: 'Try again', onTap: () => setState(() => _error = null)),
                 ],
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// A plain white 14/500 text button with a 44 tap area, for the dark camera screen.
+class _DarkTextButton extends StatelessWidget {
+  const _DarkTextButton({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          height: StudioSize.tapTarget,
+          child: Center(
+            widthFactor: 1,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Text(
+                label,
+                style: StudioType.body14(weight: StudioType.medium, color: StudioColors.galleryWhite),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -154,28 +204,25 @@ class _CameraUnavailable extends StatelessWidget {
   Widget build(BuildContext context) {
     final denied = error.errorCode == MobileScannerErrorCode.permissionDenied;
     return ColoredBox(
-      color: Colors.black,
+      color: StudioColors.ink,
       child: Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.photo_camera_outlined, color: Colors.white54, size: 40),
+              StudioIcon(StudioIcons.camera, size: 32, color: StudioColors.onDarkSecondary),
               const SizedBox(height: 16),
               Text(
                 denied
                     ? 'Studio 3 needs camera access to scan a code.'
                     : 'The camera is unavailable on this device.',
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white70, fontSize: 14, height: 1.4),
+                style: StudioType.body14(color: StudioColors.onDarkSecondary),
               ),
               if (denied) ...[
                 const SizedBox(height: 12),
-                TextButton(
-                  onPressed: PermissionService.instance.openSettings,
-                  child: const Text('Open settings'),
-                ),
+                _DarkTextButton(label: 'Open settings', onTap: PermissionService.instance.openSettings),
               ],
             ],
           ),
@@ -185,6 +232,7 @@ class _CameraUnavailable extends StatelessWidget {
   }
 }
 
+/// 240 square at radius 16, a 2 px white line at 70 %.
 class _ScanReticle extends StatelessWidget {
   const _ScanReticle();
 
@@ -195,7 +243,7 @@ class _ScanReticle extends StatelessWidget {
         width: 240,
         height: 240,
         decoration: BoxDecoration(
-          border: Border.all(color: Colors.white70, width: 2),
+          border: Border.all(color: StudioColors.galleryWhite.withValues(alpha: 0.7), width: 2),
           borderRadius: BorderRadius.circular(16),
         ),
       ),

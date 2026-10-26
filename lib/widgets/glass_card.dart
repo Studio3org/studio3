@@ -1,8 +1,10 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
 
-/// Light glass card — for forms, overlays on light bg
+import '../theme/studio_colors.dart';
+import '../theme/studio_metrics.dart';
+
+/// A plain card: Card colour, a 1 px Line, radius 14 (the old frosted glass is gone; no blur
+/// in the redesign). Kept for the screens that still use it; Phase 11 removes it.
 class GlassCard extends StatelessWidget {
   const GlassCard({super.key, required this.child, this.padding});
 
@@ -11,25 +13,20 @@ class GlassCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(AppDims.radiusLg),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        child: Container(
-          padding: padding ?? const EdgeInsets.all(28),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.72),
-            borderRadius: BorderRadius.circular(AppDims.radiusLg),
-            border: Border.all(color: Colors.white.withOpacity(0.45)),
-          ),
-          child: child,
-        ),
+    final c = context.studio;
+    return Container(
+      padding: padding ?? const EdgeInsets.all(28),
+      decoration: BoxDecoration(
+        color: c.card,
+        borderRadius: BorderRadius.circular(StudioRadius.panel),
+        border: Border.all(color: c.line),
       ),
+      child: child,
     );
   }
 }
 
-/// Dark glass strip — overlays on images
+/// Text strip over an image: Ink at 55 %, radius 10 (`imageCaptionBar`-like).
 class GlassDark extends StatelessWidget {
   const GlassDark({super.key, required this.child});
 
@@ -37,20 +34,13 @@ class GlassDark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(AppDims.radiusMd),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            color: AppColors.slate900.withOpacity(0.55),
-            borderRadius: BorderRadius.circular(AppDims.radiusMd),
-            border: Border.all(color: Colors.white.withOpacity(0.1)),
-          ),
-          child: child,
-        ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: StudioColors.ink.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(StudioRadius.card),
       ),
+      child: child,
     );
   }
 }

@@ -8,7 +8,7 @@ import '../../models/feed_preview_item.dart';
 import '../../services/api_exception.dart';
 import '../../services/bid_service.dart';
 import '../../services/order_service.dart';
-import '../../theme/collect_detail_tokens.dart' show formatMoney, formatMoneyAmount;
+import '../../utils/money_format.dart' show formatMoney, formatMoneyAmount;
 import '../../theme/studio_colors.dart';
 import '../../theme/studio_metrics.dart';
 import '../../theme/studio_type.dart';

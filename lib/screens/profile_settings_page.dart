@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../services/api_exception.dart';
@@ -10,14 +9,11 @@ import '../services/payout_service.dart';
 import '../models/user_profile.dart';
 import '../services/theme_service.dart';
 import '../services/user_service.dart';
-import '../theme/studio_colors.dart';
 import '../utils/profile_navigation.dart';
 import '../widgets/feed_skeleton.dart';
 import '../widgets/loading/skeleton_primitives.dart';
 import '../widgets/settings_tile.dart';
-import '../widgets/studio/studio_select_row.dart';
-import '../widgets/studio/studio_top_bar.dart';
-import '../widgets/studio/studio_toast.dart';
+import '../widgets/studio/studio.dart';
 import '../widgets/studio_loading.dart';
 import 'inbox_page.dart';
 import 'profile/widgets/profile_seller_insights.dart';
@@ -87,50 +83,11 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
   }
 
   Future<void> _confirmDeleteAccount() async {
-    final passwordController = TextEditingController();
-    final confirmed = await showDialog<bool>(
+    final password = await showStudioSheet<String>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Delete your account?'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'This permanently deletes your account and your data — profile, '
-                'pieces, scenes, and listings. This cannot be undone.',
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: passwordController,
-                obscureText: true,
-                autofocus: true,
-                decoration: const InputDecoration(
-                  labelText: 'Confirm your password',
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text(
-              'Delete account',
-              style: TextStyle(color: Color(0xFFE05252)),
-            ),
-          ),
-        ],
-      ),
+      builder: (_) => const _DeleteAccountSheet(),
     );
-    final password = passwordController.text;
-    passwordController.dispose();
-    if (confirmed != true || !mounted || password.isEmpty) return;
+    if (password == null || password.isEmpty || !mounted) return;
     try {
       await DeviceService.instance.unregisterCurrentDevice();
       await AuthService.instance.deleteAccount(password);
@@ -139,17 +96,9 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
     } on ApiException catch (e) {
       // e.g. wrong password, or an active listing / in-progress order that has to be
       // resolved first — the server's message says which.
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(e.message)));
+      if (mounted) showStudioToast(context, e.message, icon: null);
     } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not delete your account. Please try again.'),
-        ),
-      );
+      if (mounted) showStudioToast(context, 'Could not delete your account. Please try again.', icon: null);
     }
   }
 
@@ -158,27 +107,13 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
     required String message,
     required Future<void> Function() onConfirmed,
   }) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text(
-              'Log out',
-              style: TextStyle(color: Color(0xFFE05252)),
-            ),
-          ),
-        ],
-      ),
+    final confirmed = await showStudioConfirm(
+      context,
+      title: title,
+      message: message,
+      confirmLabel: 'Log out',
     );
-    if (confirmed != true || !mounted) return;
+    if (!confirmed || !mounted) return;
     await onConfirmed();
     if (!mounted) return;
     Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
@@ -268,9 +203,9 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
         body: _loadingSeller
             ? const SettingsListSkeleton()
             : ListView(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
           children: [
-            const _SectionHeader('Appearance'),
+            const SettingsSectionLabel('Appearance', top: 12),
             StudioSelectRow(
               title: 'Light',
               selected: !dark,
@@ -291,16 +226,14 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
               onTap: dark ? null : () => _selectAppearance('dark'),
             ),
 
-            const _SectionHeader('Seller'),
+            const SettingsSectionLabel('Seller'),
             SettingsToggleTile(
-              icon: Icons.storefront_outlined,
               label: 'Seller account',
               value: _sellerEnabled,
               onChanged: _onSellerToggle,
             ),
             if (_sellerEnabled) ...[
               SettingsTile(
-                icon: Icons.bar_chart_rounded,
                 label: 'Seller analytics',
                 onTap: () {
                   Navigator.push(
@@ -317,7 +250,6 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
                 },
               ),
               SettingsTile(
-                icon: Icons.point_of_sale_outlined,
                 label: 'My sales',
                 onTap: () => Navigator.pushNamed(context, '/sales'),
               ),
@@ -332,19 +264,16 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
               ),
             ],
             SettingsTile(
-              icon: Icons.receipt_long_outlined,
               label: 'My orders',
               onTap: () => Navigator.pushNamed(context, '/orders'),
             ),
 
-            const _SectionHeader('Account'),
+            const SettingsSectionLabel('Account'),
             SettingsTile(
-              icon: Icons.person_outline_rounded,
               label: 'Edit profile',
               onTap: () => Navigator.pushNamed(context, '/edit-profile'),
             ),
             SettingsTile(
-              icon: Icons.collections_bookmark_outlined,
               label: 'Manage series',
               onTap: () async {
                 await Navigator.pushNamed(context, '/manage-series');
@@ -353,24 +282,20 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
               },
             ),
             SettingsTile(
-              icon: Icons.local_shipping_outlined,
               label: 'Shipping addresses',
               onTap: () => Navigator.pushNamed(context, '/addresses'),
             ),
             SettingsTile(
-              icon: Icons.visibility_outlined,
               label: 'See profile as viewer',
               onTap: () => openOwnProfileAsViewer(context),
             ),
 
-            const _SectionHeader('Privacy'),
+            const SettingsSectionLabel('Privacy'),
             SettingsTile(
-              icon: Icons.shield_outlined,
               label: 'Profile visibility & messaging',
               onTap: () => Navigator.pushNamed(context, '/privacy-settings'),
             ),
             SettingsTile(
-              icon: Icons.person_add_alt_outlined,
               label: 'Follow requests',
               onTap: () => Navigator.pushNamed(
                 context,
@@ -379,17 +304,14 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
               ),
             ),
             SettingsTile(
-              icon: Icons.block_outlined,
               label: 'Blocked accounts',
               onTap: () => Navigator.pushNamed(context, '/blocked-users'),
             ),
             SettingsTile(
-              icon: Icons.gavel_outlined,
               label: 'Terms of Use (EULA)',
               onTap: () => Navigator.pushNamed(context, '/terms'),
             ),
             SettingsTile(
-              icon: Icons.description_outlined,
               label: 'Privacy policy',
               onTap: () => _openExternalLink(
                 'https://studiosthree.com/privacy',
@@ -397,24 +319,20 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
               ),
             ),
             SettingsTile(
-              icon: Icons.flag_outlined,
               label: 'My reports',
               onTap: () => Navigator.pushNamed(context, '/my-reports'),
             ),
 
-            const _SectionHeader('Login & security'),
+            const SettingsSectionLabel('Login & security'),
             SettingsTile(
-              icon: Icons.lock_outline_rounded,
               label: 'Password & security',
               onTap: () => Navigator.pushNamed(context, '/change-password'),
             ),
             SettingsTile(
-              icon: Icons.email_outlined,
               label: 'Change email',
               onTap: () => Navigator.pushNamed(context, '/change-email'),
             ),
             SettingsTile(
-              icon: Icons.devices_other_outlined,
               label: 'Log out of all devices',
               onTap: () => _confirmLogout(
                 title: 'Log out of all devices?',
@@ -427,9 +345,8 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
               ),
             ),
 
-            const _SectionHeader('Notifications'),
+            const SettingsSectionLabel('Notifications'),
             SettingsTile(
-              icon: Icons.notifications_outlined,
               label: 'Notifications',
               onTap: () => Navigator.pushNamed(
                 context,
@@ -438,16 +355,14 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
               ),
             ),
             SettingsTile(
-              icon: Icons.tune_rounded,
               label: 'Notification preferences',
               onTap: () => Navigator.pushNamed(context, '/notification-preferences'),
             ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 28),
             SettingsTile(
-              icon: Icons.logout_rounded,
               label: 'Log out',
-              destructive: true,
+              chevron: false,
               onTap: () => _confirmLogout(
                 title: 'Log out?',
                 message: "You'll need to log back in to use Studio 3.",
@@ -458,35 +373,11 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
               ),
             ),
             SettingsTile(
-              icon: Icons.delete_forever_rounded,
               label: 'Delete account',
-              destructive: true,
+              chevron: false,
               onTap: _confirmDeleteAccount,
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Instagram-style bold section label grouping related settings rows.
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader(this.label);
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 20, 4, 8),
-      child: Text(
-        label,
-        style: GoogleFonts.inter(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.3,
-          color: context.studio.textSecondary,
         ),
       ),
     );
@@ -513,30 +404,77 @@ class PayoutSettingsTile extends StatelessWidget {
     final current = status;
     if (current == null) {
       return const SettingsTile(
-        icon: Icons.account_balance_outlined,
         label: 'Payouts',
         trailing: SkeletonShimmer(child: SkeletonBox(width: 56, height: 12, radius: 4)),
       );
     }
     if (current.needsAction) {
       return SettingsTile(
-        icon: Icons.account_balance_wallet_outlined,
         label: 'Payout setup',
         trailing: Text(
           'Required',
-          style: GoogleFonts.inter(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: const Color(0xFFC47B2B),
-          ),
+          style: StudioType.label13(weight: StudioType.medium, color: context.studio.alert),
         ),
         onTap: onStartSetup,
       );
     }
     return SettingsTile(
-      icon: Icons.account_balance_outlined,
       label: 'Payouts',
       onTap: onOpenDashboard,
+    );
+  }
+}
+
+/// "Delete your account?", what it removes, the password (an underline field), then Delete
+/// account (on once a password is typed) and Cancel. Pops the password, or null.
+class _DeleteAccountSheet extends StatefulWidget {
+  const _DeleteAccountSheet();
+
+  @override
+  State<_DeleteAccountSheet> createState() => _DeleteAccountSheetState();
+}
+
+class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
+  final _password = TextEditingController();
+
+  @override
+  void dispose() {
+    _password.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.studio;
+    return StudioSheet(
+      horizontalPadding: StudioSpace.marginForm,
+      gap: 14,
+      children: [
+        Text('Delete your account?', style: StudioType.title22(color: c.textPrimary)),
+        Text(
+          'This permanently deletes your account and your data — profile, pieces, scenes, '
+          'and listings. This cannot be undone.',
+          style: StudioType.body14(color: c.textSecondary),
+        ),
+        StudioUnderlineField(
+          label: 'Confirm your password',
+          controller: _password,
+          obscureText: true,
+          autofocus: true,
+          autofillHints: const [AutofillHints.password],
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 4),
+        StudioButton(
+          label: 'Delete account',
+          onPressed: _password.text.isEmpty ? null : () => Navigator.pop(context, _password.text),
+        ),
+        StudioButton(
+          label: 'Cancel',
+          variant: StudioButtonVariant.text,
+          onPressed: () => Navigator.pop(context),
+        ),
+      ],
     );
   }
 }

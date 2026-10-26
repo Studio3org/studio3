@@ -218,7 +218,7 @@ class _PostCoverPageState extends State<PostCoverPage> {
                                         imageAspect: _aspect(_active),
                                       ),
                                 ),
-                                const IgnorePointer(child: _ThirdsGrid()),
+                                const IgnorePointer(child: CoverThirdsGrid()),
                                 if (_active == 0)
                                   const Positioned(
                                     left: 2,
@@ -411,8 +411,9 @@ class _Header extends StatelessWidget {
 }
 
 /// Rule-of-thirds lines, 1 px white at 22 %.
-class _ThirdsGrid extends StatelessWidget {
-  const _ThirdsGrid();
+/// The faint thirds grid over a framing area (rgba(255,255,255,0.22) lines).
+class CoverThirdsGrid extends StatelessWidget {
+  const CoverThirdsGrid({super.key});
 
   @override
   Widget build(BuildContext context) {

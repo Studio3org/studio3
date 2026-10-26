@@ -3,8 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/auction_summary.dart';
 import '../../services/api_exception.dart';
 import '../../services/auction_service.dart';
-import '../../theme/collect_detail_tokens.dart';
-import '../../theme/app_fonts.dart';
+import '../studio/studio.dart';
 
 /// What a seller can do to their own running or finished auction.
 ///
@@ -18,6 +17,10 @@ import '../../theme/app_fonts.dart';
 ///   run rather than reopening the old one.
 ///
 /// Returns true if anything changed, so the caller knows to reload.
+///
+/// No board: a Studio sheet ("Manage auction" 22, the status 14 Graphite) with plain action
+/// rows (15/500 over a 12 Graphite line, a chevron, a Line under); every action Ink, Cancel
+/// included (`HandoffRules`), its weight carried by the confirmation instead.
 class ManageAuctionSheet extends StatefulWidget {
   const ManageAuctionSheet({
     super.key,
@@ -33,12 +36,8 @@ class ManageAuctionSheet extends StatefulWidget {
     required String pieceId,
     required AuctionSummary auction,
   }) async {
-    final changed = await showModalBottomSheet<bool>(
+    final changed = await showStudioSheet<bool>(
       context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withValues(alpha: 0.2),
       builder: (context) => ManageAuctionSheet(pieceId: pieceId, auction: auction),
     );
     return changed ?? false;
@@ -88,18 +87,25 @@ class _ManageAuctionSheetState extends State<ManageAuctionSheet> {
   }
 
   Future<int?> _askExtraDays() {
-    return showDialog<int>(
+    return showStudioSheet<int>(
       context: context,
-      builder: (context) => SimpleDialog(
-        title: Text('Extend by', style: AppFonts.inter(fontSize: 16)),
+      builder: (sheetContext) => StudioSheet(
+        horizontalPadding: 24,
+        gap: 0,
         children: [
+          const SizedBox(height: 12),
+          Text('Extend by', style: StudioType.title22(color: sheetContext.studio.textPrimary)),
+          const SizedBox(height: 8),
           for (final days in [1, 2, 3])
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(context, days),
-              child: Text(
-                days == 1 ? '1 day' : '$days days',
-                style: AppFonts.inter(fontSize: 15),
-              ),
+            StudioSelectRow(
+              title: days == 1 ? '1 day' : '$days days',
+              selected: false,
+              titleSize: 17,
+              titleLetterSpacing: 0,
+              verticalPadding: 14,
+              ruleInset: 12,
+              divider: days != 3,
+              onTap: () => Navigator.pop(sheetContext, days),
             ),
         ],
       ),
@@ -107,33 +113,17 @@ class _ManageAuctionSheetState extends State<ManageAuctionSheet> {
   }
 
   Future<void> _cancel() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Cancel this auction?', style: AppFonts.inter(fontSize: 17)),
-        content: Text(
-          auction.bidCount == 0
-              ? 'The piece will be delisted. You can list it again at any time.'
-              : 'Every one of the ${auction.bidCount} bids will be cancelled and those '
-                  'bidders refunded. They will be told you withdrew the piece.',
-          style: AppFonts.inter(fontSize: 14, height: 1.4),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Keep it running'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(
-              'Cancel auction',
-              style: TextStyle(color: CollectDetailTokens.statusError),
-            ),
-          ),
-        ],
-      ),
+    final confirmed = await showStudioConfirm(
+      context,
+      title: 'Cancel this auction?',
+      message: auction.bidCount == 0
+          ? 'The piece will be delisted. You can list it again at any time.'
+          : 'Every one of the ${auction.bidCount} bids will be cancelled and those '
+                'bidders refunded. They will be told you withdrew the piece.',
+      confirmLabel: 'Cancel auction',
+      cancelLabel: 'Keep it running',
     );
-    if (confirmed != true) return;
+    if (!confirmed) return;
     await _run(() => AuctionService.instance.cancel(widget.pieceId));
   }
 
@@ -145,94 +135,69 @@ class _ManageAuctionSheetState extends State<ManageAuctionSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final c = context.studio;
     final canExtend = auction.isOpenForBidding;
     final canCancel = auction.isOpenForBidding;
     final canRelist = auction.canRelist;
 
-    return Align(
-      alignment: Alignment.bottomCenter,
-      child: Material(
-        color: CollectDetailTokens.sheetBackground,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-        clipBehavior: Clip.antiAlias,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(16, 20, 16, 24 + bottomInset),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Manage auction',
-                style: AppFonts.inter(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: CollectDetailTokens.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                _statusLine(),
-                style: AppFonts.inter(
-                  fontSize: 13,
-                  height: 1.4,
-                  color: CollectDetailTokens.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 20),
-              if (canExtend)
-                _ActionRow(
-                  label: 'Extend the auction',
-                  detail: auction.bidCount > 0
-                      ? 'Adds up to 3 days. Every bid and hold stays exactly as it is.'
-                      : 'Adds up to 3 days. Once only, and not in the last 3 days.',
-                  enabled: !_busy,
-                  onTap: _extend,
-                ),
-              if (canRelist)
-                _ActionRow(
-                  label: 'Run it again',
-                  detail: 'Starts a fresh 7-day auction on the same terms. The previous '
-                      'auction is kept as a record of what happened.',
-                  enabled: !_busy,
-                  onTap: _relist,
-                ),
-              if (canCancel)
-                _ActionRow(
-                  label: 'Cancel the auction',
-                  detail: auction.bidCount > 0
-                      ? '${auction.bidCount} bidders are refunded and told you withdrew it.'
-                      : 'The piece is delisted. Nobody has bid, so nobody is affected.',
-                  destructive: true,
-                  enabled: !_busy,
-                  onTap: _cancel,
-                ),
-              if (!canExtend && !canCancel && !canRelist)
-                Text(
-                  'There is nothing to change on this auction.',
-                  style: AppFonts.inter(
-                    fontSize: 14,
-                    color: CollectDetailTokens.textSecondary,
-                  ),
-                ),
-              if (_error != null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  _error!,
-                  style: AppFonts.inter(
-                    fontSize: 13,
-                    color: CollectDetailTokens.statusError,
-                  ),
-                ),
-              ],
-              if (_busy) ...[
-                const SizedBox(height: 16),
-                const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-              ],
-            ],
+    return StudioSheet(
+      horizontalPadding: 24,
+      gap: 0,
+      children: [
+        const SizedBox(height: 12),
+        Text('Manage auction', style: StudioType.title22(color: c.textPrimary)),
+        const SizedBox(height: 6),
+        Text(_statusLine(), style: StudioType.body14(color: c.textSecondary)),
+        const SizedBox(height: 10),
+        if (canExtend)
+          _ActionRow(
+            label: 'Extend the auction',
+            detail: auction.bidCount > 0
+                ? 'Adds up to 3 days. Every bid and hold stays exactly as it is.'
+                : 'Adds up to 3 days. Once only, and not in the last 3 days.',
+            enabled: !_busy,
+            onTap: _extend,
           ),
-        ),
-      ),
+        if (canRelist)
+          _ActionRow(
+            label: 'Run it again',
+            detail:
+                'Starts a fresh 7-day auction on the same terms. The previous '
+                'auction is kept as a record of what happened.',
+            enabled: !_busy,
+            onTap: _relist,
+          ),
+        if (canCancel)
+          _ActionRow(
+            label: 'Cancel the auction',
+            detail: auction.bidCount > 0
+                ? '${auction.bidCount} bidders are refunded and told you withdrew it.'
+                : 'The piece is delisted. Nobody has bid, so nobody is affected.',
+            enabled: !_busy,
+            onTap: _cancel,
+          ),
+        if (!canExtend && !canCancel && !canRelist)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              'There is nothing to change on this auction.',
+              style: StudioType.body14(color: c.textSecondary),
+            ),
+          ),
+        if (_error != null) ...[
+          const SizedBox(height: 12),
+          Text(_error!, style: StudioType.label13(color: c.alert)),
+        ],
+        if (_busy) ...[
+          const SizedBox(height: 16),
+          Center(
+            child: SizedBox.square(
+              dimension: 20,
+              child: CircularProgressIndicator(strokeWidth: 2, color: c.textSecondary),
+            ),
+          ),
+        ],
+      ],
     );
   }
 
@@ -261,52 +226,47 @@ class _ActionRow extends StatelessWidget {
     required this.detail,
     required this.enabled,
     required this.onTap,
-    this.destructive = false,
   });
 
   final String label;
   final String detail;
   final bool enabled;
   final VoidCallback onTap;
-  final bool destructive;
 
   @override
   Widget build(BuildContext context) {
-    final color = destructive
-        ? CollectDetailTokens.statusError
-        : CollectDetailTokens.textPrimary;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: CollectDetailTokens.sheetCardFill,
-        borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          onTap: enabled ? onTap : null,
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: AppFonts.inter(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    color: enabled ? color : color.withValues(alpha: 0.4),
-                  ),
+    final c = context.studio;
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      child: GestureDetector(
+        onTap: enabled ? onTap : null,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(border: Border(bottom: BorderSide(color: c.line))),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: StudioType.sans(
+                        15,
+                        weight: StudioType.medium,
+                        color: enabled ? c.textPrimary : c.textTertiary,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(detail, style: StudioType.caption12(height: 1.45, color: c.textSecondary)),
+                  ],
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  detail,
-                  style: AppFonts.inter(
-                    fontSize: 12,
-                    height: 1.4,
-                    color: CollectDetailTokens.textSecondary,
-                  ),
-                ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 12),
+              StudioIcon(StudioIcons.chevronRight, size: 16, color: c.textTertiary),
+            ],
           ),
         ),
       ),

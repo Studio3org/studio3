@@ -115,7 +115,7 @@ void main() {
       await tester.pumpWidget(_app(_event(full: true, host: true)));
       await tester.pump();
       expect(find.byType(EventSoldOutBar), findsNothing);
-      expect(_button('QR codes for pieces'), findsOneWidget);
+      expect(_button('Manage event'), findsOneWidget);
     });
 
     testWidgets('golden: EvSoldOut', (tester) async {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/studio_colors.dart';
+import '../theme/studio_metrics.dart';
 import '../theme/studio_type.dart';
 import '../widgets/studio/studio_top_bar.dart';
 
@@ -99,7 +100,7 @@ class TermsPage extends StatelessWidget {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: c.card,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(StudioRadius.button),
                 border: Border.all(color: c.line),
               ),
               child: Column(

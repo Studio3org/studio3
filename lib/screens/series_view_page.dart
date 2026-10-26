@@ -1,20 +1,21 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import '../models/piece_summary.dart';
 import '../models/series_summary.dart';
 import '../services/piece_service.dart';
 import '../services/series_service.dart';
-import '../theme/home_feed_tokens.dart';
 import '../utils/series_share.dart';
+import '../widgets/feed_skeleton.dart';
 import '../widgets/share/share_sheet.dart';
+import '../widgets/studio/studio.dart';
 import 'profile/profile_constants.dart';
 import 'profile/widgets/profile_masonry_grid.dart';
 import 'series_editor_page.dart';
-import '../widgets/feed_skeleton.dart';
 
-/// Figma 2725:9434 — series view from the profile Series tab.
+/// A series, from the profile Series tab (no board): the cover full width with the white
+/// on-image icons (back, share, and more for the owner) and the piece count in Mono; the name
+/// 22, the author 13 Graphite and the description 14 centred; a Line; then the pieces grid.
 class SeriesViewPage extends StatefulWidget {
   const SeriesViewPage({
     super.key,
@@ -41,9 +42,6 @@ class SeriesViewPage extends StatefulWidget {
 
 class _SeriesViewPageState extends State<SeriesViewPage> {
   static const _heroHeight = 322.0;
-  static const _backAsset = 'assets/profile/icon_back.svg';
-  static const _moreAsset = 'assets/profile/icon_more.svg';
-  static const _shareAsset = 'assets/piece/hero_share.svg';
 
   SeriesSummary? _series;
   List<PieceSummary> _piecesInSeries = const <PieceSummary>[];
@@ -122,12 +120,17 @@ class _SeriesViewPageState extends State<SeriesViewPage> {
 
   @override
   Widget build(BuildContext context) {
-    final topInset = MediaQuery.paddingOf(context).top;
+    final c = context.studio;
     final pieces = _pieces;
     final description = _series?.description?.trim();
+    final cover = _coverUrl;
+    final author = [
+      if (_authorName?.trim().isNotEmpty == true) _authorName!.trim(),
+      if (_authorUsername?.trim().isNotEmpty == true) '@${_authorUsername!.trim()}',
+    ].join(' · ');
 
     return Scaffold(
-      backgroundColor: kProfilePageBackground,
+      backgroundColor: c.background,
       body: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(
@@ -137,84 +140,53 @@ class _SeriesViewPageState extends State<SeriesViewPage> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  if (_coverUrl != null && _coverUrl!.isNotEmpty)
+                  if (cover != null && cover.isNotEmpty)
                     CachedNetworkImage(
-                      imageUrl: _coverUrl!,
+                      imageUrl: cover,
                       fit: BoxFit.cover,
-                      errorWidget: (context, url, error) =>
-                          const ColoredBox(color: Color(0xFFE8E6E1)),
+                      errorWidget: (context, url, error) => ColoredBox(color: c.surface),
                     )
                   else
-                    const ColoredBox(color: Color(0xFFE8E6E1)),
+                    ColoredBox(color: c.surface),
+                  // A soft shade at the bottom for the white count.
                   const DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
-                        colors: [
-                          Color(0x6B231F1B),
-                          Color(0x00231F1B),
-                          Color(0x00231F1B),
-                          Color(0xCC231F1B),
-                        ],
-                        stops: [0, 0.22, 0.62, 1],
+                        stops: [0.6, 1],
+                        colors: [Color(0x00111111), Color(0x8C111111)],
                       ),
                     ),
                   ),
                   Positioned(
-                    top: topInset + 19.75 - 16,
-                    left: kProfileHorizontalPad - 16,
-                    child: IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      padding: const EdgeInsets.all(16),
-                      constraints: const BoxConstraints(),
-                      icon: SvgPicture.asset(
-                        _backAsset,
-                        width: 9,
-                        height: 16.5,
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    top: topInset + 26.8 - 16,
-                    right: kProfileHorizontalPad - 16,
-                    child: Row(
-                      children: [
-                        IconButton(
-                          onPressed: _series == null ? null : _onShare,
-                          padding: const EdgeInsets.all(16),
-                          constraints: const BoxConstraints(),
-                          icon: SvgPicture.asset(
-                            _shareAsset,
-                            width: 18,
-                            height: 22,
-                          ),
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: StudioTopIconBar(
+                      leading: [
+                        StudioTopIcon(
+                          icon: StudioIcons.back,
+                          onTap: () => Navigator.pop(context),
+                          semanticLabel: 'Back',
+                        ),
+                      ],
+                      trailing: [
+                        StudioTopIcon(
+                          icon: StudioIcons.share,
+                          onTap: _series == null ? null : _onShare,
+                          semanticLabel: 'Share',
                         ),
                         if (widget.isOwner)
-                          IconButton(
-                            onPressed: _onMore,
-                            padding: const EdgeInsets.all(16),
-                            constraints: const BoxConstraints(),
-                            icon: SvgPicture.asset(
-                              _moreAsset,
-                              width: 16,
-                              height: 2.4,
-                            ),
-                          ),
+                          StudioTopIcon(icon: StudioIcons.more, onTap: _onMore, semanticLabel: 'Edit series'),
                       ],
                     ),
                   ),
                   Positioned(
                     left: 16,
                     right: 16,
-                    bottom: 16,
-                    child: Text(
-                      '$_pieceCount ${_pieceCount == 1 ? 'piece' : 'pieces'}',
-                      style: kProfileGeist(
-                        fontSize: 13,
-                        color: HomeFeedTokens.textInverse.withValues(alpha: 0.6),
-                      ),
-                    ),
+                    bottom: 14,
+                    child: StudioImageLabel('$_pieceCount ${_pieceCount == 1 ? 'piece' : 'pieces'}', size: 12),
                   ),
                 ],
               ),
@@ -223,60 +195,23 @@ class _SeriesViewPageState extends State<SeriesViewPage> {
           SliverToBoxAdapter(
             child: Container(
               width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(10, 0, 10, 12),
-              decoration: const BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(color: kProfileTabRule),
-                ),
-              ),
+              padding: const EdgeInsets.fromLTRB(StudioSpace.marginForm, 18, StudioSpace.marginForm, 18),
+              decoration: BoxDecoration(border: Border(bottom: BorderSide(color: c.line))),
               child: Column(
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(28, 8, 28, 0),
-                    child: Column(
-                      children: [
-                        Text(
-                          _name,
-                          textAlign: TextAlign.center,
-                          style: kProfileGeist(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        if (_authorName != null &&
-                            _authorName!.trim().isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            _authorName!,
-                            textAlign: TextAlign.center,
-                            style: kProfileGeist(
-                              fontSize: 13,
-                              color: kProfileTextMuted,
-                            ),
-                          ),
-                        ],
-                        if (_authorUsername != null &&
-                            _authorUsername!.trim().isNotEmpty)
-                          Text(
-                            '@$_authorUsername',
-                            textAlign: TextAlign.center,
-                            style: kProfileGeist(
-                              fontSize: 13,
-                              color: kProfileTextMuted,
-                            ),
-                          ),
-                      ],
+                  Text(_name, textAlign: TextAlign.center, style: StudioType.title22(color: c.textPrimary)),
+                  if (author.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(author, textAlign: TextAlign.center, style: StudioType.label13(color: c.textSecondary)),
+                  ],
+                  if (description != null && description.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      description,
+                      textAlign: TextAlign.center,
+                      style: StudioType.body14(height: 1.5, color: c.textBody),
                     ),
-                  ),
-                  if (description != null && description.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(18, 12, 18, 0),
-                      child: Text(
-                        description,
-                        textAlign: TextAlign.center,
-                        style: kProfileGeist(fontSize: 13, height: 1.4),
-                      ),
-                    ),
+                  ],
                 ],
               ),
             ),
@@ -284,32 +219,16 @@ class _SeriesViewPageState extends State<SeriesViewPage> {
           if (_loading && pieces.isEmpty)
             const SliverToBoxAdapter(child: ProfileGridSkeleton())
           else if (pieces.isEmpty)
-            SliverToBoxAdapter(
+            const SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 40),
-                child: Center(
-                  child: Text(
-                    'No pieces in this series yet',
-                    style: kProfileGeist(
-                      fontSize: 13,
-                      color: kProfileTextMuted,
-                    ),
-                  ),
-                ),
+                padding: EdgeInsets.symmetric(vertical: 48),
+                child: StudioEmptyState(title: 'No pieces in this series yet'),
               ),
             )
           else
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(
-                kProfileHorizontalPad,
-                16,
-                kProfileHorizontalPad,
-                40,
-              ),
-              sliver: ProfileContentGrid.fromPieces(
-                pieces,
-                onPieceTap: (piece) => openProfilePiece(context, piece),
-              ),
+              padding: const EdgeInsets.fromLTRB(kProfileHorizontalPad, 16, kProfileHorizontalPad, 40),
+              sliver: ProfileContentGrid.fromPieces(pieces, onPieceTap: (piece) => openProfilePiece(context, piece)),
             ),
         ],
       ),

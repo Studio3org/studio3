@@ -91,8 +91,15 @@ class _HostEventPageState extends State<HostEventPage> {
   final _artists = <EventLineupPerson>[];
   final _pieces = <EventTaggedPiece>[];
 
-  /// What the event had when it was opened for editing, to send only what changed.
+  /// What the event has on the server: as opened for editing, then kept up to date while
+  /// saving, so only what changed is sent and a retry doesn't add a piece twice.
   final _originalPieces = <String, EventLineupItem>{};
+
+  /// The event a failed publish already created, so trying again updates it instead of
+  /// making a second one; and the cover already uploaded for [_uploadedFlyer].
+  StudioEvent? _created;
+  HostFlyer? _uploadedFlyer;
+  String? _uploadedCover;
 
   bool _saving = false;
 
@@ -644,8 +651,16 @@ class _HostEventPageState extends State<HostEventPage> {
   Future<String?> _uploadCover() async {
     final flyer = _flyer;
     if (flyer == null) return _coverUrl;
+    if (flyer == _uploadedFlyer) return _uploadedCover;
     final bytes = await PostImageRenderer.render(imagePath: flyer.path, transform: flyer.transform);
-    return MediaService.instance.uploadBytes(purpose: MediaPurpose.event, bytes: bytes, contentType: 'image/png');
+    final url = await MediaService.instance.uploadBytes(
+      purpose: MediaPurpose.event,
+      bytes: bytes,
+      contentType: 'image/png',
+    );
+    _uploadedFlyer = flyer;
+    _uploadedCover = url;
+    return url;
   }
 
   String _mode(EventPieceMode m) => switch (m) {
@@ -676,7 +691,7 @@ class _HostEventPageState extends State<HostEventPage> {
         'longitude': location?.lng,
         'capacity': _capacity,
       };
-      final existing = _editing;
+      final existing = _created ?? _editing;
       late StudioEvent event;
       if (existing == null) {
         event = await EventService.instance.create(
@@ -693,6 +708,7 @@ class _HostEventPageState extends State<HostEventPage> {
           longitude: location?.lng,
           capacity: _capacity,
         );
+        _created = event;
       } else {
         event = await EventService.instance.update(existing.id, {
           ...fields,
@@ -710,8 +726,10 @@ class _HostEventPageState extends State<HostEventPage> {
       );
       final wanted = _art == HostArtMode.none ? <EventTaggedPiece>[] : _pieces;
       final wantedIds = {for (final p in wanted) p.piece.id};
-      for (final id in _originalPieces.keys) {
-        if (!wantedIds.contains(id)) await EventService.instance.removePiece(event.id, id);
+      for (final id in _originalPieces.keys.toList()) {
+        if (wantedIds.contains(id)) continue;
+        await EventService.instance.removePiece(event.id, id);
+        _originalPieces.remove(id);
       }
       for (final (i, p) in wanted.indexed) {
         final mode = _art == HostArtMode.showing ? 'featured' : _mode(p.mode);
@@ -721,8 +739,9 @@ class _HostEventPageState extends State<HostEventPage> {
         if (before != null) {
           if (before.mode == mode && before.priceCents == cents && before.deliveryMode == delivery) continue;
           await EventService.instance.removePiece(event.id, p.piece.id);
+          _originalPieces.remove(p.piece.id);
         }
-        await EventService.instance.addPiece(
+        final added = await EventService.instance.addPiece(
           event.id,
           pieceId: p.piece.id,
           mode: mode,
@@ -730,10 +749,17 @@ class _HostEventPageState extends State<HostEventPage> {
           deliveryMode: delivery,
           sortOrder: i,
         );
+        _originalPieces[p.piece.id] = EventLineupItem(
+          id: added.id,
+          pieceId: p.piece.id,
+          mode: mode,
+          priceCents: cents,
+          deliveryMode: delivery,
+        );
       }
       if (!event.isPublished) event = await EventService.instance.publish(event.id);
       if (!mounted) return;
-      if (existing != null && existing.isPublished) {
+      if (_published) {
         showStudioToast(context, 'Event saved');
         Navigator.of(context).pop();
         return;

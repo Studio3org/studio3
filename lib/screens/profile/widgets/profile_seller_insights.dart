@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../services/api_exception.dart';
 import '../../../services/user_service.dart';
-import '../../../theme/home_feed_tokens.dart';
+import '../../../widgets/studio/studio.dart';
 
 /// Enables/disables seller mode without interrupting the profile flow.
 Future<bool?> toggleSellerMode({
@@ -12,24 +11,13 @@ Future<bool?> toggleSellerMode({
   String? profileLocation,
 }) async {
   if (!enable) {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Switch to artist profile?'),
-        content: const Text('Listed pieces will be delisted automatically.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Switch'),
-          ),
-        ],
-      ),
+    final confirmed = await showStudioConfirm(
+      context,
+      title: 'Switch to artist profile?',
+      message: 'Listed pieces will be delisted automatically.',
+      confirmLabel: 'Switch',
     );
-    if (confirmed != true) return null;
+    if (!confirmed) return null;
     try {
       await UserService.instance.disableSeller();
       return false;
@@ -49,15 +37,11 @@ Future<bool?> toggleSellerMode({
     if (!context.mounted) return null;
     final message = e is ApiException ? e.message : e.toString();
     if (message.toLowerCase().contains('location')) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Add a location in Edit profile first, then switch to seller mode.',
-            ),
-          ),
-        );
+      showStudioToast(
+        context,
+        'Add a location in Edit profile first, then switch to seller mode.',
+        icon: null,
+      );
     } else {
       _showError(context, e);
     }
@@ -66,13 +50,11 @@ Future<bool?> toggleSellerMode({
 }
 
 void _showError(BuildContext context, Object e) {
-  final message = e is ApiException ? e.message : e.toString();
-  ScaffoldMessenger.of(context)
-    ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(message)));
+  showStudioToast(context, e is ApiException ? e.message : 'Something went wrong. Try again.', icon: null);
 }
 
-/// Seller insights row — Figma 1070-709 (Saves, Likes, Inquiries, Sales).
+/// Seller insights (Saves, Likes, Inquiries, Sales): four equal cells, the count in Mono 20
+/// Ink over the label 12 Graphite; "—" while a count is unknown.
 class ProfileSellerInsights extends StatelessWidget {
   const ProfileSellerInsights({
     super.key,
@@ -91,16 +73,13 @@ class ProfileSellerInsights extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-      child: Row(
-        children: [
-          _InsightCell(label: 'Saves', value: _fmt(savesCount)),
-          _InsightCell(label: 'Likes', value: _fmt(likesCount)),
-          _InsightCell(label: 'Inquiries', value: _fmt(inquiriesCount)),
-          _InsightCell(label: 'Sales', value: _fmt(salesCount)),
-        ],
-      ),
+    return Row(
+      children: [
+        _InsightCell(label: 'Saves', value: _fmt(savesCount)),
+        _InsightCell(label: 'Likes', value: _fmt(likesCount)),
+        _InsightCell(label: 'Inquiries', value: _fmt(inquiriesCount)),
+        _InsightCell(label: 'Sales', value: _fmt(salesCount)),
+      ],
     );
   }
 }
@@ -113,27 +92,18 @@ class _InsightCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.studio;
     return Expanded(
-      child: Column(
-        children: [
-          Text(
-            value,
-            style: GoogleFonts.inter(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: HomeFeedTokens.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: GoogleFonts.inter(
-              fontSize: 11,
-              fontWeight: FontWeight.w400,
-              color: HomeFeedTokens.textPrimary.withValues(alpha: 0.5),
-            ),
-          ),
-        ],
+      child: Semantics(
+        label: '$label: $value',
+        excludeSemantics: true,
+        child: Column(
+          children: [
+            Text(value, style: StudioType.mono(20, color: c.textPrimary)),
+            const SizedBox(height: 4),
+            Text(label, style: StudioType.caption12(color: c.textSecondary)),
+          ],
+        ),
       ),
     );
   }

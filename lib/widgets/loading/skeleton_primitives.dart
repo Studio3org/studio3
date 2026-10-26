@@ -38,32 +38,36 @@ library;
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 
-import '../../theme/home_feed_tokens.dart';
+import '../../theme/studio_colors.dart';
 
 /// Shared shimmer sweep for every skeleton in the app.
 ///
 /// [highlight] must read as visibly lighter than [base], otherwise the
 /// sweep fades toward the page background and stops looking like motion.
+/// Both follow the theme unless given: Line, swept with Surface (light) or Line
+/// Strong (dark).
 class SkeletonShimmer extends StatelessWidget {
   const SkeletonShimmer({
     super.key,
     required this.child,
-    this.base = HomeFeedTokens.skeletonBase,
-    this.highlight = HomeFeedTokens.skeletonHighlight,
+    this.base,
+    this.highlight,
     this.period = const Duration(milliseconds: 1400),
   });
 
   final Widget child;
-  final Color base;
-  final Color highlight;
+  final Color? base;
+  final Color? highlight;
   final Duration period;
 
   @override
   Widget build(BuildContext context) {
+    final c = context.studio;
+    final dark = Theme.of(context).brightness == Brightness.dark;
     return ExcludeSemantics(
       child: Shimmer.fromColors(
-        baseColor: base,
-        highlightColor: highlight,
+        baseColor: base ?? c.line,
+        highlightColor: highlight ?? (dark ? c.lineStrong : c.surface),
         period: period,
         direction: ShimmerDirection.ltr,
         child: child,
@@ -82,13 +86,15 @@ class SkeletonBox extends StatelessWidget {
     this.width,
     this.height,
     this.radius = 8,
-    this.color = HomeFeedTokens.skeletonBase,
+    this.color,
   });
 
   final double? width;
   final double? height;
   final double radius;
-  final Color color;
+
+  /// The theme's Line unless given.
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
@@ -96,7 +102,7 @@ class SkeletonBox extends StatelessWidget {
       width: width,
       height: height,
       decoration: BoxDecoration(
-        color: color,
+        color: color ?? context.studio.line,
         borderRadius: BorderRadius.circular(radius),
       ),
     );
@@ -109,12 +115,12 @@ class SkeletonLine extends StatelessWidget {
     super.key,
     this.width,
     this.height = 12,
-    this.color = HomeFeedTokens.skeletonBase,
+    this.color,
   });
 
   final double? width;
   final double height;
-  final Color color;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
@@ -132,11 +138,11 @@ class SkeletonCircle extends StatelessWidget {
   const SkeletonCircle({
     super.key,
     required this.size,
-    this.color = HomeFeedTokens.skeletonBase,
+    this.color,
   });
 
   final double size;
-  final Color color;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
@@ -144,7 +150,7 @@ class SkeletonCircle extends StatelessWidget {
       width: size,
       height: size,
       child: DecoratedBox(
-        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        decoration: BoxDecoration(color: color ?? context.studio.line, shape: BoxShape.circle),
       ),
     );
   }

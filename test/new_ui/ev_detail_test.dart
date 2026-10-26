@@ -159,7 +159,7 @@ void main() {
     });
   }
 
-  testWidgets('the host sees Your event, the headcount and the QR codes', (tester) async {
+  testWidgets('the host sees Your event, the headcount and Manage event', (tester) async {
     setBoardViewport(tester, height: 2340);
     await tester.pumpWidget(_app(_event(isHost: true)));
     await tester.pump();
@@ -167,7 +167,7 @@ void main() {
     expect(_button('Follow'), findsNothing);
     expect(find.text('Going'), findsOneWidget);
     expect(find.text('12'), findsOneWidget);
-    expect(_button('QR codes for pieces'), findsOneWidget);
+    expect(_button('Manage event'), findsOneWidget);
   });
 
   testWidgets("going: You're going opens Can't make it and Copy link", (tester) async {
@@ -178,7 +178,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text("Can't make it"), findsOneWidget);
     expect(find.text('Copy link'), findsOneWidget);
-    expect(find.text('QR codes for pieces'), findsNothing);
+    expect(find.text('Manage event'), findsNothing);
   });
 
   testWidgets('full: the grey Sold out bar (EvSoldOut)', (tester) async {

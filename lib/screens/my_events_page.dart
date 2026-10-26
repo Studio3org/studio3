@@ -8,7 +8,8 @@ import '../widgets/events/your_events_widgets.dart';
 import '../widgets/studio/studio.dart';
 import 'event_detail_page.dart';
 import 'event_list_page.dart';
-import 'event_post_page.dart';
+import 'host/host_event_page.dart';
+import 'host/host_manage_page.dart';
 import 'event_ticket_page.dart';
 import 'scan_qr_page.dart';
 
@@ -287,14 +288,17 @@ class _HostedEventsPageState extends State<HostedEventsPage> {
   }
 
   Future<void> _host() async {
-    await Navigator.of(context).push<void>(MaterialPageRoute<void>(builder: (_) => const EventPostPage()));
-    // Publishing (or saving a draft) happens on that flow's own screens, well after this
-    // future resolves on the first pop — reload regardless of what actually happened.
+    await HostEventPage.open(context);
     _load();
   }
 
+  /// A draft goes back into the hosting steps; anything else opens Manage event.
   Future<void> _open(StudioEvent event) async {
-    await openEventDetail(context, event);
+    if (event.isDraft) {
+      await HostEventPage.open(context, editing: event);
+    } else {
+      await HostManagePage.open(context, event);
+    }
     _load();
   }
 

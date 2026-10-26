@@ -3,7 +3,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import '../../models/studio_event.dart';
-import '../../theme/collect_detail_tokens.dart' show formatMoney;
+import '../../utils/money_format.dart' show formatMoney;
 import '../studio/studio.dart';
 import 'event_detail_widgets.dart';
 

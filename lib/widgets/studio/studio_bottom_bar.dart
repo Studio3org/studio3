@@ -12,6 +12,7 @@ class StudioBottomBarInfo {
     this.valueColor,
     this.strong = false,
     this.mono = false,
+    this.monoSize = 14,
   });
 
   final String label;
@@ -21,8 +22,9 @@ class StudioBottomBarInfo {
   final Color? valueColor;
   final bool strong;
 
-  /// Geist Mono 14 for a date (`EvDetail` "When").
+  /// Geist Mono for a date or count (`EvDetail` "When" 14, `HostManage` 17).
   final bool mono;
+  final double monoSize;
 }
 
 /// Pinned bottom bar (`BuyPiece`; `HandoffRules` "Bottom bars"): fades in from the page over
@@ -107,7 +109,7 @@ class StudioBottomBar extends StatelessWidget {
         Text(
           info.value,
           style: info.mono
-              ? StudioType.mono(14, color: info.valueColor ?? c.textPrimary)
+              ? StudioType.mono(info.monoSize, color: info.valueColor ?? c.textPrimary)
               : StudioType.header17(
                   weight: info.strong ? StudioType.medium : StudioType.regular,
                   color: info.valueColor ?? c.textPrimary,
