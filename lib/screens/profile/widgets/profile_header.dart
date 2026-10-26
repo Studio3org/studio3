@@ -4,6 +4,7 @@ import '../../../theme/studio_colors.dart';
 import '../../../theme/studio_metrics.dart';
 import '../../../theme/studio_type.dart';
 import '../../../widgets/follow_button.dart';
+import '../../../widgets/studio/studio_icon.dart';
 import '../profile_constants.dart';
 
 class ProfileHeader extends StatelessWidget {
@@ -207,6 +208,7 @@ class ProfileHeader extends StatelessWidget {
                   Expanded(
                     child: _ProfileActionButton(
                       label: followState.actionLabel,
+                      icon: followState.icon,
                       filled: followState.filled,
                       busy: followBusy,
                       onPressed: followBusy ? null : onFollow,
@@ -278,10 +280,14 @@ class _ProfileActionButton extends StatelessWidget {
     this.onPressed,
     this.busy = false,
     this.hug = false,
+    this.icon,
   });
 
   final String label;
   final bool filled;
+
+  /// A small icon before the label (the check on Following).
+  final String? icon;
   final VoidCallback? onPressed;
   final bool busy;
 
@@ -315,9 +321,20 @@ class _ProfileActionButton extends StatelessWidget {
                         height: 16,
                         child: CircularProgressIndicator(strokeWidth: 1.5, color: foreground),
                       )
-                    : Text(
-                        label,
-                        style: StudioType.body14(weight: StudioType.medium, color: foreground),
+                    : Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (icon != null) ...[
+                            StudioIcon(icon!, size: 14, color: foreground),
+                            const SizedBox(width: 6),
+                          ],
+                          Flexible(
+                            child: Text(
+                              label,
+                              style: StudioType.body14(weight: StudioType.medium, color: foreground),
+                            ),
+                          ),
+                        ],
                       ),
               ),
             ),

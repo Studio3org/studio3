@@ -11,7 +11,7 @@ import '../studio/studio_button.dart';
 /// Artist row under the piece image (`BuyPiece`): 36 avatar, 10 gap, name 14/500 over
 /// handle 12, and the small Follow (34, radius 8) only; 12 20 padding and a 1 px Line
 /// under the row. The board draws Follow as an outline; it keeps the app's follow
-/// convention instead (filled Follow, outline Unfollow / Requested; section 0.3).
+/// convention instead (filled Follow, outline Following with a check / Requested; section 0.3).
 /// On your own piece, "Your piece" (13 Graphite) replaces Follow (`ListOwnerPiece`).
 class CollectArtistRow extends StatelessWidget {
   const CollectArtistRow({
@@ -81,6 +81,7 @@ class CollectArtistRow extends StatelessWidget {
           else
             StudioButton(
               label: followState.actionLabel,
+              icon: followState.icon,
               variant: StudioButtonVariant.small,
               filled: followState.filled,
               loading: followBusy,

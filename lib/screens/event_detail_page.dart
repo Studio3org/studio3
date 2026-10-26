@@ -415,6 +415,7 @@ class _EventDetailPageState extends State<EventDetailPage> with DetailFollowStat
                   EventHostRow(
                     event: e,
                     followLabel: followState.actionLabel,
+                    followIcon: followState.icon,
                     followFilled: followState.filled,
                     followBusy: followBusy,
                     onFollow: toggleFollow,

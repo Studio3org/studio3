@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/home_feed_tokens.dart';
+import 'studio/studio_icon.dart';
 
 /// Follow relationship from the viewer to a profile/artist — a private
 /// account yields [pending] instead of jumping straight to [following].
@@ -14,11 +15,16 @@ enum FollowState {
   /// stay the light button.
   bool get filled => this == FollowState.none;
 
+  /// `HandoffRules` Follow button: "Following: light outline, Ink text, with a small check
+  /// before the word. Same size, so tapping just swaps the look." Tapping it unfollows.
   String get actionLabel => switch (this) {
     FollowState.none => 'Follow',
     FollowState.pending => 'Requested',
-    FollowState.following => 'Unfollow',
+    FollowState.following => 'Following',
   };
+
+  /// The small check before Following.
+  String? get icon => this == FollowState.following ? StudioIcons.check : null;
 }
 
 /// Shared Follow/Following/Requested pill button used on the artist profile
@@ -63,8 +69,9 @@ class FollowButton extends StatelessWidget {
         child: DecoratedBox(
           decoration: outlined
               ? BoxDecoration(
-                  borderRadius:
-                      BorderRadius.circular(HomeFeedTokens.cardRadius),
+                  borderRadius: BorderRadius.circular(
+                    HomeFeedTokens.cardRadius,
+                  ),
                   border: Border.all(
                     color: HomeFeedTokens.textPrimary.withValues(
                       alpha: state == FollowState.pending ? 0.2 : 0.35,
@@ -87,13 +94,30 @@ class FollowButton extends StatelessWidget {
                         color: labelColor,
                       ),
                     )
-                  : Text(
-                      label,
-                      style: GoogleFonts.inter(
-                        fontSize: dense ? 12 : 15,
-                        fontWeight: dense ? FontWeight.w500 : FontWeight.w600,
-                        color: labelColor,
-                      ),
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (state.icon != null) ...[
+                          StudioIcon(
+                            state.icon!,
+                            size: dense ? 12 : 14,
+                            color: labelColor,
+                          ),
+                          SizedBox(width: dense ? 4 : 6),
+                        ],
+                        Flexible(
+                          child: Text(
+                            label,
+                            style: GoogleFonts.inter(
+                              fontSize: dense ? 12 : 15,
+                              fontWeight: dense
+                                  ? FontWeight.w500
+                                  : FontWeight.w600,
+                              color: labelColor,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
             ),
           ),

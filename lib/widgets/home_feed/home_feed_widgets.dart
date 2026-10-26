@@ -6,6 +6,7 @@ import '../../models/feed_item.dart';
 import '../../models/feed_preview_item.dart';
 import '../../models/piece_summary.dart';
 import '../../models/series_summary.dart';
+import '../../screens/series_view_page.dart';
 import '../../services/auth_session.dart';
 import '../../services/chat_service.dart';
 import '../../services/chat_socket_service.dart';
@@ -16,6 +17,7 @@ import '../../theme/home_feed_tokens.dart';
 import '../../utils/explore_detail_route.dart';
 import '../../utils/profile_navigation.dart';
 import '../../utils/require_login.dart';
+import '../explore/explore_browse.dart' show exploreBrowseAspect;
 import '../studio/studio.dart';
 
 /// `Main` top bar: "All ▾" (17/500) on the left, the wordmark centered, Saved
@@ -624,7 +626,9 @@ class FeedCardBottomScrim extends StatelessWidget {
 }
 
 /// Full-bleed feed piece (`Main`): width × 4/3, square corners, artist row
-/// underneath. Dots and a sideways swipe only when the payload has 2+ photos.
+/// underneath. Dots and a sideways swipe only when the payload has 2+ photos. A photo
+/// Scene keeps its own shape (3:4, 1:1 or landscape, as in Explore) rather than being
+/// cropped to a piece's.
 class FeedPieceCard extends StatefulWidget {
   const FeedPieceCard({super.key, required this.item, required this.onTap});
 
@@ -668,7 +672,7 @@ class _FeedPieceCardState extends State<FeedPieceCard> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         AspectRatio(
-          aspectRatio: 3 / 4,
+          aspectRatio: exploreBrowseAspect(item),
           child: Semantics(
             label: urls.length > 1 ? 'Photo ${_page + 1} of ${urls.length}' : null,
             child: GestureDetector(
@@ -779,7 +783,7 @@ class _FeedPhoto extends StatelessWidget {
 
 /// Series shelf from a piece that already carries [PieceSeriesInfo]. Cards are
 /// 80% of the width inside the 16 px margins, 3:4, radius 12, and the next
-/// card peeks. Cover only. The last card opens the artist's profile.
+/// card peeks. Cover only. See all and the last card open the series (`SeriesPage`).
 class FeedSeriesRow extends StatefulWidget {
   const FeedSeriesRow({
     super.key,
@@ -811,7 +815,21 @@ class _FeedSeriesRowState extends State<FeedSeriesRow> {
     return widget.series.previewPieces.length;
   }
 
-  void _seeAll() => openUserProfile(context, widget.artistUsername);
+  void _seeAll() {
+    final series = widget.series;
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => SeriesViewPage(
+          seriesId: series.id,
+          initialName: series.name,
+          initialPieceCount: _count,
+          initialCoverUrl: series.previewPieces.firstOrNull?.mediaUrl,
+          authorName: widget.artistName,
+          authorUsername: widget.artistUsername,
+        ),
+      ),
+    );
+  }
 
   void _openPreview(SeriesPreviewPiece preview) {
     openExploreDetail(

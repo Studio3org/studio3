@@ -180,11 +180,15 @@ class EventHostRow extends StatelessWidget {
     required this.onFollow,
     required this.onHost,
     this.followBusy = false,
+    this.followIcon,
   });
 
   final StudioEvent event;
   final String followLabel;
   final bool followFilled;
+
+  /// The check before Following.
+  final String? followIcon;
   final bool followBusy;
   final VoidCallback onFollow;
   final VoidCallback onHost;
@@ -234,6 +238,7 @@ class EventHostRow extends StatelessWidget {
           else
             StudioButton(
               label: followLabel,
+              icon: followIcon,
               variant: StudioButtonVariant.small,
               filled: followFilled,
               loading: followBusy,

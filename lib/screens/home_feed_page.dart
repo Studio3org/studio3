@@ -11,6 +11,7 @@ import '../utils/explore_detail_route.dart';
 import '../widgets/feed_skeleton.dart';
 import '../widgets/home_feed/home_feed_widgets.dart';
 import '../widgets/offline_state.dart';
+import '../widgets/studio/studio_empty_state.dart';
 import '../services/blocked_authors_store.dart';
 import '../services/connectivity_service.dart';
 import '../services/feed_service.dart';
@@ -31,9 +32,19 @@ class HomeFeedStore extends ChangeNotifier {
   String? nextCursor;
   bool showOfflineState = false;
 
+  /// The first page failed while online and there is nothing to show: Try again.
+  bool failed = false;
+
+  /// The last page after the first failed; the feed stops asking on its own until the next
+  /// scroll or refresh, so a server error doesn't turn into a request loop.
+  bool appendFailed = false;
+
   bool _initialized = false;
 
-  List<FeedItem> get availableItems => apiItems.where((item) => item.isForSale).toList();
+  /// What can be collected now: available, or in a live auction. Not `isForSale`, which the
+  /// server leaves on after a piece is collected.
+  List<FeedItem> get availableItems =>
+      apiItems.where((item) => item.isAvailableListing || item.isAuctionLive).toList();
 
   /// The "All" tab never shows video scenes — those live in Explore/Reels
   /// only.
@@ -113,16 +124,20 @@ class HomeFeedStore extends ChangeNotifier {
       nextCursor = page.nextCursor;
       loading = false;
       loadingMore = false;
+      failed = false;
+      appendFailed = false;
       showOfflineState = apiItems.isEmpty && !ConnectivityService.instance.isOnline;
       notifyListeners();
     } catch (_) {
       // Keep whatever's already showing (cached or previously-loaded) on
       // a failed refresh — a silent background failure shouldn't blank a
       // screen that already has content, only a genuinely empty one
-      // falls through to the offline state.
+      // falls through to the offline state (or, online, to Try again).
       loading = false;
       loadingMore = false;
+      if (append) appendFailed = true;
       showOfflineState = apiItems.isEmpty && !ConnectivityService.instance.isOnline;
+      failed = apiItems.isEmpty && !showOfflineState;
       notifyListeners();
     }
   }
@@ -220,11 +235,30 @@ class _HomePageState extends State<HomePage> with RouteAware, ScrollsToTopOnDoub
     super.dispose();
   }
 
+  /// Back from a piece or profile: refresh only near the top. Further down, a refresh would
+  /// swap the pages already scrolled through for the first one and move the list.
   @override
-  void didPopNext() => widget.store.refresh();
+  void didPopNext() {
+    final offset = _scrollController.hasClients ? _scrollController.offset : 0.0;
+    if (offset < _loadMoreThreshold) widget.store.refresh();
+  }
 
   void _onStoreChanged() {
     if (mounted) setState(() {});
+  }
+
+  /// A short list (few Available pieces, or a page of videos Home leaves out) can't be
+  /// scrolled to its end, so it asks for the next page itself until the screen is full.
+  void _fillScreen() {
+    final store = widget.store;
+    if (!mounted || store.loading || store.loadingMore || store.appendFailed) return;
+    if (store.nextCursor == null || store.nextCursor!.isEmpty) return;
+    final shown = _showAvailable ? store.availableItems : store.feedItems;
+    final short = shown.isEmpty ||
+        (_scrollController.hasClients &&
+            _scrollController.position.hasContentDimensions &&
+            _scrollController.position.maxScrollExtent <= _loadMoreThreshold);
+    if (short) store.loadMore();
   }
 
   void _onScroll() {
@@ -269,6 +303,7 @@ class _HomePageState extends State<HomePage> with RouteAware, ScrollsToTopOnDoub
     final store = widget.store;
     final items = _showAvailable ? store.availableItems : store.feedItems;
     final filter = _showAvailable ? FeedAvailabilityFilter.available : FeedAvailabilityFilter.all;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _fillScreen());
 
     return Scaffold(
       backgroundColor: context.studio.background,
@@ -305,6 +340,33 @@ class _HomePageState extends State<HomePage> with RouteAware, ScrollsToTopOnDoub
       // since loading is seeded false whenever peekForYouCached() finds
       // something in ensureInitialized().
       return const FeedListSkeleton();
+    }
+    if (store.failed) {
+      return RefreshIndicator(
+        color: context.studio.textPrimary,
+        onRefresh: _refresh,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: [
+            SizedBox(height: MediaQuery.sizeOf(context).height * 0.22),
+            StudioEmptyState(
+              title: "Couldn't load your feed",
+              message: 'Check your connection and try again.',
+              actionLabel: 'Try again',
+              onAction: _refresh,
+            ),
+          ],
+        ),
+      );
+    }
+    // Nothing on this filter yet, but more pages to look through (see [_fillScreen]).
+    if (items.isEmpty && (store.loadingMore || (store.nextCursor?.isNotEmpty == true && !store.appendFailed))) {
+      return Center(
+        child: SizedBox.square(
+          dimension: 24,
+          child: CircularProgressIndicator(strokeWidth: 2, color: context.studio.textPrimary),
+        ),
+      );
     }
 
     if (items.isEmpty) {

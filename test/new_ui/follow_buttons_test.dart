@@ -80,10 +80,11 @@ BoxDecoration _buttonDecoration(WidgetTester tester, String label) {
 }
 
 void main() {
-  test('Follow is the dark action and Unfollow is the light one', () {
+  test('Follow is the dark action; Following (with a check) is the light one', () {
     expect(FollowState.none.actionLabel, 'Follow');
     expect(FollowState.none.filled, isTrue);
-    expect(FollowState.following.actionLabel, 'Unfollow');
+    expect(FollowState.following.actionLabel, 'Following');
+    expect(FollowState.following.icon, isNotNull); // the small check (`HandoffRules`)
     expect(FollowState.following.filled, isFalse);
     expect(FollowState.pending.actionLabel, 'Requested');
     expect(FollowState.pending.filled, isFalse);
@@ -143,7 +144,7 @@ void main() {
         expect(find.text('Amara Osei'), findsWidgets, reason: entry.key);
       }
       expect(find.text('Follow'), findsOneWidget, reason: entry.key);
-      expect(find.text('Unfollow'), findsNothing, reason: entry.key);
+      expect(find.text('Following'), findsNothing, reason: entry.key);
 
       final followDark = entry.key == 'explore artist'
           ? _buttonDecoration(tester, 'Follow').color
@@ -161,11 +162,11 @@ void main() {
       await tester.pump();
 
       expect(find.text('Follow'), findsNothing, reason: entry.key);
-      expect(find.text('Unfollow'), findsOneWidget, reason: entry.key);
+      expect(find.text('Following'), findsOneWidget, reason: entry.key);
 
       final unfollowLight = entry.key == 'explore artist'
-          ? _buttonDecoration(tester, 'Unfollow').color
-          : _nearestMaterialColor(tester, 'Unfollow');
+          ? _buttonDecoration(tester, 'Following').color
+          : _nearestMaterialColor(tester, 'Following');
       expect(unfollowLight == followDark, isFalse, reason: entry.key);
       expect(
         unfollowLight,
@@ -173,10 +174,10 @@ void main() {
         reason: entry.key,
       );
 
-      await tester.tap(find.text('Unfollow'));
+      await tester.tap(find.text('Following'));
       await tester.pump();
       expect(find.text('Follow'), findsOneWidget, reason: entry.key);
-      expect(find.text('Unfollow'), findsNothing, reason: entry.key);
+      expect(find.text('Following'), findsNothing, reason: entry.key);
     }
   });
 }
