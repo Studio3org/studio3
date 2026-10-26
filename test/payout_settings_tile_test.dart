@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:studio3/screens/profile_settings_page.dart';
 import 'package:studio3/services/payout_service.dart';
+import 'package:studio3/widgets/settings_tile.dart';
 
 /// Guards the regression where Profile settings claimed "Payout setup —
 /// Required" on every fresh login, for artists who had already completed
@@ -42,7 +43,7 @@ void main() {
     tester,
   ) async {
     await pumpTile(tester, null);
-    final tile = tester.widget<InkWell>(find.byType(InkWell));
+    final tile = tester.widget<SettingsTile>(find.byType(SettingsTile));
     expect(tile.onTap, isNull);
   });
 

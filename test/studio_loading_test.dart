@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:studio3/theme/app_theme.dart';
-import 'package:studio3/theme/home_feed_tokens.dart';
+import 'package:studio3/theme/studio_colors.dart';
 import 'package:studio3/widgets/studio_loading.dart';
 
 void main() {
@@ -177,7 +177,7 @@ void main() {
       expect((loaderBox.center.dy - overlayBox.center.dy).abs(), lessThan(0.5));
     });
 
-    testWidgets('uses light tokens on light overlay', (tester) async {
+    testWidgets('uses the light theme colours on a light overlay', (tester) async {
       await pumpLoader(
         tester,
         theme: AppTheme.light,
@@ -190,7 +190,7 @@ void main() {
           matching: find.byType(ColoredBox),
         ),
       );
-      expect(colored.color, HomeFeedTokens.background);
+      expect(colored.color, StudioColors.light.background);
 
       final circle = tester.widget<DecoratedBox>(
         find
@@ -207,7 +207,7 @@ void main() {
       );
       expect(
         (circle.decoration as BoxDecoration).color,
-        HomeFeedTokens.textPrimary,
+        StudioColors.light.textPrimary,
       );
     });
 

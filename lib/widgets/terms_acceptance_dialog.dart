@@ -7,6 +7,7 @@ import '../services/user_service.dart';
 import '../theme/studio_colors.dart';
 import '../theme/studio_metrics.dart';
 import '../theme/studio_type.dart';
+import 'studio/studio_toast.dart';
 
 /// Blocking prompt for a signed-in account that hasn't agreed to the current
 /// Terms of Use (EULA) — accounts created before the terms existed, or any
@@ -52,12 +53,10 @@ class _TermsAcceptanceDialogState extends State<_TermsAcceptanceDialog> {
     try {
       await UserService.instance.acceptTerms();
       if (mounted) Navigator.of(context).pop();
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() => _saving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Couldn't save that — please try again. ($e)")),
-      );
+      showStudioToast(context, "Couldn't save that — please try again.", icon: null);
     }
   }
 
