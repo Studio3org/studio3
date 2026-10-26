@@ -552,7 +552,7 @@ class EventPosterCard extends StatelessWidget {
                   const SizedBox(width: 2),
                   Transform.translate(
                     offset: const Offset(4, -3),
-                    child: EventBookmark(saved: saved, onTap: onSave, size: 16),
+                    child: EventBookmark(saved: saved, onTap: onSave, size: 18),
                   ),
                 ],
               ),

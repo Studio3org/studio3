@@ -61,7 +61,15 @@ StudioEvent _event({
           title: 'Bodies in Color',
           artistName: 'Amara Osei',
         ),
-        EventLineupItem(id: 'l2', pieceId: 'p2', mode: 'featured', deliveryMode: 'pickup', title: 'Quiet Hours', artistName: 'Maria Bruno'),
+        EventLineupItem(
+          id: 'l2',
+          pieceId: 'p2',
+          mode: 'featured',
+          deliveryMode: 'pickup',
+          title: 'Quiet Hours',
+          artistUsername: 'maria',
+          artistName: 'Maria Bruno',
+        ),
       ],
 );
 
@@ -217,14 +225,17 @@ void main() {
     expect(find.text('Selling · Pickup at the event (set in Details)'), findsOneWidget);
     expect(find.text('Bodies in Color'), findsOneWidget);
     final forSale = find.byWidgetPredicate((w) => w is StudioChip && w.label == 'For sale');
-    expect(forSale, findsNWidgets(2));
+    // Only the host's own piece can be sold; Maria's is shown (the server answers 403 otherwise).
+    expect(forSale, findsOneWidget);
     expect(tester.widget<StudioChip>(forSale.first).selected, isTrue);
     expect(find.text(r'$3,500'), findsOneWidget);
     expect(find.text('Not for sale'), findsWidgets);
+    expect(find.text('Only Maria Bruno can sell this piece.'), findsOneWidget);
     await tester.tap(find.text('Link and QR code').first);
     await tester.pumpAndSettle();
     expect(find.text('Copy link'), findsOneWidget);
     expect(_button('Download QR code'), findsOneWidget);
+    expect(_button('Download all 2 QR codes'), findsOneWidget);
   });
 
   testWidgets('Review: three cards, Edit jumps back, Publish event', (tester) async {
@@ -345,7 +356,7 @@ void main() {
       expect(find.text('Sat, Nov 21 · 8:00 PM CST · Dec on Dragon'), findsOneWidget);
       expect(find.text('going of 120'), findsOneWidget);
       expect(find.text('48'), findsOneWidget);
-      expect(tester.widget<Text>(find.text('Full')).style!.color, c.alert);
+      expect(tester.widget<Text>(find.text('Sold out')).style!.color, c.alert);
       expect(find.text('Piece links and QR codes'), findsOneWidget);
       expect(find.text('Edit event'), findsOneWidget);
       expect(find.text('Cancel event'), findsOneWidget);
@@ -424,6 +435,102 @@ void main() {
       setBoardViewport(tester, height: height);
       await tester.pumpWidget(_app(build()));
       await tester.pump();
+      await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/$name.png'));
+    }, skip: Platform.environment['NEW_UI_GOLDENS'] != '1');
+  }
+
+  // Goldens for the sheets, dialogs and pages opened from the steps, over the screen the
+  // board draws behind them.
+  final goldenPieces = [
+    PieceSummary.fromJson(const {'id': 'a1', 'title': 'Bodies in Color', 'listingState': 'available', 'isForSale': true}),
+    PieceSummary.fromJson(const {'id': 'a2', 'title': 'Blue Hour'}),
+    PieceSummary.fromJson(const {'id': 'a3', 'title': 'Red Moon', 'listingState': 'collected'}),
+  ];
+  for (final (name, height, build, open) in <(String, double, Widget Function(), Future<void> Function(WidgetTester))>[
+    ('HostEditTicket', 1000, () => const HostTicketPage(capacity: 20), (_) async {}),
+    (
+      'HostTagPieces',
+      1000,
+      () => HostTagPiecesPage(
+        artists: const [],
+        selectedIds: const {'a1', 'm1'},
+        debugGroups: [
+          (person: const EventLineupPerson(username: 'amarasart', name: 'Amara Osei'), host: false, pieces: goldenPieces),
+          (
+            person: const EventLineupPerson(username: 'mariabruno', name: 'Maria Bruno'),
+            host: false,
+            pieces: [PieceSummary.fromJson(const {'id': 'm1', 'title': 'Quiet Hours'})],
+          ),
+          (
+            person: const EventLineupPerson(username: 'sarahsunnyart', name: 'Sarah'),
+            host: true,
+            pieces: [PieceSummary.fromJson(const {'id': 's1', 'title': 'Morning'})],
+          ),
+        ],
+      ),
+      (_) async {},
+    ),
+    (
+      'HostLive',
+      844,
+      () => MediaQuery(
+        data: const MediaQueryData(size: Size(390, 844), disableAnimations: true),
+        child: HostLivePage(
+          event: _event(status: 'published'),
+          whenLabel: 'Sat, Nov 21 · 8:00 PM CST',
+          ticketsLabel: 'Free · 120 total',
+        ),
+      ),
+      (_) async {},
+    ),
+    (
+      'HostArtMode',
+      960,
+      () => HostEventPage(editing: _event(), debugNow: _now),
+      (tester) async {
+        await tester.tap(find.text('Event art'));
+        await tester.pumpAndSettle();
+      },
+    ),
+    (
+      'HostDate',
+      844,
+      () => HostEventPage(editing: _event(), debugNow: _now),
+      (tester) async {
+        await tester.tap(find.text('Date and time'));
+        await tester.pumpAndSettle();
+      },
+    ),
+    (
+      'HostConflict',
+      844,
+      () => HostEventPage(editing: _event(), debugNow: _now, debugStep: 2),
+      (tester) async {
+        showHostConflictDialog(
+          tester.element(find.byType(HostStepTabs)),
+          title: 'This will end its current listing',
+          message: 'Bodies in Color is already for sale on its own. Selling it at this event closes that '
+              'listing and starts a new one tied to the event.',
+        );
+        await tester.pumpAndSettle();
+      },
+    ),
+    (
+      'HostPieceQR',
+      1060,
+      () => HostEventPage(editing: _event(), debugNow: _now, debugStep: 2),
+      (tester) async {
+        await tester.tap(find.text('Link and QR code').first);
+        await tester.pumpAndSettle();
+      },
+    ),
+  ]) {
+    testWidgets('golden: $name', (tester) async {
+      setBoardViewport(tester, height: height);
+      await tester.pumpWidget(_app(build()));
+      await tester.pump();
+      await open(tester);
+      await tester.pump(const Duration(milliseconds: 100));
       await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/$name.png'));
     }, skip: Platform.environment['NEW_UI_GOLDENS'] != '1');
   }

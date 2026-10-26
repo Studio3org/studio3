@@ -164,7 +164,8 @@ class HostFlyerBox extends StatelessWidget {
 }
 
 /// A row that opens a sheet (`HostDetails`): label 16 Ink, the value 14 Ink (Mono for a time)
-/// and an 18 chevron on the right; 15 above and below, a Line under.
+/// and an 18 chevron on the right; 15 above and below, a Line under. A [required] row shows the
+/// red dot after its label until it has a value.
 class HostNavRow extends StatelessWidget {
   const HostNavRow({
     super.key,
@@ -173,12 +174,14 @@ class HostNavRow extends StatelessWidget {
     this.value,
     this.mono = false,
     this.enabled = true,
+    this.required = false,
   });
 
   final String label;
   final String? value;
   final bool mono;
   final bool enabled;
+  final bool required;
   final VoidCallback onTap;
 
   @override
@@ -205,6 +208,7 @@ class HostNavRow extends StatelessWidget {
           child: Row(
             children: [
               Text(label, style: StudioType.sans(16, color: enabled ? c.textPrimary : c.textTertiary)),
+              if (required && enabled && shown.isEmpty) const StudioRequiredDot(),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
@@ -235,6 +239,7 @@ class HostSwitchRow extends StatelessWidget {
     required this.onChanged,
     this.subtitle,
     this.divider = true,
+    this.verticalPadding = 14,
   });
 
   final String label;
@@ -242,12 +247,13 @@ class HostSwitchRow extends StatelessWidget {
   final bool value;
   final ValueChanged<bool>? onChanged;
   final bool divider;
+  final double verticalPadding;
 
   @override
   Widget build(BuildContext context) {
     final c = context.studio;
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14),
+      padding: EdgeInsets.symmetric(vertical: verticalPadding),
       decoration: BoxDecoration(border: divider ? Border(bottom: BorderSide(color: c.line)) : null),
       child: Row(
         children: [
@@ -463,12 +469,22 @@ class HostCard extends StatelessWidget {
 }
 
 /// A 14/500 Ink text action with a 44 tall tap area ("+ Tag a piece", "+ Add ticket type").
+/// [inline] sits level with a card's first line (Edit on `HostTickets` and `HostReview`): one
+/// line tall, inside a card that opens the same thing when tapped anywhere.
 class HostTextAction extends StatelessWidget {
-  const HostTextAction({super.key, required this.label, required this.onTap, this.size = 14, this.underline = false});
+  const HostTextAction({
+    super.key,
+    required this.label,
+    required this.onTap,
+    this.size = 14,
+    this.underline = false,
+    this.inline = false,
+  });
 
   final String label;
   final VoidCallback? onTap;
   final double size;
+  final bool inline;
 
   /// A link (`HostLineup` "+ Tag a piece").
   final bool underline;
@@ -482,11 +498,13 @@ class HostTextAction extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
-        child: SizedBox(
-          height: StudioSize.tapTarget,
+        child: Container(
+          height: inline ? null : StudioSize.tapTarget,
+          padding: inline ? const EdgeInsets.only(left: 16) : null,
           child: Align(
-            alignment: Alignment.centerLeft,
+            alignment: inline ? Alignment.topRight : Alignment.centerLeft,
             widthFactor: 1,
+            heightFactor: inline ? 1 : null,
             child: Text(
               label,
               style: StudioType.sans(
@@ -593,7 +611,7 @@ Future<bool> showHostConflictDialog(BuildContext context, {required String title
             ),
             const SizedBox(height: 16),
             StudioButton(label: 'Continue', onPressed: () => Navigator.pop(dialogContext, true)),
-            const SizedBox(height: 4),
+            const SizedBox(height: 10),
             StudioButton(
               label: 'Cancel',
               variant: StudioButtonVariant.text,

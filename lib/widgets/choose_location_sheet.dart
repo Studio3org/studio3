@@ -16,18 +16,30 @@ import 'studio/studio_toast.dart';
 
 /// Location picker (`PostLocation`): live city search via `LocationSearchService`
 /// (Nominatim) and "Use my current city". The chosen city takes the left line; Done
-/// confirms it. Only the city is ever public — the footer says so.
+/// confirms it. Only the city is ever public — the footer says so. An event's venue
+/// (`HostDetails`) passes its own [searchHint], [currentLabel] and [footnote].
 class ChooseLocationSheet extends StatefulWidget {
   const ChooseLocationSheet({
     super.key,
     required this.onLocationSelected,
     this.selected,
     this.subtitle = 'Where the piece is now.',
+    this.searchHint = 'Search cities',
+    this.currentLabel = 'Use my current city',
+    this.footnote = pieceFootnote,
   });
+
+  static const pieceFootnote =
+      'Only the city shows on your piece. Your exact pickup address stays private in payout settings.';
 
   final ValueChanged<PostLocationOption> onLocationSelected;
   final PostLocationOption? selected;
   final String subtitle;
+  final String searchHint;
+  final String currentLabel;
+
+  /// The line under the list; none when null.
+  final String? footnote;
 
   /// Opens the sheet; [onLocationSelected] runs once Done is tapped (the sheet closes
   /// itself).
@@ -36,6 +48,9 @@ class ChooseLocationSheet extends StatefulWidget {
     required ValueChanged<PostLocationOption> onLocationSelected,
     PostLocationOption? selected,
     String subtitle = 'Where the piece is now.',
+    String searchHint = 'Search cities',
+    String currentLabel = 'Use my current city',
+    String? footnote = pieceFootnote,
   }) {
     return showStudioSheet<void>(
       context: context,
@@ -43,6 +58,9 @@ class ChooseLocationSheet extends StatefulWidget {
         onLocationSelected: onLocationSelected,
         selected: selected,
         subtitle: subtitle,
+        searchHint: searchHint,
+        currentLabel: currentLabel,
+        footnote: footnote,
       ),
     );
   }
@@ -135,7 +153,7 @@ class _ChooseLocationSheetState extends State<ChooseLocationSheet> {
       subtitle: widget.subtitle,
       search: PostPickerSearchField(
         controller: _searchController,
-        hintText: 'Search cities',
+        hintText: widget.searchHint,
         onChanged: _onQueryChanged,
       ),
       header: Semantics(
@@ -156,7 +174,7 @@ class _ChooseLocationSheetState extends State<ChooseLocationSheet> {
                   StudioIcon(StudioIcons.location, size: 20, color: c.textPrimary),
                 const SizedBox(width: 10),
                 Text(
-                  'Use my current city',
+                  widget.currentLabel,
                   style: StudioType.sans(15, weight: StudioType.medium, color: c.textPrimary),
                 ),
               ],
@@ -164,11 +182,9 @@ class _ChooseLocationSheetState extends State<ChooseLocationSheet> {
           ),
         ),
       ),
-      footer: Text(
-        'Only the city shows on your piece. Your exact pickup address stays private in '
-        'payout settings.',
-        style: StudioType.caption12(height: 1.5, color: c.textSecondary),
-      ),
+      footer: widget.footnote == null
+          ? null
+          : Text(widget.footnote!, style: StudioType.caption12(height: 1.5, color: c.textSecondary)),
       done: StudioButton(label: 'Done', onPressed: _selected == null ? null : _done),
       maxHeight: mq.size.height - 120,
       list: _searching

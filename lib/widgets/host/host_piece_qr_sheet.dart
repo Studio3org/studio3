@@ -133,7 +133,13 @@ Future<void> showHostPieceQrSheet(
             label: 'Download QR code',
             onPressed: () async {
               try {
-                await QrImageShare.share(title: title, url: url);
+                // iPad anchors the share sheet to the sheet it came from.
+                final box = sheetContext.findRenderObject() as RenderBox?;
+                await QrImageShare.share(
+                  title: title,
+                  url: url,
+                  origin: box == null || !box.hasSize ? null : box.localToGlobal(Offset.zero) & box.size,
+                );
               } catch (_) {
                 if (sheetContext.mounted) showStudioToast(sheetContext, 'Could not save that code.', icon: null);
               }

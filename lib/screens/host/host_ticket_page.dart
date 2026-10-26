@@ -58,8 +58,8 @@ class _HostTicketPageState extends State<HostTicketPage> {
           const SizedBox(height: 8),
           HostSwitchRow(
             label: 'Limit how many',
-            subtitle: 'Off: anyone can reserve a spot',
             value: _limit,
+            verticalPadding: 10,
             divider: !_limit,
             onChanged: (v) => setState(() => _limit = v),
           ),

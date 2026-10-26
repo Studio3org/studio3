@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 
 import '../data/post_location_options.dart';
 
@@ -14,6 +15,10 @@ abstract final class LocationSearchService {
     connectTimeout: const Duration(seconds: 10),
     receiveTimeout: const Duration(seconds: 10),
   ));
+
+  /// Sends every search through [adapter] instead of the network, for tests.
+  @visibleForTesting
+  static void debugUseAdapter(HttpClientAdapter adapter) => _dio.httpClientAdapter = adapter;
 
   static Future<List<PostLocationOption>> search(String query) async {
     final trimmed = query.trim();

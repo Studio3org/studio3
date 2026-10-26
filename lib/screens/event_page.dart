@@ -144,6 +144,8 @@ class _EventPageState extends State<EventPage> with ScrollsToTopOnDoubleTap<Even
     }
     if (!mounted) return;
     await HostEventPage.open(context);
+    // A newly published event belongs on the tab straight away.
+    if (mounted) _load(fresh: true);
   }
 
   Future<void> _yourEvents() async {

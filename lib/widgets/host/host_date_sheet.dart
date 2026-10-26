@@ -123,11 +123,13 @@ class _HostDateSheetState extends State<HostDateSheet> {
   late final _startText = TextEditingController();
   late final _endText = TextEditingController();
   late final String _zone;
+  late final DateTime _now;
 
   @override
   void initState() {
     super.initState();
     final now = widget.now ?? DateTime.now();
+    _now = now;
     _today = DateTime(now.year, now.month, now.day);
     final i = widget.initial;
     _multi = i?.multiDay ?? false;
@@ -207,7 +209,13 @@ class _HostDateSheetState extends State<HostDateSheet> {
     });
   }
 
-  bool get _ready => _startDate != null && (!_multi || _endDate != null);
+  /// Today with a start time that has already gone by.
+  bool get _startPassed {
+    final d = _startDate;
+    return d != null && DateTime(d.year, d.month, d.day, _start.hour, _start.minute).isBefore(_now);
+  }
+
+  bool get _ready => _startDate != null && (!_multi || _endDate != null) && !_startPassed;
 
   @override
   Widget build(BuildContext context) {
@@ -253,8 +261,12 @@ class _HostDateSheetState extends State<HostDateSheet> {
           ],
         ),
         Text(
-          _zone.isEmpty ? "Times are in this phone's time zone" : "Times are in $_zone, this phone's time zone",
-          style: StudioType.caption12(color: c.textTertiary),
+          _startPassed
+              ? 'That start time has passed. Pick a later one.'
+              : _zone.isEmpty
+              ? "Times are in this phone's time zone"
+              : "Times are in $_zone, this phone's time zone",
+          style: StudioType.caption12(color: _startPassed ? c.textPrimary : c.textTertiary),
         ),
         StudioButton(
           label: 'Done',
@@ -287,14 +299,15 @@ class _HostDateSheetState extends State<HostDateSheet> {
             ? null
             : () => setState(() => _month = DateTime(_month.year, _month.month + (back ? -1 : 1))),
         behavior: HitTestBehavior.opaque,
-        child: SizedBox.square(
-          dimension: 36,
+        child: SizedBox(
+          width: 32,
+          height: 28,
           child: Center(
             child: Transform.flip(
               flipX: back,
               child: StudioIcon(
                 StudioIcons.chevronRight,
-                size: 18,
+                size: 16,
                 color: back && !canGoBack ? c.textPlaceholder : c.textPrimary,
               ),
             ),
@@ -303,7 +316,7 @@ class _HostDateSheetState extends State<HostDateSheet> {
       ),
     );
     return Padding(
-      padding: const EdgeInsets.only(top: 6),
+      padding: const EdgeInsets.only(top: 2),
       child: Row(
         children: [
           Expanded(
@@ -324,18 +337,32 @@ class _HostDateSheetState extends State<HostDateSheet> {
     final lead = first.weekday % 7; // Sunday first
     final days = DateTime(_month.year, _month.month + 1, 0).day;
     final cells = <Widget>[
-      for (final w in const ['S', 'M', 'T', 'W', 'T', 'F', 'S'])
-        Center(child: Text(w, style: StudioType.mono(11, color: c.textTertiary))),
       for (var i = 0; i < lead; i++) const SizedBox.shrink(),
       for (var d = 1; d <= days; d++) _day(c, DateTime(_month.year, _month.month, d)),
     ];
-    return GridView.count(
-      crossAxisCount: 7,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 4,
-      childAspectRatio: 50 / 36,
-      children: cells,
+    // The Mono weekdays sit in a short row of their own, close above the days (`HostDate`).
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            for (final w in const ['S', 'M', 'T', 'W', 'T', 'F', 'S'])
+              Expanded(
+                child: Center(child: Text(w, style: StudioType.mono(11, color: c.textTertiary))),
+              ),
+          ],
+        ),
+        const SizedBox(height: 2),
+        GridView.count(
+          crossAxisCount: 7,
+          shrinkWrap: true,
+          padding: EdgeInsets.zero,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 2,
+          childAspectRatio: 50 / 36,
+          children: cells,
+        ),
+      ],
     );
   }
 

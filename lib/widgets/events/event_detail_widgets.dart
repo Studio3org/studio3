@@ -348,7 +348,8 @@ class EventArtistsRow extends StatelessWidget {
                     StudioAvatar(url: artists[i].avatarUrl, size: 68, semanticLabel: artists[i].displayName),
                     const SizedBox(height: 6),
                     Text(
-                      artists[i].displayName,
+                      // First names under the photos; the host row keeps the full name.
+                      artists[i].displayName.split(' ').first,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,

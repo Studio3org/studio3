@@ -87,7 +87,8 @@ void main() {
 
   test('how soon', () {
     expect(eventHowSoon(_going[0], _now), 'In 3 days');
-    expect(eventHowSoon(_e('x', 'X', DateTime(2037, 11, 18, 20)), _now), 'Today');
+    expect(eventHowSoon(_e('x', 'X', DateTime(2037, 11, 18, 20)), _now), 'Tonight');
+    expect(eventHowSoon(_e('x', 'X', DateTime(2037, 11, 18, 15)), _now), 'Today');
     expect(eventHowSoon(_e('x', 'X', DateTime(2037, 11, 19, 9)), _now), 'Tomorrow');
     expect(eventHowSoon(_e('x', 'X', DateTime(2037, 11, 18, 9)), _now), 'Happening now');
     expect(eventHowSoon(_e('x', 'X', DateTime(2037, 12, 30, 9)), _now), 'In 6 weeks');

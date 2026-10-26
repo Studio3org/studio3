@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 
+import '../../config/app_link_config.dart';
 import '../../data/post_location_options.dart';
 import '../../data/post_picker_options.dart';
 import '../../models/piece_summary.dart';
 import '../../models/studio_event.dart';
 import '../../services/api_exception.dart';
+import '../../services/auth_session.dart';
 import '../../services/event_service.dart';
 import '../../services/media_service.dart';
 import '../../utils/money_format.dart';
 import '../../utils/post_image_renderer.dart';
+import '../../utils/qr_image_share.dart';
 import '../../widgets/choose_location_sheet.dart';
 import '../../widgets/create_flow/event_lineup_models.dart';
 import '../../widgets/host/host_date_sheet.dart';
@@ -53,7 +56,7 @@ enum HostDelivery {
 /// So Tickets offers Free (RSVP) only; the age limit, Public switch and refund policy are left
 /// out until they can be saved (section 0.3). A published event's date can't move (B28).
 class HostEventPage extends StatefulWidget {
-  const HostEventPage({super.key, this.editing, this.debugNow, this.debugStep = 0});
+  const HostEventPage({super.key, this.editing, this.debugNow, this.debugStep = 0, this.debugFlyer});
 
   final StudioEvent? editing;
 
@@ -62,6 +65,10 @@ class HostEventPage extends StatefulWidget {
   final DateTime? debugNow;
   @visibleForTesting
   final int debugStep;
+
+  /// For tests: a cover already framed, in place of picking one from the photo library.
+  @visibleForTesting
+  final HostFlyer? debugFlyer;
 
   /// A new event. Returns when the host leaves the flow.
   static Future<void> open(BuildContext context, {StudioEvent? editing}) {
@@ -79,7 +86,7 @@ class _HostEventPageState extends State<HostEventPage> {
 
   final _title = TextEditingController();
   final _description = TextEditingController();
-  HostFlyer? _flyer;
+  late HostFlyer? _flyer = widget.debugFlyer;
   String? _coverUrl;
   PostLocationOption? _location;
   HostDateSelection? _date;
@@ -110,8 +117,46 @@ class _HostEventPageState extends State<HostEventPage> {
   void initState() {
     super.initState();
     _title.addListener(_changed);
+    _description.addListener(_changed);
     final e = _editing;
     if (e != null) _loadFrom(e);
+    _initial = _signature();
+  }
+
+  /// Everything the host can change, to tell whether leaving would lose anything.
+  late String _initial;
+  String _signature() => [
+    _title.text.trim(),
+    _description.text.trim(),
+    _flyer?.path,
+    _coverUrl,
+    _location?.displayName,
+    _date?.startsAt,
+    _date?.endsAt,
+    _category,
+    _art,
+    _delivery,
+    _capacity,
+    _cohosts.map((p) => p.username).join(','),
+    _artists.map((p) => p.username).join(','),
+    _pieces.map((p) => '${p.piece.id}:${p.mode}:${p.price}').join(','),
+  ].join('|');
+
+  bool get _dirty => _signature() != _initial;
+
+  /// Back from Details: asks before dropping a new event or unsaved edits.
+  Future<void> _leave() async {
+    if (_dirty) {
+      final discard = await showStudioConfirm(
+        context,
+        title: _editing == null ? 'Discard this event?' : 'Discard your changes?',
+        message: _editing == null ? 'Nothing you added is saved yet.' : 'Your edits to this event are not saved yet.',
+        confirmLabel: 'Discard',
+        cancelLabel: 'Keep editing',
+      );
+      if (!discard || !mounted) return;
+    }
+    Navigator.of(context).pop();
   }
 
   void _changed() => setState(() {});
@@ -172,6 +217,7 @@ class _HostEventPageState extends State<HostEventPage> {
   @override
   void dispose() {
     _title.removeListener(_changed);
+    _description.removeListener(_changed);
     _title.dispose();
     _description.dispose();
     _scroll.dispose();
@@ -180,14 +226,28 @@ class _HostEventPageState extends State<HostEventPage> {
 
   // --- steps -------------------------------------------------------------------------------
 
+  /// A draft whose start has gone by (a published event's date can't move, so it isn't asked).
+  bool get _datePassed => !_published && _date != null && _date!.startsAt.isBefore(widget.debugNow ?? DateTime.now());
+
   bool get _detailsReady =>
       _title.text.trim().isNotEmpty &&
       (_flyer != null || (_coverUrl ?? '').isNotEmpty) &&
       _location != null &&
       _date != null &&
+      !_datePassed &&
       _category != null;
 
-  bool get _canContinue => _step == 0 ? _detailsReady : !_saving;
+  /// What Details still needs, for the Review step.
+  List<String> get _missing => [
+    if (_title.text.trim().isEmpty) 'a title',
+    if (_flyer == null && (_coverUrl ?? '').isEmpty) 'a cover',
+    if (_location == null) 'a location',
+    if (_date == null || _datePassed) 'a date',
+    if (_category == null) 'a category',
+  ];
+
+  /// Every step needs Details complete: the tabs can jump back to Details and empty a field.
+  bool get _canContinue => _detailsReady && !_saving;
 
   void _goTo(int step) {
     FocusManager.instance.primaryFocus?.unfocus();
@@ -213,7 +273,7 @@ class _HostEventPageState extends State<HostEventPage> {
     if (_step > 0) {
       _goTo(_step - 1);
     } else {
-      Navigator.of(context).maybePop();
+      _leave();
     }
   }
 
@@ -229,6 +289,9 @@ class _HostEventPageState extends State<HostEventPage> {
       context,
       selected: _location,
       subtitle: 'Where the event happens.',
+      searchHint: 'Search a venue or address',
+      currentLabel: 'Use where I am now',
+      footnote: 'Guests see the venue and its address on the event page.',
       onLocationSelected: (l) => setState(() => _location = l),
     );
   }
@@ -311,7 +374,13 @@ class _HostEventPageState extends State<HostEventPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              StudioUnderlineField(label: 'Title', controller: _title, hint: 'Give the event a name', valueSize: 16),
+              StudioUnderlineField(
+                label: 'Title',
+                controller: _title,
+                hint: 'Give the event a name',
+                valueSize: 16,
+                required: true,
+              ),
               const SizedBox(height: 18),
               StudioUnderlineField(
                 label: 'Description',
@@ -322,26 +391,28 @@ class _HostEventPageState extends State<HostEventPage> {
                 minLines: 1,
               ),
               const SizedBox(height: 18),
-              HostNavRow(label: 'Location', value: _location?.name, onTap: _pickLocation),
+              HostNavRow(label: 'Location', value: _location?.name, onTap: _pickLocation, required: true),
               HostNavRow(
                 label: 'Date and time',
                 value: _date?.rowLabel,
                 mono: true,
                 enabled: !_published,
                 onTap: _pickDate,
+                required: true,
               ),
-              if (_published)
+              if (_published || _datePassed)
                 Padding(
                   padding: const EdgeInsets.only(top: 6),
                   child: Text(
-                    "A published event's date can't be changed yet.",
-                    style: StudioType.caption12(color: c.textTertiary),
+                    _published ? "A published event's date can't be changed yet." : 'That date has passed. Pick a new one.',
+                    style: StudioType.caption12(color: _published ? c.textTertiary : c.textPrimary),
                   ),
                 ),
               HostNavRow(
                 label: 'Category',
                 value: _category == null ? null : EventCategoryOptions.byId(_category!)?.name,
                 onTap: _pickCategory,
+                required: true,
               ),
               HostNavRow(label: 'Event art', value: _art.label, onTap: _pickArt),
               if (_art.sells) HostNavRow(label: 'Delivery', value: _delivery.label, onTap: _pickDelivery),
@@ -377,7 +448,11 @@ class _HostEventPageState extends State<HostEventPage> {
             onChanged: (_) {},
           ),
           const HostLabel('Ticket types'),
-          HostCard(
+          // The whole card opens the ticket, so Edit can sit level with the name.
+          GestureDetector(
+            onTap: _editTicket,
+            behavior: HitTestBehavior.opaque,
+            child: HostCard(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -393,8 +468,9 @@ class _HostEventPageState extends State<HostEventPage> {
                     ],
                   ),
                 ),
-                HostTextAction(label: 'Edit', size: 13, onTap: _editTicket),
+                HostTextAction(label: 'Edit', size: 13, inline: true, onTap: _editTicket),
               ],
+            ),
             ),
           ),
         ],
@@ -491,6 +567,28 @@ class _HostEventPageState extends State<HostEventPage> {
     );
   }
 
+  /// Only a piece's own artist can sell or auction it at an event (the server answers 403
+  /// otherwise); anyone else's piece is shown, not sold, until artists can approve it (B28).
+  static bool _owns(PieceSummary piece) {
+    final by = piece.authorUsername ?? '';
+    return by.isEmpty || by == AuthSession.instance.user?.username;
+  }
+
+  /// Every tagged piece's code at once ("Download all", `HostPieceQR`).
+  Future<void> _downloadAllCodes() async {
+    try {
+      await QrImageShare.shareAll([
+        for (final p in _pieces) (title: p.piece.title, url: AppLinkConfig.pieceUrl(p.piece.id)),
+      ]);
+    } catch (_) {
+      if (mounted) showStudioToast(context, 'Could not save those codes.', icon: null);
+    }
+  }
+
+  /// "a title, a cover and a date".
+  static String _listJoin(List<String> items) =>
+      items.length < 2 ? items.join() : '${items.sublist(0, items.length - 1).join(', ')} and ${items.last}';
+
   static int? _cents(String price) {
     final v = double.tryParse(price.replaceAll(',', '').replaceAll(r'$', '').trim());
     return v == null ? null : (v * 100).round();
@@ -560,6 +658,7 @@ class _HostEventPageState extends State<HostEventPage> {
               _PieceCard(
                 tagged: _pieces[i],
                 art: _art,
+                owned: _owns(_pieces[i].piece),
                 priceLine: _priceLine(_pieces[i]),
                 onMode: (m) => _setMode(i, m),
                 onPrice: _pieces[i].mode == EventPieceMode.featured ? null : () => _editPrice(i),
@@ -571,6 +670,8 @@ class _HostEventPageState extends State<HostEventPage> {
                   artistName: _pieces[i].piece.authorName,
                   priceLabel: _pieces[i].mode == EventPieceMode.featured ? null : _priceLine(_pieces[i]),
                   imageUrl: eventPieceCoverUrl(_pieces[i].piece),
+                  allCount: _pieces.length,
+                  onDownloadAll: _downloadAllCodes,
                 ),
               ),
             ],
@@ -586,19 +687,25 @@ class _HostEventPageState extends State<HostEventPage> {
   Widget _review(StudioColors c) {
     Widget card(String label, int step, List<Widget> lines) => Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: HostCard(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(child: Text(label, style: StudioType.label13(color: c.textSecondary))),
-                HostTextAction(label: 'Edit', size: 13, onTap: () => _goTo(step)),
-              ],
-            ),
-            for (final l in lines) ...[l, const SizedBox(height: 6)],
-          ],
+      // The whole card opens its step, so Edit can sit level with the label at its own size.
+      child: GestureDetector(
+        onTap: () => _goTo(step),
+        behavior: HitTestBehavior.opaque,
+        child: HostCard(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: Text(label, style: StudioType.label13(color: c.textSecondary))),
+                  HostTextAction(label: 'Edit', size: 13, inline: true, underline: true, onTap: () => _goTo(step)),
+                ],
+              ),
+              for (final l in lines) ...[const SizedBox(height: 6), l],
+            ],
+          ),
         ),
       ),
     );
@@ -639,8 +746,16 @@ class _HostEventPageState extends State<HostEventPage> {
             if (_cohosts.isEmpty && _artists.isEmpty && (_pieces.isEmpty || _art == HostArtMode.none))
               Text('Just you, no art tagged.', style: muted),
             if (selling > 0 && _pieces.any((p) => p.mode != EventPieceMode.featured && _cents(p.price) == null))
-              Text('Add a price to every piece for sale.', style: StudioType.label13(color: c.alert)),
+              Text('Add a price to every piece for sale.', style: StudioType.label13(weight: StudioType.medium, color: c.textPrimary)),
           ]),
+          if (_missing.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                'To publish, add ${_listJoin(_missing)} in Details.',
+                style: StudioType.label13(color: c.textSecondary),
+              ),
+            ),
         ],
       ),
     );
@@ -662,12 +777,6 @@ class _HostEventPageState extends State<HostEventPage> {
     _uploadedCover = url;
     return url;
   }
-
-  String _mode(EventPieceMode m) => switch (m) {
-    EventPieceMode.featured => 'featured',
-    EventPieceMode.sale => 'sale',
-    EventPieceMode.bid => 'bid',
-  };
 
   Future<void> _save() async {
     if (_pieces.any((p) => _art != HostArtMode.none && p.mode != EventPieceMode.featured && _cents(p.price) == null)) {
@@ -732,7 +841,10 @@ class _HostEventPageState extends State<HostEventPage> {
         _originalPieces.remove(id);
       }
       for (final (i, p) in wanted.indexed) {
-        final mode = _art == HostArtMode.showing ? 'featured' : _mode(p.mode);
+        // One way of selling per event: a piece for sale follows Event art (sale or auction).
+        final mode = !_art.sells || p.mode == EventPieceMode.featured || !_owns(p.piece)
+            ? 'featured'
+            : (_art == HostArtMode.auction ? 'bid' : 'sale');
         final cents = mode == 'featured' ? null : _cents(p.price);
         final delivery = _delivery == HostDelivery.ship ? 'ship' : 'pickup';
         final before = _originalPieces[p.piece.id];
@@ -791,7 +903,7 @@ class _HostEventPageState extends State<HostEventPage> {
     final last = _step == kHostSteps.length - 1;
     final safe = MediaQuery.viewPaddingOf(context).bottom;
     return PopScope(
-      canPop: _step == 0 && !_saving,
+      canPop: _step == 0 && !_saving && !_dirty,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop && !_saving) _back();
       },
@@ -899,6 +1011,7 @@ class _PieceCard extends StatelessWidget {
   const _PieceCard({
     required this.tagged,
     required this.art,
+    required this.owned,
     required this.priceLine,
     required this.onMode,
     required this.onRemove,
@@ -908,6 +1021,9 @@ class _PieceCard extends StatelessWidget {
 
   final EventTaggedPiece tagged;
   final HostArtMode art;
+
+  /// The host's own piece; anyone else's can only be shown.
+  final bool owned;
   final String priceLine;
   final ValueChanged<EventPieceMode> onMode;
   final VoidCallback onRemove;
@@ -974,7 +1090,7 @@ class _PieceCard extends StatelessWidget {
             Wrap(
               spacing: 8,
               children: [
-                if (!collected)
+                if (!collected && owned)
                   StudioChip(
                     label: art == HostArtMode.auction ? 'Auction' : 'For sale',
                     selected: tagged.mode != EventPieceMode.featured,
@@ -989,8 +1105,16 @@ class _PieceCard extends StatelessWidget {
                 ),
               ],
             ),
+            if (!owned && !collected)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  'Only ${(piece.authorName ?? '').isNotEmpty ? piece.authorName : 'its artist'} can sell this piece.',
+                  style: StudioType.caption12(color: c.textSecondary),
+                ),
+              ),
           ],
-          const SizedBox(height: 6),
+          const SizedBox(height: 2),
           Row(
             children: [
               Expanded(
@@ -998,7 +1122,7 @@ class _PieceCard extends StatelessWidget {
                   onTap: onPrice,
                   behavior: HitTestBehavior.opaque,
                   child: SizedBox(
-                    height: 36,
+                    height: 32,
                     child: Align(
                       alignment: Alignment.centerLeft,
                       child: Text(priceLine, style: StudioType.label13(color: c.textBody)),
@@ -1012,7 +1136,7 @@ class _PieceCard extends StatelessWidget {
                   onTap: onQr,
                   behavior: HitTestBehavior.opaque,
                   child: SizedBox(
-                    height: 36,
+                    height: 32,
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [

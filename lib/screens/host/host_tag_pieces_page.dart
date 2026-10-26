@@ -56,6 +56,9 @@ class _HostTagPiecesPageState extends State<HostTagPiecesPage> {
   List<_Group> _groups = const [];
   bool _loading = true;
 
+  /// Nobody's pieces could be loaded.
+  bool _failed = false;
+
   @override
   void initState() {
     super.initState();
@@ -88,7 +91,21 @@ class _HostTagPiecesPageState extends State<HostTagPiecesPage> {
     });
   }
 
+  /// A piece from someone's own list doesn't always say whose it is; the event needs to know,
+  /// because only the artist can sell it there.
+  static PieceSummary _byPerson(PieceSummary p, EventLineupPerson person) =>
+      (p.authorUsername ?? '').isNotEmpty
+      ? p
+      : PieceSummary.fromJson({...p.toJson(), 'authorUsername': person.username, 'authorName': person.name});
+
   Future<void> _load() async {
+    if (_failed) {
+      // Try again.
+      setState(() {
+        _failed = false;
+        _loading = true;
+      });
+    }
     final me = AuthSession.instance.user;
     final people = <(EventLineupPerson, bool)>[
       for (final a in widget.artists)
@@ -97,15 +114,19 @@ class _HostTagPiecesPageState extends State<HostTagPiecesPage> {
         (EventLineupPerson(username: me.username, name: me.name, avatarUrl: me.profilePhotoUrl), true),
     ];
     final groups = <_Group>[];
+    var failures = 0;
     for (final (person, host) in people) {
       try {
         final pieces = await PieceService.instance.getUserPieces(person.username);
-        groups.add((person: person, host: host, pieces: pieces));
+        groups.add((person: person, host: host, pieces: [for (final p in pieces) _byPerson(p, person)]));
       } catch (_) {
-        // Skip someone whose pieces can't be loaded.
+        // Skip someone whose pieces can't be loaded; say so if that was everyone.
+        failures++;
       }
     }
-    if (mounted) _setGroups(groups);
+    if (!mounted) return;
+    _setGroups(groups);
+    if (people.isNotEmpty && failures == people.length) setState(() => _failed = true);
   }
 
   void _done() {
@@ -168,6 +189,16 @@ class _HostTagPiecesPageState extends State<HostTagPiecesPage> {
                 ),
               ),
             )
+          else if (_failed)
+            Padding(
+              padding: const EdgeInsets.only(top: 24),
+              child: StudioEmptyState(
+                title: "Couldn't load pieces",
+                message: 'Check your connection and try again.',
+                actionLabel: 'Try again',
+                onAction: _load,
+              ),
+            )
           else if (shown.isEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 24),
@@ -205,6 +236,8 @@ class _HostTagPiecesPageState extends State<HostTagPiecesPage> {
               GridView.count(
                 crossAxisCount: 3,
                 shrinkWrap: true,
+                // The selected outline sits 2 outside the tile.
+                clipBehavior: Clip.none,
                 physics: const NeverScrollableScrollPhysics(),
                 mainAxisSpacing: 8,
                 crossAxisSpacing: 8,
@@ -250,29 +283,43 @@ class _Tile extends StatelessWidget {
       excludeSemantics: true,
       child: GestureDetector(
         onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(2),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: selected ? c.textPrimary : Colors.transparent, width: 2),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(StudioRadius.small),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                url.isEmpty
-                    ? ColoredBox(color: c.surface)
-                    : CachedNetworkImage(
-                        imageUrl: url,
-                        fit: BoxFit.cover,
-                        errorWidget: (_, _, _) => ColoredBox(color: c.surface),
-                      ),
-                if (label != null)
-                  Positioned(left: 6, bottom: 5, child: StudioImageLabel(label, mono: false, size: 10)),
-              ],
+        child: Stack(
+          fit: StackFit.expand,
+          clipBehavior: Clip.none,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(StudioRadius.small),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  url.isEmpty
+                      ? ColoredBox(color: c.surface)
+                      : CachedNetworkImage(
+                          imageUrl: url,
+                          fit: BoxFit.cover,
+                          errorWidget: (_, _, _) => ColoredBox(color: c.surface),
+                        ),
+                  if (label != null)
+                    Positioned(left: 6, bottom: 5, child: StudioImageLabel(label, mono: false, size: 10)),
+                ],
+              ),
             ),
-          ),
+            if (selected)
+              Positioned(
+                left: -4,
+                top: -4,
+                right: -4,
+                bottom: -4,
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: c.textPrimary, width: 2),
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );

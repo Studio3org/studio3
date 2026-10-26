@@ -66,6 +66,30 @@ abstract final class QrImageShare {
     );
   }
 
+  /// Render every code and hand them to the share sheet together (`HostPieceQR` "Download
+  /// all"), with each title and link as the text.
+  static Future<void> shareAll(List<({String title, String url})> codes, {Rect? origin}) async {
+    final dir = await getTemporaryDirectory();
+    final files = <XFile>[];
+    final used = <String>{};
+    for (final code in codes) {
+      var name = _slug(code.title);
+      for (var n = 2; !used.add(name); n++) {
+        name = '${_slug(code.title)}-$n';
+      }
+      final file = File('${dir.path}/$name-code.png');
+      await file.writeAsBytes(await render(code.url));
+      files.add(XFile(file.path, mimeType: 'image/png'));
+    }
+    await SharePlus.instance.share(
+      ShareParams(
+        text: codes.map((c) => '${c.title}\n${c.url}').join('\n\n'),
+        files: files,
+        sharePositionOrigin: origin,
+      ),
+    );
+  }
+
   static String _slug(String title) {
     final slug = title
         .toLowerCase()

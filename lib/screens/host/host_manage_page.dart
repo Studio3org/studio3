@@ -15,7 +15,7 @@ import 'host_guest_list_page.dart';
 
 /// Manage event (`HostManage`): the host's tools. The cover full width at 3:4 (radius 14) with
 /// how soon it is; the name 24/500 and the Mono date, time and venue; the numbers side by side
-/// (Mono 18 over 11 Graphite labels); Ticket types with how many are taken (Full in red); rows
+/// (Mono 18 over 11 Graphite labels); Ticket types with how many are taken (Sold out in red); rows
 /// for piece links and QR codes and Edit event; Cancel event as a grey link; the bar at the
 /// bottom with Going and Doors open.
 ///
@@ -187,7 +187,7 @@ class _HostManagePageState extends State<HostManagePage> {
                     children: [
                       Expanded(child: Text('General Admission', style: StudioType.body14(color: c.textSecondary))),
                       Text(
-                        e.isFull ? 'Full' : (e.capacity == null ? '${e.rsvpCount} going' : '${e.rsvpCount} of ${e.capacity}'),
+                        e.isFull ? 'Sold out' : (e.capacity == null ? '${e.rsvpCount} going' : '${e.rsvpCount} of ${e.capacity}'),
                         style: StudioType.mono(14, color: e.isFull ? c.alert : c.textPrimary),
                       ),
                     ],

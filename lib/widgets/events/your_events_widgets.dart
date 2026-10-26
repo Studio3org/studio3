@@ -6,14 +6,15 @@ import 'event_detail_widgets.dart' show EventCover, eventDayLabel;
 import 'event_tab_widgets.dart' show eventCity;
 import 'event_tickets_sheet.dart' show eventStartLabel;
 
-/// How soon the next event is (`EvMyTickets` "In 3 days"): Happening now, Today, Tomorrow, In
+/// How soon the next event is (`EvMyTickets` "In 3 days"): Happening now, Today (Tonight from 5 PM), Tomorrow, In
 /// n days (to 13), then In n weeks. Counted in calendar days.
 String eventHowSoon(StudioEvent e, DateTime now) {
   if (!e.startsAt.isAfter(now) && e.endsAt.isAfter(now)) return 'Happening now';
   final today = DateTime(now.year, now.month, now.day);
   final day = DateTime(e.startsAt.year, e.startsAt.month, e.startsAt.day);
   final days = day.difference(today).inDays;
-  if (days <= 0) return 'Today';
+  // An evening start later today reads Tonight (`HostManage`).
+  if (days <= 0) return e.startsAt.hour >= 17 ? 'Tonight' : 'Today';
   if (days == 1) return 'Tomorrow';
   if (days < 14) return 'In $days days';
   return 'In ${days ~/ 7} weeks';
@@ -144,7 +145,7 @@ class NextEventCard extends StatelessWidget {
 }
 
 /// A smaller event row (`EvMyTickets`): 52 × 69 flyer at radius 8, 14 gap, name 15/500, the
-/// Mono 12 date and a 13 Graphite line; chevron 16; 12 above and below with a Line under it
+/// Mono 12 date and a 13 Graphite line; chevron 18; 12 above and below with a Line under it
 /// ([first] adds one over it too).
 class YourEventRow extends StatelessWidget {
   const YourEventRow({
@@ -207,7 +208,7 @@ class YourEventRow extends StatelessWidget {
                   ],
                 ),
               ),
-              trailing ?? StudioIcon(StudioIcons.chevronRight, size: 16, color: c.textTertiary),
+              trailing ?? StudioIcon(StudioIcons.chevronRight, size: 18, color: c.textPlaceholder),
             ],
           ),
         ),
@@ -268,7 +269,7 @@ class SavedEventCard extends StatelessWidget {
   }
 }
 
-/// A row that opens a list (`EvMyTickets` "Past events"): 15, chevron 16, 16 above and below,
+/// A row that opens a list (`EvMyTickets` "Past events"): 15, chevron 18, 16 above and below,
 /// a Line over and under.
 class YourEventsLinkRow extends StatelessWidget {
   const YourEventsLinkRow({super.key, required this.label, required this.onTap, this.detail});
@@ -296,7 +297,7 @@ class YourEventsLinkRow extends StatelessWidget {
                 Text(detail!, style: StudioType.mono(12, color: c.textTertiary)),
                 const SizedBox(width: 8),
               ],
-              StudioIcon(StudioIcons.chevronRight, size: 16, color: c.textTertiary),
+              StudioIcon(StudioIcons.chevronRight, size: 18, color: c.textPlaceholder),
             ],
           ),
         ),
