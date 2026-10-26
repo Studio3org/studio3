@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/feed_item.dart';
 import '../models/feed_page.dart';
 import '../models/feed_preview_item.dart' show FeedAvailabilityFilter;
+import '../models/studio_event.dart';
 import '../theme/studio_colors.dart';
 import '../theme/studio_metrics.dart';
 import '../theme/studio_type.dart';
@@ -13,6 +14,10 @@ import '../widgets/offline_state.dart';
 import '../services/blocked_authors_store.dart';
 import '../services/connectivity_service.dart';
 import '../services/feed_service.dart';
+import '../services/event_service.dart';
+import '../utils/profile_navigation.dart';
+import '../widgets/home_feed/feed_event_card.dart';
+import 'event_detail_page.dart';
 import '../utils/scrolls_to_top_on_double_tap.dart';
 import 'reels_page.dart' show routeObserver;
 
@@ -28,13 +33,11 @@ class HomeFeedStore extends ChangeNotifier {
 
   bool _initialized = false;
 
-  List<FeedItem> get availableItems =>
-      apiItems.where((item) => item.isForSale).toList();
+  List<FeedItem> get availableItems => apiItems.where((item) => item.isForSale).toList();
 
   /// The "All" tab never shows video scenes — those live in Explore/Reels
   /// only.
-  List<FeedItem> get feedItems =>
-      apiItems.where((item) => !item.isVideo).toList();
+  List<FeedItem> get feedItems => apiItems.where((item) => !item.isVideo).toList();
 
   /// Paints instantly from whatever's already cached (if anything) instead
   /// of starting from an empty spinner, then kicks off a fetch to silently
@@ -110,8 +113,7 @@ class HomeFeedStore extends ChangeNotifier {
       nextCursor = page.nextCursor;
       loading = false;
       loadingMore = false;
-      showOfflineState =
-          apiItems.isEmpty && !ConnectivityService.instance.isOnline;
+      showOfflineState = apiItems.isEmpty && !ConnectivityService.instance.isOnline;
       notifyListeners();
     } catch (_) {
       // Keep whatever's already showing (cached or previously-loaded) on
@@ -120,8 +122,7 @@ class HomeFeedStore extends ChangeNotifier {
       // falls through to the offline state.
       loading = false;
       loadingMore = false;
-      showOfflineState =
-          apiItems.isEmpty && !ConnectivityService.instance.isOnline;
+      showOfflineState = apiItems.isEmpty && !ConnectivityService.instance.isOnline;
       notifyListeners();
     }
   }
@@ -135,8 +136,7 @@ class HomeFeedStore extends ChangeNotifier {
       ..clear()
       ..addAll(page.items);
     nextCursor = page.nextCursor;
-    showOfflineState =
-        apiItems.isEmpty && !ConnectivityService.instance.isOnline;
+    showOfflineState = apiItems.isEmpty && !ConnectivityService.instance.isOnline;
     notifyListeners();
   }
 }
@@ -147,20 +147,27 @@ class HomeFeedStore extends ChangeNotifier {
 /// with local state, rather than separate pages in the shell's outer
 /// Home/Discover/Reels/Saved swipe sequence (`MainShell`, `lib/main.dart`).
 class HomePage extends StatefulWidget {
-  const HomePage({super.key, required this.store});
+  const HomePage({super.key, required this.store, this.debugFeedEvent});
 
   final HomeFeedStore store;
+
+  /// For tests: the event card's event, instead of picking one from the Events tab data.
+  @visibleForTesting
+  final StudioEvent? debugFeedEvent;
 
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage>
-    with RouteAware, ScrollsToTopOnDoubleTap<HomePage> {
+class _HomePageState extends State<HomePage> with RouteAware, ScrollsToTopOnDoubleTap<HomePage> {
   static const double _loadMoreThreshold = 200;
 
   final ScrollController _scrollController = ScrollController();
   bool _showAvailable = false;
+
+  /// The one event card for this feed load (`NoteMain`): picked when the feed loads and again
+  /// on pull to refresh.
+  StudioEvent? _feedEvent;
 
   @override
   void initState() {
@@ -168,6 +175,34 @@ class _HomePageState extends State<HomePage>
     widget.store.ensureInitialized();
     widget.store.addListener(_onStoreChanged);
     _scrollController.addListener(_onScroll);
+    _loadFeedEvent();
+  }
+
+  Future<void> _loadFeedEvent() async {
+    final given = widget.debugFeedEvent;
+    if (given != null) {
+      _feedEvent = given;
+      return;
+    }
+    try {
+      final browse = await EventService.instance.browseCached();
+      final picked = pickFeedEvent(browse, DateTime.now());
+      if (picked == null) {
+        if (mounted) setState(() => _feedEvent = null);
+        return;
+      }
+      if (mounted) setState(() => _feedEvent = picked);
+      // The browse card has no lineup; the detail says whether to show "Showing work".
+      final full = await EventService.instance.getById(picked.id);
+      if (mounted && _feedEvent?.id == full.id) setState(() => _feedEvent = full);
+    } catch (_) {
+      // No card this time; the feed itself is unaffected.
+    }
+  }
+
+  Future<void> _refresh() async {
+    await widget.store.refresh();
+    await _loadFeedEvent();
   }
 
   @override
@@ -223,11 +258,7 @@ class _HomePageState extends State<HomePage>
   @override
   void scrollToTopAndRefresh() {
     if (_scrollController.hasClients) {
-      _scrollController.animateTo(
-        0,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
+      _scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
     }
     widget.store.refresh();
   }
@@ -237,9 +268,7 @@ class _HomePageState extends State<HomePage>
     final bottomInset = MediaQuery.paddingOf(context).bottom + 64 + 28 + 20;
     final store = widget.store;
     final items = _showAvailable ? store.availableItems : store.feedItems;
-    final filter = _showAvailable
-        ? FeedAvailabilityFilter.available
-        : FeedAvailabilityFilter.all;
+    final filter = _showAvailable ? FeedAvailabilityFilter.available : FeedAvailabilityFilter.all;
 
     return Scaffold(
       backgroundColor: context.studio.background,
@@ -249,17 +278,15 @@ class _HomePageState extends State<HomePage>
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             FeedHomeHeader(
-                filter: filter,
-                onFilterChanged: _onFilterTap,
-                hasAvailableItems: store.availableItems.isNotEmpty,
-              ),
+              filter: filter,
+              onFilterChanged: _onFilterTap,
+              hasAvailableItems: store.availableItems.isNotEmpty,
+            ),
             Expanded(
               child: _buildFeed(
                 bottomInset,
                 items: items,
-                emptyMessage: _showAvailable
-                    ? 'No available pieces yet'
-                    : 'No feed items yet',
+                emptyMessage: _showAvailable ? 'No available pieces yet' : 'No feed items yet',
               ),
             ),
           ],
@@ -268,11 +295,7 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  Widget _buildFeed(
-    double bottomInset, {
-    required List<FeedItem> items,
-    required String emptyMessage,
-  }) {
+  Widget _buildFeed(double bottomInset, {required List<FeedItem> items, required String emptyMessage}) {
     final store = widget.store;
     if (store.showOfflineState) {
       return OfflineState(onRetry: () => store.refresh());
@@ -286,16 +309,13 @@ class _HomePageState extends State<HomePage>
 
     if (items.isEmpty) {
       return RefreshIndicator(
-        onRefresh: () => store.refresh(),
+        onRefresh: _refresh,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           children: [
             SizedBox(height: MediaQuery.sizeOf(context).height * 0.35),
             Center(
-              child: Text(
-                emptyMessage,
-                style: StudioType.body14(color: context.studio.textSecondary),
-              ),
+              child: Text(emptyMessage, style: StudioType.body14(color: context.studio.textSecondary)),
             ),
           ],
         ),
@@ -318,9 +338,25 @@ class _HomePageState extends State<HomePage>
       rows.add(FeedPieceCard(item: item, onTap: () => _openApiItem(item)));
     }
 
+    // One event card per load, on All only, never next to a series row (`NoteMain`).
+    final event = _showAvailable ? null : _feedEvent;
+    final at = event == null ? -1 : feedEventSlot([for (final r in rows) r is FeedSeriesRow]);
+    if (event != null && at >= 0) {
+      rows.insert(
+        at,
+        FeedEventCard(
+          key: const ValueKey('feed-event'),
+          event: event,
+          onOpen: () => openEventDetail(context, event),
+          onGetTickets: () => openEventDetail(context, event, openTickets: true),
+          onArtist: (artist) => openUserProfile(context, artist.username),
+        ),
+      );
+    }
+
     return RefreshIndicator(
       color: context.studio.textPrimary,
-      onRefresh: () => store.refresh(),
+      onRefresh: _refresh,
       child: ListView.separated(
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
