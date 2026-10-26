@@ -572,3 +572,118 @@ class _EventFaqRowState extends State<EventFaqRow> {
     );
   }
 }
+
+/// The bar when every ticket is gone (`EvSoldOut`): a Surface card 68 tall at radius 18, 16
+/// from the sides; "Sold out" 16/500 over "Save it to hear if tickets open up" 12 Graphite,
+/// and an outline Save (44, radius 12, 14/500) on the right. No waitlist at launch.
+class EventSoldOutBar extends StatelessWidget {
+  const EventSoldOutBar({super.key, required this.saved, required this.onSave});
+
+  final bool saved;
+  final VoidCallback onSave;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.studio;
+    final safe = MediaQuery.viewPaddingOf(context).bottom;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, 0, 16, safe > 28 ? safe : 28),
+      child: Container(
+        height: 68,
+        padding: const EdgeInsets.fromLTRB(20, 0, 12, 0),
+        decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(18)),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Sold out', style: StudioType.sans(16, weight: StudioType.medium, color: c.textPrimary)),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Save it to hear if tickets open up',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: StudioType.caption12(color: c.textSecondary),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            StudioButton(
+              label: saved ? 'Saved' : 'Save',
+              variant: StudioButtonVariant.outline,
+              expand: false,
+              onPressed: onSave,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// After the event (`EvPast`): a Surface box at radius 14, 14 16 padding, 14 at 1.5.
+class EventEndedNote extends StatelessWidget {
+  const EventEndedNote(this.text, {super.key});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.studio;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(StudioRadius.panel)),
+      child: Text(text, style: StudioType.sans(14, height: 1.5, color: c.textPrimary)),
+    );
+  }
+}
+
+/// Work from the show (`EvPast`): "Work from the show" 17/500, then the pieces tagged at the
+/// event as 110 × 147 images at radius 10, 12 apart, each opening the piece.
+class EventShowWorkRow extends StatelessWidget {
+  const EventShowWorkRow({super.key, required this.items, required this.onPiece});
+
+  final List<EventLineupItem> items;
+  final void Function(EventLineupItem item) onPiece;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.studio;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 26, 20, 14),
+          child: Text('Work from the show', style: StudioType.header17(weight: StudioType.medium, color: c.textPrimary)),
+        ),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Row(
+            children: [
+              for (var i = 0; i < items.length; i++) ...[
+                if (i > 0) const SizedBox(width: 12),
+                Semantics(
+                  button: true,
+                  label: items[i].title ?? 'Piece',
+                  excludeSemantics: true,
+                  child: GestureDetector(
+                    onTap: () => onPiece(items[i]),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(StudioRadius.card),
+                      child: SizedBox(width: 110, height: 147, child: EventCover(url: items[i].mediaUrl ?? '')),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}

@@ -348,13 +348,15 @@ class _EventDetailPageState extends State<EventDetailPage> with DetailFollowStat
         ),
       );
     }
+    // `EvSoldOut`: the grey bar; Save is how to hear if tickets open up (no waitlist at launch).
+    if (soldOut) return EventSoldOutBar(saved: _store.isSaved(e.id), onSave: _toggleSaved);
     return StudioBottomBar(
       left: from,
       right: when,
       button: StudioButton(
-        label: soldOut ? 'Sold out' : 'Get tickets',
+        label: 'Get tickets',
         loading: _rsvping,
-        onPressed: e.canRsvp && !soldOut && !_rsvping ? _getTickets : null,
+        onPressed: e.canRsvp && !_rsvping ? _getTickets : null,
       ),
     );
   }
@@ -397,19 +399,28 @@ class _EventDetailPageState extends State<EventDetailPage> with DetailFollowStat
                     onHost: () => openUserProfile(context, e.hostUsername),
                   ),
                 ),
+                // `EvPast`: the ended note, and the work from the show right under it so people
+                // can still buy it. A cancelled event says so in the same box.
                 if (e.isCancelled || e.isOver)
                   padded(
                     Padding(
-                      padding: const EdgeInsets.only(top: 22),
-                      child: Text(
+                      padding: const EdgeInsets.only(top: 20),
+                      child: EventEndedNote(
                         e.isCancelled
                             ? (e.cancellationReason?.trim().isNotEmpty == true
                                   ? 'This event was cancelled. ${e.cancellationReason!.trim()}'
                                   : 'This event was cancelled.')
-                            : 'This event has ended.',
-                        style: StudioType.body15(height: 1.5, color: c.textSecondary),
+                            : pieces.isEmpty
+                            ? 'This event has ended.'
+                            : 'This event has ended. The pieces shown here are still on Studio 3.',
                       ),
                     ),
+                  ),
+                if (e.isOver && !e.isCancelled && pieces.isNotEmpty)
+                  EventShowWorkRow(
+                    items: pieces,
+                    onPiece: (item) =>
+                        openDestination(context, AppDestination(AppDestinationType.piece, item.pieceId)),
                   ),
                 if (e.details.trim().isNotEmpty) ...[
                   padded(const EventDetailHeading('Details', top: 22, bottom: 8)),
@@ -422,7 +433,7 @@ class _EventDetailPageState extends State<EventDetailPage> with DetailFollowStat
                     onArtist: (artist) => openUserProfile(context, artist.username),
                   ),
                 ],
-                if (pieces.isNotEmpty) ...[
+                if (pieces.isNotEmpty && !(e.isOver && !e.isCancelled)) ...[
                   padded(const EventDetailHeading('Pieces at this event')),
                   EventPiecesRow(
                     items: pieces,

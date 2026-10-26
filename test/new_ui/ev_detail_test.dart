@@ -181,11 +181,12 @@ void main() {
     expect(find.text('QR codes for pieces'), findsNothing);
   });
 
-  testWidgets('full: Sold out, disabled', (tester) async {
+  testWidgets('full: the grey Sold out bar (EvSoldOut)', (tester) async {
     setBoardViewport(tester, height: 2340);
     await tester.pumpWidget(_app(_event(full: true)));
     await tester.pump();
-    expect(tester.widget<StudioButton>(_button('Sold out')).onPressed, isNull);
+    expect(find.byType(EventSoldOutBar), findsOneWidget);
+    expect(_button('Get tickets'), findsNothing);
   });
 
   testWidgets('ended: no bar, a line says so', (tester) async {
@@ -193,7 +194,8 @@ void main() {
     await tester.pumpWidget(_app(_event(ended: true)));
     await tester.pump();
     expect(find.byType(StudioBottomBar), findsNothing);
-    expect(find.text('This event has ended.'), findsOneWidget);
+    expect(find.text('This event has ended. The pieces shown here are still on Studio 3.'), findsOneWidget);
+    expect(find.text('Work from the show'), findsOneWidget);
   });
 
   testWidgets('cancelled: the reason line and a disabled bar', (tester) async {

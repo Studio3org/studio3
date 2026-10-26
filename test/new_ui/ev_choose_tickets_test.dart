@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:studio3/models/studio_event.dart';
 import 'package:studio3/screens/event_detail_page.dart';
 import 'package:studio3/theme/app_theme.dart';
+import 'package:studio3/widgets/events/event_detail_widgets.dart';
 import 'package:studio3/widgets/events/event_tickets_sheet.dart';
 import 'package:studio3/widgets/studio/studio.dart';
 
@@ -171,7 +172,7 @@ void main() {
     setBoardViewport(tester);
     await tester.pumpWidget(_app(_event(full: true)));
     await tester.pump();
-    expect(tester.widget<StudioButton>(_button('Sold out')).onPressed, isNull);
+    expect(find.byType(EventSoldOutBar), findsOneWidget);
   });
 
   testWidgets('Reserve asks a signed-out viewer to sign in', (tester) async {
