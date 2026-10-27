@@ -34,8 +34,8 @@ void main() {
     tester,
   ) async {
     await pumpTile(tester, null);
-    expect(find.text('Required'), findsNothing);
-    expect(find.text('Payout setup'), findsNothing);
+    expect(find.text('Continue'), findsNothing);
+    expect(find.text('Seller profile: setup not finished'), findsNothing);
     expect(find.text('Payouts'), findsOneWidget);
   });
 
@@ -52,24 +52,24 @@ void main() {
   ) async {
     await pumpTile(tester, status(canListForSale: true));
     expect(find.text('Payouts'), findsOneWidget);
-    expect(find.text('Required'), findsNothing);
+    expect(find.text('Continue'), findsNothing);
   });
 
-  testWidgets('an incomplete account is the only case that says Required', (
+  testWidgets('an incomplete account is the only case that says setup is not finished', (
     tester,
   ) async {
     await pumpTile(tester, status(canListForSale: false));
-    expect(find.text('Payout setup'), findsOneWidget);
-    expect(find.text('Required'), findsOneWidget);
+    expect(find.text('Seller profile: setup not finished'), findsOneWidget);
+    expect(find.text('Continue'), findsOneWidget);
   });
 
-  testWidgets('resolving from unknown to done never shows Required', (
+  testWidgets('resolving from unknown to done never says setup is not finished', (
     tester,
   ) async {
     // The exact sequence a login used to walk through.
     await pumpTile(tester, null);
-    expect(find.text('Required'), findsNothing);
+    expect(find.text('Continue'), findsNothing);
     await pumpTile(tester, status(canListForSale: true));
-    expect(find.text('Required'), findsNothing);
+    expect(find.text('Continue'), findsNothing);
   });
 }

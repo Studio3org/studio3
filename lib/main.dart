@@ -389,6 +389,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       goHome: _goHome,
       goSaved: _goSaved,
       goExplore: _goExplore,
+      goProfile: _goProfile,
     );
     _loadProfilePhoto();
   }
@@ -437,6 +438,11 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   void _goExplore() {
     Navigator.of(context).popUntil((route) => route.isFirst);
     _onNavTap(BottomNavIndex.explore);
+  }
+
+  void _goProfile() {
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    _onNavTap(BottomNavIndex.profile);
   }
 
   void _goSaved() {

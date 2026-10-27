@@ -17,6 +17,7 @@ import '../widgets/studio/studio.dart';
 import '../widgets/studio_loading.dart';
 import 'inbox_page.dart';
 import 'profile/widgets/profile_seller_insights.dart';
+import 'seller/seller_setup_flow.dart';
 import 'seller_analytics_page.dart';
 
 class ProfileSettingsPage extends StatefulWidget {
@@ -42,9 +43,7 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
 
   Future<void> _selectAppearance(String value) async {
     final previous = ThemeService.instance.mode;
-    await ThemeService.instance.setMode(
-      value == 'dark' ? ThemeMode.dark : ThemeMode.light,
-    );
+    await ThemeService.instance.setMode(value == 'dark' ? ThemeMode.dark : ThemeMode.light);
     if (!AuthSession.instance.isLoggedIn) return;
     try {
       await UserService.instance.updateMe(themePreference: value);
@@ -57,10 +56,7 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
 
   Future<void> _loadSellerStatus() async {
     try {
-      final results = await Future.wait([
-        UserService.instance.getSellerStatus(),
-        UserService.instance.getMe(),
-      ]);
+      final results = await Future.wait([UserService.instance.getSellerStatus(), UserService.instance.getMe()]);
       final status = results[0] as SellerStatus;
       final profile = results[1] as UserProfile;
       if (!mounted) return;
@@ -83,10 +79,7 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
   }
 
   Future<void> _confirmDeleteAccount() async {
-    final password = await showStudioSheet<String>(
-      context: context,
-      builder: (_) => const _DeleteAccountSheet(),
-    );
+    final password = await showStudioSheet<String>(context: context, builder: (_) => const _DeleteAccountSheet());
     if (password == null || password.isEmpty || !mounted) return;
     try {
       await DeviceService.instance.unregisterCurrentDevice();
@@ -107,12 +100,7 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
     required String message,
     required Future<void> Function() onConfirmed,
   }) async {
-    final confirmed = await showStudioConfirm(
-      context,
-      title: title,
-      message: message,
-      confirmLabel: 'Log out',
-    );
+    final confirmed = await showStudioConfirm(context, title: title, message: message, confirmLabel: 'Log out');
     if (!confirmed || !mounted) return;
     await onConfirmed();
     if (!mounted) return;
@@ -131,12 +119,20 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
 
   Future<void> _onSellerToggle(bool value) async {
     if (_togglingSeller) return;
+    if (value) {
+      // Turning it on is seller setup (`SellerIntro` "Also opened from Settings").
+      await SellerSetupPage.start(context);
+      if (!mounted) return;
+      final on = AuthSession.instance.sellerEnabled;
+      setState(() => _sellerEnabled = on);
+      if (on) {
+        _loadAnalytics();
+        _loadPayoutStatus(refresh: true);
+      }
+      return;
+    }
     setState(() => _togglingSeller = true);
-    final result = await toggleSellerMode(
-      context: context,
-      enable: value,
-      profileLocation: _profileLocation,
-    );
+    final result = await toggleSellerMode(context: context, enable: value, profileLocation: _profileLocation);
     if (!mounted) return;
     setState(() {
       _togglingSeller = false;
@@ -196,197 +192,151 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
       loading: _togglingSeller,
       child: Scaffold(
         backgroundColor: colors.background,
-        appBar: StudioTopBar(context: context, 
-          title: 'Settings',
-          onBack: () => Navigator.pop(context, true),
-        ),
+        appBar: StudioTopBar(context: context, title: 'Settings', onBack: () => Navigator.pop(context, true)),
         body: _loadingSeller
             ? const SettingsListSkeleton()
             : ListView(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
-          children: [
-            const SettingsSectionLabel('Appearance', top: 12),
-            StudioSelectRow(
-              title: 'Light',
-              selected: !dark,
-              titleSize: 17,
-              titleLetterSpacing: -0.2,
-              verticalPadding: 16,
-              ruleInset: 14,
-              onTap: dark ? () => _selectAppearance('light') : null,
-            ),
-            StudioSelectRow(
-              title: 'Dark',
-              selected: dark,
-              divider: false,
-              titleSize: 17,
-              titleLetterSpacing: -0.2,
-              verticalPadding: 16,
-              ruleInset: 14,
-              onTap: dark ? null : () => _selectAppearance('dark'),
-            ),
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+                children: [
+                  const SettingsSectionLabel('Appearance', top: 12),
+                  StudioSelectRow(
+                    title: 'Light',
+                    selected: !dark,
+                    titleSize: 17,
+                    titleLetterSpacing: -0.2,
+                    verticalPadding: 16,
+                    ruleInset: 14,
+                    onTap: dark ? () => _selectAppearance('light') : null,
+                  ),
+                  StudioSelectRow(
+                    title: 'Dark',
+                    selected: dark,
+                    divider: false,
+                    titleSize: 17,
+                    titleLetterSpacing: -0.2,
+                    verticalPadding: 16,
+                    ruleInset: 14,
+                    onTap: dark ? null : () => _selectAppearance('dark'),
+                  ),
 
-            const SettingsSectionLabel('Seller'),
-            SettingsToggleTile(
-              label: 'Seller account',
-              value: _sellerEnabled,
-              onChanged: _onSellerToggle,
-            ),
-            if (_sellerEnabled) ...[
-              SettingsTile(
-                label: 'Seller analytics',
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute<void>(
-                      builder: (_) => SellerAnalyticsPage(
-                        savesCount: _analytics?.savesCount,
-                        likesCount: _analytics?.likesCount,
-                        inquiriesCount: _analytics?.inquiriesCount,
-                        salesCount: _analytics?.salesCount,
-                      ),
+                  const SettingsSectionLabel('Seller'),
+                  SettingsToggleTile(label: 'Seller account', value: _sellerEnabled, onChanged: _onSellerToggle),
+                  if (_sellerEnabled) ...[
+                    SettingsTile(
+                      label: 'Seller analytics',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute<void>(
+                            builder: (_) => SellerAnalyticsPage(
+                              savesCount: _analytics?.savesCount,
+                              likesCount: _analytics?.likesCount,
+                              inquiriesCount: _analytics?.inquiriesCount,
+                              salesCount: _analytics?.salesCount,
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
-              SettingsTile(
-                label: 'My sales',
-                onTap: () => Navigator.pushNamed(context, '/sales'),
-              ),
-              PayoutSettingsTile(
-                status: _payoutStatus,
-                onStartSetup: () async {
-                  await Navigator.pushNamed(context, '/payout-setup');
-                  if (!mounted) return;
-                  _loadPayoutStatus(refresh: true);
-                },
-                onOpenDashboard: _openPayoutDashboard,
-              ),
-            ],
-            SettingsTile(
-              label: 'My orders',
-              onTap: () => Navigator.pushNamed(context, '/orders'),
-            ),
+                    SettingsTile(label: 'My sales', onTap: () => Navigator.pushNamed(context, '/sales')),
+                    PayoutSettingsTile(
+                      status: _payoutStatus,
+                      onStartSetup: () async {
+                        await SellerSetupPage.resume(context);
+                        if (!mounted) return;
+                        _loadPayoutStatus(refresh: true);
+                      },
+                      onOpenDashboard: _openPayoutDashboard,
+                    ),
+                  ],
+                  SettingsTile(label: 'My orders', onTap: () => Navigator.pushNamed(context, '/orders')),
 
-            const SettingsSectionLabel('Account'),
-            SettingsTile(
-              label: 'Edit profile',
-              onTap: () => Navigator.pushNamed(context, '/edit-profile'),
-            ),
-            SettingsTile(
-              label: 'Manage series',
-              onTap: () async {
-                await Navigator.pushNamed(context, '/manage-series');
-                if (!context.mounted) return;
-                // Parent profile reloads when settings is popped; no extra action here.
-              },
-            ),
-            SettingsTile(
-              label: 'Shipping addresses',
-              onTap: () => Navigator.pushNamed(context, '/addresses'),
-            ),
-            SettingsTile(
-              label: 'See profile as viewer',
-              onTap: () => openOwnProfileAsViewer(context),
-            ),
+                  const SettingsSectionLabel('Account'),
+                  SettingsTile(label: 'Edit profile', onTap: () => Navigator.pushNamed(context, '/edit-profile')),
+                  SettingsTile(
+                    label: 'Manage series',
+                    onTap: () async {
+                      await Navigator.pushNamed(context, '/manage-series');
+                      if (!context.mounted) return;
+                      // Parent profile reloads when settings is popped; no extra action here.
+                    },
+                  ),
+                  SettingsTile(label: 'Shipping addresses', onTap: () => Navigator.pushNamed(context, '/addresses')),
+                  SettingsTile(label: 'See profile as viewer', onTap: () => openOwnProfileAsViewer(context)),
 
-            const SettingsSectionLabel('Privacy'),
-            SettingsTile(
-              label: 'Profile visibility & messaging',
-              onTap: () => Navigator.pushNamed(context, '/privacy-settings'),
-            ),
-            SettingsTile(
-              label: 'Follow requests',
-              onTap: () => Navigator.pushNamed(
-                context,
-                '/inbox',
-                arguments: InboxTab.requests,
-              ),
-            ),
-            SettingsTile(
-              label: 'Blocked accounts',
-              onTap: () => Navigator.pushNamed(context, '/blocked-users'),
-            ),
-            SettingsTile(
-              label: 'Terms of Use (EULA)',
-              onTap: () => Navigator.pushNamed(context, '/terms'),
-            ),
-            SettingsTile(
-              label: 'Privacy policy',
-              onTap: () => _openExternalLink(
-                'https://studiosthree.com/privacy',
-                errorMessage: 'Could not open the privacy policy.',
-              ),
-            ),
-            SettingsTile(
-              label: 'My reports',
-              onTap: () => Navigator.pushNamed(context, '/my-reports'),
-            ),
+                  const SettingsSectionLabel('Privacy'),
+                  SettingsTile(
+                    label: 'Profile visibility & messaging',
+                    onTap: () => Navigator.pushNamed(context, '/privacy-settings'),
+                  ),
+                  SettingsTile(
+                    label: 'Follow requests',
+                    onTap: () => Navigator.pushNamed(context, '/inbox', arguments: InboxTab.requests),
+                  ),
+                  SettingsTile(label: 'Blocked accounts', onTap: () => Navigator.pushNamed(context, '/blocked-users')),
+                  SettingsTile(label: 'Terms of Use (EULA)', onTap: () => Navigator.pushNamed(context, '/terms')),
+                  SettingsTile(
+                    label: 'Privacy policy',
+                    onTap: () => _openExternalLink(
+                      'https://studiosthree.com/privacy',
+                      errorMessage: 'Could not open the privacy policy.',
+                    ),
+                  ),
+                  SettingsTile(label: 'My reports', onTap: () => Navigator.pushNamed(context, '/my-reports')),
 
-            const SettingsSectionLabel('Login & security'),
-            SettingsTile(
-              label: 'Password & security',
-              onTap: () => Navigator.pushNamed(context, '/change-password'),
-            ),
-            SettingsTile(
-              label: 'Change email',
-              onTap: () => Navigator.pushNamed(context, '/change-email'),
-            ),
-            SettingsTile(
-              label: 'Log out of all devices',
-              onTap: () => _confirmLogout(
-                title: 'Log out of all devices?',
-                message:
-                    "You'll be signed out everywhere you're currently logged in.",
-                onConfirmed: () async {
-                  await DeviceService.instance.unregisterCurrentDevice();
-                  await AuthService.instance.logoutAllDevices();
-                },
-              ),
-            ),
+                  const SettingsSectionLabel('Login & security'),
+                  SettingsTile(
+                    label: 'Password & security',
+                    onTap: () => Navigator.pushNamed(context, '/change-password'),
+                  ),
+                  SettingsTile(label: 'Change email', onTap: () => Navigator.pushNamed(context, '/change-email')),
+                  SettingsTile(
+                    label: 'Log out of all devices',
+                    onTap: () => _confirmLogout(
+                      title: 'Log out of all devices?',
+                      message: "You'll be signed out everywhere you're currently logged in.",
+                      onConfirmed: () async {
+                        await DeviceService.instance.unregisterCurrentDevice();
+                        await AuthService.instance.logoutAllDevices();
+                      },
+                    ),
+                  ),
 
-            const SettingsSectionLabel('Notifications'),
-            SettingsTile(
-              label: 'Notifications',
-              onTap: () => Navigator.pushNamed(
-                context,
-                '/inbox',
-                arguments: InboxTab.notifications,
-              ),
-            ),
-            SettingsTile(
-              label: 'Notification preferences',
-              onTap: () => Navigator.pushNamed(context, '/notification-preferences'),
-            ),
+                  const SettingsSectionLabel('Notifications'),
+                  SettingsTile(
+                    label: 'Notifications',
+                    onTap: () => Navigator.pushNamed(context, '/inbox', arguments: InboxTab.notifications),
+                  ),
+                  SettingsTile(
+                    label: 'Notification preferences',
+                    onTap: () => Navigator.pushNamed(context, '/notification-preferences'),
+                  ),
 
-            const SizedBox(height: 28),
-            SettingsTile(
-              label: 'Log out',
-              chevron: false,
-              onTap: () => _confirmLogout(
-                title: 'Log out?',
-                message: "You'll need to log back in to use Studio 3.",
-                onConfirmed: () async {
-                  await DeviceService.instance.unregisterCurrentDevice();
-                  await AuthService.instance.logout();
-                },
+                  const SizedBox(height: 28),
+                  SettingsTile(
+                    label: 'Log out',
+                    chevron: false,
+                    onTap: () => _confirmLogout(
+                      title: 'Log out?',
+                      message: "You'll need to log back in to use Studio 3.",
+                      onConfirmed: () async {
+                        await DeviceService.instance.unregisterCurrentDevice();
+                        await AuthService.instance.logout();
+                      },
+                    ),
+                  ),
+                  SettingsTile(label: 'Delete account', chevron: false, onTap: _confirmDeleteAccount),
+                ],
               ),
-            ),
-            SettingsTile(
-              label: 'Delete account',
-              chevron: false,
-              onTap: _confirmDeleteAccount,
-            ),
-          ],
-        ),
       ),
     );
   }
 }
 
 /// The Payouts row (restored from before commit 76f4ef9): a placeholder while the status
-/// loads, "Payout setup · Required" when Stripe still needs details, otherwise Payouts,
-/// which opens the Stripe dashboard.
+/// loads, "Seller profile: setup not finished" with Continue while Stripe still needs details
+/// (`SellerStripe` note; Continue goes back into seller setup), otherwise Payouts, which opens
+/// the Stripe dashboard.
 class PayoutSettingsTile extends StatelessWidget {
   const PayoutSettingsTile({
     super.key,
@@ -410,18 +360,15 @@ class PayoutSettingsTile extends StatelessWidget {
     }
     if (current.needsAction) {
       return SettingsTile(
-        label: 'Payout setup',
+        label: 'Seller profile: setup not finished',
         trailing: Text(
-          'Required',
-          style: StudioType.label13(weight: StudioType.medium, color: context.studio.alert),
+          'Continue',
+          style: StudioType.label13(weight: StudioType.medium, color: context.studio.textPrimary),
         ),
         onTap: onStartSetup,
       );
     }
-    return SettingsTile(
-      label: 'Payouts',
-      onTap: onOpenDashboard,
-    );
+    return SettingsTile(label: 'Payouts', onTap: onOpenDashboard);
   }
 }
 
@@ -469,11 +416,7 @@ class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
           label: 'Delete account',
           onPressed: _password.text.isEmpty ? null : () => Navigator.pop(context, _password.text),
         ),
-        StudioButton(
-          label: 'Cancel',
-          variant: StudioButtonVariant.text,
-          onPressed: () => Navigator.pop(context),
-        ),
+        StudioButton(label: 'Cancel', variant: StudioButtonVariant.text, onPressed: () => Navigator.pop(context)),
       ],
     );
   }

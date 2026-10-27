@@ -239,18 +239,23 @@ void main() {
 
   late AuthUser? wasUser;
   late String? wasToken;
+  late bool wasSeller;
   setUp(() {
     _server = _FakeServer();
     ApiClient.instance.debugUseAdapter(_server);
     LocationSearchService.debugUseAdapter(_server);
     wasUser = AuthSession.instance.user;
     wasToken = AuthSession.instance.accessToken;
+    wasSeller = AuthSession.instance.sellerEnabled;
+    // Sarah sells her own pieces at her event, so she has a seller profile.
+    AuthSession.instance.sellerEnabled = true;
     AuthSession.instance.user = const AuthUser(username: 'sarah', name: 'Sarah Osmei', email: 's@example.test');
     AuthSession.instance.accessToken = 'token';
   });
   tearDown(() {
     AuthSession.instance.user = wasUser;
     AuthSession.instance.accessToken = wasToken;
+    AuthSession.instance.sellerEnabled = wasSeller;
   });
 
   testWidgets('guest: Events tab → event → Get tickets → Reserve → You\'re going → Your events', (tester) async {

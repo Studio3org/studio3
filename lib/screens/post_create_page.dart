@@ -30,10 +30,10 @@ import '../widgets/create_flow/series_picker_sheet.dart';
 import '../widgets/piece_detail/piece_share_sheet.dart';
 import '../widgets/post_create_option_sheet.dart';
 import '../widgets/post_crop_preview.dart';
-import '../widgets/seller_mode_required_dialog.dart';
 import '../widgets/studio/studio_toast.dart';
 import 'add_materials_page.dart';
 import 'related_scenes_page.dart';
+import 'seller/seller_setup_flow.dart';
 
 /// Steps after the photos. Pieces: availability (`PostAvailFixed`) → details
 /// (`PostDetailsForSale`) → review (`PostReview`) → published (`PostSuccess`) or failed
@@ -53,11 +53,7 @@ class ScenePostArgs {
 
 /// The calls the posting flow makes to save and publish.
 class PostPublisher {
-  const PostPublisher({
-    required this.saveDraft,
-    required this.goLive,
-    required this.postScene,
-  });
+  const PostPublisher({required this.saveDraft, required this.goLive, required this.postScene});
 
   factory PostPublisher.api() {
     final s = PostPublishService.instance;
@@ -186,13 +182,7 @@ class _PostCreatePageState extends State<PostCreatePage> {
     if (_isPiece && AuthSession.instance.sellerEnabled) _mode = SaleMode.fixed;
     final linked = widget.initialLinkedPiece;
     if (linked != null) {
-      _linkedPieces.add(
-        SceneLinkedPiece(
-          id: linked.pieceId,
-          title: linked.pieceTitle,
-          imageUrl: linked.pieceImageUrl,
-        ),
-      );
+      _linkedPieces.add(SceneLinkedPiece(id: linked.pieceId, title: linked.pieceTitle, imageUrl: linked.pieceImageUrl));
     }
     AuthSession.instance.addListener(_onSessionChanged);
   }
@@ -222,9 +212,15 @@ class _PostCreatePageState extends State<PostCreatePage> {
       setState(() => _mode = mode);
       return;
     }
-    final switchToSeller = await showSellerModeRequiredDialog(context);
-    if (!mounted || switchToSeller != true) return;
-    await Navigator.pushNamed(context, '/profile-settings');
+    // Turn on selling first (`SellerPrompt`): the setup keeps this draft open underneath; the
+    // other choice posts it as not for sale.
+    final choice = await showSellerPrompt(context);
+    if (!mounted || choice == null) return;
+    if (choice == SellerPromptChoice.notForSale) {
+      setState(() => _mode = SaleMode.notForSale);
+      return;
+    }
+    await SellerSetupPage.start(context, returnLabel: 'Back to your draft');
     if (mounted && AuthSession.instance.sellerEnabled) {
       setState(() => _mode = mode);
     }
@@ -279,9 +275,7 @@ class _PostCreatePageState extends State<PostCreatePage> {
     final result = await Navigator.push<List<PostMaterialOption>>(
       context,
       MaterialPageRoute<List<PostMaterialOption>>(
-        builder: (_) => AddMaterialsPage(
-          initialMaterials: List<PostMaterialOption>.from(_materials),
-        ),
+        builder: (_) => AddMaterialsPage(initialMaterials: List<PostMaterialOption>.from(_materials)),
       ),
     );
     if (result != null && mounted) {
@@ -346,18 +340,15 @@ class _PostCreatePageState extends State<PostCreatePage> {
     setState(() {
       _linkedPieces
         ..clear()
-        ..addAll(
-          picked.map((p) => SceneLinkedPiece(id: p.id, title: p.title, imageUrl: p.mediaUrl)),
-        );
+        ..addAll(picked.map((p) => SceneLinkedPiece(id: p.id, title: p.title, imageUrl: p.mediaUrl)));
     });
   }
 
   // ---------------------------------------------------------------- labels
 
   /// Pieces: the cover is the first photo. Scenes: the photo being posted.
-  int get _coverIndex => _isPiece
-      ? 0
-      : widget.previewImageIndex.clamp(0, widget.imagePaths.isEmpty ? 0 : widget.imagePaths.length - 1);
+  int get _coverIndex =>
+      _isPiece ? 0 : widget.previewImageIndex.clamp(0, widget.imagePaths.isEmpty ? 0 : widget.imagePaths.length - 1);
 
   String? get _mediumLabel {
     if (_mediumIds.isEmpty) return null;
@@ -383,21 +374,14 @@ class _PostCreatePageState extends State<PostCreatePage> {
   Widget _cover() {
     if (widget.mediaKind == 'video' || widget.imagePaths.isEmpty) {
       final bytes = widget.videoThumbnailBytes;
-      return bytes == null
-          ? ColoredBox(color: context.studio.surface)
-          : Image.memory(bytes, fit: BoxFit.cover);
+      return bytes == null ? ColoredBox(color: context.studio.surface) : Image.memory(bytes, fit: BoxFit.cover);
     }
-    return PostCropPreview(
-      imagePath: widget.imagePaths[_coverIndex],
-      transform: widget.transforms[_coverIndex],
-    );
+    return PostCropPreview(imagePath: widget.imagePaths[_coverIndex], transform: widget.transforms[_coverIndex]);
   }
 
   PostDraft _buildDraft() {
     final details = _isPiece
-        ? _detailsKey.currentState?.buildListingDetails(
-            priceUsd: _mode == SaleMode.fixed ? _price : null,
-          )
+        ? _detailsKey.currentState?.buildListingDetails(priceUsd: _mode == SaleMode.fixed ? _price : null)
         : null;
     return PostDraft(
       postType: widget.postType,
@@ -449,12 +433,9 @@ class _PostCreatePageState extends State<PostCreatePage> {
     setState(() => _step = _CreateStep.review);
     final price = _price;
     if (_mode == SaleMode.fixed && price != null) {
-      _quote((price * 100).round()).then(
-        (q) {
-          if (mounted) setState(() => _reviewQuote = q);
-        },
-        onError: (Object _) {},
-      );
+      _quote((price * 100).round()).then((q) {
+        if (mounted) setState(() => _reviewQuote = q);
+      }, onError: (Object _) {});
     }
   }
 
@@ -470,9 +451,7 @@ class _PostCreatePageState extends State<PostCreatePage> {
         _savedAt = DateTime.now();
       }
       // An auction is created live (its clock starts then), so there is no draft to publish.
-      final live = piece.isLive && _mode == SaleMode.auction
-          ? piece
-          : await _publisher.goLive(piece.id);
+      final live = piece.isLive && _mode == SaleMode.auction ? piece : await _publisher.goLive(piece.id);
       if (!mounted) return;
       setState(() {
         _publishedPiece = live;
@@ -512,11 +491,7 @@ class _PostCreatePageState extends State<PostCreatePage> {
     _closeThen(
       (context) => Navigator.of(context).pushNamed(
         '/post',
-        arguments: ScenePostArgs(
-          pieceId: piece.id,
-          pieceTitle: piece.title,
-          pieceImageUrl: piece.mediaUrl,
-        ),
+        arguments: ScenePostArgs(pieceId: piece.id, pieceTitle: piece.title, pieceImageUrl: piece.mediaUrl),
       ),
     );
   }
@@ -622,9 +597,7 @@ class _PostCreatePageState extends State<PostCreatePage> {
   }
 
   Widget _buildReview() {
-    final details = _detailsKey.currentState?.buildListingDetails(
-      priceUsd: _mode == SaleMode.fixed ? _price : null,
-    );
+    final details = _detailsKey.currentState?.buildListingDetails(priceUsd: _mode == SaleMode.fixed ? _price : null);
     final price = _price;
     final quote = _reviewQuote;
     final weight = details?.weight;
@@ -653,16 +626,10 @@ class _PostCreatePageState extends State<PostCreatePage> {
         ],
       ],
       detailRows: [
-        if (details?.dimensionsLabel != null)
-          PostReviewRow('Size', details!.dimensionsLabel!, mono: true),
+        if (details?.dimensionsLabel != null) PostReviewRow('Size', details!.dimensionsLabel!, mono: true),
         if (_listForSale && weight != null)
-          PostReviewRow(
-            'Weight',
-            '${PieceDetailsFormat.number(weight)} ${details!.weightUnit}',
-            mono: true,
-          ),
-        if (_listForSale && details?.framingMounting != null)
-          PostReviewRow('Framing', details!.framingMounting!),
+          PostReviewRow('Weight', '${PieceDetailsFormat.number(weight)} ${details!.weightUnit}', mono: true),
+        if (_listForSale && details?.framingMounting != null) PostReviewRow('Framing', details!.framingMounting!),
         if (_location != null) PostReviewRow('Location', _location!.name),
         if (_mediumLabel != null) PostReviewRow('Medium', _mediumLabel!),
         if (_seriesLabel != null) PostReviewRow('Series', _seriesLabel!),
@@ -678,9 +645,7 @@ class _PostCreatePageState extends State<PostCreatePage> {
 
   Widget _buildResult() {
     final user = AuthSession.instance.user;
-    final authorName = (user?.name.trim().isNotEmpty ?? false)
-        ? user!.name
-        : (user?.username ?? '');
+    final authorName = (user?.name.trim().isNotEmpty ?? false) ? user!.name : (user?.username ?? '');
     if (_step == _CreateStep.failed) {
       return PostErrorView(
         isScene: !_isPiece,
@@ -720,12 +685,9 @@ class _PostCreatePageState extends State<PostCreatePage> {
       isVideo: widget.mediaKind == 'video',
       authorName: authorName,
       avatarUrl: user?.profilePhotoUrl,
-      linkedPieces: [
-        for (final p in _linkedPieces) LinkedPieceThumb(title: p.title, imageUrl: p.imageUrl),
-      ],
+      linkedPieces: [for (final p in _linkedPieces) LinkedPieceThumb(title: p.title, imageUrl: p.imageUrl)],
       onClose: widget.onClose,
-      onShare: () =>
-          PieceShareSheet.show(context, FeedPreviewItem.fromFeedItem(FeedItem.post(scene))),
+      onShare: () => PieceShareSheet.show(context, FeedPreviewItem.fromFeedItem(FeedItem.post(scene))),
       onView: () => _closeThen((context) => openExploreDetail(context, FeedItem.post(scene))),
     );
   }
@@ -734,6 +696,5 @@ class _PostCreatePageState extends State<PostCreatePage> {
 /// Number formatting for the review rows.
 abstract final class PieceDetailsFormat {
   /// 8 → "8", 1.5 → "1.5".
-  static String number(double v) =>
-      v == v.roundToDouble() ? v.round().toString() : v.toString();
+  static String number(double v) => v == v.roundToDouble() ? v.round().toString() : v.toString();
 }

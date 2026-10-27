@@ -22,6 +22,7 @@ abstract final class StudioIcons {
   static const String camera = '$_dir/camera.svg';
   static const String qrCode = '$_dir/qr_code.svg';
   static const String ticket = '$_dir/ticket.svg';
+  static const String card = '$_dir/card.svg';
   static const String check = '$_dir/check.svg';
   static const String close = '$_dir/close.svg';
   static const String edit = '$_dir/edit_piece.svg';
@@ -43,6 +44,7 @@ abstract final class StudioIcons {
   static const String liked = '$_dir/liked.svg';
   static const String link = '$_dir/link.svg';
   static const String location = '$_dir/location.svg';
+  static const String lock = '$_dir/lock.svg';
   static const String shareBold = '$_dir/share_bold.svg';
   static const String unlink = '$_dir/unlink.svg';
   static const String addBold = '$_dir/add_bold.svg';

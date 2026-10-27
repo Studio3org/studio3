@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/feed_preview_item.dart';
 import '../screens/event_detail_page.dart';
 import '../screens/order_detail_page.dart';
+import '../screens/seller/seller_setup_flow.dart';
 import '../screens/series_view_page.dart';
 import '../services/auth_session.dart';
 import '../services/event_service.dart';
@@ -45,11 +46,7 @@ class AppDestination {
   /// `inquiry` deliberately resolves to nothing: inquiries were deferred to v2 and the
   /// blueprint is unregistered, so routing to a screen that cannot load would be worse than
   /// doing nothing.
-  factory AppDestination.fromTarget(
-    String? targetType,
-    String? targetId, {
-    String? actorUsername,
-  }) {
+  factory AppDestination.fromTarget(String? targetType, String? targetId, {String? actorUsername}) {
     if (targetType == 'user') {
       final handle = actorUsername?.trim();
       if (handle == null || handle.isEmpty) {
@@ -108,26 +105,17 @@ Future<void> openDestination(BuildContext context, AppDestination destination) a
     case AppDestinationType.piece:
       await _openPiece(context, destination.id!);
     case AppDestinationType.series:
-      Navigator.push<void>(
-        context,
-        MaterialPageRoute<void>(
-          builder: (_) => SeriesViewPage(seriesId: destination.id!),
-        ),
-      );
+      Navigator.push<void>(context, MaterialPageRoute<void>(builder: (_) => SeriesViewPage(seriesId: destination.id!)));
     case AppDestinationType.order:
-      Navigator.push<void>(
-        context,
-        MaterialPageRoute<void>(
-          builder: (_) => OrderDetailPage(orderId: destination.id!),
-        ),
-      );
+      Navigator.push<void>(context, MaterialPageRoute<void>(builder: (_) => OrderDetailPage(orderId: destination.id!)));
     case AppDestinationType.event:
       await _openEvent(context, destination.id!);
     case AppDestinationType.profile:
       openUserProfile(context, destination.id!);
     case AppDestinationType.payoutSetup:
+      // Stripe's return link: back into seller setup (or the open one checks again).
       if (AuthSession.instance.sellerEnabled) {
-        Navigator.pushNamed(context, '/payout-setup');
+        SellerSetupPage.resume(context);
       }
     case AppDestinationType.unknown:
       break;

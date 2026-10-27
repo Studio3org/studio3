@@ -16,9 +16,9 @@ import '../widgets/create_flow/post_availability_step.dart';
 import '../widgets/create_flow/post_flow_widgets.dart';
 import '../widgets/create_flow/post_result_views.dart';
 import '../widgets/piece_detail/piece_share_sheet.dart';
-import '../widgets/seller_mode_required_dialog.dart';
 import '../widgets/studio/studio.dart';
 import 'post_create_page.dart' show ScenePostArgs;
+import 'seller/seller_setup_flow.dart';
 
 /// Listing an auction from a posted piece needs the server to open its auction on PATCH
 /// (BACKEND_CHANGES B16). Until then List later offers Fixed price only.
@@ -28,16 +28,10 @@ const kListLaterAuction = false;
 /// the owner's not-for-sale piece into a sale. Seller mode first; then the details only a
 /// sale needs (depth, weight, framing); then fixed price (or auction); then the listed
 /// screen. [onListed] runs once it is for sale.
-Future<void> startListingLater(
-  BuildContext context, {
-  required String pieceId,
-  VoidCallback? onListed,
-}) async {
+Future<void> startListingLater(BuildContext context, {required String pieceId, VoidCallback? onListed}) async {
   if (!AuthSession.instance.sellerEnabled) {
-    final switchToSeller = await showSellerModeRequiredDialog(context);
-    if (!context.mounted || switchToSeller != true) return;
-    await Navigator.pushNamed(context, '/profile-settings');
-    if (!context.mounted || !AuthSession.instance.sellerEnabled) return;
+    final seller = await SellerSetupPage.prompt(context, secondaryLabel: 'Not now', returnLabel: 'Continue listing');
+    if (!context.mounted || !seller) return;
   }
   PieceSummary piece;
   try {
@@ -50,7 +44,9 @@ Future<void> startListingLater(
   final details = await ListLaterDetailsSheet.show(context, piece: piece);
   if (details == null || !context.mounted) return;
   final listed = await Navigator.of(context).push<bool>(
-    MaterialPageRoute(builder: (_) => ListPricingPage(piece: piece, details: details)),
+    MaterialPageRoute(
+      builder: (_) => ListPricingPage(piece: piece, details: details),
+    ),
   );
   if (listed == true) onListed?.call();
 }
@@ -67,9 +63,7 @@ class ListLaterDetails {
 
 /// Width, height, depth and unit from "24x36x1.5 in" (depth may be missing).
 ({String? width, String? height, String? depth, String unit}) parseDimensions(String? raw) {
-  final match = RegExp(
-    r'([\d.?]+)\s*[x×]\s*([\d.?]+)(?:\s*[x×]\s*([\d.?]+))?\s*(in|cm)?',
-  ).firstMatch(raw ?? '');
+  final match = RegExp(r'([\d.?]+)\s*[x×]\s*([\d.?]+)(?:\s*[x×]\s*([\d.?]+))?\s*(in|cm)?').firstMatch(raw ?? '');
   if (match == null) return (width: null, height: null, depth: null, unit: 'in');
   String? clean(String? v) => v == null || v == '?' ? null : v;
   return (
@@ -104,13 +98,9 @@ class _ListLaterDetailsSheetState extends State<ListLaterDetailsSheet> {
   late final _dims = parseDimensions(widget.piece.dimensions);
   late final _depth = TextEditingController(text: _dims.depth ?? '')..addListener(_changed);
   late final _weight = TextEditingController(
-    text: widget.piece.weightKg == null
-        ? ''
-        : ListingDetailsWeight.lb(widget.piece.weightKg!),
+    text: widget.piece.weightKg == null ? '' : ListingDetailsWeight.lb(widget.piece.weightKg!),
   )..addListener(_changed);
-  late String? _framing = kFramingOptions.contains(widget.piece.framingMounting)
-      ? widget.piece.framingMounting
-      : null;
+  late String? _framing = kFramingOptions.contains(widget.piece.framingMounting) ? widget.piece.framingMounting : null;
 
   void _changed() => setState(() {});
 
@@ -214,13 +204,7 @@ abstract final class ListingDetailsWeight {
 /// 2 of 2 in the progress bar, and "List it" (no review step). Listing replaces this page
 /// with the listed screen.
 class ListPricingPage extends StatefulWidget {
-  const ListPricingPage({
-    super.key,
-    required this.piece,
-    required this.details,
-    this.quote,
-    this.update,
-  });
+  const ListPricingPage({super.key, required this.piece, required this.details, this.quote, this.update});
 
   final PieceSummary piece;
   final ListLaterDetails details;
@@ -275,10 +259,9 @@ class _ListPricingPageState extends State<ListPricingPage> {
     try {
       final listed = await (widget.update ?? PieceService.instance.update)(piece.id, body);
       if (!mounted) return;
-      await Navigator.of(context).pushReplacement<bool, bool>(
-        MaterialPageRoute(builder: (_) => ListDonePage(piece: listed)),
-        result: true,
-      );
+      await Navigator.of(
+        context,
+      ).pushReplacement<bool, bool>(MaterialPageRoute(builder: (_) => ListDonePage(piece: listed)), result: true);
     } catch (e) {
       if (!mounted) return;
       setState(() => _busy = false);
@@ -355,11 +338,7 @@ class ListDonePage extends StatelessWidget {
         navigator.pop();
         navigator.pushNamed(
           '/post',
-          arguments: ScenePostArgs(
-            pieceId: piece.id,
-            pieceTitle: piece.title,
-            pieceImageUrl: piece.mediaUrl,
-          ),
+          arguments: ScenePostArgs(pieceId: piece.id, pieceTitle: piece.title, pieceImageUrl: piece.mediaUrl),
         );
       },
       onShare: () => PieceShareSheet.show(context, item),

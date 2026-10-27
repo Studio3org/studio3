@@ -18,6 +18,7 @@ import '../../widgets/host/host_date_sheet.dart';
 import '../../widgets/host/host_piece_qr_sheet.dart';
 import '../../widgets/host/host_widgets.dart';
 import '../../widgets/studio/studio.dart';
+import '../seller/seller_setup_flow.dart';
 import 'host_flyer_page.dart';
 import 'host_live_page.dart';
 import 'host_people_picker_page.dart';
@@ -178,8 +179,12 @@ class _HostEventPageState extends State<HostEventPage> {
     _date = HostDateSelection.fromEvent(e);
     _category = e.category;
     _capacity = e.capacity;
-    _cohosts.addAll(e.cohosts.map((p) => EventLineupPerson(username: p.username, name: p.name ?? '', avatarUrl: p.avatarUrl)));
-    _artists.addAll(e.artists.map((p) => EventLineupPerson(username: p.username, name: p.name ?? '', avatarUrl: p.avatarUrl)));
+    _cohosts.addAll(
+      e.cohosts.map((p) => EventLineupPerson(username: p.username, name: p.name ?? '', avatarUrl: p.avatarUrl)),
+    );
+    _artists.addAll(
+      e.artists.map((p) => EventLineupPerson(username: p.username, name: p.name ?? '', avatarUrl: p.avatarUrl)),
+    );
     final modes = e.lineup.map((i) => i.mode).toSet();
     _art = e.lineup.isEmpty
         ? HostArtMode.none
@@ -364,12 +369,7 @@ class _HostEventPageState extends State<HostEventPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        HostFlyerBox(
-          onTap: _pickFlyer,
-          imagePath: _flyer?.path,
-          transform: _flyer?.transform,
-          imageUrl: _coverUrl,
-        ),
+        HostFlyerBox(onTap: _pickFlyer, imagePath: _flyer?.path, transform: _flyer?.transform, imageUrl: _coverUrl),
         Padding(
           padding: const EdgeInsets.fromLTRB(StudioSpace.marginForm, 4, StudioSpace.marginForm, 0),
           child: Column(
@@ -405,7 +405,9 @@ class _HostEventPageState extends State<HostEventPage> {
                 Padding(
                   padding: const EdgeInsets.only(top: 6),
                   child: Text(
-                    _published ? "A published event's date can't be changed yet." : 'That date has passed. Pick a new one.',
+                    _published
+                        ? "A published event's date can't be changed yet."
+                        : 'That date has passed. Pick a new one.',
                     style: StudioType.caption12(color: _published ? c.textTertiary : c.textPrimary),
                   ),
                 ),
@@ -454,24 +456,27 @@ class _HostEventPageState extends State<HostEventPage> {
             onTap: _editTicket,
             behavior: HitTestBehavior.opaque,
             child: HostCard(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('General Admission', style: StudioType.sans(16, weight: StudioType.medium, color: c.textPrimary)),
-                      const SizedBox(height: 3),
-                      Text(_ticketLine, style: StudioType.label13(color: c.textPrimary)),
-                      const SizedBox(height: 3),
-                      Text('One per person', style: StudioType.caption12(color: c.textSecondary)),
-                    ],
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'General Admission',
+                          style: StudioType.sans(16, weight: StudioType.medium, color: c.textPrimary),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(_ticketLine, style: StudioType.label13(color: c.textPrimary)),
+                        const SizedBox(height: 3),
+                        Text('One per person', style: StudioType.caption12(color: c.textSecondary)),
+                      ],
+                    ),
                   ),
-                ),
-                HostTextAction(label: 'Edit', size: 13, inline: true, onTap: _editTicket),
-              ],
-            ),
+                  HostTextAction(label: 'Edit', size: 13, inline: true, onTap: _editTicket),
+                ],
+              ),
             ),
           ),
         ],
@@ -531,6 +536,15 @@ class _HostEventPageState extends State<HostEventPage> {
   Future<void> _setMode(int index, EventPieceMode mode) async {
     final tagged = _pieces[index];
     if (mode == tagged.mode) return;
+    // Selling your own piece needs a seller profile (`SellerPrompt`); the event stays open.
+    if (mode != EventPieceMode.featured && !AuthSession.instance.sellerEnabled) {
+      final seller = await SellerSetupPage.prompt(
+        context,
+        secondaryLabel: 'Keep it not for sale',
+        returnLabel: 'Back to your event',
+      );
+      if (!seller || !mounted) return;
+    }
     if (mode != EventPieceMode.featured && !_originalPieces.containsKey(tagged.piece.id)) {
       final auction = tagged.needsRelistForBid;
       if (auction || tagged.needsRelistForSale) {
@@ -557,7 +571,11 @@ class _HostEventPageState extends State<HostEventPage> {
 
   Future<void> _editPrice(int index) async {
     final tagged = _pieces[index];
-    final price = await _askPrice(tagged.piece.title, auction: tagged.mode == EventPieceMode.bid, initial: tagged.price);
+    final price = await _askPrice(
+      tagged.piece.title,
+      auction: tagged.mode == EventPieceMode.bid,
+      initial: tagged.price,
+    );
     if (price != null && mounted) setState(() => _pieces[index] = tagged.copyWith(price: price));
   }
 
@@ -601,7 +619,9 @@ class _HostEventPageState extends State<HostEventPage> {
     final money = cents == null ? 'Add a price' : formatMoney(cents);
     if (p.mode == EventPieceMode.bid) {
       final ends = _date?.endsAt.subtract(const Duration(minutes: 30));
-      final end = ends == null ? '' : ' · Ends at ${hostTime(TimeOfDay.fromDateTime(ends))}${_date!.zone.isEmpty ? '' : ' ${_date!.zone}'}';
+      final end = ends == null
+          ? ''
+          : ' · Ends at ${hostTime(TimeOfDay.fromDateTime(ends))}${_date!.zone.isEmpty ? '' : ' ${_date!.zone}'}';
       return 'Starting bid $money$end';
     }
     return money;
@@ -638,7 +658,10 @@ class _HostEventPageState extends State<HostEventPage> {
           const HostLabel('Featured artists'),
           Padding(
             padding: const EdgeInsets.only(bottom: 10),
-            child: Text('Artists you feature show on the event page.', style: StudioType.caption12(color: c.textSecondary)),
+            child: Text(
+              'Artists you feature show on the event page.',
+              style: StudioType.caption12(color: c.textSecondary),
+            ),
           ),
           people(_artists, cohost: false),
           const HostLabel('Pieces'),
@@ -700,7 +723,9 @@ class _HostEventPageState extends State<HostEventPage> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(child: Text(label, style: StudioType.label13(color: c.textSecondary))),
+                  Expanded(
+                    child: Text(label, style: StudioType.label13(color: c.textSecondary)),
+                  ),
                   HostTextAction(label: 'Edit', size: 13, inline: true, underline: true, onTap: () => _goTo(step)),
                 ],
               ),
@@ -720,7 +745,10 @@ class _HostEventPageState extends State<HostEventPage> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           card('Details', 0, [
-            Text(_title.text.trim(), style: StudioType.sans(15, weight: StudioType.medium, color: c.textPrimary)),
+            Text(
+              _title.text.trim(),
+              style: StudioType.sans(15, weight: StudioType.medium, color: c.textPrimary),
+            ),
             Text(EventCategoryOptions.byId(_category ?? '')?.name ?? '', style: small),
             Text(
               _art.sells ? 'Event art: ${_art.label} · ${_delivery.label}' : 'Event art: ${_art.label}',
@@ -732,7 +760,10 @@ class _HostEventPageState extends State<HostEventPage> {
           card('Tickets', 1, [Text('General Admission · $_ticketLine', style: small)]),
           card('Lineup', 2, [
             if (_cohosts.isNotEmpty)
-              Text('${_cohosts.length == 1 ? 'Co-host' : 'Co-hosts'}: ${_cohosts.map((p) => p.displayName).join(', ')}', style: small),
+              Text(
+                '${_cohosts.length == 1 ? 'Co-host' : 'Co-hosts'}: ${_cohosts.map((p) => p.displayName).join(', ')}',
+                style: small,
+              ),
             if (_artists.isNotEmpty)
               Text(
                 '${_artists.length == 1 ? 'Featured artist' : 'Featured artists'}: ${_artists.map((p) => p.displayName).join(', ')}',
@@ -747,7 +778,10 @@ class _HostEventPageState extends State<HostEventPage> {
             if (_cohosts.isEmpty && _artists.isEmpty && (_pieces.isEmpty || _art == HostArtMode.none))
               Text('Just you, no art tagged.', style: muted),
             if (selling > 0 && _pieces.any((p) => p.mode != EventPieceMode.featured && _cents(p.price) == null))
-              Text('Add a price to every piece for sale.', style: StudioType.label13(weight: StudioType.medium, color: c.textPrimary)),
+              Text(
+                'Add a price to every piece for sale.',
+                style: StudioType.label13(weight: StudioType.medium, color: c.textPrimary),
+              ),
           ]),
           if (_missing.isNotEmpty)
             Padding(
@@ -983,10 +1017,7 @@ class _ArtModeSheetState extends State<_ArtModeSheet> {
           onChanged: (v) => setState(() => _art = v),
         ),
         if (_art == HostArtMode.auction)
-          Text(
-            'Bidding ends 30 minutes before the event ends.',
-            style: StudioType.caption12(color: c.textSecondary),
-          ),
+          Text('Bidding ends 30 minutes before the event ends.', style: StudioType.caption12(color: c.textSecondary)),
         if (_art.sells) ...[
           const HostLabel('Delivery for sold pieces', top: 14),
           HostOptionRows<HostDelivery>(
@@ -1052,7 +1083,11 @@ class _PieceCard extends StatelessWidget {
                   height: 64,
                   child: url.isEmpty
                       ? ColoredBox(color: c.surface)
-                      : Image.network(url, fit: BoxFit.cover, errorBuilder: (_, _, _) => ColoredBox(color: c.surface)),
+                      : Image.network(
+                          url,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => ColoredBox(color: c.surface),
+                        ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -1143,7 +1178,10 @@ class _PieceCard extends StatelessWidget {
                       children: [
                         StudioIcon(StudioIcons.qrCode, size: 14, color: c.textPrimary),
                         const SizedBox(width: 6),
-                        Text('Link and QR code', style: StudioType.label13(weight: StudioType.medium, color: c.textPrimary)),
+                        Text(
+                          'Link and QR code',
+                          style: StudioType.label13(weight: StudioType.medium, color: c.textPrimary),
+                        ),
                       ],
                     ),
                   ),

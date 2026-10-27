@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../services/api_exception.dart';
 import '../services/auth_session.dart';
+import '../screens/seller/seller_setup_flow.dart';
 import '../services/payout_service.dart';
-import '../widgets/seller_mode_required_dialog.dart';
 
 /// True when the piece API rejected a listing because Connect is incomplete.
 bool isPayoutSetupRequiredMessage(String message) {
@@ -13,15 +13,12 @@ bool isPayoutSetupRequiredMessage(String message) {
 
 /// Ensures the signed-in user can list a piece for sale.
 ///
-/// Seller mode first, then Connect `canListForSale`. Returns true only after
-/// a fresh status fetch says they can be paid.
+/// Seller profile first (Turn on selling first, then seller setup), then Connect
+/// `canListForSale`. Returns true only after a fresh status fetch says they can be paid.
 Future<bool> ensureCanListForSale(BuildContext context) async {
   if (!AuthSession.instance.sellerEnabled) {
-    final switchToSeller = await showSellerModeRequiredDialog(context);
-    if (switchToSeller != true || !context.mounted) return false;
-    await Navigator.pushNamed(context, '/profile-settings');
+    if (!await SellerSetupPage.prompt(context)) return false;
     if (!context.mounted) return false;
-    if (!AuthSession.instance.sellerEnabled) return false;
   }
 
   try {
@@ -30,11 +27,8 @@ Future<bool> ensureCanListForSale(BuildContext context) async {
   } on ApiException catch (e) {
     if (!context.mounted) return false;
     if (e.statusCode == 403) {
-      final switchToSeller = await showSellerModeRequiredDialog(context);
-      if (switchToSeller != true || !context.mounted) return false;
-      await Navigator.pushNamed(context, '/profile-settings');
+      if (!await SellerSetupPage.prompt(context)) return false;
       if (!context.mounted) return false;
-      if (!AuthSession.instance.sellerEnabled) return false;
     } else {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
@@ -43,14 +37,12 @@ Future<bool> ensureCanListForSale(BuildContext context) async {
     }
   } catch (_) {
     if (!context.mounted) return false;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Could not check payout setup.')),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not check payout setup.')));
     return false;
   }
 
   if (!context.mounted) return false;
-  await Navigator.pushNamed(context, '/payout-setup');
+  await SellerSetupPage.resume(context);
   if (!context.mounted) return false;
 
   try {
@@ -61,7 +53,7 @@ Future<bool> ensureCanListForSale(BuildContext context) async {
   }
 }
 
-/// Opens the details-required page when a listing call 403s for payouts.
+/// Back into seller setup at Stripe when a listing call 403s for payouts.
 Future<void> openPayoutSetup(BuildContext context) {
-  return Navigator.pushNamed(context, '/payout-setup');
+  return SellerSetupPage.resume(context);
 }
