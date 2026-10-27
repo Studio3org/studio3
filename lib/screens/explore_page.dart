@@ -23,6 +23,7 @@ import '../widgets/explore/explore_sticky_header.dart';
 import '../widgets/feed_skeleton.dart';
 import '../widgets/studio/studio_avatar.dart';
 import '../utils/scrolls_to_top_on_double_tap.dart';
+import 'behind_the_work_page.dart';
 
 class ExplorePage extends StatefulWidget {
   const ExplorePage({super.key});
@@ -334,7 +335,10 @@ class _ExplorePageState extends State<ExplorePage>
         ExploreSceneShelf(
           items: scenes,
           onOpen: (item) => openExploreDetail(context, item, from: scenes),
-          onSeeAll: () => _seeAll(ExploreCategory.scenes),
+          // `BehindTheWork`: its own page, in the shelf's order.
+          onSeeAll: () => Navigator.of(context).push<void>(
+            MaterialPageRoute<void>(builder: (_) => BehindTheWorkPage(initialItems: scenes)),
+          ),
         ),
       );
     }

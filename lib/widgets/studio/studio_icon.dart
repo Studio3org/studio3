@@ -74,6 +74,9 @@ abstract final class StudioIcons {
   /// `PieceCollectedOwner` tracker: shipped (the board's truck) and packed (a parcel, no board
   /// glyph; drawn in the same style).
   static const String truck = '$_dir/truck.svg';
+
+  /// `BehindTheWork` video Scene cards: a filled white play triangle, no circle.
+  static const String play = '$_dir/play.svg';
   static const String package = '$_dir/package.svg';
   static const String video = '$_dir/video.svg';
 }

@@ -135,7 +135,8 @@ void main() {
       expect(find.byType(Icon), findsNothing);
     });
 
-    testWidgets('Series: on-image icons, name, empty grid ($theme)', (tester) async {
+    // `SeriesPage` (Phase 13, 17.7) replaced the earlier look; phase13_browse_test.dart covers it.
+    testWidgets('Series: back, share, Edit series on your own, empty grid ($theme)', (tester) async {
       setBoardViewport(tester);
       await tester.pumpWidget(
         _app(
@@ -145,10 +146,11 @@ void main() {
       );
       await _settle(tester);
       expect(find.text('Night Garden'), findsOneWidget);
-      expect(find.text('4 pieces'), findsOneWidget);
-      for (final label in ['Back', 'Share', 'Edit series']) {
+      expect(find.text('SERIES · 4 PIECES'), findsOneWidget);
+      for (final label in ['Back', 'Share']) {
         expect(find.bySemanticsLabel(label), findsOneWidget, reason: label);
       }
+      expect(find.text('Edit series'), findsOneWidget);
       expect(find.text('No pieces in this series yet'), findsOneWidget);
       expect(tester.widget<Scaffold>(find.byType(Scaffold)).backgroundColor, c.background);
     });

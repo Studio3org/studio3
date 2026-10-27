@@ -206,12 +206,7 @@ class _ReelPlayerPageState extends State<ReelPlayerPage> {
           if (_isVideo && _paused)
             const IgnorePointer(
               child: Center(
-                child: Icon(
-                  Icons.play_arrow_rounded,
-                  size: 64,
-                  color: Color(0xE6FFFFFF),
-                  shadows: [Shadow(color: Color(0x80000000), blurRadius: 6)],
-                ),
+                child: StudioIcon(StudioIcons.play, size: 48, color: Color(0xE6FFFFFF)),
               ),
             ),
           ReelOverlay(
