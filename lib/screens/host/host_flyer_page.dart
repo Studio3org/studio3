@@ -130,6 +130,7 @@ class _HostFlyerPageState extends State<HostFlyerPage> {
             bottom: 0,
             child: PostGalleryPicker(
               openNotifier: _albumOpen,
+              onDark: true,
               maxSelection: 1,
               allowVideos: false,
               initialSelection: _picked,

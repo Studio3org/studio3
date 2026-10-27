@@ -13,6 +13,7 @@ import '../models/post_image_transform.dart';
 import '../models/post_summary.dart';
 import '../models/user_profile.dart' show CommissionQuote;
 import '../services/auth_session.dart';
+import '../services/drafts_service.dart';
 import '../services/piece_service.dart';
 import '../services/post_publish_service.dart';
 import '../services/user_service.dart';
@@ -452,12 +453,16 @@ class _PostCreatePageState extends State<PostCreatePage> {
       }
       // An auction is created live (its clock starts then), so there is no draft to publish.
       final live = piece.isLive && _mode == SaleMode.auction ? piece : await _publisher.goLive(piece.id);
+      DraftsService.instance.clearFailed(piece.id);
       if (!mounted) return;
       setState(() {
         _publishedPiece = live;
         _step = _CreateStep.done;
       });
     } catch (_) {
+      // Saved but not live: Drafts says "Didn't publish. Tap to try again."
+      final saved = _draftPiece;
+      if (saved != null) DraftsService.instance.markFailed(saved.id);
       if (mounted) setState(() => _step = _CreateStep.failed);
     } finally {
       if (mounted) setState(() => _publishing = false);
@@ -496,12 +501,9 @@ class _PostCreatePageState extends State<PostCreatePage> {
     );
   }
 
-  /// Drafts show on the artist's own profile.
+  /// Could not publish → Go to drafts (`PostError`, `Drafts`).
   void _goToDrafts() {
-    final username = AuthSession.instance.user?.username;
-    _closeThen((context) {
-      if (username != null) Navigator.of(context).pushNamed('/profile', arguments: username);
-    });
+    _closeThen((context) => Navigator.of(context).pushNamed('/drafts'));
   }
 
   // ---------------------------------------------------------------- build

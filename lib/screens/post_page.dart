@@ -4,12 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
 
 import '../models/post_image_transform.dart';
-import '../theme/studio_colors.dart';
-import '../theme/studio_metrics.dart';
-import '../theme/studio_type.dart';
 import '../widgets/permission_denied_sheet.dart';
 import '../widgets/post_gallery/post_gallery_picker.dart';
-import '../widgets/studio/studio_icon.dart';
+import '../widgets/studio/studio.dart';
 import 'post_cover_page.dart';
 import 'post_create_page.dart';
 import 'post_edit_page.dart';
@@ -26,8 +23,6 @@ class PostPage extends StatefulWidget {
 }
 
 class _PostPageState extends State<PostPage> {
-  static const _bannerHeight = 64.0;
-  static const _bottomControlsOffset = 42.0;
   /// Pieces: up to 4 angles (`NotePostCover`). A Scene is one photo or one video (it used to
   /// allow 10 photos and post only the one on screen).
   int get _maxSelection => _postType == 'piece' ? 4 : 1;
@@ -70,6 +65,9 @@ class _PostPageState extends State<PostPage> {
     if (args is ScenePostArgs) {
       _linkedPiece = args;
       _postType = 'scene';
+    } else if (args == 'scene') {
+      // Chosen on "What are you sharing?" (`PostCreate`).
+      _postType = 'scene';
     }
   }
 
@@ -81,18 +79,20 @@ class _PostPageState extends State<PostPage> {
 
   void _exitFlow() => Navigator.pop(context);
 
-  void _onPostTypeChanged(String type) {
-    if (type == _postType) return;
-    setState(() {
-      _postType = type;
-      _pickedAssets = [];
-      _pickedImagePaths = null;
-      _pickedVideoPath = null;
-      _pickedVideoThumbnailBytes = null;
-      _assetIdByPath.clear();
-      _coverTransforms.clear();
-      _detailsOpened = false;
-    });
+  /// Close on the picker asks first when something is picked (`PostPicker`).
+  Future<void> _closePicker() async {
+    if (_pickedAssets.isEmpty && _pickedVideoPath == null) {
+      _exitFlow();
+      return;
+    }
+    final discard = await showStudioConfirm(
+      context,
+      title: 'Discard this post?',
+      message: "The photos you picked won't be kept.",
+      confirmLabel: 'Discard',
+      cancelLabel: 'Keep going',
+    );
+    if (discard && mounted) _exitFlow();
   }
 
   Future<void> _goToEdit() async {
@@ -197,7 +197,8 @@ class _PostPageState extends State<PostPage> {
   bool _handleBack() {
     switch (_step) {
       case _PostFlowStep.gallery:
-        return true;
+        _closePicker();
+        return false;
       case _PostFlowStep.edit when _showsCover:
         // PostCoverPage handles back itself so its order and framing are kept.
         return false;
@@ -215,8 +216,9 @@ class _PostPageState extends State<PostPage> {
 
   @override
   Widget build(BuildContext context) {
+    final nothingPicked = _pickedAssets.isEmpty && _pickedVideoPath == null;
     return PopScope(
-      canPop: _step == _PostFlowStep.gallery,
+      canPop: _step == _PostFlowStep.gallery && nothingPicked,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
         _handleBack();
@@ -245,70 +247,48 @@ class _PostPageState extends State<PostPage> {
   }
 
   Widget _buildGallery() {
-    final topInset = MediaQuery.paddingOf(context).top;
-    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final c = context.studio;
     final hasSelection = _pickedAssets.isNotEmpty || _pickedVideoPath != null;
+    final isPiece = _postType == 'piece';
 
     return Scaffold(
-      backgroundColor: StudioColors.ink,
-      body: Stack(
-        children: [
-          Positioned(
-            top: topInset + _bannerHeight,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: PostGalleryPicker(
-              key: ValueKey(_postType),
-              openNotifier: _albumMenuOpen,
-              maxSelection: _maxSelection,
-              allowVideos: _postType == 'scene',
-              initialSelection: _pickedAssets,
-              onAlbumChanged: (name) =>
-                  setState(() => _selectedAlbumName = name),
-              onSelectionChanged: (assets) =>
-                  setState(() => _pickedAssets = assets),
-              onPermissionPermanentlyDenied: () {
-                showPermissionDeniedSheet(
-                  context,
-                  title: 'Photo access needed',
-                  message:
-                      'Enable photo library access in Settings to continue.',
-                );
-              },
-            ),
-          ),
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: _PostingBanner(
-              topInset: topInset,
-              onClose: _exitFlow,
-              hasSelection: hasSelection,
-              onNext: hasSelection ? _goToEdit : null,
+      backgroundColor: c.background,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            PostPickerHeader(
+              title: isPiece ? 'New piece' : 'New Scene',
               albumName: _selectedAlbumName,
-              menuOpen: _albumMenuOpen,
+              onClose: _closePicker,
+              onNext: hasSelection ? _goToEdit : null,
+              onAlbum: () => _albumMenuOpen.value = !_albumMenuOpen.value,
+              countLabel: isPiece ? '${_pickedAssets.length} of $_maxSelection selected' : null,
             ),
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: bottomInset + _bottomControlsOffset,
-            child: ValueListenableBuilder<bool>(
-              valueListenable: _albumMenuOpen,
-              builder: (context, open, _) {
-                if (open) return const SizedBox.shrink();
-                return Center(
-                  child: _PostingSelector(
-                    postType: _postType,
-                    onChanged: _onPostTypeChanged,
-                  ),
-                );
-              },
+            Expanded(
+              child: PostGalleryPicker(
+                key: ValueKey(_postType),
+                openNotifier: _albumMenuOpen,
+                maxSelection: _maxSelection,
+                allowVideos: _postType == 'scene',
+                initialSelection: _pickedAssets,
+                onAlbumChanged: (name) =>
+                    setState(() => _selectedAlbumName = name),
+                onSelectionChanged: (assets) =>
+                    setState(() => _pickedAssets = assets),
+                onPermissionPermanentlyDenied: () {
+                  showPermissionDeniedSheet(
+                    context,
+                    title: 'Photo access needed',
+                    message:
+                        'Enable photo library access in Settings to continue.',
+                  );
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -379,36 +359,40 @@ class _PostPageState extends State<PostPage> {
   }
 }
 
-/// Gallery header, dark like the `PostCover` step that follows (no board of its own):
-/// close 22 in a 44 target, the album name 16/500 with a chevron in the middle, and
-/// "Next" 15/500 as text (Secondary-on-dark until something is picked).
-class _PostingBanner extends StatelessWidget {
-  const _PostingBanner({
-    required this.topInset,
-    required this.onClose,
-    required this.hasSelection,
-    required this.onNext,
+/// `PostPicker` top: Close (44) / "New piece" 16/500 / Next 15/500 (Tertiary until something is
+/// picked), then the album name 15/500 (tap for the album list) and, for pieces, Mono 12
+/// "2 of 4 selected" in Graphite, 16 20 10.
+class PostPickerHeader extends StatelessWidget {
+  const PostPickerHeader({
+    super.key,
+    required this.title,
     required this.albumName,
-    required this.menuOpen,
+    required this.onClose,
+    required this.onNext,
+    this.onAlbum,
+    this.countLabel,
   });
 
-  final double topInset;
-  final VoidCallback onClose;
-  final bool hasSelection;
-  final VoidCallback? onNext;
+  final String title;
   final String albumName;
-  final ValueNotifier<bool> menuOpen;
+  final VoidCallback onClose;
+
+  /// Null until something is picked.
+  final VoidCallback? onNext;
+  final VoidCallback? onAlbum;
+  final String? countLabel;
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
-      color: StudioColors.ink,
-      child: Padding(
-        padding: EdgeInsets.only(top: topInset),
-        child: SizedBox(
-          height: _PostPageState._bannerHeight,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(8, 12, 8, 8),
+    final c = context.studio;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(8, 12, 8, 0),
+          child: SizedBox(
+            height: 44,
             child: Row(
               children: [
                 Semantics(
@@ -418,78 +402,36 @@ class _PostingBanner extends StatelessWidget {
                   child: GestureDetector(
                     onTap: onClose,
                     behavior: HitTestBehavior.opaque,
-                    child: const SizedBox.square(
+                    child: SizedBox.square(
                       dimension: 44,
-                      child: Center(
-                        child: StudioIcon(
-                          StudioIcons.close,
-                          size: 22,
-                          color: StudioColors.galleryWhite,
-                        ),
-                      ),
+                      child: Center(child: StudioIcon(StudioIcons.close, size: 22, color: c.textPrimary)),
                     ),
                   ),
                 ),
                 Expanded(
-                  child: Center(
-                    child: ValueListenableBuilder<bool>(
-                      valueListenable: menuOpen,
-                      builder: (context, open, _) => GestureDetector(
-                        onTap: () => menuOpen.value = !open,
-                        behavior: HitTestBehavior.opaque,
-                        child: SizedBox(
-                          height: 44,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  albumName,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: StudioType.sans(
-                                    16,
-                                    weight: StudioType.medium,
-                                    color: StudioColors.galleryWhite,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              AnimatedRotation(
-                                turns: open ? -0.25 : 0.25,
-                                duration: StudioMotion.quick,
-                                child: const StudioIcon(
-                                  StudioIcons.chevronRight,
-                                  size: 16,
-                                  color: StudioColors.galleryWhite,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
+                  child: Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    style: StudioType.sans(16, weight: StudioType.medium, color: c.textPrimary),
                   ),
                 ),
                 Semantics(
                   button: true,
-                  enabled: hasSelection,
+                  enabled: onNext != null,
                   child: GestureDetector(
                     onTap: onNext,
                     behavior: HitTestBehavior.opaque,
                     child: SizedBox(
                       height: 44,
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
                         child: Center(
                           child: Text(
                             'Next',
                             style: StudioType.sans(
                               15,
                               weight: StudioType.medium,
-                              color: hasSelection
-                                  ? StudioColors.galleryWhite
-                                  : StudioColors.onDarkSecondary,
+                              color: onNext != null ? c.textPrimary : c.textTertiary,
                             ),
                           ),
                         ),
@@ -501,84 +443,33 @@ class _PostingBanner extends StatelessWidget {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// Piece / Scene switch over the grid: an Ink pill (90 %) with 15 text, the chosen one
-/// Gallery White 500, the other Secondary-on-dark.
-class _PostingSelector extends StatelessWidget {
-  const _PostingSelector({required this.postType, required this.onChanged});
-
-  static const _selectorBg = Color(0xE6111111);
-
-  final String postType;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    const options = ['piece', 'scene'];
-
-    return Container(
-      width: 200,
-      height: 46,
-      padding: const EdgeInsets.symmetric(horizontal: 30),
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: _selectorBg,
-        borderRadius: BorderRadius.circular(StudioRadius.round),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          for (final type in options)
-            _SelectorTab(
-              label: type == 'scene' ? 'Scene' : 'Piece',
-              selected: postType == type,
-              onTap: () => onChanged(type),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SelectorTab extends StatelessWidget {
-  const _SelectorTab({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      selected: selected,
-      child: GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: SizedBox(
-          height: 44,
-          child: Center(
-            child: Text(
-              label,
-              style: StudioType.sans(
-                15,
-                weight: selected ? StudioType.medium : StudioType.regular,
-                color: selected
-                    ? StudioColors.galleryWhite
-                    : StudioColors.onDarkSecondary,
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Flexible(
+                child: Semantics(
+                  button: onAlbum != null,
+                  hint: onAlbum != null ? 'Choose an album' : null,
+                  child: GestureDetector(
+                    onTap: onAlbum,
+                    behavior: HitTestBehavior.opaque,
+                    child: Text(
+                      albumName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: StudioType.sans(15, weight: StudioType.medium, color: c.textPrimary),
+                    ),
+                  ),
+                ),
               ),
-            ),
+              const Spacer(),
+              if (countLabel != null) Text(countLabel!, style: StudioType.mono(12, color: c.textSecondary)),
+            ],
           ),
         ),
-      ),
+      ],
     );
   }
 }

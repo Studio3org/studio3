@@ -41,6 +41,8 @@ import 'screens/reels_page.dart';
 import 'screens/saved_page.dart';
 import 'screens/profile_page.dart';
 import 'screens/post_page.dart';
+import 'screens/drafts_page.dart';
+import 'widgets/post_share_type_sheet.dart';
 import 'screens/inbox_page.dart';
 import 'screens/onboarding/onboarding_page.dart';
 import 'screens/edit_profile_page.dart';
@@ -181,6 +183,7 @@ class Studio3App extends StatelessWidget {
                 );
               },
               '/post': (context) => const PostPage(),
+              '/drafts': (context) => const DraftsPage(),
               // Inquiries deferred to v2 — legacy /chat route redirects to Conversations inbox.
               '/chat': (context) => const InboxPage(initialTab: InboxTab.chats),
               '/inbox': (context) {
@@ -520,7 +523,8 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     )) {
       return;
     }
-    if (mounted) Navigator.pushNamed(context, '/post');
+    // "What are you sharing?" (`PostCreate`): Piece, Scene, or Drafts.
+    if (mounted) await PostShareTypeSheet.showAndOpenPost(context);
   }
 
   /// Single tap switches to the tapped section (if not already there).

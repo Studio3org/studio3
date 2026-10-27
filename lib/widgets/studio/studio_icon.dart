@@ -45,6 +45,10 @@ abstract final class StudioIcons {
   static const String link = '$_dir/link.svg';
   static const String location = '$_dir/location.svg';
   static const String lock = '$_dir/lock.svg';
+
+  /// `PostCreate`: Piece (a grid) and Scene (a clapper board).
+  static const String pieceGrid = '$_dir/piece_grid.svg';
+  static const String scene = '$_dir/scene.svg';
   static const String shareBold = '$_dir/share_bold.svg';
   static const String unlink = '$_dir/unlink.svg';
   static const String addBold = '$_dir/add_bold.svg';

@@ -22,13 +22,12 @@ class _AlbumEntry {
 }
 
 /// Custom in-app photo grid + album picker replacing the native OS photo
-/// picker, so the post-creation flow can show its own "Recents ⌄" album
-/// dropdown.
+/// picker, so the post-creation flow can show its own album list.
 ///
-/// No board: dark in both themes like `PostCover`. Video length is a plain white Mono
-/// image label (no play circle), the selection mark is a 22 round check (Gallery White
-/// with an Ink check when picked, a white ring otherwise), albums are Ink rows with a
-/// Mono count.
+/// `PostPicker`: the page colour, 3 across with 2 gaps, newest first; each pick shows its
+/// number in a 22 Ink circle and a 2 Ink outline inside the cell ([PostGalleryCell]). Video
+/// length is a plain white Mono image label (no play circle); albums are rows with a Mono
+/// count. [onDark] keeps the dark look for the host flyer picker, which sits under a dark bar.
 class PostGalleryPicker extends StatefulWidget {
   const PostGalleryPicker({
     super.key,
@@ -39,7 +38,11 @@ class PostGalleryPicker extends StatefulWidget {
     this.maxSelection = 10,
     this.allowVideos = false,
     this.initialSelection = const [],
+    this.onDark = false,
   });
+
+  /// Dark in both themes (the host flyer cover).
+  final bool onDark;
 
   final ValueNotifier<bool> openNotifier;
   final ValueChanged<String> onAlbumChanged;
@@ -163,12 +166,14 @@ class _PostGalleryPickerState extends State<PostGalleryPicker> {
     await _init();
   }
 
+  _PickerColors get _colors => _PickerColors.of(context, onDark: widget.onDark);
+
   @override
   Widget build(BuildContext context) {
     return Stack(
       fit: StackFit.expand,
       children: [
-        _buildBody(),
+        ColoredBox(color: _colors.background, child: _buildBody()),
         ValueListenableBuilder<bool>(
           valueListenable: widget.openNotifier,
           builder: (context, open, _) =>
@@ -181,17 +186,17 @@ class _PostGalleryPickerState extends State<PostGalleryPicker> {
   Widget _buildBody() {
     switch (_state) {
       case _LoadState.loading:
-        return const Center(
+        return Center(
           child: SizedBox.square(
             dimension: 20,
             child: CircularProgressIndicator(
               strokeWidth: 2,
-              color: StudioColors.onDarkSecondary,
+              color: _colors.secondary,
             ),
           ),
         );
       case _LoadState.denied:
-        return _PermissionFallback(onRetry: _retry);
+        return _PermissionFallback(onRetry: _retry, colors: _colors);
       case _LoadState.ready:
         return GridView.builder(
           padding: EdgeInsets.zero,
@@ -208,55 +213,21 @@ class _PostGalleryPickerState extends State<PostGalleryPicker> {
   }
 
   Widget _buildCell(AssetEntity asset) {
-    final selected = _selected.any((a) => a.id == asset.id);
+    final index = _selected.indexWhere((a) => a.id == asset.id);
     final isVideo = asset.type == AssetType.video;
-    return Semantics(
-      button: true,
-      selected: selected,
-      child: GestureDetector(
-        onTap: () => _toggleSelect(asset),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            _AssetThumbnail(key: ValueKey(asset.id), asset: asset, size: 200),
-            if (isVideo)
-              Positioned(
-                left: 8,
-                bottom: 6,
-                child: StudioImageLabel(
-                  _formatDuration(asset.videoDuration),
-                  icon: StudioIcons.video,
-                ),
-              ),
-            if (selected) const ColoredBox(color: Color(0x59111111)),
-            Positioned(
-              top: 6,
-              right: 6,
-              child: Container(
-                width: 22,
-                height: 22,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: selected ? StudioColors.galleryWhite : const Color(0x33111111),
-                  border: selected
-                      ? null
-                      : Border.all(color: StudioColors.galleryWhite, width: 1.5),
-                ),
-                child: selected
-                    ? const StudioIcon(StudioIcons.check, size: 13, color: StudioColors.ink)
-                    : null,
-              ),
-            ),
-          ],
-        ),
-      ),
+    return PostGalleryCell(
+      number: index >= 0 ? index + 1 : null,
+      videoLength: isVideo ? _formatDuration(asset.videoDuration) : null,
+      onDark: widget.onDark,
+      onTap: () => _toggleSelect(asset),
+      child: _AssetThumbnail(key: ValueKey(asset.id), asset: asset, size: 200, colors: _colors),
     );
   }
 
   Widget _buildAlbumMenu() {
+    final colors = _colors;
     return ColoredBox(
-      color: StudioColors.ink,
+      color: colors.background,
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(vertical: 8),
         itemCount: _albums.length,
@@ -283,8 +254,9 @@ class _PostGalleryPickerState extends State<PostGalleryPicker> {
                                 key: ValueKey(entry.cover!.id),
                                 asset: entry.cover!,
                                 size: 100,
+                                colors: colors,
                               )
-                            : const ColoredBox(color: Color(0x1AFAFAF8)),
+                            : ColoredBox(color: colors.placeholder),
                       ),
                     ),
                     const SizedBox(width: 14),
@@ -299,22 +271,22 @@ class _PostGalleryPickerState extends State<PostGalleryPicker> {
                             style: StudioType.sans(
                               15,
                               weight: StudioType.medium,
-                              color: StudioColors.galleryWhite,
+                              color: colors.primary,
                             ),
                           ),
                           const SizedBox(height: 2),
                           Text(
                             '${entry.count}',
-                            style: StudioType.mono(12, color: StudioColors.onDarkSecondary),
+                            style: StudioType.mono(12, color: colors.secondary),
                           ),
                         ],
                       ),
                     ),
                     if (selected)
-                      const StudioIcon(
+                      StudioIcon(
                         StudioIcons.check,
                         size: 18,
-                        color: StudioColors.galleryWhite,
+                        color: colors.primary,
                       ),
                   ],
                 ),
@@ -328,10 +300,11 @@ class _PostGalleryPickerState extends State<PostGalleryPicker> {
 }
 
 class _AssetThumbnail extends StatefulWidget {
-  const _AssetThumbnail({super.key, required this.asset, required this.size});
+  const _AssetThumbnail({super.key, required this.asset, required this.size, required this.colors});
 
   final AssetEntity asset;
   final int size;
+  final _PickerColors colors;
 
   @override
   State<_AssetThumbnail> createState() => _AssetThumbnailState();
@@ -362,7 +335,7 @@ class _AssetThumbnailState extends State<_AssetThumbnail> {
       future: _future,
       builder: (context, snapshot) {
         final bytes = snapshot.data;
-        if (bytes == null) return const ColoredBox(color: Color(0x1AFAFAF8));
+        if (bytes == null) return ColoredBox(color: widget.colors.placeholder);
         return Image.memory(bytes, fit: BoxFit.cover);
       },
     );
@@ -370,9 +343,10 @@ class _AssetThumbnailState extends State<_AssetThumbnail> {
 }
 
 class _PermissionFallback extends StatelessWidget {
-  const _PermissionFallback({required this.onRetry});
+  const _PermissionFallback({required this.onRetry, required this.colors});
 
   final VoidCallback onRetry;
+  final _PickerColors colors;
 
   @override
   Widget build(BuildContext context) {
@@ -382,7 +356,7 @@ class _PermissionFallback extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const StudioIcon(StudioIcons.newFolder, size: 32, color: StudioColors.galleryWhite),
+            StudioIcon(StudioIcons.newFolder, size: 32, color: colors.primary),
             const SizedBox(height: 16),
             Text(
               'Please give access to your gallery',
@@ -390,11 +364,11 @@ class _PermissionFallback extends StatelessWidget {
               style: StudioType.sans(
                 15,
                 weight: StudioType.medium,
-                color: StudioColors.galleryWhite,
+                color: colors.primary,
               ),
             ),
             const SizedBox(height: 20),
-            // A Gallery White pill on Ink: the dark screens' primary button.
+            // The primary pill: Ink on the page, Gallery White on the dark flyer picker.
             Semantics(
               button: true,
               child: GestureDetector(
@@ -405,14 +379,116 @@ class _PermissionFallback extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: StudioColors.galleryWhite,
+                    color: colors.primary,
                     borderRadius: BorderRadius.circular(StudioRadius.round),
                   ),
                   child: Text(
                     'Allow access',
-                    style: StudioType.sans(15, weight: StudioType.medium, color: StudioColors.ink),
+                    style: StudioType.sans(15, weight: StudioType.medium, color: colors.background),
                   ),
                 ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The picker's colours: the theme's, or fixed dark ones for [PostGalleryPicker.onDark].
+class _PickerColors {
+  const _PickerColors({
+    required this.background,
+    required this.primary,
+    required this.secondary,
+    required this.placeholder,
+  });
+
+  factory _PickerColors.of(BuildContext context, {required bool onDark}) {
+    if (onDark) {
+      return const _PickerColors(
+        background: StudioColors.ink,
+        primary: StudioColors.galleryWhite,
+        secondary: StudioColors.onDarkSecondary,
+        placeholder: Color(0x1AFAFAF8),
+      );
+    }
+    final c = context.studio;
+    return _PickerColors(
+      background: c.background,
+      primary: c.textPrimary,
+      secondary: c.textSecondary,
+      placeholder: c.surface,
+    );
+  }
+
+  final Color background;
+  final Color primary;
+  final Color secondary;
+  final Color placeholder;
+}
+
+/// One grid cell (`PostPicker`): the picture; when picked, a 2 Ink outline inside it and its
+/// order in a 22 Ink circle (1.5 page-colour ring, Mono 11); otherwise a 1.5 white ring over a
+/// light shade. Videos carry their length as a white Mono label.
+class PostGalleryCell extends StatelessWidget {
+  const PostGalleryCell({
+    super.key,
+    required this.child,
+    required this.number,
+    required this.onTap,
+    this.videoLength,
+    this.onDark = false,
+  });
+
+  final Widget child;
+
+  /// Its place in the order (1, 2, ...), or null when not picked.
+  final int? number;
+  final VoidCallback onTap;
+  final String? videoLength;
+  final bool onDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.studio;
+    final picked = number != null;
+    // On the dark flyer picker the marks are white, so they still show.
+    final mark = onDark ? StudioColors.galleryWhite : c.textPrimary;
+    final markText = onDark ? StudioColors.ink : c.background;
+    return Semantics(
+      button: true,
+      selected: picked,
+      label: picked ? 'Photo $number' : 'Photo',
+      child: GestureDetector(
+        onTap: onTap,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            child,
+            if (videoLength != null)
+              Positioned(
+                left: 8,
+                bottom: 6,
+                child: StudioImageLabel(videoLength!, icon: StudioIcons.video),
+              ),
+            if (picked) DecoratedBox(decoration: BoxDecoration(border: Border.all(color: mark, width: 2))),
+            Positioned(
+              top: 6,
+              right: 6,
+              child: Container(
+                width: 22,
+                height: 22,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: picked ? mark : const Color(0x26000000),
+                  border: Border.all(color: picked ? markText : Colors.white, width: 1.5),
+                ),
+                child: picked
+                    ? Text('$number', style: StudioType.mono(11, height: 1, color: markText))
+                    : null,
               ),
             ),
           ],

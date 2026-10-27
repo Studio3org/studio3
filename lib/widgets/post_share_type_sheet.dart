@@ -1,165 +1,157 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
-import '../data/post_media_assets.dart';
-import '../theme/home_feed_tokens.dart';
-import '../theme/app_fonts.dart';
+import '../services/drafts_service.dart';
+import 'studio/studio.dart';
 
-/// Bottom sheet shown from the nav + button: Piece vs Scene (Figma 2714:5424).
-class PostShareTypeSheet extends StatelessWidget {
+/// What + opens (`PostCreate`, "Post 0: what are you sharing").
+enum PostShareChoice { piece, scene, drafts }
+
+/// "What are you sharing?" (`PostCreate`): title 20/500 centred, then Piece ("A finished work,
+/// up to 4 angles") and Scene ("Process, studio, or anything else") with a 20 icon in a 44
+/// Surface square (radius 12), title 17/500 and a 13 Graphite line; then, under a Line and only
+/// when there is at least one draft, a plain Drafts row with its Mono count and a chevron.
+class PostShareTypeSheet extends StatefulWidget {
   const PostShareTypeSheet({super.key});
 
-  /// Returns `'piece'` or `'scene'`, or null if dismissed.
-  static Future<String?> show(BuildContext context) {
-    return showModalBottomSheet<String>(
+  static Future<PostShareChoice?> show(BuildContext context) {
+    return showStudioSheet<PostShareChoice>(
       context: context,
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => const PostShareTypeSheet(),
+      builder: (_) => const PostShareTypeSheet(),
     );
   }
 
-  /// Opens the chooser, then the gallery for the selected type.
+  /// + in the bottom bar: the chooser, then the picker for that type, or Drafts.
   static Future<void> showAndOpenPost(BuildContext context) async {
-    final type = await show(context);
-    if (type == null || !context.mounted) return;
-    await Navigator.pushNamed(context, '/post', arguments: type);
+    final choice = await show(context);
+    if (choice == null || !context.mounted) return;
+    switch (choice) {
+      case PostShareChoice.piece:
+        await Navigator.pushNamed(context, '/post', arguments: 'piece');
+      case PostShareChoice.scene:
+        await Navigator.pushNamed(context, '/post', arguments: 'scene');
+      case PostShareChoice.drafts:
+        await Navigator.pushNamed(context, '/drafts');
+    }
+  }
+
+  @override
+  State<PostShareTypeSheet> createState() => _PostShareTypeSheetState();
+}
+
+class _PostShareTypeSheetState extends State<PostShareTypeSheet> {
+  int _drafts = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _countDrafts();
+  }
+
+  Future<void> _countDrafts() async {
+    try {
+      final drafts = await DraftsService.instance.pieces();
+      if (mounted) setState(() => _drafts = drafts.length);
+    } catch (_) {
+      // No row: Drafts only shows when we know there is one.
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: MediaQuery.sizeOf(context).height,
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-        child: GestureDetector(
-          onTap: () => Navigator.pop(context),
-          behavior: HitTestBehavior.opaque,
-          child: Container(
-            color: const Color(0x66231F1B),
-            alignment: Alignment.bottomCenter,
-            child: GestureDetector(
-              onTap: () {},
-              behavior: HitTestBehavior.opaque,
-              child: const _SheetBody(),
+    final c = context.studio;
+    return StudioSheet(
+      horizontalPadding: StudioSpace.marginForm,
+      gap: 0,
+      children: [
+        const SizedBox(height: 18),
+        Text(
+          'What are you sharing?',
+          textAlign: TextAlign.center,
+          style: StudioType.sans(20, weight: StudioType.medium, color: c.textPrimary),
+        ),
+        const SizedBox(height: 10),
+        _TypeRow(
+          icon: StudioIcons.pieceGrid,
+          title: 'Piece',
+          line: 'A finished work, up to 4 angles',
+          onTap: () => Navigator.pop(context, PostShareChoice.piece),
+        ),
+        _TypeRow(
+          icon: StudioIcons.scene,
+          title: 'Scene',
+          line: 'Process, studio, or anything else',
+          onTap: () => Navigator.pop(context, PostShareChoice.scene),
+        ),
+        if (_drafts > 0) ...[
+          const SizedBox(height: 10),
+          Semantics(
+            button: true,
+            label: 'Drafts, $_drafts',
+            excludeSemantics: true,
+            child: InkWell(
+              onTap: () => Navigator.pop(context, PostShareChoice.drafts),
+              child: Container(
+                padding: const EdgeInsets.only(top: 14),
+                decoration: BoxDecoration(border: Border(top: BorderSide(color: c.line))),
+                child: Row(
+                  children: [
+                    Text('Drafts', style: StudioType.sans(15, color: c.textPrimary)),
+                    const SizedBox(width: 4),
+                    Text('$_drafts', style: StudioType.mono(12, color: c.textSecondary)),
+                    const Spacer(),
+                    StudioIcon(StudioIcons.chevronRight, size: 18, color: c.textPlaceholder),
+                  ],
+                ),
+              ),
             ),
           ),
-        ),
-      ),
+        ],
+        const SizedBox(height: 18),
+      ],
     );
   }
 }
 
-class _SheetBody extends StatelessWidget {
-  const _SheetBody();
+class _TypeRow extends StatelessWidget {
+  const _TypeRow({required this.icon, required this.title, required this.line, required this.onTap});
 
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: HomeFeedTokens.background,
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Column(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 2,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFC8C5BC),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'What are you sharing?',
-                    style: AppFonts.inter(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w500,
-                      color: HomeFeedTokens.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                ],
-              ),
-              const SizedBox(height: 23),
-              _ShareTypeRow(
-                iconAsset: PostMediaAssets.sharePieceIcon,
-                title: 'Piece',
-                subtitle: 'A finished work, up to 5 angles',
-                onTap: () => Navigator.pop(context, 'piece'),
-              ),
-              const SizedBox(height: 23),
-              _ShareTypeRow(
-                iconAsset: PostMediaAssets.shareSceneIcon,
-                title: 'Scene',
-                subtitle: 'One photo or video',
-                onTap: () => Navigator.pop(context, 'scene'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ShareTypeRow extends StatelessWidget {
-  const _ShareTypeRow({
-    required this.iconAsset,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-  });
-
-  final String iconAsset;
+  final String icon;
   final String title;
-  final String subtitle;
+  final String line;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Row(
-        children: [
-          SvgPicture.asset(
-            iconAsset,
-            width: 36,
-            height: 36,
-          ),
-          const SizedBox(width: 10),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    final c = context.studio;
+    return Semantics(
+      button: true,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Row(
             children: [
-              Text(
-                title,
-                style: AppFonts.inter(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: HomeFeedTokens.textPrimary,
-                ),
+              Container(
+                width: 44,
+                height: 44,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(12)),
+                child: StudioIcon(icon, size: 20, color: c.textPrimary),
               ),
-              const SizedBox(height: 4),
-              Text(
-                subtitle,
-                style: AppFonts.inter(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w400,
-                  color: HomeFeedTokens.textSecondary,
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: StudioType.sans(17, weight: StudioType.medium, color: c.textPrimary)),
+                    const SizedBox(height: 3),
+                    Text(line, style: StudioType.sans(13, color: c.textSecondary)),
+                  ],
                 ),
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }

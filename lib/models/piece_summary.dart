@@ -83,6 +83,7 @@ class PieceSummary {
     this.aiDisclosed = false,
     this.altText,
     this.relatedPosts,
+    this.createdAt,
   });
 
   final String id;
@@ -154,6 +155,9 @@ class PieceSummary {
   final bool aiDisclosed;
   final String? altText;
   final List<PostSummary>? relatedPosts;
+
+  /// When it was first saved (Drafts' time line).
+  final DateTime? createdAt;
 
   bool get isLive => status == null || status == 'live';
 
@@ -263,6 +267,7 @@ class PieceSummary {
           const [],
       aiDisclosed: json['aiDisclosed'] as bool? ?? false,
       altText: json['altText'] as String?,
+      createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '')?.toLocal(),
       relatedPosts: relatedPostsJson is List
           ? relatedPostsJson
               .whereType<Map<String, dynamic>>()
@@ -355,6 +360,7 @@ class PieceSummary {
         'styleTags': styleTags,
         'aiDisclosed': aiDisclosed,
         if (altText != null) 'altText': altText,
+        if (createdAt != null) 'createdAt': createdAt!.toUtc().toIso8601String(),
         if (relatedPosts != null)
           'relatedPosts': relatedPosts!.map((p) => p.toJson()).toList(),
       };
