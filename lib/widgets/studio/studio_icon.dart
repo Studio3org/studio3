@@ -66,6 +66,15 @@ abstract final class StudioIcons {
   static const String send = '$_dir/send.svg';
   static const String settings = '$_dir/settings.svg';
   static const String share = '$_dir/share.svg';
+
+  /// `SceneViewer` top bar: sound on (the board's speaker with two waves) and off (a cross).
+  static const String soundOn = '$_dir/sound_on.svg';
+  static const String soundOff = '$_dir/sound_off.svg';
+
+  /// `PieceCollectedOwner` tracker: shipped (the board's truck) and packed (a parcel, no board
+  /// glyph; drawn in the same style).
+  static const String truck = '$_dir/truck.svg';
+  static const String package = '$_dir/package.svg';
   static const String video = '$_dir/video.svg';
 }
 

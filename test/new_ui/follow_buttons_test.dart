@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:studio3/models/feed_item.dart';
 import 'package:studio3/models/feed_preview_item.dart';
-import 'package:studio3/models/post_summary.dart';
 import 'package:studio3/screens/profile/widgets/profile_header.dart';
 import 'package:studio3/theme/app_theme.dart';
 import 'package:studio3/theme/home_feed_tokens.dart';
@@ -11,7 +9,6 @@ import 'package:studio3/widgets/explore/explore_browse.dart';
 import 'package:studio3/widgets/follow_button.dart';
 import 'package:studio3/widgets/piece_detail/collect_artist_row.dart';
 import 'package:studio3/widgets/piece_detail/piece_artist_row.dart';
-import 'package:studio3/widgets/reels/reel_description_sheet.dart';
 
 Widget _app(Widget home) {
   return MaterialApp(
@@ -90,20 +87,11 @@ void main() {
     expect(FollowState.pending.filled, isFalse);
   });
 
-  testWidgets('Follow buttons on the piece, profile, explore, and reels toggle together', (
+  // The Scene viewer's white Follow is covered in phase13_scenes_test.dart.
+  testWidgets('Follow buttons on the piece, profile and explore toggle together', (
     tester,
   ) async {
     final artist = _artist();
-    final scene = FeedItem.post(
-      const PostSummary(
-        id: 'scene',
-        caption: 'In the studio',
-        authorName: 'Amara Osei',
-        authorUsername: 'amara',
-      ),
-    );
-    final scroll = ScrollController();
-    addTearDown(scroll.dispose);
 
     final surfaces = <String, Widget Function(FollowState, VoidCallback)>{
       'shared button': (state, toggle) => Align(
@@ -127,13 +115,6 @@ void main() {
       ),
       'explore artist': (state, toggle) =>
           ExploreArtistTile(name: 'Amara Osei', followLabel: state.actionLabel, onFollow: toggle),
-      'reel caption': (state, toggle) => ReelDescriptionSheet(
-        item: scene,
-        followState: state,
-        onFollowToggle: toggle,
-        onCommentPosted: () {},
-        scrollController: scroll,
-      ),
     };
 
     for (final entry in surfaces.entries) {

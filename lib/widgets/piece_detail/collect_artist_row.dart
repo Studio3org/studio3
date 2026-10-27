@@ -12,7 +12,8 @@ import '../studio/studio_button.dart';
 /// handle 12, and the small Follow (34, radius 8) only; 12 20 padding and a 1 px Line
 /// under the row. The board draws Follow as an outline; it keeps the app's follow
 /// convention instead (filled Follow, outline Following with a check / Requested; section 0.3).
-/// On your own piece, "Your piece" (13 Graphite) replaces Follow (`ListOwnerPiece`).
+/// On your own piece, "Your piece" (13 Graphite) replaces Follow (`ListOwnerPiece`); on your
+/// own sold piece it reads "Your work" (`PieceCollectedArtist`).
 class CollectArtistRow extends StatelessWidget {
   const CollectArtistRow({
     super.key,
@@ -21,7 +22,10 @@ class CollectArtistRow extends StatelessWidget {
     this.followBusy = false,
     required this.onFollowToggle,
     this.isOwner = false,
+    this.ownerLabel = 'Your piece',
   });
+
+  final String ownerLabel;
 
   final FeedPreviewItem item;
   final FollowState followState;
@@ -77,7 +81,7 @@ class CollectArtistRow extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           if (isOwner)
-            Text('Your piece', style: StudioType.label13(color: c.textSecondary))
+            Text(ownerLabel, style: StudioType.label13(color: c.textSecondary))
           else
             StudioButton(
               label: followState.actionLabel,

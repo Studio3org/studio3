@@ -8,6 +8,7 @@ import 'package:studio3/theme/studio_colors.dart';
 import 'package:studio3/theme/studio_type.dart';
 import 'package:studio3/widgets/piece_detail/available_collect_bar.dart';
 import 'package:studio3/widgets/piece_detail/collect_artist_row.dart';
+import 'package:studio3/widgets/piece_detail/collected_bar.dart';
 import 'package:studio3/widgets/piece_detail/piece_series_row.dart';
 import 'package:studio3/widgets/studio/studio_avatar.dart';
 import 'package:studio3/widgets/studio/studio_button.dart';
@@ -161,10 +162,12 @@ void main() {
     expect(find.bySemanticsLabel('Message'), findsNothing);
   });
 
-  testWidgets('sold: the Collected chip replaces Collect, never "Sold"', (tester) async {
+  testWidgets('sold: the Collected button replaces Collect, never "Sold", no price', (tester) async {
     await _pumpPage(tester, _piece(status: 'sold'));
-    expect(find.byType(StudioStatusChip), findsOneWidget);
+    // `PieceCollected` (Phase 13, 17.6): the iridescent Collected button, not the chip.
+    expect(find.byType(CollectedButton), findsOneWidget);
     expect(find.text('Collected'), findsOneWidget);
+    expect(find.text(r'$3,500'), findsNothing);
     expect(find.text('Sold'), findsNothing);
     expect(find.text('Collect'), findsNothing);
   });

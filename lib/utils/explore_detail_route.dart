@@ -7,9 +7,11 @@ import '../screens/piece_detail_page.dart';
 import 'reels_route.dart';
 import 'slide_up_page_route.dart';
 
-Future<void> openExploreDetail(BuildContext context, FeedItem item) {
-  if (item.type == FeedItemType.post && item.isVideo) {
-    return openReelsForItem(context, item);
+/// Opens a piece on its page, or a Scene (photo or video) in the Scene viewer. [from] is the
+/// list it was tapped in, so the viewer swipes through those Scenes in the same order.
+Future<void> openExploreDetail(BuildContext context, FeedItem item, {List<FeedItem>? from}) {
+  if (item.type == FeedItemType.post) {
+    return openScenes(context, item, from: from);
   }
 
   return openPieceDetailPreview(context, FeedPreviewItem.fromFeedItem(item));

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../models/feed_preview_item.dart';
+import '../models/order.dart';
 import '../services/api_exception.dart';
 import '../services/auth_session.dart';
 import '../services/bid_service.dart';
@@ -12,7 +13,9 @@ import '../theme/studio_colors.dart';
 import '../utils/content_detail_loader.dart';
 import '../utils/require_login.dart';
 import 'auction_flow.dart';
+import 'conversation_thread_page.dart';
 import 'edit_piece_page.dart';
+import 'order_detail_page.dart';
 import 'series_view_page.dart';
 import '../widgets/auction/auction_widgets.dart';
 import '../widgets/content_actions_sheet.dart';
@@ -20,6 +23,7 @@ import '../widgets/piece_detail/ask_about_piece_sheet.dart';
 import '../widgets/piece_detail/available_collect_bar.dart';
 import '../widgets/piece_detail/collect_artist_row.dart';
 import '../widgets/piece_detail/collect_piece_sheet.dart';
+import '../widgets/piece_detail/collected_bar.dart';
 import '../widgets/piece_detail/manage_auction_sheet.dart';
 import '../widgets/piece_detail/detail_follow_state.dart';
 import '../widgets/piece_detail/detail_hero_image.dart';
@@ -36,6 +40,10 @@ import '../widgets/piece_detail/piece_series_row.dart';
 /// icons, artist row, title block, description, Made with, The story behind this piece,
 /// Details, series card, and the fixed Price / Collect bar. An auction piece
 /// (`BuyPieceScrolled`, `BidLeading`, `BidOutbid`) has the auction bar instead.
+///
+/// Sold (`PieceCollected*`): no price and no Details; the Collected bar with the message
+/// button, or, while it is on its way, the delivery card for the collector (no Save) and the
+/// artist ("Your work").
 class AvailablePieceDetailPage extends StatefulWidget {
   const AvailablePieceDetailPage({
     super.key,
@@ -68,6 +76,7 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
 
   /// The bar's height, for the scroll padding and the save toast.
   double get _barHeight {
+    if (_sold) return PieceCollectedBar.totalHeight(context, withCard: _delivery != null);
     final base = AvailableCollectBar.totalHeight(
       context,
       hasInfo: item.isAuction || _priceDisplay != null,
@@ -78,6 +87,60 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
 
   /// The viewer's own top bid here, from this phone (`BidStore`).
   int? _myTopBid;
+
+  bool get _sold => item.status == 'sold';
+
+  /// On a sold piece: the viewer's purchase, or as the artist their sale.
+  Order? _order;
+
+  PieceDelivery? get _delivery => _order == null
+      ? null
+      : PieceDelivery.fromOrder(
+          _order!,
+          forArtist: _isOwner,
+          artistName: item.displayName,
+        );
+
+  /// The viewer collected this piece.
+  bool get _isCollector => _order != null && !_isOwner;
+
+  Future<void> _loadOrder({bool refresh = false}) async {
+    if (!_sold || !AuthSession.instance.isLoggedIn) return;
+    final order = await findViewerOrder(item.id, asSeller: _isOwner, refresh: refresh);
+    if (mounted) setState(() => _order = order);
+  }
+
+  Future<void> _messageArtist() async {
+    if (!await requireLogin(
+      context,
+      title: 'Sign in to message',
+      message: 'Log in or create a free account to message artists.',
+    )) {
+      return;
+    }
+    if (!mounted) return;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => ConversationThreadPage(
+          otherPartyUsername: _authorHandle,
+          otherPartyName: item.displayName,
+          otherPartyAvatarUrl: item.authorAvatarUrl,
+        ),
+      ),
+    );
+  }
+
+  /// The card's arrow and See shipping steps: the order, with its tracking.
+  Future<void> _openOrder() async {
+    final order = _order;
+    if (order == null) return;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => OrderDetailPage(orderId: order.id, isSeller: _isOwner),
+      ),
+    );
+    if (mounted) _loadOrder(refresh: true);
+  }
 
   AuctionBarState get _auctionState => auctionBarState(
     auction: item.auction,
@@ -144,6 +207,7 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
     applySaveItem(loaded);
     applyLikeItem(loaded);
     applyFollowState(loaded);
+    if (_order == null) _loadOrder();
   }
 
   Future<void> _onCollect() async {
@@ -227,8 +291,9 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
     final price = _priceDisplay;
     final collectBarHeight = _barHeight;
     final isLive = item.isLive;
-    final sold = item.status == 'sold';
-    final details = PieceDetailsSection.rowsFor(item);
+    final sold = _sold;
+    // A sold page is about the art: no price, no Details (`PieceCollected`).
+    final details = sold ? const <(String, String)>[] : PieceDetailsSection.rowsFor(item);
 
     final sections = <Widget>[
       _padded(PieceTitleBlock(item: item)),
@@ -291,6 +356,7 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
                         right: 0,
                         child: PieceTopIcons(
                           isOwner: _isOwner,
+                          showSave: !_isCollector,
                           saved: saved,
                           onBack: () => Navigator.pop(context),
                           onSave: toggleSave,
@@ -316,6 +382,7 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
                         followBusy: followBusy,
                         onFollowToggle: toggleFollow,
                         isOwner: _isOwner,
+                        ownerLabel: sold ? 'Your work' : 'Your piece',
                       ),
                       // Like and comment stay on the page (plan rule 4); Save and Share
                       // are in the top icons.
@@ -344,7 +411,13 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
                 ),
               ],
             ),
-            if (item.isAuction && !sold)
+            if (sold)
+              PieceCollectedBar(
+                onMessage: _isOwner ? null : _messageArtist,
+                delivery: _delivery,
+                onLink: _openOrder,
+              )
+            else if (item.isAuction)
               Positioned(
                 left: 0,
                 right: 0,
@@ -359,8 +432,7 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
               AvailableCollectBar(
                 priceDisplay: price,
                 onCollect: isLive ? _onCollect : null,
-                statusLabel: isLive || sold ? null : _statusLabel(item.status),
-                collected: sold,
+                statusLabel: isLive ? null : _statusLabel(item.status),
               ),
           ],
         ),

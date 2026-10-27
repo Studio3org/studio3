@@ -25,7 +25,12 @@ class ReelsPage extends StatefulWidget {
     this.initialItems,
     this.activeListenable,
     this.jumpRequests,
+    this.onBack,
   });
+
+  /// The viewer's back arrow; defaults to popping it. The shell's own Reels page passes one
+  /// that returns to the page it came from.
+  final VoidCallback? onBack;
 
   final int initialIndex;
   final List<FeedItem>? initialItems;
@@ -228,7 +233,9 @@ class _ReelsPageState extends State<ReelsPage>
 
   @override
   Widget build(BuildContext context) {
-    final bottomPadding = MediaQuery.paddingOf(context).bottom + 96;
+    // Opened on its own (`SceneViewer`) it is full screen; as the shell's page the floating
+    // nav sits under it, so the controls stay above the nav.
+    final bottomInset = widget.activeListenable != null ? 100.0 : 0.0;
 
     return Scaffold(
       backgroundColor: StudioColors.ink,
@@ -272,7 +279,8 @@ class _ReelsPageState extends State<ReelsPage>
                       key: ValueKey(_items[index].id),
                       item: _items[index],
                       isActive: index == _currentIndex && _playbackActive,
-                      bottomOverlayPadding: bottomPadding,
+                      bottomInset: bottomInset,
+                      onBack: widget.onBack,
                     );
                   },
                 ),

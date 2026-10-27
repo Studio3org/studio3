@@ -333,7 +333,7 @@ class _ExplorePageState extends State<ExplorePage>
       addShelf(
         ExploreSceneShelf(
           items: scenes,
-          onOpen: (item) => openExploreDetail(context, item),
+          onOpen: (item) => openExploreDetail(context, item, from: scenes),
           onSeeAll: () => _seeAll(ExploreCategory.scenes),
         ),
       );
@@ -397,7 +397,7 @@ class _ExplorePageState extends State<ExplorePage>
                 const SizedBox(height: exploreShelfInnerGap),
                 ExploreBrowseGrid(
                   items: items,
-                  onOpen: (item) => openExploreDetail(context, item),
+                  onOpen: (item) => openExploreDetail(context, item, from: items),
                 ),
               ],
             ),

@@ -15,6 +15,7 @@ class PostSummary {
     this.isProcess = false,
     this.likeCount = 0,
     this.commentCount = 0,
+    this.saveCount,
     this.isLiked = false,
     this.isSaved = false,
     this.authorUsername,
@@ -39,6 +40,9 @@ class PostSummary {
   final bool isProcess;
   final int likeCount;
   final int commentCount;
+
+  /// How many people saved the Scene; null until the server sends it (BACKEND_CHANGES B33).
+  final int? saveCount;
   final bool isLiked;
   final bool isSaved;
   final String? authorUsername;
@@ -68,6 +72,7 @@ class PostSummary {
       isProcess: json['isProcess'] as bool? ?? false,
       likeCount: _intFrom(json['likeCount'] ?? json['likes']) ?? 0,
       commentCount: _intFrom(json['commentCount'] ?? json['comments']) ?? 0,
+      saveCount: _intFrom(json['saveCount']),
       isLiked: json['isLiked'] as bool? ?? false,
       isSaved: json['isSaved'] as bool? ?? false,
       authorUsername:
@@ -113,6 +118,7 @@ class PostSummary {
     'isProcess': isProcess,
     'likeCount': likeCount,
     'commentCount': commentCount,
+    if (saveCount != null) 'saveCount': saveCount,
     'isLiked': isLiked,
     'isSaved': isSaved,
     if (authorUsername != null) 'authorUsername': authorUsername,

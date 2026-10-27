@@ -42,6 +42,14 @@ class PieceRelatedScenesRow extends StatelessWidget {
   Widget build(BuildContext context) {
     if (scenes.isEmpty) return const SizedBox.shrink();
     final c = context.studio;
+    // The viewer swipes through these Scenes in this order (it fetches the rest of each).
+    final items = [
+      for (final scene in scenes)
+        if (scene.id != null)
+          FeedItem.post(
+            PostSummary(id: scene.id!, mediaUrl: scene.mediaUrl, mediaType: scene.mediaType),
+          ),
+    ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -66,13 +74,8 @@ class PieceRelatedScenesRow extends StatelessWidget {
                     ? null
                     : () => openExploreDetail(
                           context,
-                          FeedItem.post(
-                            PostSummary(
-                              id: scene.id!,
-                              mediaUrl: scene.mediaUrl,
-                              mediaType: scene.mediaType,
-                            ),
-                          ),
+                          items.firstWhere((item) => item.id == scene.id),
+                          from: items,
                         ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(12),

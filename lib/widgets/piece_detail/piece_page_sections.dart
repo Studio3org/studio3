@@ -22,8 +22,11 @@ class PieceTopIcons extends StatelessWidget {
     required this.onShare,
     required this.onMore,
     required this.onEdit,
+    this.showSave = true,
   });
 
+  /// False on a piece the viewer collected (`PieceCollectedOwner`: no Save).
+  final bool showSave;
   final bool isOwner;
   final bool saved;
   final VoidCallback onBack;
@@ -37,7 +40,7 @@ class PieceTopIcons extends StatelessWidget {
     return StudioTopIconBar(
       leading: [StudioTopIcon(icon: StudioIcons.back, semanticLabel: 'Back', onTap: onBack)],
       trailing: [
-        if (!isOwner)
+        if (!isOwner && showSave)
           StudioTopIcon(
             icon: saved ? StudioIcons.saved : StudioIcons.save,
             semanticLabel: saved ? 'Saved' : 'Save',

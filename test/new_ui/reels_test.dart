@@ -5,7 +5,6 @@ import 'package:studio3/models/post_summary.dart';
 import 'package:studio3/theme/app_theme.dart';
 import 'package:studio3/theme/studio_colors.dart';
 import 'package:studio3/widgets/reels/reel_overlay.dart';
-import 'package:studio3/widgets/reels/scene_video_comment_sheet.dart';
 import 'package:studio3/widgets/studio/studio_icon.dart';
 
 FeedItem _reel() {
@@ -16,6 +15,7 @@ FeedItem _reel() {
       mediaType: 'video',
       authorName: 'Amara Osei',
       authorUsername: 'amara',
+      commentCount: 3,
     ),
   );
 }
@@ -42,7 +42,7 @@ Widget _app({
 }
 
 void main() {
-  testWidgets('the reel rail keeps its actions and uses the board icons we have', (
+  testWidgets('the Scene viewer controls: Save, Comments, Share, no likes, the board icons', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -51,8 +51,8 @@ void main() {
           height: 700,
           child: ReelOverlay(
             item: _reel(),
-            muted: false,
-            onToggleMute: () {},
+            onToggleSound: () {},
+            progress: ValueNotifier(0.2),
           ),
         ),
       ),
@@ -60,58 +60,39 @@ void main() {
     await tester.pump();
 
     final name = tester.widget<Text>(find.text('Amara Osei'));
-    expect(name.style?.fontSize, 14);
+    expect(name.style?.fontSize, 15);
     expect(name.style?.fontWeight, FontWeight.w500);
     expect(name.style?.fontFamily, 'Geist');
     expect(name.style?.color, StudioColors.galleryWhite);
     expect(find.text('In the studio'), findsOneWidget);
-    expect(find.text('Like'), findsOneWidget);
-    expect(find.text('Comment'), findsOneWidget);
-    expect(find.text('Save'), findsOneWidget);
-    expect(find.text('More'), findsOneWidget);
-    expect(
-      find.byWidgetPredicate((widget) => widget is StudioIcon && widget.asset == StudioIcons.chat),
-      findsOneWidget,
-    );
-    expect(
-      find.byWidgetPredicate((widget) => widget is StudioIcon && widget.asset == StudioIcons.save),
-      findsOneWidget,
-    );
-    expect(find.byIcon(Icons.favorite_border), findsOneWidget);
-    expect(find.byIcon(Icons.volume_up_rounded), findsOneWidget);
+    expect(find.text('3'), findsOneWidget);
+    for (final asset in [StudioIcons.save, StudioIcons.chat, StudioIcons.share, StudioIcons.soundOff, StudioIcons.more]) {
+      expect(
+        find.byWidgetPredicate((widget) => widget is StudioIcon && widget.asset == asset && widget.color == StudioColors.galleryWhite),
+        findsOneWidget,
+        reason: asset,
+      );
+    }
+    expect(find.byIcon(Icons.favorite_border), findsNothing);
+    expect(find.text('Like'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('the comment sheet follows light and dark, and 375 does not overflow', (
-    tester,
-  ) async {
-    Future<void> pump({required bool dark, TextScaler textScaler = TextScaler.noScaling}) {
-      return tester.pumpWidget(
+  testWidgets('375 wide with large text does not overflow, light and dark', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(375, 667));
+    for (final dark in [false, true]) {
+      await tester.pumpWidget(
         _app(
           dark: dark,
-          textScaler: textScaler,
-          home: const SceneVideoCommentSheet(postId: 'scene-1', authorName: 'Amara Osei'),
+          textScaler: const TextScaler.linear(1.4),
+          home: ReelOverlay(item: _reel(), onToggleSound: () {}, progress: ValueNotifier(0)),
         ),
       );
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      // The viewer is dark in both themes.
+      expect(tester.widget<Text>(find.text('Amara Osei')).style?.color, StudioColors.galleryWhite);
     }
-
-    await tester.binding.setSurfaceSize(const Size(375, 667));
-    await pump(dark: false, textScaler: const TextScaler.linear(1.4));
-    await tester.pump();
-    expect(tester.takeException(), isNull);
-    final lightTitle = tester.widget<Text>(find.text("Comment on Amara Osei's scene"));
-    expect(lightTitle.style?.color, const Color(0xFF111111));
-    expect(lightTitle.style?.fontFamily, 'Geist');
-    expect(find.text('Post comment'), findsOneWidget);
-
-    await tester.binding.setSurfaceSize(const Size(440, 956));
-    await pump(dark: true);
-    await tester.pump();
-    expect(tester.takeException(), isNull);
-    expect(
-      tester.widget<Text>(find.text("Comment on Amara Osei's scene")).style?.color,
-      const Color(0xFFFAFAF8),
-    );
     await tester.binding.setSurfaceSize(null);
   });
 }

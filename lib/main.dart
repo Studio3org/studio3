@@ -354,6 +354,9 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   final HomeFeedStore _homeFeedStore = HomeFeedStore();
   int _currentPage = _kHomePage;
 
+  /// Where the Reels page's back arrow returns to.
+  int _pageBeforeReels = _kHomePage;
+
   int? _lastNavTapIndex;
   DateTime? _lastNavTapAt;
 
@@ -376,6 +379,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       key: _reelsKey,
       activeListenable: _reelsActive,
       jumpRequests: _reelsJumpRequest,
+      onBack: _leaveReels,
     ),
     SavedPage(key: _savedKey),
     EventPage(key: _eventKey),
@@ -424,6 +428,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   }
 
   void _showReelsPage() {
+    if (_currentPage != _kReelsPage) _pageBeforeReels = _currentPage;
     _showProfile.value = false;
     _currentPage = _kReelsPage;
     _reelsActive.value = true;
@@ -431,6 +436,11 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     if (_pageController.hasClients) {
       _pageController.jumpToPage(_kReelsPage);
     }
+  }
+
+  void _leaveReels() {
+    final navIndex = _navIndexForPage(_pageBeforeReels);
+    _onNavTap(navIndex == BottomNavIndex.none ? BottomNavIndex.home : navIndex);
   }
 
   void _goHome() {
@@ -508,6 +518,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   void _onPageChanged(int page) {
     // Covers swipe-to-switch too, not just bottom-nav taps (see _onNavTap).
     FocusManager.instance.primaryFocus?.unfocus();
+    if (page == _kReelsPage && _currentPage != _kReelsPage) _pageBeforeReels = _currentPage;
     _currentPage = page;
     _reelsActive.value = page == _kReelsPage;
     final navIndex = _navIndexForPage(page);

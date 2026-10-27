@@ -18,40 +18,59 @@ import '../studio/studio_icon.dart';
 import '../studio/studio_sheet.dart';
 import '../studio/studio_toast.dart';
 
-/// Comment list + add-comment bottom sheet for a piece or scene. List/create only — no
-/// like/reply (backend has no API for those).
+/// Comment list + add-comment bottom sheet for a piece or Scene (`SceneComments`).
 ///
-/// No board: a board sheet (scrim, 24 top corners, grabber, ≤ 90 %), comment rows with
-/// a 32 avatar, name 13/500 and Mono time, and the `Conversation` composer (42 pill field
-/// on Paper, 40 round send, grey until there is text).
+/// Grabber (10 above, 6 below), "Comments" 15/500 with the Mono 12 count, a Line, then
+/// rows: 32 photo, 12 gap, name 13/500 (an "Artist" pill on the artist's own comments), Mono
+/// 11 time, the text 14/1.45 and Reply 12 in Graphite, 10 above and below. Reply starts a new
+/// comment with "@name" (no likes, no threads). Press and hold someone else's comment to
+/// report it or block them. At the bottom: your photo and the 42 pill field, with the
+/// `Conversation` send button (grey until there is text). Over a Scene ([overMedia]) the
+/// sheet takes the lower 60 % and the Scene keeps playing behind a 35 % shade.
 class PieceCommentSheet extends StatefulWidget {
   const PieceCommentSheet({
     super.key,
     required this.contentId,
     required this.isScene,
     required this.scrollController,
+    this.commentCount,
+    this.artistUsername,
+    this.onCountChanged,
   });
 
   final String contentId;
   final bool isScene;
   final ScrollController scrollController;
 
+  /// Shown after the title; null leaves it out.
+  final int? commentCount;
+
+  /// Their comments carry the Artist label.
+  final String? artistUsername;
+
+  /// Called with the new count after a comment is posted.
+  final ValueChanged<int>? onCountChanged;
+
   static Future<void> show(
     BuildContext context, {
     required String contentId,
     required bool isScene,
+    int? commentCount,
+    String? artistUsername,
+    bool overMedia = false,
+    ValueChanged<int>? onCountChanged,
   }) {
     final c = context.studio;
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: c.background,
-      barrierColor: c.scrim,
+      barrierColor: overMedia ? const Color(0x59000000) : c.scrim,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(StudioRadius.sheet)),
       ),
       builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.75,
+        initialChildSize: overMedia ? 0.61 : 0.75,
         minChildSize: 0.5,
         maxChildSize: StudioSize.sheetMaxHeightFactor,
         expand: false,
@@ -59,6 +78,9 @@ class PieceCommentSheet extends StatefulWidget {
           contentId: contentId,
           isScene: isScene,
           scrollController: scrollController,
+          commentCount: commentCount,
+          artistUsername: artistUsername,
+          onCountChanged: onCountChanged,
         ),
       ),
     );
@@ -71,6 +93,8 @@ class PieceCommentSheet extends StatefulWidget {
 class _PieceCommentSheetState extends State<PieceCommentSheet> {
   final _comments = <CommentSummary>[];
   final _textController = TextEditingController();
+  final _focusNode = FocusNode();
+  late int? _count = widget.commentCount;
   String? _nextCursor;
   bool _loading = true;
   bool _loadingMore = false;
@@ -109,6 +133,7 @@ class _PieceCommentSheetState extends State<PieceCommentSheet> {
     ChatSocketService.instance.offCommentNew();
     BlockedAuthorsStore.instance.removeListener(_onAuthorBlocked);
     _textController.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
@@ -204,6 +229,10 @@ class _PieceCommentSheetState extends State<PieceCommentSheet> {
           ? await SocialService.instance.commentOnPost(widget.contentId, body)
           : await SocialService.instance.commentOnPiece(widget.contentId, body);
       if (!mounted) return;
+      if (_count != null) {
+        _count = _count! + 1;
+        widget.onCountChanged?.call(_count!);
+      }
       setState(() {
         final index = _comments.indexWhere((c) => c.id == tempId);
         if (index != -1) {
@@ -226,6 +255,29 @@ class _PieceCommentSheetState extends State<PieceCommentSheet> {
     }
   }
 
+  /// Reply: a new comment that starts with "@name".
+  void _reply(CommentSummary comment) {
+    if (!AuthSession.instance.isLoggedIn) {
+      requireLogin(
+        context,
+        title: 'Sign in to comment',
+        message: 'Log in or create a free account to comment.',
+      );
+      return;
+    }
+    final name = (comment.authorName != null && comment.authorName!.isNotEmpty)
+        ? comment.authorName!
+        : (comment.authorUsername ?? '');
+    if (name.isEmpty) return;
+    final text = '@$name ';
+    _textController.value = TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
+    _focusNode.requestFocus();
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = context.studio;
@@ -233,12 +285,23 @@ class _PieceCommentSheetState extends State<PieceCommentSheet> {
       children: [
         const SizedBox(height: 10),
         const StudioSheetGrabber(),
-        const SizedBox(height: 12),
-        Text(
-          'Comments',
-          style: StudioType.sans(16, weight: StudioType.medium, color: c.textPrimary),
+        const SizedBox(height: 6),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            Text(
+              'Comments',
+              style: StudioType.sans(15, weight: StudioType.medium, color: c.textPrimary),
+            ),
+            if (_count != null && _count! > 0) ...[
+              const SizedBox(width: 4),
+              Text('${_count!}', style: StudioType.mono(12, color: c.textSecondary)),
+            ],
+          ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         Divider(height: 1, color: c.line),
         Expanded(child: _buildList(c)),
         _buildInputBar(c),
@@ -261,9 +324,10 @@ class _PieceCommentSheetState extends State<PieceCommentSheet> {
       );
     }
     final comments = _visibleComments;
+    final artist = widget.artistUsername?.toLowerCase();
     return ListView.builder(
       controller: widget.scrollController,
-      padding: const EdgeInsets.fromLTRB(20, 8, 8, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
       itemCount: comments.length + (_loadingMore ? 1 : 0),
       itemBuilder: (context, index) {
         if (index >= comments.length) {
@@ -278,13 +342,21 @@ class _PieceCommentSheetState extends State<PieceCommentSheet> {
             ),
           );
         }
-        return _CommentTile(comment: comments[index]);
+        final comment = comments[index];
+        return _CommentTile(
+          comment: comment,
+          isArtist: artist != null &&
+              artist.isNotEmpty &&
+              comment.authorUsername?.toLowerCase() == artist,
+          onReply: () => _reply(comment),
+        );
       },
     );
   }
 
-  /// `Conversation` composer: 1 px rule above, 10 12 padding, 42 pill field on Paper
-  /// (15, placeholder tertiary), 8 gap, 40 round send (Line until there is text, then Ink).
+  /// `SceneComments` composer: 1 px rule above, 10 16 padding, your 32 photo, 10 gap, the 42
+  /// pill field on Surface (15, placeholder tertiary), 8 gap, the `Conversation` 40 round send
+  /// (Line until there is text, then Ink).
   Widget _buildInputBar(StudioColors c) {
     final loggedIn = AuthSession.instance.isLoggedIn;
     final safe = MediaQuery.viewPaddingOf(context).bottom;
@@ -293,9 +365,9 @@ class _PieceCommentSheetState extends State<PieceCommentSheet> {
     final style = StudioType.sans(15, color: c.textPrimary);
     return Container(
       padding: EdgeInsets.fromLTRB(
-        12,
+        16,
         10,
-        12,
+        16,
         keyboard > 0 ? keyboard + 10 : (safe > 0 ? safe : StudioSize.noInsetBottomPadding),
       ),
       decoration: BoxDecoration(
@@ -305,6 +377,13 @@ class _PieceCommentSheetState extends State<PieceCommentSheet> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
+          if (loggedIn) ...[
+            Padding(
+              padding: const EdgeInsets.only(bottom: 5),
+              child: StudioAvatar(url: AuthSession.instance.user?.profilePhotoUrl, size: 32),
+            ),
+            const SizedBox(width: 10),
+          ],
           Expanded(
             child: Container(
               constraints: const BoxConstraints(minHeight: 42),
@@ -313,6 +392,7 @@ class _PieceCommentSheetState extends State<PieceCommentSheet> {
               decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(21)),
               child: TextField(
                 controller: _textController,
+                focusNode: _focusNode,
                 minLines: 1,
                 maxLines: 4,
                 // Guests can read the thread; tapping to write asks them to
@@ -336,7 +416,7 @@ class _PieceCommentSheetState extends State<PieceCommentSheet> {
                   border: InputBorder.none,
                   enabledBorder: InputBorder.none,
                   focusedBorder: InputBorder.none,
-                  hintText: loggedIn ? 'Add a comment…' : 'Log in to comment',
+                  hintText: loggedIn ? 'Add a comment' : 'Log in to comment',
                   hintStyle: style.copyWith(color: c.textTertiary),
                 ),
               ),
@@ -381,9 +461,11 @@ class _PieceCommentSheetState extends State<PieceCommentSheet> {
 }
 
 class _CommentTile extends StatelessWidget {
-  const _CommentTile({required this.comment});
+  const _CommentTile({required this.comment, required this.isArtist, required this.onReply});
 
   final CommentSummary comment;
+  final bool isArtist;
+  final VoidCallback onReply;
 
   @override
   Widget build(BuildContext context) {
@@ -391,82 +473,93 @@ class _CommentTile extends StatelessWidget {
     final canNavigate = comment.authorUsername != null && comment.authorUsername!.trim().isNotEmpty;
     void onTapAuthor() => openUserProfile(context, comment.authorUsername);
     final me = AuthSession.instance.user?.username.toLowerCase();
-    // Only real (server-saved) comments by someone else can be reported.
+    // Only real (server-saved) comments by someone else can be reported. Deleting your own
+    // (or, for the artist, anyone's) needs the server (BACKEND_CHANGES B33).
     final canReport =
         comment.id.isNotEmpty &&
         !comment.id.startsWith('local-') &&
         (me == null || comment.authorUsername?.toLowerCase() != me);
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          GestureDetector(
-            onTap: canNavigate ? onTapAuthor : null,
-            behavior: canNavigate ? HitTestBehavior.opaque : HitTestBehavior.deferToChild,
-            child: StudioAvatar(url: comment.authorAvatarUrl, size: 32),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: GestureDetector(
-                        onTap: canNavigate ? onTapAuthor : null,
-                        behavior: canNavigate
-                            ? HitTestBehavior.opaque
-                            : HitTestBehavior.deferToChild,
-                        child: Text(
-                          (comment.authorName != null && comment.authorName!.isNotEmpty)
-                              ? comment.authorName!
-                              : (comment.authorUsername ?? 'User'),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: StudioType.label13(
-                            weight: StudioType.medium,
-                            color: c.textPrimary,
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onLongPress: canReport
+          ? () => showContentActionsSheet(
+                context,
+                target: ReportTarget.comment(comment.id),
+                authorUsername: comment.authorUsername,
+              )
+          : null,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            GestureDetector(
+              onTap: canNavigate ? onTapAuthor : null,
+              behavior: canNavigate ? HitTestBehavior.opaque : HitTestBehavior.deferToChild,
+              child: StudioAvatar(url: comment.authorAvatarUrl, size: 32),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: GestureDetector(
+                          onTap: canNavigate ? onTapAuthor : null,
+                          behavior: canNavigate
+                              ? HitTestBehavior.opaque
+                              : HitTestBehavior.deferToChild,
+                          child: Text(
+                            (comment.authorName != null && comment.authorName!.isNotEmpty)
+                                ? comment.authorName!
+                                : (comment.authorUsername ?? 'User'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: StudioType.label13(
+                              weight: StudioType.medium,
+                              color: c.textPrimary,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    // Times are facts: Geist Mono.
-                    Text(
-                      _timeAgo(comment.createdAt),
-                      style: StudioType.mono11(color: c.textTertiary),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Text(comment.body, style: StudioType.body14(height: 1.45, color: c.textPrimary)),
-              ],
-            ),
-          ),
-          if (canReport)
-            Semantics(
-              button: true,
-              label: 'More',
-              excludeSemantics: true,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => showContentActionsSheet(
-                  context,
-                  target: ReportTarget.comment(comment.id),
-                  authorUsername: comment.authorUsername,
-                ),
-                child: SizedBox.square(
-                  dimension: 44,
-                  child: Center(
-                    child: StudioIcon(StudioIcons.more, size: 18, color: c.textTertiary),
+                      if (isArtist) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(StudioRadius.round),
+                            border: Border.all(color: c.line),
+                          ),
+                          child: Text('Artist', style: StudioType.sans(11, color: c.textSecondary)),
+                        ),
+                      ],
+                      const SizedBox(width: 6),
+                      // Times are facts: Geist Mono.
+                      Text(
+                        _timeAgo(comment.createdAt),
+                        style: StudioType.mono11(color: c.textTertiary),
+                      ),
+                    ],
                   ),
-                ),
+                  const SizedBox(height: 3),
+                  Text(comment.body, style: StudioType.body14(height: 1.45, color: c.textPrimary)),
+                  const SizedBox(height: 3),
+                  Semantics(
+                    button: true,
+                    child: GestureDetector(
+                      onTap: onReply,
+                      behavior: HitTestBehavior.opaque,
+                      child: Text('Reply', style: StudioType.sans(12, color: c.textSecondary)),
+                    ),
+                  ),
+                ],
               ),
             ),
-        ],
+          ],
+        ),
       ),
     );
   }
