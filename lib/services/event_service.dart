@@ -166,6 +166,34 @@ class EventService {
   }
 
   /// The viewer's tickets for one event, each with its own code (`EvTicket`).
+  /// Join the waitlist (`EvWaitlistJoin`): how many of each sold-out type the viewer wants.
+  /// Free, no card. Returns the event's waitlist as the server now sees it.
+  Future<EventWaitlist> joinWaitlist(String eventId, Map<EventTicketType, int> wanted) async {
+    final json = await _api.post(
+      '/api/events/$eventId/waitlist',
+      body: {
+        'items': [
+          for (final e in wanted.entries)
+            if (e.value > 0) {'ticketTypeId': e.key.id, 'quantity': e.value},
+        ],
+      },
+      auth: true,
+    );
+    return EventWaitlist.fromJson(_api.extractData(json) as Map<String, dynamic>);
+  }
+
+  /// Leave the waitlist (tap You're on the waitlist).
+  Future<void> leaveWaitlist(String eventId) async {
+    await _api.delete('/api/events/$eventId/waitlist', auth: true);
+  }
+
+  /// Give up the tickets held for the viewer and keep their place for the other types
+  /// (`EvWaitlistHeld` "Keep waiting for [type]").
+  Future<EventWaitlist> releaseHold(String eventId) async {
+    final json = await _api.post('/api/events/$eventId/waitlist/hold/release', auth: true);
+    return EventWaitlist.fromJson(_api.extractData(json) as Map<String, dynamic>);
+  }
+
   Future<List<EventTicket>> myTickets(String eventId) async {
     final json = await _api.get('/api/user/me/tickets?eventId=$eventId', auth: true);
     final data = _api.extractData(json);

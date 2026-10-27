@@ -218,7 +218,8 @@ class YourEventRow extends StatelessWidget {
 }
 
 /// A saved event (`EvMyTickets` Saved): 132 × 176 flyer at radius 10, the name 14/500 8 below,
-/// the Mono 11 day, then "Only n left" (red, 5 or fewer) or "Sold out" (Tertiary).
+/// the Mono 11 day, then "On waitlist" (Ink, `EvSoldOut`), "Only n left" (red, 5 or fewer) or
+/// "Sold out" (Tertiary).
 class SavedEventCard extends StatelessWidget {
   const SavedEventCard({super.key, required this.event, required this.onTap});
 
@@ -229,7 +230,9 @@ class SavedEventCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.studio;
     final left = event.spotsLeft;
-    final (String? status, Color statusColor) = event.isFull
+    final (String? status, Color statusColor) = event.waitlist?.joined == true
+        ? ('On waitlist', c.textPrimary)
+        : event.isFull
         ? ('Sold out', c.textTertiary)
         : (left != null && left > 0 && left <= 5)
         ? ('Only $left left', c.alert)

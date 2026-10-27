@@ -19,8 +19,8 @@ import 'host_guest_list_page.dart';
 /// for piece links and QR codes and Edit event; Cancel event as a grey link; the bar at the
 /// bottom with Going and Doors open.
 ///
-/// Free RSVP events today: earned, waitlist and check-in scanning need tickets (BACKEND_CHANGES
-/// B22), and a published event can't be rescheduled (B28) — those parts are left out, and the
+/// Free RSVP events today: earned and check-in scanning need tickets (BACKEND_CHANGES B22; the
+/// waitlist count shows once the server sends it), and a published event can't be rescheduled (B28) — those parts are left out, and the
 /// bar's button opens the guest list.
 class HostManagePage extends StatefulWidget {
   const HostManagePage({super.key, required this.event, this.debugEvent, this.debugNow});
@@ -177,6 +177,8 @@ class _HostManagePageState extends State<HostManagePage> {
                       stat('${e.rsvpCount}', e.capacity == null ? 'going' : 'going of ${e.capacity}'),
                       stat('${e.saveCount}', 'saved'),
                       stat('${e.lineup.length}', e.lineup.length == 1 ? 'piece' : 'pieces'),
+                      // The waitlist's size, once the server runs one (BACKEND_CHANGES B22).
+                      if (e.waitlist?.waitingCount != null) stat('${e.waitlist!.waitingCount}', 'waiting'),
                     ],
                   ),
                 ),

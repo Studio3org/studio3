@@ -225,6 +225,8 @@ class _EventTicketsSheetState extends State<EventTicketsSheet> {
 /// (`#B8B8B4` once one is picked); name 16/500 and price 16 (or Free); what it includes 13
 /// Graphite; then the places left in Mono 11 (red "Only 3 left" at 5 or fewer) and the
 /// − count + stepper. A sold-out type turns grey with "Sold out" instead of the stepper.
+/// Tickets held from the waitlist (`EvWaitlistHeld`, [heldCount]) read "2 held for you" in
+/// Mono Ink, and the stepper goes up to what is held.
 class EventTicketCard extends StatelessWidget {
   const EventTicketCard({
     super.key,
@@ -232,7 +234,12 @@ class EventTicketCard extends StatelessWidget {
     required this.count,
     required this.onAdd,
     required this.onRemove,
+    this.heldCount,
   });
+
+  /// How many are held for the viewer. Null outside the held sheet; 0 on it for a type that
+  /// isn't held, which stays white with "Sold out" on the left (`EvWaitlistHeld`).
+  final int? heldCount;
 
   final EventTicketType type;
   final int count;
@@ -242,13 +249,22 @@ class EventTicketCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.studio;
-    final soldOut = type.isSoldOut;
-    final ink = soldOut ? c.textTertiary : c.textPrimary;
+    final held = heldCount ?? 0;
+    final onHeldSheet = heldCount != null;
+    final soldOut = type.isSoldOut && held == 0;
+    final greyed = soldOut && !onHeldSheet;
+    final ink = greyed ? c.textTertiary : c.textPrimary;
     final left = type.left;
-    final max = type.maxPerOrder;
+    final max = held > 0 ? held : type.maxPerOrder;
     final String? leftLine;
     final Color leftColor;
-    if (soldOut) {
+    if (held > 0) {
+      leftLine = '$held held for you';
+      leftColor = c.textPrimary;
+    } else if (soldOut && onHeldSheet) {
+      leftLine = 'Sold out';
+      leftColor = c.textTertiary;
+    } else if (soldOut) {
       leftLine = null;
       leftColor = c.textTertiary;
     } else if (left != null && left <= 5) {
@@ -261,7 +277,7 @@ class EventTicketCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
       decoration: BoxDecoration(
-        color: soldOut ? c.surface : c.card,
+        color: greyed ? c.surface : c.card,
         borderRadius: BorderRadius.circular(StudioRadius.panel),
         border: Border.all(color: count > 0 ? _pickedBorder(context) : c.line),
       ),
@@ -288,7 +304,7 @@ class EventTicketCard extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               type.includes!.trim(),
-              style: StudioType.label13(color: soldOut ? c.textTertiary : c.textSecondary),
+              style: StudioType.label13(color: greyed ? c.textTertiary : c.textSecondary),
             ),
           ],
           const SizedBox(height: 10),
@@ -301,7 +317,9 @@ class EventTicketCard extends StatelessWidget {
                       ? const SizedBox.shrink()
                       : Text(leftLine, style: StudioType.mono(11, color: leftColor)),
                 ),
-                if (soldOut)
+                if (soldOut && onHeldSheet)
+                  const SizedBox.shrink()
+                else if (soldOut)
                   Text('Sold out', style: StudioType.mono(11, color: c.textTertiary))
                 else
                   Container(

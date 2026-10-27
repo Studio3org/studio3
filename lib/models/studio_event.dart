@@ -43,6 +43,7 @@ class StudioEvent {
     this.lineup = const [],
     this.faqs = const [],
     this.ticketTypes = const [],
+    this.waitlist,
     this.ticketCount = 0,
   });
 
@@ -107,6 +108,10 @@ class StudioEvent {
   /// How many tickets the viewer holds (`EvMyTickets` "2 tickets"). 0 for an RSVP, which has
   /// no ticket codes (BACKEND_CHANGES B22).
   final int ticketCount;
+
+  /// The waitlist on a sold-out event (`EvSoldOut`, `EvWaitlistJoin`, `EvWaitlistHeld`). Null
+  /// until the server runs one (BACKEND_CHANGES B22); the page then keeps the Save bar.
+  final EventWaitlist? waitlist;
 
   /// What Choose tickets offers: the host's ticket types, or, while every event is a free
   /// RSVP, one free General Admission place per person with the places left as its count.
@@ -269,6 +274,7 @@ class StudioEvent {
     int? spotsLeft,
     bool? isFull,
     bool? viewerIsGoing,
+    EventWaitlist? waitlist,
   }) =>
       StudioEvent(
         id: id,
@@ -303,6 +309,7 @@ class StudioEvent {
         faqs: faqs,
         ticketTypes: ticketTypes,
         ticketCount: ticketCount,
+        waitlist: waitlist ?? this.waitlist,
       );
 
   /// Enough to render a saved-events tile offline.
@@ -378,6 +385,9 @@ class StudioEvent {
               .map(EventTicketType.fromJson)
               .toList() ??
           const [],
+      waitlist: json['waitlist'] is Map<String, dynamic>
+          ? EventWaitlist.fromJson(json['waitlist'] as Map<String, dynamic>)
+          : null,
     );
   }
 
@@ -686,5 +696,50 @@ class EventRsvpResult {
         rsvpCount: (json['rsvpCount'] as num?)?.toInt() ?? 0,
         spotsLeft: (json['spotsLeft'] as num?)?.toInt(),
         isFull: json['isFull'] as bool? ?? false,
+      );
+}
+
+/// The waitlist on a sold-out event, as the server describes it (BACKEND_CHANGES B22;
+/// `EvWaitlistRules`): whether it is taking names, the viewer's place (how many of each type
+/// they want), tickets held for them with when the hold ends, and for the host how many wait.
+class EventWaitlist {
+  const EventWaitlist({
+    this.open = false,
+    this.wanted = const {},
+    this.held = const {},
+    this.heldUntil,
+    this.waitingCount,
+  });
+
+  /// Taking names (sold out, and the event hasn't started).
+  final bool open;
+
+  /// The viewer's place in line: ticket type id → how many. Empty when they aren't on it.
+  final Map<String, int> wanted;
+
+  /// Tickets held for the viewer: ticket type id → how many. Empty when nothing is held.
+  final Map<String, int> held;
+  final DateTime? heldUntil;
+
+  /// The host's view: how many people are waiting. Null for everyone else.
+  final int? waitingCount;
+
+  bool get joined => wanted.values.any((n) => n > 0);
+
+  /// A hold that hasn't run out.
+  bool isHeld(DateTime now) => held.values.any((n) => n > 0) && heldUntil != null && heldUntil!.isAfter(now);
+
+  static Map<String, int> _items(Object? raw) => {
+        for (final item in (raw as List?)?.whereType<Map<String, dynamic>>() ?? const <Map<String, dynamic>>[])
+          if ((item['ticketTypeId'] as String?)?.isNotEmpty == true)
+            item['ticketTypeId'] as String: (item['quantity'] as num?)?.toInt() ?? 0,
+      };
+
+  factory EventWaitlist.fromJson(Map<String, dynamic> json) => EventWaitlist(
+        open: json['open'] as bool? ?? false,
+        wanted: _items(json['wanted']),
+        held: _items((json['held'] as Map<String, dynamic>?)?['items']),
+        heldUntil: DateTime.tryParse((json['held'] as Map<String, dynamic>?)?['until'] as String? ?? '')?.toLocal(),
+        waitingCount: (json['waitingCount'] as num?)?.toInt(),
       );
 }

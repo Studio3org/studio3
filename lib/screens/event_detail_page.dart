@@ -15,6 +15,7 @@ import '../utils/profile_navigation.dart';
 import '../utils/require_login.dart';
 import '../widgets/events/event_detail_widgets.dart';
 import '../widgets/events/event_tickets_sheet.dart';
+import '../widgets/events/event_waitlist_sheets.dart';
 import '../widgets/follow_button.dart';
 import '../widgets/piece_detail/detail_follow_state.dart';
 import '../widgets/share/share_sheet.dart';
@@ -71,6 +72,10 @@ class _EventDetailPageState extends State<EventDetailPage> with DetailFollowStat
   StudioEvent get _event => _detail ?? widget.event;
 
   bool _rsvping = false;
+  bool _waitlistBusy = false;
+
+  /// The held sheet opens by itself once per visit (from the notification or the page).
+  bool _heldShown = false;
 
   /// Re-fetches while a piece on the bill is up for auction, so the bid under it stays
   /// current for someone standing in the room.
@@ -126,6 +131,10 @@ class _EventDetailPageState extends State<EventDetailPage> with DetailFollowStat
       if (!mounted) return;
       setState(() => _detail = full);
       _syncPolling();
+      if (!_heldShown && full.waitlist?.isHeld(DateTime.now()) == true) {
+        _heldShown = true;
+        _openHeld();
+      }
     } catch (_) {
       // The card's own fields still render. A failed refresh is not worth an error screen
       // over content that is already on the page.
@@ -241,6 +250,11 @@ class _EventDetailPageState extends State<EventDetailPage> with DetailFollowStat
   Future<void> _getTickets() async {
     final choice = await EventTicketsSheet.show(context, _event);
     if (choice == null || !mounted) return;
+    await _continueWith(choice);
+  }
+
+  /// Reserve free tickets, or go on to checkout for paid ones.
+  Future<void> _continueWith(EventTicketChoice choice) async {
     if (choice.isFree) {
       await _reserve(choice);
       return;
@@ -269,6 +283,79 @@ class _EventDetailPageState extends State<EventDetailPage> with DetailFollowStat
       choice: choice,
       email: UserService.instance.peekMeCached()?.email,
     );
+  }
+
+  /// Join waitlist (`EvSoldOut`, `EvWaitlistJoin`): pick how many of each type, then save
+  /// their place. Free, no card.
+  Future<void> _joinWaitlist() async {
+    if (!await requireLogin(
+      context,
+      title: 'Sign in to join the waitlist',
+      message: 'Log in or create a free account to go to events.',
+    )) {
+      return;
+    }
+    if (!mounted) return;
+    final wanted = await EventWaitlistJoinSheet.show(context, _event);
+    if (wanted == null || wanted.isEmpty || !mounted) return;
+    setState(() => _waitlistBusy = true);
+    try {
+      final waitlist = await EventService.instance.joinWaitlist(_event.id, wanted);
+      if (!mounted) return;
+      setState(() => _detail = _event.copyWith(waitlist: waitlist));
+      showStudioToast(context, "You're on the waitlist");
+    } on ApiException catch (e) {
+      if (mounted) showStudioToast(context, e.message, icon: null);
+    } catch (_) {
+      if (mounted) showStudioToast(context, 'Could not join the waitlist.', icon: null);
+    } finally {
+      if (mounted) setState(() => _waitlistBusy = false);
+    }
+  }
+
+  /// You're on the waitlist: tap to leave.
+  Future<void> _leaveWaitlist() async {
+    final leave = await showStudioConfirm(
+      context,
+      title: 'Leave the waitlist?',
+      message: "You'll lose your place in line.",
+      confirmLabel: 'Leave',
+      cancelLabel: 'Stay on it',
+    );
+    if (!leave || !mounted) return;
+    setState(() => _waitlistBusy = true);
+    try {
+      await EventService.instance.leaveWaitlist(_event.id);
+      if (!mounted) return;
+      setState(() => _detail = _event.copyWith(waitlist: EventWaitlist(open: _event.waitlist?.open ?? true)));
+      showStudioToast(context, 'You left the waitlist');
+    } catch (_) {
+      if (mounted) showStudioToast(context, 'Could not leave the waitlist.', icon: null);
+    } finally {
+      if (mounted) setState(() => _waitlistBusy = false);
+    }
+  }
+
+  /// Tickets held for you (`EvWaitlistHeld`).
+  Future<void> _openHeld() async {
+    final result = await EventWaitlistHeldSheet.show(context, _event);
+    if (result == null || !mounted) return;
+    switch (result.action) {
+      case WaitlistHeldAction.buy:
+        await _continueWith(result.choice!);
+      case WaitlistHeldAction.expired:
+        showStudioToast(context, 'Your hold ended, so the tickets went to the next person.', icon: null);
+        await _loadDetail();
+      case WaitlistHeldAction.keepWaiting:
+        try {
+          final waitlist = await EventService.instance.releaseHold(_event.id);
+          if (!mounted) return;
+          setState(() => _detail = _event.copyWith(waitlist: waitlist));
+          showStudioToast(context, "You're still on the waitlist");
+        } catch (_) {
+          if (mounted) showStudioToast(context, 'Could not update the waitlist.', icon: null);
+        }
+    }
   }
 
   Future<void> _share() {
@@ -368,8 +455,37 @@ class _EventDetailPageState extends State<EventDetailPage> with DetailFollowStat
         ),
       );
     }
-    // `EvSoldOut`: the grey bar; Save is how to hear if tickets open up. The board now has a
-    // waitlist instead (Phase 13, 17.8), which needs BACKEND_CHANGES B22.
+    final waitlist = e.waitlist;
+    // `EvWaitlistHeld`: tickets held for the viewer.
+    if (waitlist != null && waitlist.isHeld(DateTime.now())) {
+      return StudioBottomBar(
+        left: const StudioBottomBarInfo(label: 'Tickets', value: 'Held for you'),
+        right: when,
+        button: StudioButton(label: 'Get your tickets', onPressed: _openHeld),
+      );
+    }
+    // `EvSoldOut`: Tickets Sold out, and Join waitlist, or You're on the waitlist (tap to
+    // leave), when the server runs a waitlist (BACKEND_CHANGES B22).
+    if (soldOut && waitlist != null && (waitlist.open || waitlist.joined)) {
+      return StudioBottomBar(
+        left: const StudioBottomBarInfo(label: 'Tickets', value: 'Sold out'),
+        right: when,
+        button: waitlist.joined
+            ? StudioButton(
+                label: "You're on the waitlist",
+                variant: StudioButtonVariant.outline,
+                height: 52,
+                loading: _waitlistBusy,
+                onPressed: _waitlistBusy ? null : _leaveWaitlist,
+              )
+            : StudioButton(
+                label: 'Join waitlist',
+                loading: _waitlistBusy,
+                onPressed: _waitlistBusy ? null : _joinWaitlist,
+              ),
+      );
+    }
+    // Until then: the grey bar, where Save is how to hear if tickets open up.
     if (soldOut) return EventSoldOutBar(saved: _store.isSaved(e.id), onSave: _toggleSaved);
     return StudioBottomBar(
       left: from,
