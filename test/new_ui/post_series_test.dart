@@ -178,6 +178,7 @@ void main() {
       await tester.tap(find.text('open'));
       await tester.pumpAndSettle();
       await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/SeriesPicker.png'));
+      await checkAcceptance(tester);
     }, skip: skip);
 
     testWidgets('SeriesNew', (tester) async {
@@ -190,6 +191,7 @@ void main() {
       FocusManager.instance.primaryFocus?.unfocus();
       await tester.pumpAndSettle();
       await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/SeriesNew.png'));
+      await checkAcceptance(tester);
     }, skip: skip);
 
     testWidgets('SeriesEdit', (tester) async {
@@ -203,6 +205,7 @@ void main() {
       );
       await tester.pump();
       await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/SeriesEdit.png'));
+      await checkAcceptance(tester);
     }, skip: skip);
   });
 }

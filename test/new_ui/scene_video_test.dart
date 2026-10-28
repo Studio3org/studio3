@@ -138,6 +138,7 @@ void main() {
         find.byType(MaterialApp),
         matchesGoldenFile('goldens/Scene$step.png'),
       );
+      await checkAcceptance(tester);
     }, skip: Platform.environment['NEW_UI_GOLDENS'] != '1');
   }
 }

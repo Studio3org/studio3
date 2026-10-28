@@ -1,6 +1,7 @@
 """Board-vs-app pixel comparison (docs/new-ui/NEW_UI_EXECUTION_PLAN.md, section 0.4).
 
     python -I tool/new_ui/compare.py BOARD.png APP.png [--out DIR] [--threshold 2.0] [--tolerance 32] [--shift 1]
+        [--mask build/new_ui/masks/BOARD.json]
 
 Writes into DIR (default build/new_ui/compare/<APP name>):
   diff.png         the board faded, with every differing pixel in red
@@ -48,10 +49,28 @@ parser.add_argument('--threshold', type=float, default=2.0, help='max %% of diff
 parser.add_argument('--tolerance', type=int, default=32, help='per-channel difference ignored (0-255)')
 parser.add_argument('--shift', type=int, default=0, help='forgive matches within N device pixels')
 parser.add_argument('--geometry', type=int, default=3, help='max band edge offset, device pixels')
+parser.add_argument('--mask', help='JSON from board_masks.mjs: areas left out of both images (art, the page behind a sheet)')
 a = parser.parse_args()
 
 board = Image.open(a.board).convert('RGB')
 app = Image.open(a.app).convert('RGB')
+masked_pct = 0.0
+if a.mask:
+    # Layout only (section 19.1): the board's placeholder art and the page it draws behind a
+    # sheet are filled with the same flat grey in both images, so they count as matching and
+    # carry no bands.
+    from PIL import ImageDraw
+    spec = json.load(open(a.mask, encoding='utf-8'))
+    k = board.width / spec['w']
+    cover = Image.new('L', board.size, 0)
+    draw = ImageDraw.Draw(cover)
+    for x, y, rw, rh in spec['rects']:
+        draw.rectangle([x * k, y * k, (x + rw) * k - 1, (y + rh) * k - 1], fill=255)
+    masked_pct = 100.0 * cover.histogram()[255] / (board.width * board.height)
+    flat = Image.new('RGB', board.size, (128, 128, 128))
+    board = Image.composite(flat, board, cover)
+    if app.size == board.size:
+        app = Image.composite(flat, app, cover)
 same_size = board.size == app.size
 w, h = min(board.width, app.width), min(board.height, app.height)
 b, p = board.crop((0, 0, w, h)), app.crop((0, 0, w, h))
@@ -130,6 +149,7 @@ result = {
     'app': a.app,
     'size': {'board': list(board.size), 'app': list(app.size), 'match': same_size},
     'different_pct': round(pct, 2),
+    **({'masked_pct': round(masked_pct, 1)} if a.mask else {}),
     **({'different_pct_strict': round(strict_pct, 2), 'shift': a.shift} if a.shift > 0 else {}),
     'threshold': a.threshold,
     'geometry': geometry,

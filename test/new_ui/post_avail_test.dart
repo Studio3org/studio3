@@ -397,6 +397,7 @@ void main() {
     await tester.pumpWidget(_step(price: r'$3,600'));
     await tester.pump(const Duration(milliseconds: 400));
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/PostAvailFixed.png'));
+    await checkAcceptance(tester);
   }, skip: Platform.environment['NEW_UI_GOLDENS'] != '1');
 
   testWidgets('golden: PostAvailAuction', (tester) async {
@@ -406,6 +407,7 @@ void main() {
     await tester.tap(_info('What is a reserve price?'));
     await tester.pump();
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/PostAvailAuction.png'));
+    await checkAcceptance(tester);
   }, skip: Platform.environment['NEW_UI_GOLDENS'] != '1');
 
   testWidgets('golden: PostNFSAvail', (tester) async {
@@ -413,6 +415,7 @@ void main() {
     await tester.pumpWidget(_step(forSale: false));
     await tester.pump(const Duration(milliseconds: 400));
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/PostNFSAvail.png'));
+    await checkAcceptance(tester);
   }, skip: Platform.environment['NEW_UI_GOLDENS'] != '1');
 }
 

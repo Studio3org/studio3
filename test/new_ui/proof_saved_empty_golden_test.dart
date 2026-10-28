@@ -29,6 +29,7 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 100));
       await expectLater(find.byType(SavedEmptyReplica), matchesGoldenFile('goldens/SavedEmpty.png'));
+      await checkAcceptance(tester);
     },
     skip: Platform.environment['NEW_UI_GOLDENS'] == null,
   );

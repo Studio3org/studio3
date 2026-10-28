@@ -173,6 +173,7 @@ void main() {
           tab == 'Size' ? 'goldens/ScenePhotoEditSize.png' : 'goldens/ScenePhotoEdit.png',
         ),
       );
+      await checkAcceptance(tester);
       await tester.pump(const Duration(milliseconds: 400));
     }, skip: Platform.environment['NEW_UI_GOLDENS'] != '1');
   }

@@ -51,6 +51,7 @@ void main() {
       find.byType(MaterialApp),
       matchesGoldenFile('goldens/SavedEmpty_components.png'),
     );
+    await checkAcceptance(tester);
   }, skip: skip);
 
   testWidgets('SignIn4Intention from components', (tester) async {
@@ -61,6 +62,7 @@ void main() {
       find.byType(MaterialApp),
       matchesGoldenFile('goldens/SignIn4Intention_components.png'),
     );
+    await checkAcceptance(tester);
   }, skip: skip);
 
   for (final dark in [false, true]) {
@@ -72,6 +74,7 @@ void main() {
         find.byType(MaterialApp),
         matchesGoldenFile('goldens/SignInFirst${dark ? 'Dark' : ''}_haze_components.png'),
       );
+      await checkAcceptance(tester);
     }, skip: skip);
   }
 
@@ -95,6 +98,7 @@ void main() {
         find.byType(MaterialApp),
         matchesGoldenFile('goldens/gallery_${dark ? 'dark' : 'light'}.png'),
       );
+      await checkAcceptance(tester);
     }, skip: skip);
   }
 }

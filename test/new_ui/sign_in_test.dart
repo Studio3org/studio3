@@ -89,9 +89,9 @@ void main() {
       expect(_contrast(colors.textSecondary, colors.background), greaterThanOrEqualTo(4.5));
       expect(_contrast(colors.buttonText, colors.buttonFill), greaterThanOrEqualTo(4.5));
     }
-    // Dark tertiary sits on near-black and clears 4.5. Light tertiary is the board's
-    // own #8E8E8E label, which is under 4.5 on Gallery White; the board wins.
+    // Tertiary clears 4.5 in both themes (light darkened from the board's #8E8E8E, 19.1).
     expect(_contrast(StudioColors.dark.textTertiary, StudioColors.dark.background), greaterThanOrEqualTo(4.5));
+    expect(_contrast(StudioColors.light.textTertiary, StudioColors.light.background), greaterThanOrEqualTo(4.5));
   });
 
   for (final dark in [false, true]) {
@@ -144,9 +144,15 @@ void main() {
     final email = tester.widget<Text>(find.text('jordan@email.com'));
     expect((email.style!.fontSize, email.style!.color), (15, StudioColors.light.textSecondary));
     expect(find.text('Password'), findsOneWidget);
-    expect(find.byTooltip('Show password'), findsOneWidget);
+    // The eye answers over 44 × 44 and reads "Show password" (section 19.1).
+    final eye = find.byType(AuthEyeButton);
+    expect(eye, findsOneWidget);
+    expect(
+      find.descendant(of: eye, matching: find.byWidgetPredicate((w) => w is Semantics && w.properties.label == 'Show password')),
+      findsOneWidget,
+    );
     expect(tester.widget<TextField>(find.byType(TextField)).obscureText, isTrue);
-    await tester.tap(find.byTooltip('Show password'));
+    await tester.tap(eye);
     await tester.pump();
     expect(tester.widget<TextField>(find.byType(TextField)).obscureText, isFalse);
     expect(find.text('Forgot password?'), findsOneWidget);

@@ -161,5 +161,6 @@ void main() {
       ..createSync(recursive: true)
       ..writeAsStringSync(jsonEncode({'shipToTop': shipTo.top, 'rowsBottom': lastRow.bottom}));
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/BuyShipping.png'));
+    await checkAcceptance(tester);
   }, skip: Platform.environment['NEW_UI_GOLDENS'] == null);
 }
