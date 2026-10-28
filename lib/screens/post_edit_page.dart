@@ -12,7 +12,8 @@ import '../theme/studio_type.dart';
 import '../utils/crop_cover_math.dart'
     show CropAspectRatio, CropCoverMath, CropFitMode;
 import '../widgets/post_crop_preview.dart';
-import '../widgets/studio/studio_icon.dart';
+import '../widgets/studio/studio_icon.dart';
+import '../widgets/studio/studio_tap_area.dart';
 
 enum _EditTab { size, crop, adjust }
 
@@ -519,7 +520,7 @@ class _Pill extends StatelessWidget {
   });
 
   static const _outline = Color(0xFF3A3A3A);
-  static const _text = Color(0xFFC8C8C8);
+  static const _text = StudioColors.onDarkChipText;
 
   final String label;
   final bool selected;
@@ -575,7 +576,7 @@ class _ZeroSlider extends StatelessWidget {
   final ValueChanged<double> onChanged;
 
   static const _track = Color(0xFF3A3A3A);
-  static const _tick = Color(0xFF6A6A6A);
+  static const _tick = StudioColors.onDarkTertiary;
 
   @override
   Widget build(BuildContext context) {
@@ -667,7 +668,7 @@ class _ZeroSlider extends StatelessWidget {
 class _ToolTabs extends StatelessWidget {
   const _ToolTabs({required this.selected, required this.onSelected});
 
-  static const _off = Color(0xFF8A8A8A);
+  static const _off = StudioColors.onDarkOff;
 
   final _EditTab selected;
   final ValueChanged<_EditTab> onSelected;
@@ -679,7 +680,7 @@ class _ToolTabs extends StatelessWidget {
       children: [
         for (final tab in _EditTab.values) ...[
           if (tab != _EditTab.size) const SizedBox(width: 36),
-          Semantics(
+          StudioTapArea(child: Semantics(
             button: true,
             selected: tab == selected,
             child: GestureDetector(
@@ -712,7 +713,7 @@ class _ToolTabs extends StatelessWidget {
                 ),
               ),
             ),
-          ),
+          )),
         ],
       ],
     );

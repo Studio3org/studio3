@@ -315,8 +315,8 @@ void main() {
           debugFeedEvent: StudioEvent(
             id: 'ev1',
             title: '[Event name]',
-            startsAt: DateTime.now().add(const Duration(days: 3)),
-            endsAt: DateTime.now().add(const Duration(days: 3, hours: 3)),
+            startsAt: DateTime(2037, 10, 29, 20, 51),
+            endsAt: DateTime(2037, 10, 29, 23, 51),
             venueName: 'Dec on Dragon',
             description: '[One line on what the night is]',
             artists: const [
@@ -333,6 +333,7 @@ void main() {
     );
     await _settle(tester);
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/Main.png'));
+    await checkAcceptance(tester);
     store.dispose();
   }, skip: Platform.environment['NEW_UI_GOLDENS'] != '1');
 }

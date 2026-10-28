@@ -4,7 +4,8 @@ import '../data/post_material_options.dart';
 import '../theme/studio_colors.dart';
 import '../theme/studio_metrics.dart';
 import '../theme/studio_type.dart';
-import '../widgets/studio/studio_icon.dart';
+import '../widgets/studio/studio_icon.dart';
+import '../widgets/studio/studio_tap_area.dart';
 import 'add_materials_page.dart' show MaterialsTopBar;
 
 /// Materials search (`PostMaterialsSearch`): the focused field (Card, 1.5 Ink border,
@@ -60,7 +61,7 @@ class _PickMaterialsPageState extends State<PickMaterialsPage> {
                     StudioIcon(StudioIcons.search, size: 20, color: c.textPrimary),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: TextField(
+                      child: StudioTapArea(child: TextField(
                         controller: _controller,
                         autofocus: true,
                         onChanged: (_) => setState(() {}),
@@ -76,7 +77,7 @@ class _PickMaterialsPageState extends State<PickMaterialsPage> {
                           hintText: 'Search paints, surfaces, brushes…',
                           hintStyle: StudioType.sans(16, color: c.textTertiary),
                         ),
-                      ),
+                      )),
                     ),
                   ],
                 ),

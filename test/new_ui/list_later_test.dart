@@ -274,6 +274,7 @@ void main() {
       FocusManager.instance.primaryFocus?.unfocus();
       await tester.pump();
       await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/ListPricing.png'));
+      await checkAcceptance(tester);
     }, skip: skip);
 
     testWidgets('PostListLater', (tester) async {
@@ -296,6 +297,7 @@ void main() {
       await tester.tap(find.text('open'));
       await tester.pumpAndSettle();
       await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/PostListLater.png'));
+      await checkAcceptance(tester);
     }, skip: skip);
 
     testWidgets('PostRelatedScenes', (tester) async {
@@ -305,6 +307,7 @@ void main() {
       );
       await tester.pump();
       await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/PostRelatedScenes.png'));
+      await checkAcceptance(tester);
     }, skip: skip);
 
     testWidgets('ListDone', (tester) async {
@@ -330,6 +333,7 @@ void main() {
       );
       await tester.pump();
       await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/ListDone.png'));
+      await checkAcceptance(tester);
       debugDisableShadows = true;
     }, skip: skip);
   });

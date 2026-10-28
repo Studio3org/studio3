@@ -436,6 +436,7 @@ void main() {
       await tester.pumpWidget(_app(build()));
       await tester.pump();
       await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/$name.png'));
+      await checkAcceptance(tester);
     }, skip: Platform.environment['NEW_UI_GOLDENS'] != '1');
   }
 
@@ -532,6 +533,7 @@ void main() {
       await open(tester);
       await tester.pump(const Duration(milliseconds: 100));
       await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/$name.png'));
+      await checkAcceptance(tester);
     }, skip: Platform.environment['NEW_UI_GOLDENS'] != '1');
   }
 }

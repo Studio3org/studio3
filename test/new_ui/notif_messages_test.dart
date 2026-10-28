@@ -9,12 +9,13 @@ import 'package:studio3/theme/app_theme.dart';
 import 'package:studio3/theme/studio_colors.dart';
 import 'package:studio3/widgets/inbox/chats_body.dart';
 import 'package:studio3/widgets/studio/studio_avatar.dart';
-import 'package:studio3/widgets/studio/studio_tab_bar.dart';
+import 'package:studio3/widgets/studio/studio_tab_bar.dart';
+import 'package:studio3/utils/app_clock.dart';
 
 import 'golden_harness.dart';
 
 /// `NotifMessages`, `NewMessage` (docs/new-ui/NEW_UI_EXECUTION_PLAN.md, Phase 9).
-final _now = DateTime.now();
+final _now = DateTime(2026, 10, 27, 16, 40);
 final _today = DateTime(_now.year, _now.month, _now.day);
 
 ConversationSummary _c(String name, String preview, DateTime at, {bool unread = false}) =>
@@ -50,6 +51,9 @@ Widget _app(Widget home, {bool dark = false}) => MaterialApp(
 );
 
 void main() {
+  // A fixed date, so "Today · 2:14 PM", "Mon" and the goldens don't move with the real clock.
+  setUp(() => appNow = () => _now);
+  tearDown(() => appNow = DateTime.now);
   setUpAll(() async {
     dotenv.loadFromString(envString: '', isOptional: true);
     await loadStudioFonts();
@@ -209,6 +213,7 @@ void main() {
       );
       await tester.pump(const Duration(seconds: 1));
       await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/NotifMessages.png'));
+      await checkAcceptance(tester);
     }, skip: skip);
 
     testWidgets('NewMessage', (tester) async {
@@ -232,6 +237,7 @@ void main() {
       );
       await tester.pump();
       await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/NewMessage.png'));
+      await checkAcceptance(tester);
     }, skip: skip);
   });
 }

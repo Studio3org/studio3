@@ -20,7 +20,8 @@ import 'package:studio3/widgets/accept_decline_buttons.dart';
 import 'package:studio3/widgets/inbox/chats_body.dart';
 import 'package:studio3/widgets/inbox/follow_requests_body.dart';
 import 'package:studio3/widgets/inbox/notifications_body.dart';
-import 'package:studio3/widgets/studio/studio.dart';
+import 'package:studio3/widgets/studio/studio.dart';
+import 'package:studio3/utils/app_clock.dart';
 
 import 'golden_harness.dart';
 
@@ -62,7 +63,7 @@ Widget _app(Widget home, {bool dark = false}) => MaterialApp(
   home: home,
 );
 
-final _now = DateTime.now();
+final _now = DateTime(2026, 10, 27, 16, 40);
 final _start = _now.subtract(const Duration(minutes: 20));
 
 final _thread = [
@@ -118,6 +119,9 @@ const _prefs = NotificationPreferences(
 );
 
 void main() {
+  // A fixed date, so "Today · 2:14 PM", "Mon" and the goldens don't move with the real clock.
+  setUp(() => appNow = () => _now);
+  tearDown(() => appNow = DateTime.now);
   late _FakeServer server;
   String? wasToken;
 
@@ -441,6 +445,7 @@ void main() {
       setBoardViewport(tester);
       await _openMenu(tester, withThread: true);
       await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/ConvMenu.png'));
+      await checkAcceptance(tester);
     }, skip: skip);
 
     testWidgets('NotifEmptyActivity', (tester) async {
@@ -451,6 +456,7 @@ void main() {
         find.byType(MaterialApp),
         matchesGoldenFile('goldens/NotifEmptyActivity.png'),
       );
+      await checkAcceptance(tester);
     }, skip: skip);
 
     testWidgets('NotifEmptyMessages', (tester) async {
@@ -474,6 +480,7 @@ void main() {
         find.byType(MaterialApp),
         matchesGoldenFile('goldens/NotifEmptyMessages.png'),
       );
+      await checkAcceptance(tester);
     }, skip: skip);
 
     testWidgets('NotifSettings', (tester) async {
@@ -490,6 +497,7 @@ void main() {
       );
       await tester.pump();
       await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/NotifSettings.png'));
+      await checkAcceptance(tester);
       debugDefaultTargetPlatformOverride = null;
     }, skip: skip);
   });
