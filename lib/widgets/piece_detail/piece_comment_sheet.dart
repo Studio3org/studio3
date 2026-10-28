@@ -16,6 +16,7 @@ import '../content_actions_sheet.dart';
 import '../studio/studio_avatar.dart';
 import '../studio/studio_icon.dart';
 import '../studio/studio_sheet.dart';
+import '../studio/studio_tap_area.dart';
 import '../studio/studio_toast.dart';
 
 /// Comment list + add-comment bottom sheet for a piece or Scene (`SceneComments`).
@@ -390,7 +391,9 @@ class _PieceCommentSheetState extends State<PieceCommentSheet> {
               alignment: Alignment.centerLeft,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(21)),
-              child: TextField(
+              // The whole 42 pill answers, not just the line of text.
+              child: StudioTapArea(
+                child: TextField(
                 controller: _textController,
                 focusNode: _focusNode,
                 minLines: 1,
@@ -419,6 +422,7 @@ class _PieceCommentSheetState extends State<PieceCommentSheet> {
                   hintText: loggedIn ? 'Add a comment' : 'Log in to comment',
                   hintStyle: style.copyWith(color: c.textTertiary),
                 ),
+              ),
               ),
             ),
           ),
@@ -494,10 +498,16 @@ class _CommentTile extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            GestureDetector(
-              onTap: canNavigate ? onTapAuthor : null,
-              behavior: canNavigate ? HitTestBehavior.opaque : HitTestBehavior.deferToChild,
-              child: StudioAvatar(url: comment.authorAvatarUrl, size: 32),
+            StudioTapArea(
+              child: GestureDetector(
+                onTap: canNavigate ? onTapAuthor : null,
+                behavior: canNavigate ? HitTestBehavior.opaque : HitTestBehavior.deferToChild,
+                child: StudioAvatar(
+                  url: comment.authorAvatarUrl,
+                  size: 32,
+                  semanticLabel: comment.authorName ?? comment.authorUsername,
+                ),
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -507,7 +517,9 @@ class _CommentTile extends StatelessWidget {
                   Row(
                     children: [
                       Flexible(
-                        child: GestureDetector(
+                        child: Semantics(
+                          link: canNavigate,
+                          child: GestureDetector(
                           onTap: canNavigate ? onTapAuthor : null,
                           behavior: canNavigate
                               ? HitTestBehavior.opaque
@@ -522,6 +534,7 @@ class _CommentTile extends StatelessWidget {
                               weight: StudioType.medium,
                               color: c.textPrimary,
                             ),
+                          ),
                           ),
                         ),
                       ),
@@ -547,8 +560,9 @@ class _CommentTile extends StatelessWidget {
                   const SizedBox(height: 3),
                   Text(comment.body, style: StudioType.body14(height: 1.45, color: c.textPrimary)),
                   const SizedBox(height: 3),
+                  // A text link (inline links are exempt from the 44 minimum).
                   Semantics(
-                    button: true,
+                    link: true,
                     child: GestureDetector(
                       onTap: onReply,
                       behavior: HitTestBehavior.opaque,

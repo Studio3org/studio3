@@ -449,7 +449,8 @@ class PostPickerHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Flexible(
-                child: Semantics(
+                child: StudioTapArea(
+                  child: Semantics(
                   button: onAlbum != null,
                   hint: onAlbum != null ? 'Choose an album' : null,
                   child: GestureDetector(
@@ -462,6 +463,7 @@ class PostPickerHeader extends StatelessWidget {
                       style: StudioType.sans(15, weight: StudioType.medium, color: c.textPrimary),
                     ),
                   ),
+                ),
                 ),
               ),
               const Spacer(),

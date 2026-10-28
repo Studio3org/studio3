@@ -76,6 +76,8 @@ class EventTicketsSheet extends StatefulWidget {
             children: [
               Positioned.fill(
                 child: GestureDetector(
+                  // The route's own barrier carries "Close" for VoiceOver / TalkBack.
+                  excludeFromSemantics: true,
                   onTap: () => Navigator.of(context).maybePop(),
                   child: BackdropFilter(
                     filter: ui.ImageFilter.blur(sigmaX: 14 * t.value, sigmaY: 14 * t.value),

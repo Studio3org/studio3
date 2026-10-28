@@ -226,7 +226,8 @@ class EventHostRow extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: GestureDetector(
+            child: StudioTapArea(
+              child: GestureDetector(
               onTap: onHost,
               behavior: HitTestBehavior.opaque,
               child: Row(
@@ -251,6 +252,7 @@ class EventHostRow extends StatelessWidget {
                   ),
                 ],
               ),
+            ),
             ),
           ),
           const SizedBox(width: 12),

@@ -45,6 +45,8 @@ class ProfileEditHeader extends StatelessWidget {
             right: 0,
             child: GestureDetector(
               onTap: onChangeCover,
+              // "Change cover photo" below is the labelled control for VoiceOver / TalkBack.
+              excludeFromSemantics: true,
               child: ProfileCoverImage(url: coverUrl, width: width, height: _coverHeight),
             ),
           ),

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../theme/studio_colors.dart';
 import '../../theme/studio_type.dart';
 import 'studio_icon.dart';
+import 'studio_tap_area.dart';
 
 /// Underline field: label 13 above, value on a single underline; 1 px #D4D4D0, focused
 /// 1.5 px Ink (`HandoffRules` "Fields"; `PostDetailsForSale`: gap 6, value 17, 8 below).
@@ -155,7 +156,21 @@ class _StudioUnderlineFieldState extends State<StudioUnderlineField> {
         ? StudioType.mono(widget.valueSize, color: c.textPrimary)
         : StudioType.sans(widget.valueSize, color: c.textPrimary);
 
-    return Column(
+    // The label, the value and the underline all focus the field (or run its tap), so the
+    // field answers over its full height, not just the 21 of the value line.
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      excludeFromSemantics: true,
+      onTap: !widget.enabled
+          ? null
+          : () {
+              if (widget.readOnly) {
+                widget.onTap?.call();
+              } else {
+                _focus.requestFocus();
+              }
+            },
+      child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -192,7 +207,8 @@ class _StudioUnderlineFieldState extends State<StudioUnderlineField> {
                 if (widget.prefix != null)
                   Text(widget.prefix!, style: valueStyle.copyWith(color: c.textTertiary)),
                 Expanded(
-                  child: TextField(
+                  child: StudioTapArea(
+                    child: TextField(
                     controller: _controller,
                     focusNode: _focus,
                     enabled: widget.enabled,
@@ -229,6 +245,7 @@ class _StudioUnderlineFieldState extends State<StudioUnderlineField> {
                           : valueStyle.copyWith(color: c.textPlaceholder),
                     ),
                   ),
+                  ),
                 ),
                 if (widget.unit != null) ...[
                   const SizedBox(width: 8),
@@ -252,6 +269,7 @@ class _StudioUnderlineFieldState extends State<StudioUnderlineField> {
           ),
         ],
       ],
+      ),
     );
   }
 }

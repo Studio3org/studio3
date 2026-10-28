@@ -713,7 +713,8 @@ class _Info extends StatelessWidget {
       children: [
         Row(
           children: [
-            GestureDetector(
+            StudioTapArea(
+              child: GestureDetector(
               onTap: username == null ? null : openArtist,
               behavior: HitTestBehavior.opaque,
               child: StudioAvatar(
@@ -724,10 +725,14 @@ class _Info extends StatelessWidget {
                 ringInside: true,
                 semanticLabel: item.authorName,
               ),
+              ),
             ),
             const SizedBox(width: 10),
             Flexible(
-              child: GestureDetector(
+              // A text link (inline links are exempt from the 44 minimum).
+              child: Semantics(
+                link: true,
+                child: GestureDetector(
                 onTap: username == null ? null : openArtist,
                 behavior: HitTestBehavior.opaque,
                 child: Text(
@@ -740,6 +745,7 @@ class _Info extends StatelessWidget {
                     color: StudioColors.galleryWhite,
                   ).copyWith(shadows: _textShadow),
                 ),
+                ),
               ),
             ),
             if (onFollow != null && username != null && username.isNotEmpty) ...[
@@ -750,7 +756,13 @@ class _Info extends StatelessWidget {
         ),
         if (caption.isNotEmpty) ...[
           const SizedBox(height: 10),
-          GestureDetector(
+          StudioTapArea(
+            child: Semantics(
+            button: true,
+            label: caption,
+            hint: captionOpen ? 'Shows less' : 'Shows all of it',
+            excludeSemantics: true,
+            child: GestureDetector(
             onTap: onCaptionTap,
             behavior: HitTestBehavior.opaque,
             child: ConstrainedBox(
@@ -770,6 +782,8 @@ class _Info extends StatelessWidget {
                 ),
               ),
             ),
+          ),
+          ),
           ),
         ],
         if (linkedCount > 0) ...[
@@ -799,7 +813,8 @@ class SceneFollowButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final filled = state.filled;
     final textColor = filled ? StudioColors.ink : StudioColors.galleryWhite;
-    return Semantics(
+    return StudioTapArea(
+      child: Semantics(
       button: true,
       enabled: !busy,
       child: GestureDetector(
@@ -819,6 +834,7 @@ class SceneFollowButton extends StatelessWidget {
             style: StudioType.sans(12, weight: StudioType.medium, color: textColor),
           ),
         ),
+      ),
       ),
     );
   }
@@ -849,7 +865,8 @@ class SceneLinkedLine extends StatelessWidget {
     final label = several ? '$count linked pieces' : (piece?.title ?? 'Linked piece');
     final shown = several ? pieces.take(3).toList() : pieces.take(1).toList();
 
-    return Semantics(
+    return StudioTapArea(
+      child: Semantics(
       button: true,
       label: price == null ? label : '$label, $price',
       excludeSemantics: true,
@@ -906,6 +923,7 @@ class SceneLinkedLine extends StatelessWidget {
             const StudioIcon(StudioIcons.chevronRight, size: 14, color: StudioColors.galleryWhite),
           ],
         ),
+      ),
       ),
     );
   }

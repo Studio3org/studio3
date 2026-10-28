@@ -570,6 +570,9 @@ class FeedPicsumImage extends StatelessWidget {
             ? constraints.maxWidth
             : MediaQuery.sizeOf(context).width;
         final cacheWidth = (maxWidth * dpr).round().clamp(1, 2048);
+        final c = context.studio;
+        // Surface while loading (a spinner only when motion is allowed) and when it fails.
+        final still = MediaQuery.disableAnimationsOf(context);
         return CachedNetworkImage(
           imageUrl: url,
           fit: fit,
@@ -577,22 +580,17 @@ class FeedPicsumImage extends StatelessWidget {
           height: double.infinity,
           memCacheWidth: cacheWidth,
           progressIndicatorBuilder: (context, child, progress) => Container(
-            color: Colors.grey.shade300,
+            color: c.surface,
             alignment: Alignment.center,
-            child: const SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
+            child: still
+                ? null
+                : SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: c.textTertiary),
+                  ),
           ),
-          errorWidget: (context, error, stackTrace) => Container(
-            color: Colors.grey.shade400,
-            alignment: Alignment.center,
-            child: Icon(
-              Icons.image_not_supported_outlined,
-              color: Colors.grey.shade600,
-            ),
-          ),
+          errorWidget: (context, error, stackTrace) => ColoredBox(color: c.surface),
         );
       },
     );

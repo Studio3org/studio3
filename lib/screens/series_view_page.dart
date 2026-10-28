@@ -219,7 +219,8 @@ class _SeriesViewPageState extends State<SeriesViewPage> with DetailFollowState<
                     Row(
                       children: [
                         Expanded(
-                          child: GestureDetector(
+                          child: StudioTapArea(
+                            child: GestureDetector(
                             onTap: username == null ? null : () => openUserProfile(context, username),
                             behavior: HitTestBehavior.opaque,
                             child: Row(
@@ -236,6 +237,7 @@ class _SeriesViewPageState extends State<SeriesViewPage> with DetailFollowState<
                                 ),
                               ],
                             ),
+                          ),
                           ),
                         ),
                         const SizedBox(width: 12),

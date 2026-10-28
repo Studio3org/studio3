@@ -79,7 +79,8 @@ class _LoginPasswordPageState extends State<LoginPasswordPage> {
           SizedBox(
             height: StudioSize.tapTarget,
             child: Center(
-              child: GestureDetector(
+              child: StudioTapArea(
+                child: GestureDetector(
                 onTap: _createAccount,
                 behavior: HitTestBehavior.opaque,
                 child: Text.rich(
@@ -94,6 +95,7 @@ class _LoginPasswordPageState extends State<LoginPasswordPage> {
                     ],
                   ),
                 ),
+              ),
               ),
             ),
           ),

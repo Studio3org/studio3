@@ -991,19 +991,27 @@ class AuthEyeButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
-      tooltip: obscured ? 'Show password' : 'Hide password',
-      onPressed: onPressed,
-      style: IconButton.styleFrom(
-        fixedSize: const Size(44, 32),
-        minimumSize: const Size(44, 32),
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        padding: EdgeInsets.zero,
-      ),
-      icon: StudioIcon(
-        obscured ? StudioIcons.eye : StudioIcons.eyeOff,
-        size: 20,
-        color: context.studio.textSecondary,
+    // 44 × 32 in the field's row; answers over 44 × 44 without making the row taller.
+    return StudioTapArea(
+      child: Semantics(
+        button: true,
+        label: obscured ? 'Show password' : 'Hide password',
+        excludeSemantics: true,
+        child: GestureDetector(
+          onTap: onPressed,
+          behavior: HitTestBehavior.opaque,
+          child: SizedBox(
+            width: 44,
+            height: 32,
+            child: Center(
+              child: StudioIcon(
+                obscured ? StudioIcons.eye : StudioIcons.eyeOff,
+                size: 20,
+                color: context.studio.textSecondary,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

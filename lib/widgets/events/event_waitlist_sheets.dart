@@ -26,6 +26,8 @@ Future<T?> _showEventSheet<T>(BuildContext context, Widget child) {
           children: [
             Positioned.fill(
               child: GestureDetector(
+                // The route's own barrier carries "Close" for VoiceOver / TalkBack.
+                excludeFromSemantics: true,
                 onTap: () => Navigator.of(context).maybePop(),
                 child: BackdropFilter(
                   filter: ui.ImageFilter.blur(sigmaX: 14 * t.value, sigmaY: 14 * t.value),
@@ -485,7 +487,7 @@ class _EventWaitlistHeldSheetState extends State<EventWaitlistHeldSheet> {
               },
               behavior: HitTestBehavior.opaque,
               child: SizedBox(
-                height: 36,
+                height: StudioSize.tapTarget,
                 child: Center(
                   child: Text(
                     'Keep waiting for ${waiting.map((t) => t.name).join(' and ')}',
