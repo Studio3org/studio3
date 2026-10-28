@@ -6,6 +6,7 @@ import '../services/api_exception.dart';
 import '../services/drafts_service.dart';
 import '../widgets/studio/studio.dart';
 import 'edit_piece_page.dart';
+import '../utils/app_clock.dart';
 
 enum _Filter { all, pieces, scenes }
 
@@ -325,7 +326,7 @@ String _capital(String s) => s[0].toUpperCase() + s.substring(1);
 /// "Today, 2:14 PM", "Yesterday", "Oct 21" (and the year when it isn't this year).
 String? draftTimeLabel(DateTime? at, {DateTime? now}) {
   if (at == null) return null;
-  final today = now ?? DateTime.now();
+  final today = now ?? appNow();
   final day = DateTime(at.year, at.month, at.day);
   final days = DateTime(today.year, today.month, today.day).difference(day).inDays;
   if (days == 0) {

@@ -112,7 +112,7 @@ class _RelatedScenesPageState extends State<RelatedScenesPage> {
                     ),
                     Align(
                       alignment: Alignment.centerRight,
-                      child: Semantics(
+                      child: StudioTapArea(child: Semantics(
                         button: true,
                         child: GestureDetector(
                           onTap: () => Navigator.pop(context, _linked),
@@ -129,7 +129,7 @@ class _RelatedScenesPageState extends State<RelatedScenesPage> {
                             ),
                           ),
                         ),
-                      ),
+                      )),
                     ),
                   ],
                 ),

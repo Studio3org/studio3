@@ -136,9 +136,14 @@ class Studio3App extends StatelessWidget {
             initialRoute: resolveInitialRoute(),
             navigatorObservers: [routeObserver, OpenAtTopObserver()],
             // An emoji fallback for any Text with no style of its own (AppTheme.emojiFallback).
-            builder: (context, child) => DefaultTextStyle.merge(
-              style: const TextStyle(fontFamilyFallback: AppTheme.emojiFallback),
-              child: child!,
+            // System text size follows the phone up to 2.0 and stops there: every screen wraps
+            // without clipping up to 2.0 (section 19.1, decided 2026-10-28).
+            builder: (context, child) => MediaQuery.withClampedTextScaling(
+              maxScaleFactor: 2.0,
+              child: DefaultTextStyle.merge(
+                style: const TextStyle(fontFamilyFallback: AppTheme.emojiFallback),
+                child: child!,
+              ),
             ),
             routes: {
               '/': (context) => const AuthGate(

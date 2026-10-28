@@ -421,7 +421,7 @@ class _PostVideoEditPageState extends State<PostVideoEditPage> {
                   TextSpan(
                     text:
                         ' / ${_format(kSceneMaxVideo.inMilliseconds.toDouble())}',
-                    style: StudioType.mono(15, color: const Color(0xFF6A6A6A)),
+                    style: StudioType.mono(15, color: StudioColors.onDarkTertiary),
                   ),
                 ],
               ),

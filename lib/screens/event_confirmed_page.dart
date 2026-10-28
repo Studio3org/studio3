@@ -329,7 +329,7 @@ class EventTicketArt extends StatelessWidget {
                             place,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: StudioType.sans(13, color: const Color(0xFF555555)),
+                            style: StudioType.sans(13, color: context.studio.textBody),
                           ),
                         ],
                       ],

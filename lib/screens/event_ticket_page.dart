@@ -272,7 +272,8 @@ class EventTicketCard extends StatelessWidget {
                       const SizedBox(height: 10),
                       Text(
                         'Ticket $position of $of · ${ticket.label}',
-                        style: StudioType.mono(11, color: const Color(0xFF8E8E8E)),
+                        // The ticket is white in both themes, so it uses the light tertiary.
+                        style: StudioType.mono(11, color: StudioColors.light.textTertiary),
                       ),
                     ],
                   ),

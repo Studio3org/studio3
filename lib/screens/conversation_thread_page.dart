@@ -22,6 +22,8 @@ import '../widgets/studio/studio_icon.dart';
 import '../widgets/studio/studio_toast.dart';
 import '../widgets/studio_loading.dart';
 import 'image_preview_page.dart';
+import '../widgets/studio/studio_tap_area.dart';
+import '../utils/app_clock.dart';
 
 /// A single 1:1 chat thread — real-time via [ChatSocketService], with REST
 /// ([ChatService]) as the source of truth for history and pagination.
@@ -449,7 +451,7 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
       final next = i + 1 < _messages.length ? _messages[i + 1] : null;
       final mine = me != null && m.senderUsername == me;
       final newDay = prev == null || !_sameCalendarDay(prev.createdAt, m.createdAt);
-      if (newDay) rows.add(_Row.day(dayLine(m.createdAt, DateTime.now())));
+      if (newDay) rows.add(_Row.day(dayLine(m.createdAt, appNow())));
       final prevMine = prev != null && me != null && prev.senderUsername == me;
       final nextMine = next != null && me != null && next.senderUsername == me;
       final startsRun = newDay || prevMine != mine;
@@ -935,7 +937,7 @@ class _Composer extends StatelessWidget {
               alignment: Alignment.centerLeft,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(21)),
-              child: TextField(
+              child: StudioTapArea(child: TextField(
                 controller: controller,
                 minLines: 1,
                 maxLines: 4,
@@ -951,7 +953,7 @@ class _Composer extends StatelessWidget {
                   hintText: 'Message',
                   hintStyle: style.copyWith(color: c.textTertiary),
                 ),
-              ),
+              )),
             ),
           ),
           const SizedBox(width: 8),

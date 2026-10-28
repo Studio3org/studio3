@@ -10,7 +10,8 @@ import '../theme/studio_colors.dart';
 import '../theme/studio_type.dart';
 import '../widgets/post_picker_search_field.dart';
 import '../widgets/studio/studio_avatar.dart';
-import 'conversation_thread_page.dart';
+import 'conversation_thread_page.dart';
+import '../widgets/studio/studio_tap_area.dart';
 
 /// A person to message.
 class MessageContact {
@@ -159,7 +160,7 @@ class _NewMessagePageState extends State<NewMessagePage> {
                     ),
                     Align(
                       alignment: Alignment.centerLeft,
-                      child: Semantics(
+                      child: StudioTapArea(child: Semantics(
                         button: true,
                         child: GestureDetector(
                           onTap: () => Navigator.maybePop(context),
@@ -172,7 +173,7 @@ class _NewMessagePageState extends State<NewMessagePage> {
                             ),
                           ),
                         ),
-                      ),
+                      )),
                     ),
                   ],
                 ),

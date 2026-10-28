@@ -1154,7 +1154,7 @@ class _PieceCard extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: GestureDetector(
+                child: StudioTapArea(child: GestureDetector(
                   onTap: onPrice,
                   behavior: HitTestBehavior.opaque,
                   child: SizedBox(
@@ -1164,9 +1164,9 @@ class _PieceCard extends StatelessWidget {
                       child: Text(priceLine, style: StudioType.label13(color: c.textBody)),
                     ),
                   ),
-                ),
+                )),
               ),
-              Semantics(
+              StudioTapArea(child: Semantics(
                 button: true,
                 child: GestureDetector(
                   onTap: onQr,
@@ -1186,7 +1186,7 @@ class _PieceCard extends StatelessWidget {
                     ),
                   ),
                 ),
-              ),
+              )),
             ],
           ),
         ],
