@@ -20,7 +20,10 @@ void showStudioToast(
   String? icon = StudioIcons.check,
   Duration duration = const Duration(milliseconds: 2500),
 }) {
-  final overlay = Overlay.maybeOf(context, rootOverlay: true);
+  // A Navigator's own context sits above its Overlay (onboarding's welcome after it replaces
+  // itself with the feed): use that Navigator's overlay.
+  final overlay =
+      Overlay.maybeOf(context, rootOverlay: true) ?? Navigator.maybeOf(context, rootNavigator: true)?.overlay;
   if (overlay == null) return;
   _dismiss();
   final key = GlobalKey<_ToastState>();

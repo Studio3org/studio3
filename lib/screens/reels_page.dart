@@ -177,7 +177,8 @@ class _ReelsPageState extends State<ReelsPage>
         if (append) {
           _items.addAll(page.items);
         } else {
-          _items = page.items;
+          // A copy: the service's list is fixed-length, and later pages are added to this one.
+          _items = List<FeedItem>.of(page.items);
         }
         _nextCursor = page.nextCursor;
         _loading = false;
@@ -201,7 +202,7 @@ class _ReelsPageState extends State<ReelsPage>
   void _onBackgroundUpdate(FeedPage page) {
     if (!mounted) return;
     setState(() {
-      _items = page.items;
+      _items = List<FeedItem>.of(page.items);
       _nextCursor = page.nextCursor;
     });
   }

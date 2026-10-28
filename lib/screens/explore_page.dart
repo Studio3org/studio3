@@ -113,7 +113,8 @@ class _ExplorePageState extends State<ExplorePage>
         if (append) {
           _allItems.addAll(page.items);
         } else {
-          _allItems = page.items;
+          // A copy: the service's list is fixed-length, and later pages are added to this one.
+          _allItems = List<FeedItem>.of(page.items);
         }
         _nextCursor = page.nextCursor;
         _loading = false;
@@ -142,7 +143,7 @@ class _ExplorePageState extends State<ExplorePage>
   void _mergeBackgroundPage(FeedPage page) {
     if (!mounted) return;
     setState(() {
-      _allItems = page.items;
+      _allItems = List<FeedItem>.of(page.items);
       _nextCursor = page.nextCursor;
       if (_medium != null && !exploreMediumNames(_allItems).contains(_medium)) {
         _medium = null;
