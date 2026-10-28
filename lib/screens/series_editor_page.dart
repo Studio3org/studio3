@@ -13,7 +13,8 @@ import '../widgets/create_flow/link_piece_sheet.dart';
 import '../widgets/create_flow/series_picker_sheet.dart';
 import '../widgets/studio/studio_field.dart';
 import '../widgets/studio/studio_toast.dart';
-import '../widgets/studio_loading.dart';
+import '../widgets/studio_loading.dart';
+import '../widgets/studio/studio_tap_area.dart';
 
 class SeriesEditorPage extends StatefulWidget {
   const SeriesEditorPage({
@@ -327,7 +328,7 @@ class _HeaderAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.studio;
-    return Semantics(
+    return StudioTapArea(child: Semantics(
       button: true,
       enabled: onTap != null,
       child: GestureDetector(
@@ -345,7 +346,7 @@ class _HeaderAction extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ));
   }
 }
 

@@ -223,5 +223,6 @@ void main() {
     await tester.tap(find.text('Where do I park?'));
     await tester.pumpAndSettle();
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/EvDetail.png'));
+    await checkAcceptance(tester);
   }, skip: Platform.environment['NEW_UI_GOLDENS'] != '1');
 }

@@ -151,5 +151,6 @@ void main() {
     await tester.pumpWidget(_app());
     await tester.pumpAndSettle();
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/EvConfirmed.png'));
+    await checkAcceptance(tester);
   }, skip: Platform.environment['NEW_UI_GOLDENS'] != '1');
 }

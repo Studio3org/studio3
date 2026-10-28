@@ -15,7 +15,8 @@ import '../studio/studio_field.dart';
 import '../studio/studio_icon.dart';
 import '../studio/studio_progress_segments.dart';
 import '../studio/studio_select_row.dart';
-import '../studio/studio_tooltip.dart';
+import '../studio/studio_tooltip.dart';
+import '../studio/studio_tap_area.dart';
 
 /// How a piece is offered (`PostAvailFixed`, `PostAvailAuction`, `PostNFSAvail`).
 enum SaleMode { fixed, auction, notForSale }
@@ -542,7 +543,7 @@ class _PieceCard extends StatelessWidget {
         if (onEdit != null)
           Semantics(
             button: true,
-            child: GestureDetector(
+            child: StudioTapArea(child: GestureDetector(
               onTap: onEdit,
               behavior: HitTestBehavior.opaque,
               child: SizedBox(
@@ -557,7 +558,7 @@ class _PieceCard extends StatelessWidget {
                   ),
                 ),
               ),
-            ),
+            )),
           ),
       ],
     );

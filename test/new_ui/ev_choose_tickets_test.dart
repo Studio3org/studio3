@@ -196,5 +196,6 @@ void main() {
     await tester.tap(find.bySemanticsLabel('One more VIP'));
     await tester.pump();
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/EvChooseTickets.png'));
+    await checkAcceptance(tester);
   }, skip: Platform.environment['NEW_UI_GOLDENS'] != '1');
 }

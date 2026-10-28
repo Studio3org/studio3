@@ -235,5 +235,6 @@ void main() {
     await tester.tap(_tab('This week'));
     await tester.pump();
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/EvTab.png'));
+    await checkAcceptance(tester);
   }, skip: Platform.environment['NEW_UI_GOLDENS'] != '1');
 }

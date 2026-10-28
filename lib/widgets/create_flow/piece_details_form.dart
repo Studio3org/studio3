@@ -6,7 +6,8 @@ import '../../data/post_media_assets.dart';
 import '../../models/listing_details.dart';
 import '../../screens/profile/profile_constants.dart';
 import '../../theme/home_feed_tokens.dart';
-import '../../theme/app_fonts.dart';
+import '../../theme/app_fonts.dart';
+import '../studio/studio_tap_area.dart';
 
 /// Figma 2720:6711 — piece posting Details tab.
 class PieceDetailsForm extends StatefulWidget {
@@ -431,7 +432,7 @@ class _DimBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return StudioTapArea(child: Container(
       height: 40,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
       decoration: BoxDecoration(
@@ -441,7 +442,7 @@ class _DimBox extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: TextField(
+            child: StudioTapArea(child: TextField(
               controller: controller,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               inputFormatters: [
@@ -458,7 +459,7 @@ class _DimBox extends StatelessWidget {
                 border: InputBorder.none,
                 contentPadding: EdgeInsets.zero,
               ),
-            ),
+            )),
           ),
           const SizedBox(width: 4),
           Text(
@@ -470,7 +471,7 @@ class _DimBox extends StatelessWidget {
           ),
         ],
       ),
-    );
+    ));
   }
 }
 

@@ -10,7 +10,8 @@ import '../feed_skeleton.dart';
 import '../post_picker_search_field.dart';
 import '../studio/studio_avatar.dart';
 import '../studio/studio_empty_state.dart';
-import '../studio/studio_icon.dart';
+import '../studio/studio_icon.dart';
+import '../../utils/app_clock.dart';
 
 /// The Inbox's Messages tab (`NotifMessages`).
 ///
@@ -340,7 +341,7 @@ class ConversationRow extends StatelessWidget {
                         ),
                         const SizedBox(width: 10),
                         Text(
-                          conversationTime(conversation.updatedAt, DateTime.now()),
+                          conversationTime(conversation.updatedAt, appNow()),
                           style: StudioType.label13(color: c.textTertiary),
                         ),
                       ],

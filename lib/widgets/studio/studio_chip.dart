@@ -4,6 +4,7 @@ import '../../theme/studio_colors.dart';
 import '../../theme/studio_metrics.dart';
 import '../../theme/studio_type.dart';
 import 'studio_iridescent.dart';
+import 'studio_tap_area.dart';
 
 /// Filter chip: 36 tall, round, 0 14 padding, 14/500. Off = 1 px #D4D4D0 outline on
 /// white; on = Ink fill (`Explore`, `NotifActivity` tabs).
@@ -31,7 +32,9 @@ class StudioChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.studio;
     final fg = selected ? c.buttonText : c.textPrimary;
-    return Semantics(
+    // 36 (or 32) on the boards; answers over 44.
+    return StudioTapArea(
+      child: Semantics(
       button: true,
       selected: selected,
       child: GestureDetector(
@@ -65,6 +68,7 @@ class StudioChip extends StatelessWidget {
             ],
           ),
         ),
+      ),
       ),
     );
   }

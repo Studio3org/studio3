@@ -188,7 +188,7 @@ class EventRangeTabs extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
       child: Row(
         children: [
-          Semantics(
+          StudioTapArea(child: Semantics(
             button: true,
             label: 'Filters',
             excludeSemantics: true,
@@ -217,10 +217,10 @@ class EventRangeTabs extends StatelessWidget {
                 ),
               ),
             ),
-          ),
+          )),
           for (final r in EventRange.values) ...[
             const SizedBox(width: 18),
-            Semantics(
+            StudioTapArea(child: Semantics(
               button: true,
               selected: r == range,
               child: GestureDetector(
@@ -246,7 +246,7 @@ class EventRangeTabs extends StatelessWidget {
                   ),
                 ),
               ),
-            ),
+            )),
           ],
         ],
       ),

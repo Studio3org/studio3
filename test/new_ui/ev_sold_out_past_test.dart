@@ -123,6 +123,7 @@ void main() {
       await tester.pumpWidget(_app(_event(full: true)));
       await tester.pump();
       await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/EvSoldOut.png'));
+      await checkAcceptance(tester);
     }, skip: Platform.environment['NEW_UI_GOLDENS'] != '1');
   });
 
@@ -172,6 +173,7 @@ void main() {
       await tester.pumpWidget(_app(_event(ended: true)));
       await tester.pump();
       await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/EvPast.png'));
+      await checkAcceptance(tester);
     }, skip: Platform.environment['NEW_UI_GOLDENS'] != '1');
   });
 }

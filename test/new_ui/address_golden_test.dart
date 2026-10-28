@@ -53,5 +53,6 @@ void main() {
       ..createSync(recursive: true)
       ..writeAsStringSync(jsonEncode({'helperBottom': helper.bottom}));
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/BuyAddress.png'));
+    await checkAcceptance(tester);
   }, skip: Platform.environment['NEW_UI_GOLDENS'] == null);
 }

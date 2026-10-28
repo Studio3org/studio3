@@ -6,7 +6,8 @@ import '../../utils/profile_navigation.dart';
 import '../accept_decline_buttons.dart';
 import '../feed_skeleton.dart';
 import '../offline_state.dart';
-import '../studio/studio.dart';
+import '../studio/studio.dart';
+import '../../utils/app_clock.dart';
 import 'notifications_body.dart' show activityTime;
 
 /// The Inbox "Requests" tab: people asking to follow a private profile. No board of its
@@ -182,7 +183,7 @@ class FollowRequestRow extends StatelessWidget {
                           const SizedBox(height: 2),
                           Text(
                             '@${request.username} · '
-                            '${activityTime(request.requestedAt, DateTime.now())}',
+                            '${activityTime(request.requestedAt, appNow())}',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: StudioType.caption12(color: c.textSecondary),

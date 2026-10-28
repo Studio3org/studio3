@@ -27,3 +27,4 @@ export 'studio_tab_bar.dart';
 export 'studio_toast.dart';
 export 'studio_top_bar.dart';
 export 'studio_tooltip.dart';
+export 'studio_tap_area.dart';

@@ -9,7 +9,8 @@ import '../studio/studio_button.dart';
 import '../studio/studio_field.dart';
 import '../studio/studio_icon.dart';
 import '../studio/studio_progress_segments.dart';
-import '../studio/studio_tooltip.dart';
+import '../studio/studio_tooltip.dart';
+import '../studio/studio_tap_area.dart';
 
 /// Pieces shared by the light posting screens (`PostAvailFixed`, `PostDetails*`,
 /// `PostReview`, `ScenePhotoDetails`, the published and error screens).
@@ -142,7 +143,7 @@ class PostTextLink extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
+    return StudioTapArea(child: Semantics(
       button: true,
       child: GestureDetector(
         onTap: onTap,
@@ -160,7 +161,7 @@ class PostTextLink extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ));
   }
 }
 

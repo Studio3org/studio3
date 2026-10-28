@@ -172,5 +172,6 @@ void main() {
     await tester.pumpWidget(_app(_page()));
     await tester.pump();
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/EvCheckout.png'));
+    await checkAcceptance(tester);
   }, skip: Platform.environment['NEW_UI_GOLDENS'] != '1');
 }

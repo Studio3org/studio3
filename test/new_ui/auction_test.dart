@@ -605,6 +605,7 @@ void main() {
       await tester.tap(find.text('open'));
       await tester.pumpAndSettle();
       await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/$name.png'));
+      await checkAcceptance(tester);
     }
 
     testWidgets('BidVerify', (tester) async {
@@ -624,6 +625,7 @@ void main() {
       await tester.tap(_info('What is the reserve?'));
       await tester.pump();
       await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/BidSheet.png'));
+      await checkAcceptance(tester);
     }, skip: skip);
 
     for (final (name, state, a) in [
@@ -639,6 +641,7 @@ void main() {
         setBoardViewport(tester);
         await tester.pumpWidget(_barHost(state, a));
         await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/$name.png'));
+        await checkAcceptance(tester);
       }, skip: skip);
     }
 
@@ -659,6 +662,7 @@ void main() {
         ),
       );
       await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/BidPaymentFailed.png'));
+      await checkAcceptance(tester);
     }, skip: skip);
   });
 }

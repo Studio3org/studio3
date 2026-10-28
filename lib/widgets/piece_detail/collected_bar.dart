@@ -25,7 +25,7 @@ class PieceCollectedBar extends StatelessWidget {
   /// Bar height for the page's scroll padding.
   static double totalHeight(BuildContext context, {required bool withCard}) {
     final safe = MediaQuery.viewPaddingOf(context).bottom;
-    return 28 + (withCard ? 182 + 4 + 40 : StudioSize.buttonPrimary) + (safe > 0 ? safe : 30);
+    return 28 + (withCard ? 182 + 4 + StudioSize.tapTarget : StudioSize.buttonPrimary) + (safe > 0 ? safe : 30);
   }
 
   @override
@@ -71,7 +71,8 @@ class PieceCollectedBar extends StatelessWidget {
                         onTap: delivery.forArtist ? onLink : onMessage,
                         behavior: HitTestBehavior.opaque,
                         child: SizedBox(
-                          height: 40,
+                          // 40 on the board; 44 so it is a full tap target.
+                          height: StudioSize.tapTarget,
                           child: Center(
                             child: Text(
                               delivery.linkLabel,
@@ -316,7 +317,8 @@ class PieceDeliveryCard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 16),
               child: DeliveryTracker(step: delivery.step, forArtist: delivery.forArtist),
             ),
-            Semantics(
+            StudioTapArea(
+              child: Semantics(
               button: onTap != null,
               child: GestureDetector(
                 onTap: onTap,
@@ -345,6 +347,7 @@ class PieceDeliveryCard extends StatelessWidget {
                     StudioIcon(StudioIcons.chevronRight, size: 18, color: c.textPrimary),
                   ],
                 ),
+              ),
               ),
             ),
           ],

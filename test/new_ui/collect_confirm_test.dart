@@ -194,6 +194,7 @@ void main() {
       ..createSync(recursive: true)
       ..writeAsStringSync(jsonEncode({'titleTop': title.top, 'lineBottom': line.bottom}));
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/CollectConfirm.png'));
+    await checkAcceptance(tester);
     debugDisableShadows = true;
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(minutes: 1));

@@ -672,7 +672,8 @@ class _FeedPieceCardState extends State<FeedPieceCard> {
         AspectRatio(
           aspectRatio: exploreBrowseAspect(item),
           child: Semantics(
-            label: urls.length > 1 ? 'Photo ${_page + 1} of ${urls.length}' : null,
+            // A single photo still says what a tap does (section 19.1: every tap labelled).
+            label: urls.length > 1 ? 'Photo ${_page + 1} of ${urls.length}' : 'Open the piece',
             child: GestureDetector(
               onTap: widget.onTap,
               child: Stack(
@@ -719,16 +720,16 @@ class _FeedPieceCardState extends State<FeedPieceCard> {
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
           child: Row(
             children: [
-              GestureDetector(
+              StudioTapArea(child: GestureDetector(
                 onTap: canOpenAuthor ? () => openUserProfile(context, username) : null,
                 child: StudioAvatar(url: item.authorAvatarUrl, size: 32, semanticLabel: name),
-              ),
+              )),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    GestureDetector(
+                    Semantics(link: true, child: GestureDetector(
                       onTap: canOpenAuthor ? () => openUserProfile(context, username) : null,
                       child: Text(
                         name,
@@ -736,9 +737,9 @@ class _FeedPieceCardState extends State<FeedPieceCard> {
                         overflow: TextOverflow.ellipsis,
                         style: StudioType.body14(weight: StudioType.medium, color: c.textPrimary),
                       ),
-                    ),
+                    )),
                     if (title != null && title.isNotEmpty)
-                      GestureDetector(
+                      Semantics(link: true, child: GestureDetector(
                         onTap: widget.onTap,
                         child: Text(
                           title,
@@ -746,7 +747,7 @@ class _FeedPieceCardState extends State<FeedPieceCard> {
                           overflow: TextOverflow.ellipsis,
                           style: StudioType.label13(color: c.textSecondary),
                         ),
-                      ),
+                      )),
                   ],
                 ),
               ),
@@ -951,7 +952,7 @@ class _SeriesCoverCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final title = preview.title?.trim() ?? '';
-    return GestureDetector(
+    return Semantics(label: title.isEmpty ? 'Open the piece' : title, child: GestureDetector(
       onTap: onTap,
       child: SizedBox(
         width: width,
@@ -986,7 +987,7 @@ class _SeriesCoverCard extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ));
   }
 }
 

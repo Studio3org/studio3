@@ -115,6 +115,14 @@ class StudioColors extends ThemeExtension<StudioColors> {
   /// Secondary text on Ink cards (event card, dark edit screens).
   static const Color onDarkSecondary = Color(0xFFA8A8A8);
 
+  /// Tertiary text and marks on the dark edit screens (`SceneTrim` "/ 1:00", the crop ticks).
+  static const Color onDarkTertiary = Color(0xFF6A6A6A);
+
+  /// The dark photo editor (`ScenePhotoEdit`, `ScenePhotoEditSize`): unselected tabs, and the
+  /// text of an unselected chip.
+  static const Color onDarkOff = Color(0xFF8A8A8A);
+  static const Color onDarkChipText = Color(0xFFC8C8C8);
+
   /// Iridescent gradient (115°), used ONLY for the Collected chip, the collect
   /// confirmation and — blurred — the sign-in haze (`HandoffRules`).
   static const List<Color> iridescentStops = [
@@ -138,7 +146,7 @@ class StudioColors extends ThemeExtension<StudioColors> {
     textPrimary: Color(0xFF111111),
     textBody: Color(0xFF333333),
     textSecondary: Color(0xFF6B6B6B),
-    textTertiary: Color(0xFF8E8E8E),
+    textTertiary: Color(0xFF6D6D6D), // darkened from the boards' #8E8E8E to reach 4.5:1 (19.1, 2026-10-28)
     textPlaceholder: Color(0xFFA3A3A3),
     buttonFill: Color(0xFF111111),
     buttonText: Color(0xFFFAFAF8),

@@ -20,7 +20,8 @@ import '../feed_skeleton.dart';
 import '../home_feed/home_feed_widgets.dart';
 import '../offline_state.dart';
 import '../studio/studio_avatar.dart';
-import '../studio/studio_empty_state.dart';
+import '../studio/studio_empty_state.dart';
+import '../../utils/app_clock.dart';
 
 /// The Inbox's Activity tab (`NotifActivity`, with the in-app looks of `NotifCatalog`).
 ///
@@ -182,7 +183,7 @@ class NotificationsBodyState extends State<NotificationsBody> {
       );
     }
 
-    final now = DateTime.now();
+    final now = appNow();
     final groups = <String, List<NotificationItem>>{
       'Today': [],
       'This week': [],

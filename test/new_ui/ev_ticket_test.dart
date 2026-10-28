@@ -127,5 +127,6 @@ void main() {
     await tester.pumpWidget(_app(EventTicketPage(event: _event, tickets: _tickets)));
     await tester.pump();
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/EvTicket.png'));
+    await checkAcceptance(tester);
   }, skip: Platform.environment['NEW_UI_GOLDENS'] != '1');
 }

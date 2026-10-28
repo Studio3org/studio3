@@ -122,7 +122,7 @@ class NextEventCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 12),
-                GestureDetector(
+                StudioTapArea(child: GestureDetector(
                   onTap: onTap,
                   child: Container(
                     height: 36,
@@ -134,7 +134,7 @@ class NextEventCard extends StatelessWidget {
                     ),
                     child: Text(buttonLabel, style: StudioType.label13(weight: StudioType.medium, color: c.textPrimary)),
                   ),
-                ),
+                )),
               ],
             ),
           ],

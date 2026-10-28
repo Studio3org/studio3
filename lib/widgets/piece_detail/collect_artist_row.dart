@@ -7,6 +7,7 @@ import '../../utils/profile_navigation.dart';
 import '../follow_button.dart';
 import '../studio/studio_avatar.dart';
 import '../studio/studio_button.dart';
+import '../studio/studio_tap_area.dart';
 
 /// Artist row under the piece image (`BuyPiece`): 36 avatar, 10 gap, name 14/500 over
 /// handle 12, and the small Follow (34, radius 8) only; 12 20 padding and a 1 px Line
@@ -44,7 +45,8 @@ class CollectArtistRow extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: GestureDetector(
+            child: StudioTapArea(
+              child: GestureDetector(
               onTap: () => openUserProfile(context, item.handle),
               behavior: HitTestBehavior.opaque,
               child: Row(
@@ -77,6 +79,7 @@ class CollectArtistRow extends StatelessWidget {
                   ),
                 ],
               ),
+            ),
             ),
           ),
           const SizedBox(width: 12),

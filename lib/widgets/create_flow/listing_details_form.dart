@@ -12,6 +12,7 @@ import '../studio/studio_sheet.dart';
 import '../studio/studio_switch.dart';
 import '../studio/studio_tooltip.dart';
 import 'post_flow_widgets.dart';
+import '../studio/studio_tap_area.dart';
 
 /// Framing choices on the Framing sheet; the board draws "Unframed".
 const kFramingOptions = ['Unframed', 'Framed', 'Ready to hang'];
@@ -508,7 +509,11 @@ class PieceDetailsStepState extends State<PieceDetailsStep> {
                   style: StudioType.sans(16, color: c.textPrimary),
                 ),
               ),
-              StudioSwitch(value: _aiTools, onChanged: (v) => setState(() => _aiTools = v)),
+              StudioSwitch(
+                value: _aiTools,
+                onChanged: (v) => setState(() => _aiTools = v),
+                semanticLabel: 'Made with AI tools',
+              ),
             ],
           ),
         ],
@@ -551,9 +556,11 @@ class _DimensionCellState extends State<_DimensionCell> {
     final c = context.studio;
     final style = StudioType.mono(18, color: c.textPrimary);
     final empty = widget.controller.text.isEmpty;
-    return GestureDetector(
+    return StudioTapArea(child: GestureDetector(
       onTap: _focus.requestFocus,
       behavior: HitTestBehavior.opaque,
+      // The field inside is the labelled control; this only widens where a tap focuses it.
+      excludeFromSemantics: true,
       child: Container(
         padding: EdgeInsets.only(bottom: _focus.hasFocus ? 7.5 : 8),
         decoration: BoxDecoration(
@@ -570,7 +577,7 @@ class _DimensionCellState extends State<_DimensionCell> {
           children: [
             Flexible(
               child: IntrinsicWidth(
-                child: TextField(
+                child: StudioTapArea(child: TextField(
                   controller: widget.controller,
                   focusNode: _focus,
                   style: style,
@@ -589,7 +596,7 @@ class _DimensionCellState extends State<_DimensionCell> {
                     semanticCounterText: '',
                   ),
                   onChanged: (_) => setState(() {}),
-                ),
+                )),
               ),
             ),
             if (!empty)
@@ -597,7 +604,7 @@ class _DimensionCellState extends State<_DimensionCell> {
           ],
         ),
       ),
-    );
+    ));
   }
 }
 

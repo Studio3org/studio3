@@ -447,7 +447,7 @@ class AuthRememberRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.studio;
-    return SizedBox(
+    return MergeSemantics(child: Semantics(checked: value, label: 'Remember me', child: SizedBox(
       height: StudioSize.tapTarget,
       child: Row(
         children: [
@@ -499,7 +499,7 @@ class AuthRememberRow extends StatelessWidget {
             ),
         ],
       ),
-    );
+    )));
   }
 }
 
@@ -688,7 +688,8 @@ class AuthTermsCheckbox extends StatelessWidget {
     InlineSpan link(String label) => WidgetSpan(
       alignment: PlaceholderAlignment.baseline,
       baseline: TextBaseline.alphabetic,
-      child: GestureDetector(
+      // A link inside the sentence (inline links are exempt from the 44 minimum).
+      child: Semantics(link: true, child: GestureDetector(
         onTap: () => Navigator.pushNamed(context, '/terms'),
         child: Text(
           label,
@@ -698,12 +699,12 @@ class AuthTermsCheckbox extends StatelessWidget {
             decorationColor: c.textPrimary,
           ),
         ),
-      ),
+      )),
     );
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(
+        MergeSemantics(child: Semantics(checked: value, label: 'I agree to the Terms of Service and Privacy Policy', child: SizedBox(
           width: StudioSize.tapTarget,
           height: StudioSize.tapTarget,
           child: InkWell(
@@ -724,7 +725,7 @@ class AuthTermsCheckbox extends StatelessWidget {
               ),
             ),
           ),
-        ),
+        ))),
         const SizedBox(width: 8),
         Expanded(
           child: GestureDetector(

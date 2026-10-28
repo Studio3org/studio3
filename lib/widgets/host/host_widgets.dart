@@ -32,7 +32,7 @@ class HostStepTabs extends StatelessWidget {
         children: [
           for (var i = 0; i < kHostSteps.length; i++)
             Expanded(
-              child: Semantics(
+              child: StudioTapArea(child: Semantics(
                 button: true,
                 selected: i == step,
                 child: GestureDetector(
@@ -55,7 +55,7 @@ class HostStepTabs extends StatelessWidget {
                     ),
                   ),
                 ),
-              ),
+              )),
             ),
         ],
       ),
@@ -492,7 +492,7 @@ class HostTextAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.studio;
-    return Semantics(
+    return StudioTapArea(child: Semantics(
       button: true,
       enabled: onTap != null,
       child: GestureDetector(
@@ -516,7 +516,7 @@ class HostTextAction extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ));
   }
 }
 

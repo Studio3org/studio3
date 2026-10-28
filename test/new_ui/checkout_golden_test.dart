@@ -64,6 +64,7 @@ void main() {
         jsonEncode({'shippingLabelTop': shippingLabel.top, 'noteBottom': note.bottom}),
       );
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/BuyCheckoutEmpty.png'));
+    await checkAcceptance(tester);
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(minutes: 1));
   }, skip: Platform.environment['NEW_UI_GOLDENS'] == null);

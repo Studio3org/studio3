@@ -8,11 +8,12 @@ import 'package:studio3/screens/conversation_thread_page.dart';
 import 'package:studio3/theme/app_theme.dart';
 import 'package:studio3/theme/studio_colors.dart';
 import 'package:studio3/widgets/studio/studio_avatar.dart';
+import 'package:studio3/utils/app_clock.dart';
 
 import 'golden_harness.dart';
 
 /// `Conversation` (docs/new-ui/NEW_UI_EXECUTION_PLAN.md, Phase 9).
-final _now = DateTime.now();
+final _now = DateTime(2026, 10, 27, 16, 40);
 final _start = DateTime(_now.year, _now.month, _now.day, 14, 14).isAfter(_now)
     ? _now.subtract(const Duration(minutes: 30))
     : DateTime(_now.year, _now.month, _now.day, 14, 14);
@@ -53,6 +54,9 @@ Container _bubble(WidgetTester tester, String text) => tester.widget<Container>(
 );
 
 void main() {
+  // A fixed date, so "Today · 2:14 PM", "Mon" and the goldens don't move with the real clock.
+  setUp(() => appNow = () => _now);
+  tearDown(() => appNow = DateTime.now);
   setUpAll(() async {
     dotenv.loadFromString(envString: '', isOptional: true);
     await loadStudioFonts();
@@ -120,5 +124,6 @@ void main() {
     await tester.pumpWidget(_page());
     await tester.pump();
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/Conversation.png'));
+    await checkAcceptance(tester);
   }, skip: Platform.environment['NEW_UI_GOLDENS'] != '1');
 }

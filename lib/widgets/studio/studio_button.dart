@@ -4,6 +4,7 @@ import '../../theme/studio_colors.dart';
 import '../../theme/studio_metrics.dart';
 import '../../theme/studio_type.dart';
 import 'studio_icon.dart';
+import 'studio_tap_area.dart';
 
 enum StudioButtonVariant {
   /// Ink fill, full width, 52 (or 54) tall, radius 12, 15/500 (`SignIn1Sheet`, `BuyPiece`).
@@ -144,7 +145,9 @@ class StudioButton extends StatelessWidget {
       side: border == null ? BorderSide.none : BorderSide(color: border),
     );
 
-    return Semantics(
+    // The small button is 34 tall on the boards; it still answers over 44 (`StudioTapArea`).
+    return StudioTapArea(
+      child: Semantics(
       button: true,
       enabled: enabled,
       label: semanticLabel,
@@ -171,6 +174,7 @@ class StudioButton extends StatelessWidget {
             ),
           );
         },
+      ),
       ),
     );
   }

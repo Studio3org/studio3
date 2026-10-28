@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import '../theme/studio_colors.dart';
 import '../theme/studio_metrics.dart';
 import '../theme/studio_type.dart';
-import 'studio/studio_icon.dart';
+import 'studio/studio_icon.dart';
+import 'studio/studio_tap_area.dart';
 
 /// Search field in picker sheets (`PostMedium`, `PostLocation`, `PostMaterialsSearch`): 46
 /// tall, Surface fill, radius 12, 14 sides, a 20 search icon 10 before 15 text.
@@ -51,7 +52,7 @@ class PostPickerSearchField extends StatelessWidget {
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: TextField(
+            child: StudioTapArea(child: TextField(
               controller: controller,
               focusNode: focusNode,
               autofocus: autofocus,
@@ -68,7 +69,7 @@ class PostPickerSearchField extends StatelessWidget {
                 hintText: hintText,
                 hintStyle: style.copyWith(color: c.textTertiary),
               ),
-            ),
+            )),
           ),
         ],
       ),

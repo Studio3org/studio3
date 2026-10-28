@@ -4,6 +4,7 @@ import '../../theme/studio_colors.dart';
 import '../../theme/studio_metrics.dart';
 import '../../theme/studio_type.dart';
 import '../studio/studio_icon.dart';
+import '../studio/studio_tap_area.dart';
 
 /// Explore search pill: 48 tall, round, surface fill, 20 icon, 15 placeholder.
 class ExploreSearchBar extends StatelessWidget {
@@ -32,7 +33,7 @@ class ExploreSearchBar extends StatelessWidget {
           StudioIcon(StudioIcons.search, size: 20, color: c.textSecondary),
           const SizedBox(width: 10),
           Expanded(
-            child: TextField(
+            child: StudioTapArea(child: TextField(
               controller: controller,
               onChanged: onChanged,
               maxLines: 1,
@@ -47,7 +48,7 @@ class ExploreSearchBar extends StatelessWidget {
                 hintText: 'Search artists, pieces, events',
                 hintStyle: StudioType.body15(color: c.textSecondary),
               ),
-            ),
+            )),
           ),
         ],
       ),

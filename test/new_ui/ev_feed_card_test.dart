@@ -165,5 +165,6 @@ void main() {
       ),
     );
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/EventNoArtists.png'));
+    await checkAcceptance(tester);
   }, skip: Platform.environment['NEW_UI_GOLDENS'] != '1');
 }

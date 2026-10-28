@@ -42,10 +42,13 @@ class _DetailHeroImageState extends State<DetailHeroImage> {
   Widget build(BuildContext context) {
     final heroUrl = item.heroImageUrl;
     if (heroUrl != null && heroUrl.isNotEmpty) {
-      return GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => openImagePreview(context, imageUrls: [heroUrl], initialIndex: 0),
-        child: FeedPicsumImage(url: heroUrl),
+      return Semantics(
+        label: 'Open the picture',
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => openImagePreview(context, imageUrls: [heroUrl], initialIndex: 0),
+          child: FeedPicsumImage(url: heroUrl),
+        ),
       );
     }
 
@@ -60,10 +63,13 @@ class _DetailHeroImageState extends State<DetailHeroImage> {
             itemCount: item.imageCount,
             onPageChanged: (page) => setState(() => _page = page),
             itemBuilder: (context, index) {
-              return GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => openImagePreview(context, imageUrls: urls, initialIndex: index),
-                child: FeedPicsumImage(url: urls[index]),
+              return Semantics(
+                label: 'Open the picture',
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => openImagePreview(context, imageUrls: urls, initialIndex: index),
+                  child: FeedPicsumImage(url: urls[index]),
+                ),
               );
             },
           ),
@@ -98,10 +104,13 @@ class _DetailHeroImageState extends State<DetailHeroImage> {
     }
 
     final fallbackUrl = feedPreviewImageUrl(item, imageIndex: widget.initialImageIndex);
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => openImagePreview(context, imageUrls: [fallbackUrl], initialIndex: 0),
-      child: FeedPicsumImage(url: fallbackUrl),
+    return Semantics(
+      label: 'Open the picture',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => openImagePreview(context, imageUrls: [fallbackUrl], initialIndex: 0),
+        child: FeedPicsumImage(url: fallbackUrl),
+      ),
     );
   }
 }

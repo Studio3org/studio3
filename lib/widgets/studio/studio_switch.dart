@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/studio_colors.dart';
 import '../../theme/studio_metrics.dart';
+import 'studio_tap_area.dart';
 
 /// Switch: 44 × 26 round track, 20 px knob inset 3 (`NotifSettings`, `SignIn3Profile`).
 /// Light: Ink track on, #E3E3E0 off, white knob.
@@ -16,7 +17,7 @@ class StudioSwitch extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.studio;
     final duration = MediaQuery.disableAnimationsOf(context) ? Duration.zero : StudioMotion.quick;
-    return Semantics(
+    return StudioTapArea(child: Semantics(
       toggled: value,
       enabled: onChanged != null,
       label: semanticLabel,
@@ -51,6 +52,6 @@ class StudioSwitch extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ));
   }
 }
