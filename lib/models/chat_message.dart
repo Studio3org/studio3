@@ -46,6 +46,37 @@ class ConversationCreateResult {
 }
 
 /// One row in the chat inbox, from `GET /api/conversations`.
+/// The piece a conversation started from (BACKEND_CHANGES B9): the `Conversation` "About this
+/// piece" card and the piece's thumbnail in Messages. [priceCents] only while it is for sale.
+class ChatPiece {
+  const ChatPiece({
+    required this.id,
+    required this.title,
+    this.imageUrl,
+    this.priceCents,
+    this.artistUsername,
+  });
+
+  final String id;
+  final String title;
+  final String? imageUrl;
+  final int? priceCents;
+  final String? artistUsername;
+
+  static ChatPiece? fromJson(Object? json) {
+    if (json is! Map<String, dynamic>) return null;
+    final id = json['id'] as String?;
+    if (id == null || id.isEmpty) return null;
+    return ChatPiece(
+      id: id,
+      title: json['title'] as String? ?? '',
+      imageUrl: json['imageUrl'] as String?,
+      priceCents: (json['priceCents'] as num?)?.toInt(),
+      artistUsername: json['artistUsername'] as String?,
+    );
+  }
+}
+
 class ConversationSummary {
   const ConversationSummary({
     required this.id,
@@ -58,6 +89,7 @@ class ConversationSummary {
     required this.unread,
     required this.status,
     this.muted = false,
+    this.piece,
   });
 
   final String id;
@@ -73,6 +105,9 @@ class ConversationSummary {
   /// Muted by the viewer (`ConvMenu` Mute notifications): the row shows a crossed-out bell.
   final bool muted;
 
+  /// The piece the chat started from; its thumbnail shows on the right of the row.
+  final ChatPiece? piece;
+
   factory ConversationSummary.fromJson(Map<String, dynamic> json) {
     final otherParty = json['otherParty'] as Map<String, dynamic>?;
     return ConversationSummary(
@@ -87,6 +122,7 @@ class ConversationSummary {
       unread: json['unread'] as bool? ?? false,
       status: json['status'] as String? ?? 'open',
       muted: json['muted'] as bool? ?? false,
+      piece: ChatPiece.fromJson(json['piece']),
     );
   }
 
@@ -107,6 +143,7 @@ class ConversationSummary {
       unread: unread ?? this.unread,
       status: status ?? this.status,
       muted: muted ?? this.muted,
+      piece: piece,
     );
   }
 }
@@ -167,6 +204,7 @@ class ChatThread {
     required this.status,
     required this.messages,
     this.muted = false,
+    this.piece,
   });
 
   final String id;
@@ -183,6 +221,9 @@ class ChatThread {
 
   /// Muted by the viewer: no alerts for this chat (BACKEND_CHANGES B8).
   final bool muted;
+
+  /// The piece the chat started from (B9): the "About this piece" card at the top.
+  final ChatPiece? piece;
 
   factory ChatThread.fromJson(Map<String, dynamic> json) {
     final otherParty = json['otherParty'] as Map<String, dynamic>?;
@@ -207,6 +248,7 @@ class ChatThread {
           ? items.whereType<Map<String, dynamic>>().map(ChatMessage.fromJson).toList()
           : const [],
       muted: json['muted'] as bool? ?? false,
+      piece: ChatPiece.fromJson(json['piece']),
     );
   }
 }

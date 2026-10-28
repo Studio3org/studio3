@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../models/chat_message.dart' show ChatPiece;
 import '../models/feed_preview_item.dart';
 import '../models/order.dart';
 import '../services/api_exception.dart';
@@ -125,6 +126,13 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
           otherPartyUsername: _authorHandle,
           otherPartyName: item.displayName,
           otherPartyAvatarUrl: item.authorAvatarUrl,
+          // A new chat starts about this piece (BACKEND_CHANGES B9). It is sold: no price.
+          aboutPiece: ChatPiece(
+            id: item.id,
+            title: item.title,
+            imageUrl: item.heroImageUrl,
+            artistUsername: _authorHandle,
+          ),
         ),
       ),
     );

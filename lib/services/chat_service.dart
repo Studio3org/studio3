@@ -64,6 +64,7 @@ class ChatService {
     String username,
     String message, {
     String? imageUrl,
+    String? pieceId,
   }) async {
     final json = await _api.post(
       '/api/conversations',
@@ -71,6 +72,8 @@ class ChatService {
         'username': username,
         'message': message,
         if (imageUrl != null) 'imageUrl': imageUrl,
+        // Started from a piece page: the chat remembers it (BACKEND_CHANGES B9).
+        'pieceId': ?pieceId,
       },
       auth: true,
     );

@@ -5,13 +5,17 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../models/chat_message.dart';
+import '../models/feed_preview_item.dart';
 import '../services/auth_session.dart';
 import '../services/chat_service.dart';
 import '../services/chat_socket_service.dart';
 import '../services/media_service.dart';
+import '../services/piece_service.dart';
 import '../theme/studio_colors.dart';
 import '../theme/studio_metrics.dart';
 import '../theme/studio_type.dart';
+import '../utils/explore_detail_route.dart' show openPieceDetailPreview;
+import '../utils/money_format.dart';
 import '../utils/profile_navigation.dart';
 import '../widgets/accept_decline_buttons.dart';
 import '../widgets/content_actions_sheet.dart';
@@ -43,6 +47,7 @@ class ConversationThreadPage extends StatefulWidget {
     required this.otherPartyName,
     required this.otherPartyAvatarUrl,
     this.initialStatus = 'open',
+    this.aboutPiece,
     this.debugMessages,
     this.debugMyUsername,
   }) : assert(
@@ -56,6 +61,10 @@ class ConversationThreadPage extends StatefulWidget {
   final String otherPartyName;
   final String? otherPartyAvatarUrl;
   final String initialStatus;
+
+  /// Opened from a piece page (B9): a new chat starts about this piece, and its card shows at
+  /// the top. A chat already under way keeps the piece it began with (or none).
+  final ChatPiece? aboutPiece;
 
   /// For tests: messages (oldest first) and the signed-in username, instead of loading.
   @visibleForTesting
@@ -82,6 +91,9 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
 
   /// Muted by the viewer: no alerts for this chat (`ConvMenu`).
   bool _muted = false;
+
+  /// The piece the chat is about ("About this piece"), once the thread says so.
+  ChatPiece? _piece;
   final _textController = TextEditingController();
   final _scrollController = ScrollController();
   Timer? _typingStopTimer;
@@ -91,6 +103,7 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
     super.initState();
     _status = widget.initialStatus;
     _conversationId = widget.conversationId;
+    _piece = widget.aboutPiece;
     _otherPartyId = widget.otherPartyId;
     _textController.addListener(_onTextChanged);
     final debug = widget.debugMessages;
@@ -251,6 +264,8 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
       setState(() {
         _replaceMessagesFromThread(thread);
         _muted = thread.muted;
+        // The thread's own piece wins: a chat already under way keeps what it began with.
+        _piece = thread.piece;
         _loading = false;
       });
       _scrollToBottom();
@@ -272,6 +287,7 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
       username,
       body ?? '',
       imageUrl: imageUrl,
+      pieceId: widget.aboutPiece?.id,
     );
     if (!mounted) return null;
     setState(() {
@@ -285,6 +301,7 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
     if (!mounted) return null;
     setState(() {
       _replaceMessagesFromThread(thread);
+      _piece = thread.piece ?? _piece;
     });
     _scrollToBottom();
     return _messages.isNotEmpty ? _messages.last : null;
@@ -447,6 +464,15 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
     );
   }
 
+  /// The card opens the piece (it may have gone: then nothing happens).
+  Future<void> _openPiece(ChatPiece piece) async {
+    try {
+      final summary = await PieceService.instance.getByIdCached(piece.id);
+      if (!mounted) return;
+      await openPieceDetailPreview(context, FeedPreviewItem.fromPieceSummary(summary));
+    } catch (_) {}
+  }
+
   /// Mute notifications: the switch moves at once; if the server refuses, it goes back.
   Future<bool> _setMuted(bool muted) async {
     final id = _conversationId;
@@ -477,6 +503,8 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
       final mine = me != null && m.senderUsername == me;
       final newDay = prev == null || !_sameCalendarDay(prev.createdAt, m.createdAt);
       if (newDay) rows.add(_Row.day(dayLine(m.createdAt, appNow())));
+      // The piece the chat is about sits under the first day line (`Conversation`).
+      if (i == 0 && _piece != null) rows.add(const _Row.piece());
       final prevMine = prev != null && me != null && prev.senderUsername == me;
       final nextMine = next != null && me != null && next.senderUsername == me;
       final startsRun = newDay || prevMine != mine;
@@ -598,6 +626,9 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
                       username: _displayUsername,
                       followersCount: _followersCount,
                       piecesCount: _piecesCount,
+                      piece: _piece == null
+                          ? null
+                          : ChatPieceCard(piece: _piece!, onTap: () => _openPiece(_piece!)),
                     )
                   : ListView.builder(
                       controller: _scrollController,
@@ -608,6 +639,18 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
                         final row = rows[i];
                         final day = row.day;
                         if (day != null) return _DayLine(label: day);
+                        if (row.isPiece) {
+                          final piece = _piece!;
+                          // On the side of whoever asked: yours when it is someone else's piece.
+                          final mine = piece.artistUsername == null || piece.artistUsername != me;
+                          return Align(
+                            alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
+                            child: Padding(
+                              padding: const EdgeInsets.only(bottom: 6),
+                              child: ChatPieceCard(piece: piece, onTap: () => _openPiece(piece)),
+                            ),
+                          );
+                        }
                         final m = row.message!;
                         return _MessageBubble(
                           message: m,
@@ -646,25 +689,102 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
   }
 }
 
-/// A thread row: a day line or a message.
+/// A thread row: a day line, the piece card, or a message.
 class _Row {
   const _Row.day(String this.day)
     : message = null,
       mine = false,
       startsRun = false,
-      endsRun = false;
+      endsRun = false,
+      isPiece = false;
+  const _Row.piece()
+    : day = null,
+      message = null,
+      mine = false,
+      startsRun = false,
+      endsRun = false,
+      isPiece = true;
   const _Row.message(
     ChatMessage this.message, {
     required this.mine,
     required this.startsRun,
     required this.endsRun,
-  }) : day = null;
+  }) : day = null,
+       isPiece = false;
 
   final String? day;
   final ChatMessage? message;
   final bool mine;
   final bool startsRun;
   final bool endsRun;
+  final bool isPiece;
+}
+
+/// `Conversation` "About this piece": 236 wide, 8 padding, a 1 px Line, radius 16 on Card;
+/// the 48 × 64 cover (radius 8), then "About this piece" (12 Graphite), the title (14/500) and
+/// the price (13) while it is for sale. Opens the piece.
+class ChatPieceCard extends StatelessWidget {
+  const ChatPieceCard({super.key, required this.piece, required this.onTap});
+
+  final ChatPiece piece;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.studio;
+    final price = piece.priceCents;
+    return Semantics(
+      button: true,
+      label: ['About this piece', piece.title, if (price != null) formatMoney(price)].join(', '),
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          width: 236,
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: c.card,
+            border: Border.all(color: c.line),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: SizedBox(
+                  width: 48,
+                  height: 64,
+                  child: FeedPicsumImage(url: piece.imageUrl ?? ''),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('About this piece', style: StudioType.caption12(color: c.textSecondary)),
+                    const SizedBox(height: 2),
+                    Text(
+                      piece.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: StudioType.sans(14, weight: StudioType.medium, color: c.textPrimary),
+                    ),
+                    if (price != null) ...[
+                      const SizedBox(height: 2),
+                      Text(formatMoney(price), style: StudioType.sans(13, color: c.textPrimary)),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// "Today · 2:14 PM", "Yesterday · 9:02 AM", "Oct 12 · 4:35 PM" (the year when it is not
@@ -710,7 +830,11 @@ class _NewChatEmptyState extends StatelessWidget {
     required this.username,
     this.followersCount,
     this.piecesCount,
+    this.piece,
   });
+
+  /// Opened from a piece page: its card, under "Message [name]".
+  final Widget? piece;
 
   final String? avatarUrl;
   final String name;
@@ -761,6 +885,7 @@ class _NewChatEmptyState extends StatelessWidget {
             ],
             const SizedBox(height: 12),
             Text('Message $name', style: StudioType.label13(color: c.textTertiary)),
+            if (piece != null) ...[const SizedBox(height: 24), piece!],
           ],
         ),
       ),

@@ -10,7 +10,8 @@ import '../feed_skeleton.dart';
 import '../post_picker_search_field.dart';
 import '../studio/studio_avatar.dart';
 import '../studio/studio_empty_state.dart';
-import '../studio/studio_icon.dart';
+import '../home_feed/home_feed_widgets.dart' show FeedPicsumImage;
+import '../studio/studio_icon.dart';
 import '../../utils/app_clock.dart';
 
 /// The Inbox's Messages tab (`NotifMessages`).
@@ -391,6 +392,18 @@ class ConversationRow extends StatelessWidget {
                   ],
                 ),
               ),
+              // Started about a piece (B9): its thumbnail on the right, as in Activity.
+              if (conversation.piece != null) ...[
+                const SizedBox(width: 12),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: SizedBox(
+                    width: 34,
+                    height: 45,
+                    child: FeedPicsumImage(url: conversation.piece!.imageUrl ?? ''),
+                  ),
+                ),
+              ],
             ],
           ),
         ),

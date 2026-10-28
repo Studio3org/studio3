@@ -107,6 +107,27 @@ void main() {
     });
   }
 
+  // BACKEND_CHANGES B9.
+  testWidgets('a chat started about a piece shows its thumbnail on the right, 34 by 45', (tester) async {
+    final about = ConversationSummary(
+      id: 'c1',
+      otherPartyName: 'Amara Osei',
+      preview: 'Hi!',
+      updatedAt: _now,
+      unread: false,
+      status: 'open',
+      piece: const ChatPiece(id: 'p1', title: 'Bodies in Color', imageUrl: ''),
+    );
+    await tester.pumpWidget(_app(ChatsBody(debugConversations: [about, _chats.last])));
+    await tester.pump();
+    final thumbs = find.byWidgetPredicate((w) => w is SizedBox && w.width == 34 && w.height == 45);
+    expect(thumbs, findsOneWidget);
+    expect(
+      tester.getTopRight(thumbs).dx,
+      closeTo(tester.getTopRight(find.byType(ChatsBody)).dx - 20, 21),
+    );
+  });
+
   testWidgets('a muted chat that is unread still shows the bell, not the dot', (tester) async {
     await tester.pumpWidget(
       _app(ChatsBody(debugConversations: [_c('Kai', 'New work', _now, unread: true, muted: true)])),
