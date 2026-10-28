@@ -126,6 +126,12 @@ void main() {
       expect(d.id, 'aria');
     });
 
+    test('the daily saves-and-follows summary opens Activity (BACKEND_CHANGES B7)', () {
+      final d = PushRouterService.destinationFor({'type': 'saves_and_follows_summary'});
+      expect(d.type, AppDestinationType.activity);
+      expect(d.isKnown, isTrue);
+    });
+
     test('an empty payload does nothing rather than throwing', () {
       // What every non-chat push looked like before the server started populating it, and
       // what an older client build will keep sending.

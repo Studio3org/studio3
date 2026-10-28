@@ -52,12 +52,21 @@ final _board = [
     ago: const Duration(minutes: 48),
   ),
   _n('follow', actor: 'Amara Osei', targetType: 'user', ago: const Duration(hours: 4), read: true),
+  // Bundled, as on the board (BACKEND_CHANGES B7).
   _n(
     'save',
     actor: 'Cedric Okafor',
     targetType: 'piece',
     targetId: 'p1',
-    payload: {'pieceTitle': 'Portrait Dream'},
+    payload: {
+      'pieceTitle': 'Portrait Dream',
+      'count': 12,
+      'actors': [
+        {'name': 'Cedric Okafor'},
+        {'name': 'Amara Osei'},
+        {'name': 'Kai Mensah'},
+      ],
+    },
     ago: const Duration(hours: 6),
     read: true,
   ),
@@ -115,7 +124,7 @@ void main() {
     String line(NotificationItem n) => activityLine(n).map((s) => s.$1).join();
     expect(line(_board[1]), 'Jordan Lee collected Companion Bloom.');
     expect(line(_board[2]), 'Amara Osei followed you.');
-    expect(line(_board[3]), 'Cedric Okafor saved your piece Portrait Dream.');
+    expect(line(_board[3]), '12 people saved your piece Portrait Dream.');
     expect(line(_board[5]), 'Sarah Osmei commented: “The underpainting is so warm”');
     expect(
       line(_n('purchase', payload: {'pieceTitle': 'Night Study'})),
@@ -126,6 +135,83 @@ void main() {
       'Jordan Lee',
       'Companion Bloom',
     ]);
+  });
+
+  // BACKEND_CHANGES B7: saves and follows come bundled, one row per piece (or for follows) per day.
+  test('bundled saves and follows: how many, and the newest name', () {
+    String line(NotificationItem n) => activityLine(n).map((s) => s.$1).join();
+    List<String> bold(NotificationItem n) => activityLine(n).where((s) => s.$2).map((s) => s.$1).toList();
+    final follows = _n('follow', actor: 'Cedric Okafor', targetType: 'user', payload: {'count': 5});
+    expect(line(follows), 'Cedric Okafor and 4 others followed you.');
+    expect(bold(follows), ['Cedric Okafor']);
+    expect(line(_n('follow', actor: 'Kai', targetType: 'user', payload: {'count': 2})), 'Kai and 1 other followed you.');
+    expect(line(_n('follow', actor: 'Kai', targetType: 'user', payload: {'count': 1})), 'Kai followed you.');
+    final saves = _n('save', actor: 'Kai', targetType: 'piece', targetId: 'p1', payload: {'count': 3});
+    expect(line(saves), '3 people saved your piece.');
+    expect(bold(saves), ['3 people']);
+    expect(line(_n('save', actor: 'Kai', targetType: 'post', targetId: 's1', payload: {'count': 2})),
+        '2 people saved your Scene.');
+    // Accepting your request is never bundled.
+    expect(line(_n('follow', actor: 'Kai', payload: {'accepted': true, 'count': 3})), 'Kai accepted your follow request.');
+  });
+
+  testWidgets('a bundle leads with up to three faces in a 48 by 40 stack', (tester) async {
+    final bundle = _n(
+      'follow',
+      actor: 'Cedric Okafor',
+      targetType: 'user',
+      payload: {
+        'count': 5,
+        'actors': [
+          {'name': 'Cedric Okafor', 'profilePhotoUrl': null},
+          {'name': 'Amara Osei', 'profilePhotoUrl': null},
+          {'name': 'Kai', 'profilePhotoUrl': null},
+        ],
+      },
+    );
+    await tester.pumpWidget(_host([bundle, _n('follow', actor: 'Solo', targetType: 'user', ago: const Duration(hours: 1))]));
+    await tester.pump();
+    final small = find.byWidgetPredicate((w) => w is StudioAvatar && w.size == 28);
+    expect(small, findsNWidgets(3));
+    final avatars = tester.widgetList<StudioAvatar>(small).toList();
+    expect(avatars.every((a) => a.ringWidth == 2 && a.ringInside), isTrue);
+    final tops = [for (final e in small.evaluate()) tester.getTopLeft(find.byWidget(e.widget)).dy];
+    expect(tops[1] - tops[0], 12);
+    expect(tops[2], tops[0]);
+    final lefts = [for (final e in small.evaluate()) tester.getTopLeft(find.byWidget(e.widget)).dx];
+    expect([lefts[1] - lefts[0], lefts[2] - lefts[0]], [12, 24]);
+    // A single follow keeps its one 40 photo.
+    expect(find.byType(StudioAvatar), findsNWidgets(4));
+    expect(find.byWidgetPredicate((w) => w is StudioAvatar && w.size == 40), findsOneWidget);
+  });
+
+  // BACKEND_CHANGES B6: the server sends the piece's title and picture with the notification.
+  test('the title and picture sent with a notification are used; a Scene keeps its own', () async {
+    String line(NotificationItem n) => activityLine(n).map((s) => s.$1).join();
+    const planes = {
+      'pieceId': 'p9',
+      'pieceTitle': 'Paper Planes III',
+      'pieceImageUrl': 'https://cdn.test/planes.png',
+    };
+    final like = _n('like', actor: 'Amara Osei', targetType: 'piece', targetId: 'p9', payload: planes);
+    expect(line(like), 'Amara Osei liked your piece Paper Planes III.');
+    // Given, so nothing is fetched (the test has no server: a fetch would come back null).
+    expect(await ActivityThumbs.forItem(like), 'https://cdn.test/planes.png');
+
+    final order = _n('purchase', targetType: 'order', targetId: 'o9', payload: planes);
+    expect(line(order), 'Your order Paper Planes III is confirmed.');
+    expect(await ActivityThumbs.forItem(order), 'https://cdn.test/planes.png');
+
+    // A Scene: its linked piece comes along, but the row names and shows the Scene.
+    final scene = _n(
+      'save',
+      actor: 'Kai',
+      targetType: 'post',
+      targetId: 's9',
+      payload: {...planes, 'postImageUrl': 'https://cdn.test/scene.jpg'},
+    );
+    expect(line(scene), 'Kai saved your Scene.');
+    expect(await ActivityThumbs.forItem(scene), 'https://cdn.test/scene.jpg');
   });
 
   for (final dark in [false, true]) {
@@ -158,8 +244,9 @@ void main() {
       expect((name.style!.fontWeight, name.style!.color), (FontWeight.w500, c.textPrimary));
 
       expect(tester.widget<Text>(find.text('12m')).style!.fontFamily, contains('Mono'));
-      // People lead with a 40 avatar; a piece-led row has no avatar.
-      expect(find.byType(StudioAvatar), findsNWidgets(3));
+      // People lead with a 40 avatar (a bundle with a stack of 28s); a piece-led row has none.
+      expect(find.byWidgetPredicate((w) => w is StudioAvatar && w.size == 40), findsNWidgets(2));
+      expect(find.byWidgetPredicate((w) => w is StudioAvatar && w.size == 28), findsNWidgets(3));
       expect(find.byType(Icon), findsNothing);
       await tester.pump(const Duration(seconds: 1));
     });

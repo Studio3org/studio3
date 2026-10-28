@@ -79,6 +79,9 @@ abstract final class StudioIcons {
   static const String play = '$_dir/play.svg';
   static const String package = '$_dir/package.svg';
   static const String video = '$_dir/video.svg';
+
+  /// `ConvMenu` Mute notifications and `NotifMessages` muted chats: the board's crossed-out bell.
+  static const String bellOff = '$_dir/bell_off.svg';
 }
 
 /// A board icon drawn in one color (defaults to the current text color).

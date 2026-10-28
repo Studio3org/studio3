@@ -9,6 +9,7 @@ import 'package:studio3/theme/app_theme.dart';
 import 'package:studio3/theme/studio_colors.dart';
 import 'package:studio3/widgets/inbox/chats_body.dart';
 import 'package:studio3/widgets/studio/studio_avatar.dart';
+import 'package:studio3/widgets/studio/studio_icon.dart';
 import 'package:studio3/widgets/studio/studio_tab_bar.dart';
 import 'package:studio3/utils/app_clock.dart';
 
@@ -18,7 +19,7 @@ import 'golden_harness.dart';
 final _now = DateTime(2026, 10, 27, 16, 40);
 final _today = DateTime(_now.year, _now.month, _now.day);
 
-ConversationSummary _c(String name, String preview, DateTime at, {bool unread = false}) =>
+ConversationSummary _c(String name, String preview, DateTime at, {bool unread = false, bool muted = false}) =>
     ConversationSummary(
       id: name,
       otherPartyUsername: name.toLowerCase().replaceAll(' ', ''),
@@ -27,6 +28,7 @@ ConversationSummary _c(String name, String preview, DateTime at, {bool unread = 
       updatedAt: at,
       unread: unread,
       status: 'open',
+      muted: muted,
     );
 
 final _chats = [
@@ -37,7 +39,8 @@ final _chats = [
       unread: true),
   _c('Cedric Okafor', 'Thanks for collecting! Shipping it Monday.',
       _now.subtract(const Duration(minutes: 30)), unread: true),
-  _c('Daisy Smith', 'Would you be open to a commission?', _now.subtract(const Duration(days: 2))),
+  // Muted, as on the board (BACKEND_CHANGES B8).
+  _c('Daisy Smith', 'Would you be open to a commission?', _now.subtract(const Duration(days: 2)), muted: true),
   _c('Jordan Lee', 'See you at the show.', _now.subtract(const Duration(days: 20))),
 ];
 
@@ -94,8 +97,28 @@ void main() {
       );
       expect(find.text('Oct ${_now.subtract(const Duration(days: 20)).day}'), findsWidgets);
       expect(find.byType(Icon), findsNothing);
+      // Muted: the crossed-out bell in Placeholder, 16, where the dot would be.
+      final bell = tester.widget<StudioIcon>(
+        find.byWidgetPredicate((w) => w is StudioIcon && w.semanticLabel == 'Muted'),
+      );
+      expect(bell.asset, StudioIcons.bellOff);
+      expect(bell.size, 16);
+      expect(bell.color, c.textPlaceholder);
     });
   }
+
+  testWidgets('a muted chat that is unread still shows the bell, not the dot', (tester) async {
+    await tester.pumpWidget(
+      _app(ChatsBody(debugConversations: [_c('Kai', 'New work', _now, unread: true, muted: true)])),
+    );
+    await tester.pump();
+    expect(find.byWidgetPredicate((w) => w is StudioIcon && w.semanticLabel == 'Muted'), findsOneWidget);
+    expect(find.byWidgetPredicate((w) => w is Semantics && w.properties.label == 'Unread'), findsNothing);
+    expect(
+      ConversationSummary.fromJson({'id': 'x', 'muted': true, 'updatedAt': _now.toIso8601String()}).muted,
+      isTrue,
+    );
+  });
 
   testWidgets('search filters by name and message, highlighting the match', (tester) async {
     await tester.pumpWidget(_app(ChatsBody(debugConversations: _chats)));

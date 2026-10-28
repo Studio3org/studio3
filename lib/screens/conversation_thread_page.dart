@@ -79,6 +79,9 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
   int? _followersCount;
   int? _piecesCount;
   DateTime? _otherPartyReadAt;
+
+  /// Muted by the viewer: no alerts for this chat (`ConvMenu`).
+  bool _muted = false;
   final _textController = TextEditingController();
   final _scrollController = ScrollController();
   Timer? _typingStopTimer;
@@ -247,6 +250,7 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
       if (!mounted) return;
       setState(() {
         _replaceMessagesFromThread(thread);
+        _muted = thread.muted;
         _loading = false;
       });
       _scrollToBottom();
@@ -438,7 +442,28 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
       onBlocked: () {
         if (mounted) Navigator.of(context).maybePop();
       },
+      muted: _muted,
+      onMuteChanged: _conversationId == null ? null : _setMuted,
     );
+  }
+
+  /// Mute notifications: the switch moves at once; if the server refuses, it goes back.
+  Future<bool> _setMuted(bool muted) async {
+    final id = _conversationId;
+    if (id == null) return _muted;
+    final before = _muted;
+    setState(() => _muted = muted);
+    try {
+      final kept = await ChatService.instance.setMuted(id, muted);
+      if (mounted) setState(() => _muted = kept);
+      return kept;
+    } catch (_) {
+      if (mounted) {
+        setState(() => _muted = before);
+        showStudioToast(context, 'Could not save. Try again.', icon: null);
+      }
+      return before;
+    }
   }
 
   /// The thread as rows: a day line where the day changes, then bubbles. A bubble is the

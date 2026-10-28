@@ -78,6 +78,14 @@ class ChatService {
     return ConversationCreateResult.fromJson(data);
   }
 
+  /// Mutes or unmutes [id] for the viewer only (`ConvMenu`): messages still arrive, no alerts,
+  /// and it leaves the unread badge. Returns the state the server kept.
+  Future<bool> setMuted(String id, bool muted) async {
+    final json = await _api.patch('/api/conversations/$id/mute', body: {'muted': muted});
+    final data = _api.extractData(json);
+    return data is Map<String, dynamic> ? data['muted'] as bool? ?? muted : muted;
+  }
+
   Future<ChatThread> getThread(String id) async {
     final json = await _api.get('/api/conversations/$id', auth: true);
     final data = _api.extractData(json) as Map<String, dynamic>;

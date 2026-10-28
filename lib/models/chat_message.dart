@@ -57,6 +57,7 @@ class ConversationSummary {
     required this.updatedAt,
     required this.unread,
     required this.status,
+    this.muted = false,
   });
 
   final String id;
@@ -68,6 +69,9 @@ class ConversationSummary {
   final DateTime updatedAt;
   final bool unread;
   final String status;
+
+  /// Muted by the viewer (`ConvMenu` Mute notifications): the row shows a crossed-out bell.
+  final bool muted;
 
   factory ConversationSummary.fromJson(Map<String, dynamic> json) {
     final otherParty = json['otherParty'] as Map<String, dynamic>?;
@@ -82,6 +86,7 @@ class ConversationSummary {
           DateTime.now(),
       unread: json['unread'] as bool? ?? false,
       status: json['status'] as String? ?? 'open',
+      muted: json['muted'] as bool? ?? false,
     );
   }
 
@@ -90,7 +95,7 @@ class ConversationSummary {
           ? otherPartyName!
           : 'Someone';
 
-  ConversationSummary copyWith({bool? unread, String? status}) {
+  ConversationSummary copyWith({bool? unread, String? status, bool? muted}) {
     return ConversationSummary(
       id: id,
       otherPartyId: otherPartyId,
@@ -101,6 +106,7 @@ class ConversationSummary {
       updatedAt: updatedAt,
       unread: unread ?? this.unread,
       status: status ?? this.status,
+      muted: muted ?? this.muted,
     );
   }
 }
@@ -160,6 +166,7 @@ class ChatThread {
     this.otherPartyReadAt,
     required this.status,
     required this.messages,
+    this.muted = false,
   });
 
   final String id;
@@ -173,6 +180,9 @@ class ChatThread {
   final DateTime? otherPartyReadAt;
   final String status;
   final List<ChatMessage> messages;
+
+  /// Muted by the viewer: no alerts for this chat (BACKEND_CHANGES B8).
+  final bool muted;
 
   factory ChatThread.fromJson(Map<String, dynamic> json) {
     final otherParty = json['otherParty'] as Map<String, dynamic>?;
@@ -196,6 +206,7 @@ class ChatThread {
       messages: items is List
           ? items.whereType<Map<String, dynamic>>().map(ChatMessage.fromJson).toList()
           : const [],
+      muted: json['muted'] as bool? ?? false,
     );
   }
 }

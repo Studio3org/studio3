@@ -30,6 +30,9 @@ import 'golden_harness.dart';
 class _FakeServer implements HttpClientAdapter {
   final requests = <({String method, String path, Map<String, dynamic>? body})>[];
 
+  /// The next mute or preferences change fails (500).
+  var fail = 0;
+
   @override
   Future<ResponseBody> fetch(
     RequestOptions options,
@@ -38,10 +41,21 @@ class _FakeServer implements HttpClientAdapter {
   ) async {
     final body = options.data is Map ? Map<String, dynamic>.from(options.data as Map) : null;
     requests.add((method: options.method, path: options.uri.path, body: body));
+    if (fail > 0) {
+      fail--;
+      return ResponseBody.fromString(
+        jsonEncode({'success': false, 'message': 'down'}),
+        500,
+        headers: {
+          Headers.contentTypeHeader: ['application/json'],
+        },
+      );
+    }
+    final Object? muteAsked = options.uri.path.endsWith('/mute') ? (body?['muted']) : null;
     return ResponseBody.fromString(
       jsonEncode({
         'success': true,
-        'data': {'notificationPreferences': <String, dynamic>{}},
+        'data': {'notificationPreferences': <String, dynamic>{}, 'muted': ?muteAsked},
       }),
       200,
       headers: {
@@ -139,7 +153,7 @@ void main() {
 
   group('ConvMenu', () {
     for (final dark in [false, true]) {
-      testWidgets('person, then View profile, Block and Report in Ink (${dark ? 'dark' : 'light'})',
+      testWidgets('person, then Mute, View profile, Block and Report in Ink (${dark ? 'dark' : 'light'})',
           (tester) async {
         setBoardViewport(tester);
         await _openMenu(tester, dark: dark);
@@ -154,13 +168,20 @@ void main() {
           contains(40),
         );
         final rows = tester.widgetList<StudioActionRow>(find.byType(StudioActionRow)).toList();
-        expect(rows.map((r) => r.title), ['View profile', 'Block Amara Osei', 'Report']);
+        expect(rows.map((r) => r.title), ['Mute notifications', 'View profile', 'Block Amara Osei', 'Report']);
         expect(rows.map((r) => r.subtitle), [
+          'You will still get messages, just no alerts',
           null,
           'They will not be able to message you',
           'Tell Studio 3 about a message or this person',
         ]);
-        expect(find.text('Mute notifications'), findsNothing);
+        expect(rows.first.icon, StudioIcons.bellOff);
+        expect(
+          tester.widget<StudioSwitch>(
+            find.byWidgetPredicate((w) => w is StudioSwitch && w.semanticLabel == 'Mute notifications'),
+          ).value,
+          isFalse,
+        );
         for (final icon in tester.widgetList<StudioIcon>(
           find.descendant(of: find.byType(StudioActionRow), matching: find.byType(StudioIcon)),
         )) {
@@ -168,6 +189,58 @@ void main() {
         }
       });
     }
+
+    // BACKEND_CHANGES B8.
+    testWidgets('Mute notifications: the switch mutes this chat on the server, and unmutes', (tester) async {
+      setBoardViewport(tester);
+      await _openMenu(tester);
+      StudioSwitch mute() => tester.widget<StudioSwitch>(
+        find.byWidgetPredicate((w) => w is StudioSwitch && w.semanticLabel == 'Mute notifications'),
+      );
+      Future<void> tapMute() async {
+        await tester.runAsync(() async {
+          await tester.tap(find.text('Mute notifications'));
+          await Future<void>.delayed(const Duration(milliseconds: 200));
+        });
+        await tester.pump();
+      }
+
+      await tapMute();
+      expect(server.requests.last.method, 'PATCH');
+      expect(server.requests.last.path, '/api/conversations/c1/mute');
+      expect(server.requests.last.body, {'muted': true});
+      expect(mute().value, isTrue);
+      await tapMute();
+      expect(server.requests.last.body, {'muted': false});
+      expect(mute().value, isFalse);
+
+      // Opened again, the menu shows what was kept.
+      await tapMute();
+      await tester.tapAt(const Offset(20, 20));
+      await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel('Conversation options'));
+      await tester.pumpAndSettle();
+      expect(mute().value, isTrue);
+    });
+
+    testWidgets('Mute notifications: a refused change goes back and says so', (tester) async {
+      setBoardViewport(tester);
+      await _openMenu(tester);
+      server.fail = 1;
+      await tester.runAsync(() async {
+        await tester.tap(find.text('Mute notifications'));
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+      });
+      await tester.pump();
+      expect(
+        tester.widget<StudioSwitch>(
+          find.byWidgetPredicate((w) => w is StudioSwitch && w.semanticLabel == 'Mute notifications'),
+        ).value,
+        isFalse,
+      );
+      expect(find.text('Could not save. Try again.'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 3));
+    });
 
     testWidgets('Block asks first; Cancel blocks no one', (tester) async {
       setBoardViewport(tester);
@@ -333,6 +406,64 @@ void main() {
       expect(find.text('YOUR WORK'), findsNothing);
       expect(find.text('Saves and follows'), findsNothing);
       expect(find.text('Push notifications are off'), findsOneWidget);
+    });
+
+    // BACKEND_CHANGES B7.
+    testWidgets('Saves and follows: Daily summary by default, As they happen saves, off hides the choice', (
+      tester,
+    ) async {
+      setBoardViewport(tester, height: 1300);
+      await tester.pumpWidget(
+        _app(
+          const NotificationPreferencesPage(
+            debugPrefs: NotificationPreferences(),
+            debugHasPosted: true,
+            debugPushAllowed: true,
+          ),
+        ),
+      );
+      await tester.pump();
+      final c = StudioColors.light;
+      Semantics option(String label) => tester.widget<Semantics>(
+        find.byWidgetPredicate((w) => w is Semantics && w.properties.label == label),
+      );
+      expect(option('Daily summary').properties.checked, isTrue);
+      expect(option('As they happen').properties.checked, isFalse);
+      expect(find.text('One notification a day with everything grouped'), findsOneWidget);
+      expect(tester.widget<Text>(find.text('Daily summary')).style!.color, c.textPrimary);
+      expect(tester.widget<Text>(find.text('Daily summary')).style!.fontWeight, StudioType.medium);
+      expect(tester.widget<Text>(find.text('As they happen')).style!.color, c.textTertiary);
+      expect(tester.getSize(find.ancestor(of: find.text('As they happen'), matching: find.byType(GestureDetector)).first).height,
+          greaterThanOrEqualTo(44));
+
+      await tester.runAsync(() async {
+        await tester.tap(find.text('As they happen'));
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+      });
+      await tester.pump();
+      expect(server.requests.single.body, {'savesAndFollowsMode': 'instant'});
+      expect(option('As they happen').properties.checked, isTrue);
+      expect(option('Daily summary').properties.checked, isFalse);
+
+      // Refused: back to what it was.
+      server.fail = 1;
+      await tester.runAsync(() async {
+        await tester.tap(find.text('Daily summary'));
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+      });
+      await tester.pump();
+      expect(option('As they happen').properties.checked, isTrue);
+      await tester.pump(const Duration(seconds: 3));
+
+      // Saves and follows off: no choice to make.
+      await tester.runAsync(() async {
+        await tester.tap(find.byWidgetPredicate(
+          (w) => w is StudioSwitch && w.semanticLabel == 'Saves and follows',
+        ));
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+      });
+      await tester.pump();
+      expect(find.text('Daily summary'), findsNothing);
     });
 
     testWidgets('a switch writes every server type in its group', (tester) async {

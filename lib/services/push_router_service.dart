@@ -105,6 +105,10 @@ class PushRouterService {
   /// Exposed for testing: this is the half of the flow that can be checked without a device.
   @visibleForTesting
   static AppDestination destinationFor(Map<String, dynamic> data) {
+    // The once-a-day saves-and-follows push has no single target: it opens Activity.
+    if (data['type'] == 'saves_and_follows_summary') {
+      return const AppDestination(AppDestinationType.activity);
+    }
     return AppDestination.fromTarget(
       data['targetType'] as String?,
       data['targetId'] as String?,

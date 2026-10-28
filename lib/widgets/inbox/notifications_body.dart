@@ -20,7 +20,7 @@ import '../feed_skeleton.dart';
 import '../home_feed/home_feed_widgets.dart';
 import '../offline_state.dart';
 import '../studio/studio_avatar.dart';
-import '../studio/studio_empty_state.dart';
+import '../studio/studio_empty_state.dart';
 import '../../utils/app_clock.dart';
 
 /// The Inbox's Activity tab (`NotifActivity`, with the in-app looks of `NotifCatalog`).
@@ -83,8 +83,12 @@ class NotificationsBodyState extends State<NotificationsBody> {
     final item = NotificationItem.fromJson(json);
     if (item.isInquiry || item.isChatMessage) return;
     if (!mounted) return;
-    if (_items.any((n) => n.id == item.id)) return;
-    setState(() => _items.insert(0, item));
+    // A bundle that grew (another save or follow today) comes again with the same id: the
+    // newer copy replaces it at the top.
+    setState(() {
+      _items.removeWhere((n) => n.id == item.id);
+      _items.insert(0, item);
+    });
     widget.onLiveNotification?.call();
     NotificationService.instance.invalidateUnreadCache();
   }
@@ -262,7 +266,7 @@ String activityTime(DateTime at, DateTime now) {
 }
 
 /// How a notification looks in the app (`NotifCatalog` "How it looks inside the app").
-enum _Lead { piece, person }
+enum _Lead { piece, person, people }
 
 class _Look {
   const _Look({required this.lead, this.status, this.trailingPiece = false});
@@ -275,12 +279,17 @@ class _Look {
 _Look _lookFor(NotificationItem n) {
   switch (n.type) {
     case 'follow':
+      return _Look(lead: n.count > 1 ? _Lead.people : _Lead.person);
     case 'follow_request':
       return const _Look(lead: _Lead.person);
     case 'like':
     case 'save':
     case 'comment':
-      return _Look(lead: _Lead.person, trailingPiece: n.targetId != null);
+      // A bundle leads with its faces and, as on the board, has no picture on the right.
+      return _Look(
+        lead: n.count > 1 ? _Lead.people : _Lead.person,
+        trailingPiece: n.targetId != null && n.count <= 1,
+      );
     case 'outbid':
     case 'bid_hold_expired':
       return const _Look(lead: _Lead.piece, status: 'Outbid');
@@ -299,22 +308,29 @@ _Look _lookFor(NotificationItem n) {
 /// The line, as spans: names and titles are the bold parts.
 List<(String, bool)> activityLine(NotificationItem n) {
   final name = n.actorDisplayName;
-  final what = n.targetType == 'post' ? 'Scene' : 'piece';
-  final title = n.payload['pieceTitle'] as String?;
+  final scene = n.targetType == 'post';
+  final what = scene ? 'Scene' : 'piece';
+  // On a Scene, `pieceTitle` is its linked piece's (BACKEND_CHANGES B6), not the Scene's name.
+  final title = scene ? null : n.payload['pieceTitle'] as String?;
   switch (n.type) {
     case 'follow':
-      return n.payload['accepted'] == true
-          ? [(name, true), (' accepted your follow request.', false)]
+      if (n.payload['accepted'] == true) return [(name, true), (' accepted your follow request.', false)];
+      // Bundled (B7): "Cedric Okafor and 4 others followed you."
+      final others = n.count - 1;
+      return others > 0
+          ? [(name, true), (' and $others ${others == 1 ? 'other' : 'others'} followed you.', false)]
           : [(name, true), (' followed you.', false)];
     case 'follow_request':
       return [(name, true), (' asked to follow you.', false)];
     case 'like':
     case 'save':
       final verb = n.type == 'like' ? 'liked' : 'saved';
-      // The title comes once the server adds it to the payload (BACKEND_CHANGES B6).
+      // Bundled saves (B7) lead with how many: "12 people saved your piece Portrait Dream."
+      final who = n.count > 1 ? '${n.count} people' : name;
+      // The title comes with the notification (BACKEND_CHANGES B6).
       return title == null
-          ? [(name, true), (' $verb your $what.', false)]
-          : [(name, true), (' $verb your $what ', false), (title, true), ('.', false)];
+          ? [(who, true), (' $verb your $what.', false)]
+          : [(who, true), (' $verb your $what ', false), (title, true), ('.', false)];
     case 'comment':
       final preview = (n.payload['commentPreview'] as String?)?.trim();
       return preview == null || preview.isEmpty
@@ -394,8 +410,11 @@ abstract final class ActivityThumbs {
   static final Map<String, Future<String?>> _cache = {};
 
   static Future<String?> forItem(NotificationItem n) {
-    // Sent with the notification once the server has BACKEND_CHANGES B6.
-    final given = (n.payload['pieceImageUrl'] ?? n.payload['postImageUrl']) as String?;
+    // Sent with the notification (BACKEND_CHANGES B6). A Scene's row shows the Scene, not the
+    // piece linked to it.
+    final given = (n.targetType == 'post'
+        ? n.payload['postImageUrl']
+        : n.payload['pieceImageUrl'] ?? n.payload['postImageUrl']) as String?;
     if (given != null && given.isNotEmpty) return Future.value(given);
     final id = n.targetId;
     final type = n.targetType;
@@ -453,6 +472,8 @@ class ActivityRow extends StatelessWidget {
             children: [
               if (look.lead == _Lead.piece)
                 _PieceThumb(item: item, width: 40, height: 53)
+              else if (look.lead == _Lead.people)
+                _AvatarStack(item: item)
               else
                 StudioAvatar(url: item.actorAvatarUrl, size: 40),
               const SizedBox(width: 12),
@@ -499,6 +520,41 @@ class ActivityRow extends StatelessWidget {
 }
 
 /// The row's piece, radius 6, Surface until (or unless) its picture is known.
+/// A bundle's lead (`NotifActivity` "12 people saved…"): up to three 28 photos with a 2 px
+/// page-colored edge, each 12 to the right of the last, the middle one 12 lower, in 48 × 40.
+class _AvatarStack extends StatelessWidget {
+  const _AvatarStack({required this.item});
+
+  final NotificationItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.studio;
+    final actors = item.bundleActors;
+    final urls = actors.isEmpty ? [item.actorAvatarUrl] : [for (final a in actors.take(3)) a.avatarUrl];
+    return SizedBox(
+      width: 48,
+      height: 40,
+      child: Stack(
+        children: [
+          for (var i = 0; i < urls.length; i++)
+            Positioned(
+              left: 12.0 * i,
+              top: i.isOdd ? 12 : 0,
+              child: StudioAvatar(
+                url: urls[i],
+                size: 28,
+                ringWidth: 2,
+                ringColor: c.background,
+                ringInside: true,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _PieceThumb extends StatelessWidget {
   const _PieceThumb({required this.item, required this.width, required this.height});
 

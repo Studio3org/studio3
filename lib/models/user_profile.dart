@@ -268,11 +268,19 @@ class NotificationPreferences {
     },
     this.dailyDigestEnabled = false,
     this.dailyDigestTime = '09:00',
+    this.savesAndFollowsMode = savesAndFollowsDaily,
   });
 
   final Map<String, bool> push;
   final bool dailyDigestEnabled;
   final String dailyDigestTime;
+
+  /// Saves and follows: one push a day ([savesAndFollowsDaily], the default) or one for each
+  /// ([savesAndFollowsInstant]) (`NotifSettings`; BACKEND_CHANGES B7).
+  final String savesAndFollowsMode;
+
+  static const savesAndFollowsDaily = 'daily';
+  static const savesAndFollowsInstant = 'instant';
 
   static const _defaultPush = {
     'follow': true,
@@ -296,6 +304,9 @@ class NotificationPreferences {
       },
       dailyDigestEnabled: digestJson?['enabled'] as bool? ?? false,
       dailyDigestTime: digestJson?['time'] as String? ?? '09:00',
+      savesAndFollowsMode: json['savesAndFollowsMode'] == savesAndFollowsInstant
+          ? savesAndFollowsInstant
+          : savesAndFollowsDaily,
     );
   }
 
@@ -303,11 +314,13 @@ class NotificationPreferences {
     Map<String, bool>? push,
     bool? dailyDigestEnabled,
     String? dailyDigestTime,
+    String? savesAndFollowsMode,
   }) {
     return NotificationPreferences(
       push: push ?? this.push,
       dailyDigestEnabled: dailyDigestEnabled ?? this.dailyDigestEnabled,
       dailyDigestTime: dailyDigestTime ?? this.dailyDigestTime,
+      savesAndFollowsMode: savesAndFollowsMode ?? this.savesAndFollowsMode,
     );
   }
 }

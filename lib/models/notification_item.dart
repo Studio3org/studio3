@@ -69,6 +69,16 @@ class NotificationItem {
 
   String get actorDisplayName => hasActor ? actorName! : 'Someone';
 
+  /// People in a bundled save or follow (BACKEND_CHANGES B7: one row per piece per day for
+  /// saves, per day for follows); 1 for everything else.
+  int get count => (payload['count'] as num?)?.toInt() ?? 1;
+
+  /// The latest people in a bundle, newest first (up to 3), as name and photo.
+  List<({String? name, String? avatarUrl})> get bundleActors => [
+    for (final a in (payload['actors'] as List?) ?? const [])
+      if (a is Map) (name: a['name'] as String?, avatarUrl: a['profilePhotoUrl'] as String?),
+  ];
+
   bool get isInquiry => type == 'inquiry';
 
   /// Chat DMs — phone push + Chats badge only; not shown in Notifications tab.

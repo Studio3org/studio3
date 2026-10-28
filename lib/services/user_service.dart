@@ -200,9 +200,11 @@ class UserService {
     Map<String, bool>? push,
     bool? dailyDigestEnabled,
     String? dailyDigestTime,
+    String? savesAndFollowsMode,
   }) async {
     final body = <String, dynamic>{};
     if (push != null) body['push'] = push;
+    if (savesAndFollowsMode != null) body['savesAndFollowsMode'] = savesAndFollowsMode;
     if (dailyDigestEnabled != null || dailyDigestTime != null) {
       body['dailyDigest'] = {
         if (dailyDigestEnabled != null) 'enabled': dailyDigestEnabled,

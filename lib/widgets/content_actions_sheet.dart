@@ -57,10 +57,13 @@ Future<void> showContentActionsSheet(
 
 /// Conversation options (`ConvMenu`): opened from the three dots in a conversation.
 ///
-/// Person header (40 avatar, name, handle), then View profile, Block [name] ("They will not
-/// be able to message you"; confirms first) and Report ("Tell Studio 3 about a message or
-/// this person"; a short list of reasons). The board's Mute switch needs the server
-/// (BACKEND_CHANGES B8), so it is not shown.
+/// Person header (40 avatar, name, handle), then Mute notifications (a switch: "You will
+/// still get messages, just no alerts"), View profile, Block [name] ("They will not be able to
+/// message you"; confirms first) and Report ("Tell Studio 3 about a message or this person";
+/// a short list of reasons).
+///
+/// Mute shows only with [onMuteChanged] (a chat that exists yet). It is called with the new
+/// state and returns the state the server kept; the switch follows it.
 Future<void> showConversationMenu(
   BuildContext context, {
   required String username,
@@ -68,8 +71,11 @@ Future<void> showConversationMenu(
   String? avatarUrl,
   required VoidCallback onViewProfile,
   VoidCallback? onBlocked,
+  bool muted = false,
+  Future<bool> Function(bool muted)? onMuteChanged,
 }) {
   final shown = name.trim().isEmpty ? username : name.trim();
+  var mutedNow = muted;
   return showStudioSheet<void>(
     context: context,
     useRootNavigator: true,
@@ -85,6 +91,28 @@ Future<void> showConversationMenu(
             avatarUrl: avatarUrl,
           ),
         ),
+        if (onMuteChanged != null)
+          StatefulBuilder(
+            builder: (context, setSheetState) {
+              Future<void> change(bool next) async {
+                setSheetState(() => mutedNow = next);
+                final kept = await onMuteChanged(next);
+                if (context.mounted) setSheetState(() => mutedNow = kept);
+              }
+
+              return StudioActionRow(
+                icon: StudioIcons.bellOff,
+                title: 'Mute notifications',
+                subtitle: 'You will still get messages, just no alerts',
+                onTap: () => change(!mutedNow),
+                trailing: StudioSwitch(
+                  value: mutedNow,
+                  onChanged: change,
+                  semanticLabel: 'Mute notifications',
+                ),
+              );
+            },
+          ),
         StudioActionRow(
           icon: StudioIcons.profile,
           title: 'View profile',

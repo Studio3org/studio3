@@ -363,6 +363,15 @@ class ConversationRow extends StatelessWidget {
                         if (trailing != null) ...[
                           const SizedBox(width: 10),
                           trailing!,
+                        ] else if (conversation.muted) ...[
+                          // Muted chats show a crossed-out bell instead of the dot.
+                          const SizedBox(width: 10),
+                          StudioIcon(
+                            StudioIcons.bellOff,
+                            size: 16,
+                            color: c.textPlaceholder,
+                            semanticLabel: 'Muted',
+                          ),
                         ] else if (unread) ...[
                           const SizedBox(width: 10),
                           Semantics(

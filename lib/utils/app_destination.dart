@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/feed_preview_item.dart';
+import '../screens/inbox_page.dart' show InboxTab;
 import '../screens/event_detail_page.dart';
 import '../screens/order_detail_page.dart';
 import '../screens/seller/seller_setup_flow.dart';
@@ -23,7 +24,7 @@ import 'profile_navigation.dart';
 /// They share a resolver so a destination added for one is reachable from all three. The QR
 /// codes in the event flow arrive as deep links and land here too, which is the reason this
 /// is keyed on a type and an id rather than on a URL: a notification has no URL to give.
-enum AppDestinationType { piece, series, order, event, profile, payoutSetup, unknown }
+enum AppDestinationType { piece, series, order, event, profile, payoutSetup, activity, unknown }
 
 class AppDestination {
   const AppDestination(this.type, [this.id]);
@@ -33,7 +34,7 @@ class AppDestination {
 
   bool get isKnown => type != AppDestinationType.unknown && (id != null || !_needsId);
 
-  bool get _needsId => type != AppDestinationType.payoutSetup;
+  bool get _needsId => type != AppDestinationType.payoutSetup && type != AppDestinationType.activity;
 
   /// From a notification's `targetType` / `targetId`, as the server sends them.
   ///
@@ -117,6 +118,9 @@ Future<void> openDestination(BuildContext context, AppDestination destination) a
       if (AuthSession.instance.sellerEnabled) {
         SellerSetupPage.resume(context);
       }
+    case AppDestinationType.activity:
+      // The daily saves-and-follows summary (BACKEND_CHANGES B7): the Activity list.
+      Navigator.pushNamed(context, '/inbox', arguments: InboxTab.notifications);
     case AppDestinationType.unknown:
       break;
   }

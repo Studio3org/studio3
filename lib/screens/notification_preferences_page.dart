@@ -11,11 +11,14 @@ import '../widgets/studio_loading.dart';
 /// The server checks `push[type]` for each notification it sends (missing means on) and
 /// merges any keys it is given, so a switch writes every type in its group.
 class NotificationSwitch {
-  const NotificationSwitch(this.title, this.subtitle, this.types);
+  const NotificationSwitch(this.title, this.subtitle, this.types, {this.summaryChoice = false});
 
   final String title;
   final String subtitle;
   final List<String> types;
+
+  /// Shows Daily summary / As they happen under the switch while it is on (Saves and follows).
+  final bool summaryChoice;
 }
 
 /// A Mono label and its switches. [yourWork] sections only show for people who have posted.
@@ -28,8 +31,7 @@ class NotificationSection {
 }
 
 /// The board's sections, for the notifications the server sends today. Saved pieces,
-/// Artists you follow, the daily summary choice and Text messages wait on the server
-/// (BACKEND_CHANGES B7, B12, B13).
+/// Artists you follow and Text messages wait on the server (BACKEND_CHANGES B12, B13).
 const notificationSections = [
   NotificationSection('Collecting', [
     NotificationSwitch('Auctions', 'Outbid, ending soon, won, lost, payment reminders.', [
@@ -55,13 +57,12 @@ const notificationSections = [
       'auction_no_sale',
       'auction_winner_payment_failed',
     ]),
-    NotificationSwitch('Saves and follows', 'People saving your pieces or following you.', [
-      'save',
-      'follow',
-      'follow_request',
-      'like',
-      'comment',
-    ]),
+    NotificationSwitch(
+      'Saves and follows',
+      'People saving your pieces or following you.',
+      ['save', 'follow', 'follow_request', 'like', 'comment'],
+      summaryChoice: true,
+    ),
   ]),
   NotificationSection('Messages', [
     NotificationSwitch('New messages', 'From artists and collectors.', ['message', 'inquiry']),
@@ -170,6 +171,20 @@ class _NotificationPreferencesPageState extends State<NotificationPreferencesPag
     }
   }
 
+  /// Daily summary / As they happen: moves at once; if the server refuses, it goes back.
+  Future<void> _setMode(String mode) async {
+    final before = _prefs.savesAndFollowsMode;
+    if (mode == before) return;
+    setState(() => _prefs = _prefs.copyWith(savesAndFollowsMode: mode));
+    try {
+      await UserService.instance.updateNotificationPreferences(savesAndFollowsMode: mode);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _prefs = _prefs.copyWith(savesAndFollowsMode: before));
+      showStudioToast(context, 'Could not save. Try again.', icon: null);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = context.studio;
@@ -190,8 +205,17 @@ class _NotificationPreferencesPageState extends State<NotificationPreferencesPag
             for (final section in notificationSections)
               if (!section.yourWork || _hasPosted) ...[
                 _SectionLabel(section.label),
-                for (final s in section.switches)
-                  _SwitchRow(item: s, value: _isOn(s), onChanged: (v) => _toggle(s, v)),
+                for (final s in section.switches) ...[
+                  _SwitchRow(
+                    item: s,
+                    value: _isOn(s),
+                    onChanged: (v) => _toggle(s, v),
+                    // The choice below carries the line.
+                    choiceBelow: s.summaryChoice && _isOn(s),
+                  ),
+                  if (s.summaryChoice && _isOn(s))
+                    _SummaryChoice(mode: _prefs.savesAndFollowsMode, onChanged: _setMode),
+                ],
               ],
           ],
         ),
@@ -283,18 +307,24 @@ class _SectionLabel extends StatelessWidget {
 /// 15/500 title over a 12 / 1.45 Graphite line, the switch on the right; 14 above and
 /// below, 1 px Line under.
 class _SwitchRow extends StatelessWidget {
-  const _SwitchRow({required this.item, required this.value, required this.onChanged});
+  const _SwitchRow({
+    required this.item,
+    required this.value,
+    required this.onChanged,
+    this.choiceBelow = false,
+  });
 
   final NotificationSwitch item;
   final bool value;
   final ValueChanged<bool> onChanged;
+  final bool choiceBelow;
 
   @override
   Widget build(BuildContext context) {
     final c = context.studio;
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14),
-      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: c.line))),
+      padding: EdgeInsets.only(top: 14, bottom: choiceBelow ? 4 : 14),
+      decoration: choiceBelow ? null : BoxDecoration(border: Border(bottom: BorderSide(color: c.line))),
       child: Row(
         children: [
           Expanded(
@@ -315,6 +345,100 @@ class _SwitchRow extends StatelessWidget {
           ),
           const SizedBox(width: 16),
           StudioSwitch(value: value, onChanged: onChanged, semanticLabel: item.title),
+        ],
+      ),
+    );
+  }
+}
+
+/// `NotifSettings` "How often", under Saves and follows: Daily summary ("One notification a day
+/// with everything grouped") and As they happen ("A notification for each save or follow").
+/// The chosen one has a 2 px Ink bar on its left and 14/500 Ink text; the other is 14 Tertiary
+/// with a Placeholder line. 12 in from the switch row, the Line under the pair.
+class _SummaryChoice extends StatelessWidget {
+  const _SummaryChoice({required this.mode, required this.onChanged});
+
+  final String mode;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.studio;
+    Widget option(String value, String title, String line) {
+      final selected = mode == value;
+      return Semantics(
+        inMutuallyExclusiveGroup: true,
+        checked: selected,
+        button: true,
+        label: title,
+        excludeSemantics: true,
+        child: GestureDetector(
+          onTap: () => onChanged(value),
+          behavior: HitTestBehavior.opaque,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 44),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (selected) ...[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: SizedBox(width: 2, child: ColoredBox(color: c.textPrimary)),
+                    ),
+                    const SizedBox(width: 14),
+                  ],
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            title,
+                            style: StudioType.sans(
+                              14,
+                              weight: selected ? StudioType.medium : StudioType.regular,
+                              color: selected ? c.textPrimary : c.textTertiary,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            line,
+                            style: StudioType.caption12(
+                              color: selected ? c.textSecondary : c.textPlaceholder,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 2, 0, 8),
+      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: c.line))),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          option(
+            NotificationPreferences.savesAndFollowsDaily,
+            'Daily summary',
+            'One notification a day with everything grouped',
+          ),
+          option(
+            NotificationPreferences.savesAndFollowsInstant,
+            'As they happen',
+            'A notification for each save or follow',
+          ),
         ],
       ),
     );
