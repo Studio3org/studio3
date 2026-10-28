@@ -441,6 +441,7 @@ void main() {
     Future<void> snap(WidgetTester tester, String name) async {
       await tester.pump(const Duration(milliseconds: 500));
       await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/$name.png'));
+      await checkAcceptance(tester);
     }
 
     testWidgets('golden: SceneViewer', (tester) async {

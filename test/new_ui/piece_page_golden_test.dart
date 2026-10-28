@@ -80,6 +80,7 @@ Future<void> _golden(
     ..createSync(recursive: true)
     ..writeAsStringSync(jsonEncode({'titleTop': title.top, 'storyBottom': story.bottom}));
   await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/${board}_page.png'));
+  await checkAcceptance(tester);
   // Let the image cache's retry timers finish before the test ends.
   await tester.pumpWidget(const SizedBox());
   await tester.pump(const Duration(minutes: 1));

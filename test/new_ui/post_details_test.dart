@@ -692,6 +692,7 @@ void main() {
         find.byType(MaterialApp),
         matchesGoldenFile('goldens/PostDetailsProgress.png'),
       );
+      await checkAcceptance(tester);
     }, skip: skip);
 
     testWidgets('PostReview', (tester) async {
@@ -726,6 +727,7 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 400));
       await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/PostReview.png'));
+      await checkAcceptance(tester);
     }, skip: skip);
 
     testWidgets('PostSuccess', (tester) async {
@@ -749,6 +751,7 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 400));
       await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/PostSuccess.png'));
+      await checkAcceptance(tester);
       debugDisableShadows = true;
     }, skip: skip);
 
@@ -767,6 +770,7 @@ void main() {
       );
       await tester.pump();
       await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/PostError.png'));
+      await checkAcceptance(tester);
     }, skip: skip);
 
     testWidgets('ScenePhotoDetails', (tester) async {
@@ -798,6 +802,7 @@ void main() {
         find.byType(MaterialApp),
         matchesGoldenFile('goldens/ScenePhotoDetails.png'),
       );
+      await checkAcceptance(tester);
     }, skip: skip);
 
     testWidgets('ScenePhotoPosted', (tester) async {
@@ -830,6 +835,7 @@ void main() {
         find.byType(MaterialApp),
         matchesGoldenFile('goldens/ScenePhotoPosted.png'),
       );
+      await checkAcceptance(tester);
       debugDisableShadows = true;
     }, skip: skip);
   });

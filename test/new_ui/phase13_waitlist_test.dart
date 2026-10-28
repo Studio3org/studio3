@@ -372,13 +372,15 @@ void main() {
     Future<void> snap(WidgetTester tester, String name) async {
       await tester.pump(const Duration(milliseconds: 500));
       await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/$name.png'));
+      await checkAcceptance(tester);
     }
 
     testWidgets('golden: EvSoldOut', (tester) async {
       setBoardViewport(tester);
       await tester.pumpWidget(_page(_event(waitlist: const EventWaitlist(open: true))));
       await tester.pump();
-      await snap(tester, 'EvSoldOut');
+      // Not `EvSoldOut`: that golden is the Save bar's (ev_sold_out_past_test.dart).
+      await snap(tester, 'EvSoldOutWaitlist');
     }, skip: skip);
 
     testWidgets('golden: EvWaitlistJoin', (tester) async {

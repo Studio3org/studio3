@@ -154,6 +154,7 @@ void main() {
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/PostMaterials.png'));
+    await checkAcceptance(tester);
   }, skip: Platform.environment['NEW_UI_GOLDENS'] != '1');
 
   testWidgets('golden: PostMaterialsSearch', (tester) async {
@@ -167,5 +168,6 @@ void main() {
       find.byType(MaterialApp),
       matchesGoldenFile('goldens/PostMaterialsSearch.png'),
     );
+    await checkAcceptance(tester);
   }, skip: Platform.environment['NEW_UI_GOLDENS'] != '1');
 }

@@ -16,7 +16,8 @@ import 'package:studio3/services/drafts_service.dart';
 import 'package:studio3/theme/app_theme.dart';
 import 'package:studio3/widgets/post_gallery/post_gallery_picker.dart';
 import 'package:studio3/widgets/post_share_type_sheet.dart';
-import 'package:studio3/widgets/studio/studio.dart';
+import 'package:studio3/widgets/studio/studio.dart';
+import 'package:studio3/utils/app_clock.dart';
 
 import 'golden_harness.dart';
 
@@ -152,6 +153,9 @@ Widget _pickerStill() {
 }
 
 void main() {
+  // Drafts' times ("Today, 2:14 PM", "Yesterday") against a fixed day.
+  setUp(() => appNow = () => DateTime(2026, 10, 27, 18));
+  tearDown(() => appNow = DateTime.now);
   setUpAll(() async {
     await loadStudioFonts();
     dotenv.loadFromString(envString: '', isOptional: true);
@@ -321,6 +325,7 @@ void main() {
     Future<void> snap(WidgetTester tester, String name) async {
       await tester.pump(const Duration(milliseconds: 500));
       await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/$name.png'));
+      await checkAcceptance(tester);
     }
 
     Widget still(Widget home) => MaterialApp(

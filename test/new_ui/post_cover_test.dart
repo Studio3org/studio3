@@ -303,5 +303,6 @@ void main() {
       find.byType(MaterialApp),
       matchesGoldenFile('goldens/PostCover.png'),
     );
+    await checkAcceptance(tester);
   }, skip: Platform.environment['NEW_UI_GOLDENS'] != '1');
 }

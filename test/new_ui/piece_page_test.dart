@@ -12,7 +12,6 @@ import 'package:studio3/widgets/piece_detail/collected_bar.dart';
 import 'package:studio3/widgets/piece_detail/piece_series_row.dart';
 import 'package:studio3/widgets/studio/studio_avatar.dart';
 import 'package:studio3/widgets/studio/studio_button.dart';
-import 'package:studio3/widgets/studio/studio_chip.dart';
 import 'package:studio3/widgets/studio/studio_icon.dart';
 import 'package:studio3/widgets/studio/studio_on_image.dart';
 

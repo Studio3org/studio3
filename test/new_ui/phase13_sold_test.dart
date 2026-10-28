@@ -281,6 +281,7 @@ void main() {
     Future<void> snap(WidgetTester tester, String name) async {
       await tester.pump(const Duration(milliseconds: 500));
       await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/$name.png'));
+      await checkAcceptance(tester);
       // Let the image cache's cleanup timer run out.
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 11));
