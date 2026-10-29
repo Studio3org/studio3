@@ -75,6 +75,8 @@ class ChatService {
     String username,
     String message, {
     String? imageUrl,
+    String? videoUrl,
+    String? thumbnailUrl,
     String? pieceId,
   }) async {
     final json = await _api.post(
@@ -83,6 +85,9 @@ class ChatService {
         'username': username,
         'message': message,
         if (imageUrl != null) 'imageUrl': imageUrl,
+        // A video message and its poster (BACKEND_CHANGES B11).
+        'videoUrl': ?videoUrl,
+        'thumbnailUrl': ?thumbnailUrl,
         // Started from a piece page: the chat remembers it (BACKEND_CHANGES B9).
         'pieceId': ?pieceId,
       },
@@ -122,12 +127,20 @@ class ChatService {
     return ConversationSummary.fromJson(conversation);
   }
 
-  Future<ChatMessage> sendMessage(String id, {String? body, String? imageUrl}) async {
+  Future<ChatMessage> sendMessage(
+    String id, {
+    String? body,
+    String? imageUrl,
+    String? videoUrl,
+    String? thumbnailUrl,
+  }) async {
     final json = await _api.post(
       '/api/conversations/$id/messages',
       body: {
         if (body != null) 'body': body,
         if (imageUrl != null) 'imageUrl': imageUrl,
+        'videoUrl': ?videoUrl,
+        'thumbnailUrl': ?thumbnailUrl,
       },
       auth: true,
     );

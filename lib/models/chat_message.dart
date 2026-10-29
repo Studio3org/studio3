@@ -161,6 +161,8 @@ class ChatMessage {
     required this.id,
     this.body,
     this.imageUrl,
+    this.videoUrl,
+    this.thumbnailUrl,
     this.senderUsername,
     this.senderName,
     this.senderAvatarUrl,
@@ -171,6 +173,10 @@ class ChatMessage {
   final String id;
   final String? body;
   final String? imageUrl;
+
+  /// A video message (BACKEND_CHANGES B11) and its poster frame, when it has one.
+  final String? videoUrl;
+  final String? thumbnailUrl;
   final String? senderUsername;
   final String? senderName;
   final String? senderAvatarUrl;
@@ -187,6 +193,8 @@ class ChatMessage {
       id: json['id'] as String? ?? '',
       body: json['body'] as String?,
       imageUrl: json['imageUrl'] as String?,
+      videoUrl: json['videoUrl'] as String?,
+      thumbnailUrl: json['thumbnailUrl'] as String?,
       senderUsername: sender?['username'] as String?,
       senderName: sender?['name'] as String?,
       senderAvatarUrl: sender?['profilePhotoUrl'] as String?,

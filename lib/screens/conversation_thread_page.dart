@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:video_thumbnail/video_thumbnail.dart';
 
 import '../models/chat_message.dart';
 import '../models/feed_preview_item.dart';
@@ -25,6 +26,7 @@ import '../widgets/studio/studio_avatar.dart';
 import '../widgets/studio/studio_icon.dart';
 import '../widgets/studio/studio_toast.dart';
 import '../widgets/studio_loading.dart';
+import 'chat_video_page.dart';
 import 'image_preview_page.dart';
 import '../widgets/studio/studio_tap_area.dart';
 import '../utils/app_clock.dart';
@@ -280,6 +282,8 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
   Future<ChatMessage?> _startWithFirstMessage({
     String? body,
     String? imageUrl,
+    String? videoUrl,
+    String? thumbnailUrl,
   }) async {
     final username = widget.otherPartyUsername;
     if (username == null) return null;
@@ -287,6 +291,8 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
       username,
       body ?? '',
       imageUrl: imageUrl,
+      videoUrl: videoUrl,
+      thumbnailUrl: thumbnailUrl,
       pieceId: widget.aboutPiece?.id,
     );
     if (!mounted) return null;
@@ -365,27 +371,43 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
     }
   }
 
-  Future<void> _pickAndSendPhoto() async {
-    final picked = await ImagePicker().pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 85,
-    );
-    if (picked == null) return;
+  /// + (`Conversation`): a photo or a video from the camera roll, nothing else. Videos
+  /// (BACKEND_CHANGES B11) go up to 100 MB and send with their first frame as the poster.
+  Future<void> _pickAndSendMedia() async {
+    final XFile? picked;
+    try {
+      picked = await ImagePicker().pickMedia(imageQuality: 85);
+    } catch (_) {
+      return;
+    }
+    if (picked == null || !mounted) return;
+    final file = File(picked.path);
+    final isVideo = MediaService.isVideoContentType(MediaService.contentTypeForPath(picked.path));
+    if (isVideo && await file.length() > MediaService.maxVideoBytes) {
+      if (mounted) showStudioToast(context, 'Videos can be up to 100 MB', icon: null);
+      return;
+    }
     setState(() => _sending = true);
     try {
-      final url = await MediaService.instance.uploadFile(
-        purpose: MediaPurpose.chat,
-        file: File(picked.path),
-      );
+      final url = await MediaService.instance.uploadFile(purpose: MediaPurpose.chat, file: file);
+      final poster = isVideo ? await _uploadPoster(picked.path) : null;
+      final imageUrl = isVideo ? null : url;
+      final videoUrl = isVideo ? url : null;
       final id = _conversationId;
       if (id == null) {
-        await _startWithFirstMessage(imageUrl: url);
+        await _startWithFirstMessage(
+          imageUrl: imageUrl,
+          videoUrl: videoUrl,
+          thumbnailUrl: poster,
+        );
         if (!mounted) return;
         setState(() => _sending = false);
       } else {
         final message = await ChatService.instance.sendMessage(
           id,
-          imageUrl: url,
+          imageUrl: imageUrl,
+          videoUrl: videoUrl,
+          thumbnailUrl: poster,
         );
         if (!mounted) return;
         setState(() {
@@ -398,7 +420,31 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _sending = false);
-      showStudioToast(context, "Couldn't send the photo", icon: null);
+      showStudioToast(
+        context,
+        isVideo ? "Couldn't send the video" : "Couldn't send the photo",
+        icon: null,
+      );
+    }
+  }
+
+  /// The video's first frame, uploaded as its poster. A video still sends without one.
+  Future<String?> _uploadPoster(String path) async {
+    try {
+      final bytes = await VideoThumbnail.thumbnailData(
+        video: path,
+        imageFormat: ImageFormat.JPEG,
+        maxWidth: 480,
+        quality: 80,
+      );
+      if (bytes == null || bytes.isEmpty) return null;
+      return await MediaService.instance.uploadBytes(
+        purpose: MediaPurpose.chat,
+        bytes: bytes,
+        contentType: 'image/jpeg',
+      );
+    } catch (_) {
+      return null;
     }
   }
 
@@ -679,7 +725,7 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
                 controller: _textController,
                 canSend: canSend,
                 sending: _sending,
-                onAttach: _sending ? null : _pickAndSendPhoto,
+                onAttach: _sending ? null : _pickAndSendMedia,
                 onSend: _sendText,
               ),
           ],
@@ -895,7 +941,8 @@ class _NewChatEmptyState extends StatelessWidget {
 
 /// One bubble (`Conversation`): sent Ink with Gallery White text, received Surface; 10 14
 /// padding, 15 / 1.4, radius 18, the last of a run with a 6 corner on its sender's side;
-/// up to 76 % of the width. Photos are 180 wide, 3:4. 6 between bubbles, 12 between runs.
+/// up to 76 % of the width. Photos are 180 wide, 3:4; videos the same, their poster with a
+/// play button, opening full screen (B11). 6 between bubbles, 12 between runs.
 /// "Seen" (11 Tertiary) under your newest message once it is read.
 class _MessageBubble extends StatelessWidget {
   const _MessageBubble({
@@ -917,6 +964,8 @@ class _MessageBubble extends StatelessWidget {
     final c = context.studio;
     final image = message.imageUrl;
     final hasImage = image != null && image.isNotEmpty;
+    final video = message.videoUrl;
+    final hasVideo = video != null && video.isNotEmpty;
     const r = Radius.circular(18);
     const tail = Radius.circular(6);
     final radius = BorderRadius.only(
@@ -928,7 +977,51 @@ class _MessageBubble extends StatelessWidget {
     final maxWidth = MediaQuery.sizeOf(context).width * 0.76;
 
     Widget bubble;
-    if (hasImage) {
+    if (hasVideo) {
+      final poster = message.thumbnailUrl;
+      bubble = Semantics(
+        button: true,
+        label: 'Video',
+        excludeSemantics: true,
+        child: GestureDetector(
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute<void>(builder: (_) => ChatVideoPage(url: video)),
+          ),
+          child: ClipRRect(
+            borderRadius: radius,
+            child: SizedBox(
+              width: 180,
+              height: 240,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ColoredBox(
+                    color: c.surface,
+                    child: poster == null || poster.isEmpty
+                        ? null
+                        : FeedPicsumImage(url: poster),
+                  ),
+                  Center(
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(color: c.scrim, shape: BoxShape.circle),
+                      alignment: Alignment.center,
+                      child: const StudioIcon(
+                        StudioIcons.play,
+                        size: 18,
+                        color: StudioColors.galleryWhite,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    } else if (hasImage) {
       bubble = Semantics(
         button: true,
         label: 'Photo',
@@ -1029,7 +1122,7 @@ class _TypingBubble extends StatelessWidget {
   }
 }
 
-/// Composer (`Conversation`): 1 px Line above, 10 12 padding; + (40) attaches a photo; a
+/// Composer (`Conversation`): 1 px Line above, 10 12 padding; + (40) attaches a photo or video; a
 /// 42 Surface pill field ("Message", 15); a 40 round send, Line until there is text, then
 /// Ink.
 class _Composer extends StatelessWidget {
@@ -1067,7 +1160,7 @@ class _Composer extends StatelessWidget {
           Semantics(
             button: true,
             enabled: onAttach != null,
-            label: 'Attach a photo',
+            label: 'Attach a photo or video',
             excludeSemantics: true,
             child: GestureDetector(
               onTap: onAttach,
