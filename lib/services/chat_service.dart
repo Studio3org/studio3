@@ -28,12 +28,23 @@ class ChatService {
     );
   }
 
+  /// "Search messages": your conversations whose other person's name or handle, or any
+  /// message, contains [query] (BACKEND_CHANGES B10). Each comes with `matchPreview`.
+  Future<ConversationInboxPage> searchConversations(String query, {String? cursor}) {
+    return _getConversationPage(
+      '/api/conversations/search',
+      cursor: cursor,
+      extra: {'q': query},
+    );
+  }
+
   Future<ConversationInboxPage> _getConversationPage(
     String path, {
     String? cursor,
     int? limit,
+    Map<String, String>? extra,
   }) async {
-    final query = <String, String>{};
+    final query = <String, String>{...?extra};
     if (cursor != null && cursor.isNotEmpty) query['cursor'] = cursor;
     if (limit != null) query['limit'] = limit.toString();
 

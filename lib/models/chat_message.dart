@@ -90,6 +90,7 @@ class ConversationSummary {
     required this.status,
     this.muted = false,
     this.piece,
+    this.matchPreview,
   });
 
   final String id;
@@ -108,6 +109,10 @@ class ConversationSummary {
   /// The piece the chat started from; its thumbnail shows on the right of the row.
   final ChatPiece? piece;
 
+  /// From "Search messages" only: the newest message matching the search, cut so the match
+  /// shows (BACKEND_CHANGES B10). Null when only the name matched.
+  final String? matchPreview;
+
   factory ConversationSummary.fromJson(Map<String, dynamic> json) {
     final otherParty = json['otherParty'] as Map<String, dynamic>?;
     return ConversationSummary(
@@ -123,6 +128,7 @@ class ConversationSummary {
       status: json['status'] as String? ?? 'open',
       muted: json['muted'] as bool? ?? false,
       piece: ChatPiece.fromJson(json['piece']),
+      matchPreview: json['matchPreview'] as String?,
     );
   }
 
@@ -144,6 +150,7 @@ class ConversationSummary {
       status: status ?? this.status,
       muted: muted ?? this.muted,
       piece: piece,
+      matchPreview: matchPreview,
     );
   }
 }

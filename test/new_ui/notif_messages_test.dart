@@ -1,10 +1,18 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:studio3/models/chat_message.dart';
 import 'package:studio3/screens/new_message_page.dart';
+import 'package:studio3/services/api_client.dart';
+import 'package:studio3/services/auth_session.dart';
+import 'package:studio3/services/chat_service.dart';
 import 'package:studio3/theme/app_theme.dart';
 import 'package:studio3/theme/studio_colors.dart';
 import 'package:studio3/widgets/inbox/chats_body.dart';
@@ -44,6 +52,53 @@ final _chats = [
   _c('Jordan Lee', 'See you at the show.', _now.subtract(const Duration(days: 20))),
 ];
 
+/// The search endpoint (BACKEND_CHANGES B10), answering with one match.
+class _SearchServer implements HttpClientAdapter {
+  final requests = <Uri>[];
+
+  @override
+  Future<ResponseBody> fetch(RequestOptions options, Stream<List<int>>? requestStream, Future<void>? cancelFuture) async {
+    requests.add(options.uri);
+    final json = {
+      'success': true,
+      'data': {
+        'items': [
+          {
+            'id': 'c7',
+            'otherParty': {'username': 'kofimensah', 'name': 'Kofi Mensah'},
+            'preview': 'Talk soon',
+            'matchPreview': '…the larger one framed in oak',
+            'updatedAt': _now.toUtc().toIso8601String(),
+            'status': 'open',
+          },
+        ],
+        'nextCursor': 'next',
+      },
+    };
+    return ResponseBody.fromString(
+      jsonEncode(json),
+      200,
+      headers: {
+        Headers.contentTypeHeader: ['application/json'],
+      },
+    );
+  }
+
+  @override
+  void close({bool force = false}) {}
+}
+
+/// An older chat the inbox has not loaded, found by a message deep in it.
+final _kofi = ConversationSummary(
+  id: 'c7',
+  otherPartyName: 'Kofi Mensah',
+  preview: 'Talk soon',
+  matchPreview: '…the larger one framed in oak',
+  updatedAt: _now.subtract(const Duration(days: 60)),
+  unread: false,
+  status: 'open',
+);
+
 Widget _app(Widget home, {bool dark = false}) => MaterialApp(
   key: UniqueKey(),
   debugShowCheckedModeBanner: false,
@@ -58,6 +113,11 @@ void main() {
   setUp(() => appNow = () => _now);
   tearDown(() => appNow = DateTime.now);
   setUpAll(() async {
+    SharedPreferences.setMockInitialValues({});
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+      const MethodChannel('plugins.flutter.io/path_provider'),
+      (call) async => '.',
+    );
     dotenv.loadFromString(envString: '', isOptional: true);
     await loadStudioFonts();
   });
@@ -151,6 +211,106 @@ void main() {
     await tester.enterText(find.byType(TextField), 'nobody');
     await tester.pump();
     expect(find.text('No conversations match “nobody”'), findsOneWidget);
+  });
+
+  // BACKEND_CHANGES B10.
+  group('Search messages on the server', () {
+    testWidgets('finds chats beyond the loaded ones and shows the message that matched', (
+      tester,
+    ) async {
+      final asked = <String>[];
+      await tester.pumpWidget(
+        _app(
+          ChatsBody(
+            debugConversations: _chats,
+            debugSearch: (q, cursor) async {
+              asked.add(q);
+              return ConversationInboxPage(items: [_kofi]);
+            },
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.enterText(find.byType(TextField), 'fram');
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.enterText(find.byType(TextField), 'framed ');
+      await tester.pump();
+      // At once: the loaded chats, filtered ("unframed" in Amara's last message).
+      expect(find.text('Amara Osei', findRichText: true), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump();
+      // Typing settles before asking, once.
+      expect(asked, ['framed']);
+      expect(find.text('Amara Osei', findRichText: true), findsNothing);
+      expect(find.text('Kofi Mensah', findRichText: true), findsOneWidget);
+      // The matched message, not the last one, with the match in 500 Ink.
+      expect(find.text('Talk soon', findRichText: true), findsNothing);
+      final preview = tester.widget<RichText>(
+        find.byWidgetPredicate(
+          (w) => w is RichText && w.text.toPlainText() == '…the larger one framed in oak',
+        ),
+      );
+      final match = (preview.text as TextSpan).children!
+          .expand((s) => (s as TextSpan).children ?? [s])
+          .cast<TextSpan>()
+          .firstWhere((s) => s.text == 'framed');
+      expect(match.style!.fontWeight, FontWeight.w500);
+
+      // Clearing the search goes back to the inbox.
+      await tester.enterText(find.byType(TextField), '');
+      await tester.pump();
+      expect(find.byType(ConversationRow), findsNWidgets(_chats.length));
+    });
+
+    testWidgets('while it looks, a spinner rather than "no match"', (tester) async {
+      final answer = Completer<ConversationInboxPage>();
+      await tester.pumpWidget(
+        _app(ChatsBody(debugConversations: _chats, debugSearch: (q, cursor) => answer.future)),
+      );
+      await tester.pump();
+      await tester.enterText(find.byType(TextField), 'oak');
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.textContaining('No conversations match'), findsNothing);
+      answer.complete(const ConversationInboxPage(items: []));
+      await tester.pump();
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(find.text('No conversations match “oak”'), findsOneWidget);
+    });
+
+    testWidgets('if the search fails, the loaded chats stay filtered', (tester) async {
+      await tester.pumpWidget(
+        _app(
+          ChatsBody(
+            debugConversations: _chats,
+            debugSearch: (q, cursor) async => throw Exception('offline'),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.enterText(find.byType(TextField), 'commission');
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump();
+      expect(find.byType(ConversationRow), findsOneWidget);
+      expect(find.text('Daisy Smith', findRichText: true), findsOneWidget);
+    });
+
+    test('asks the search endpoint with what was typed and reads the matched message', () async {
+      final server = _SearchServer();
+      ApiClient.instance.debugUseAdapter(server);
+      final wasToken = AuthSession.instance.accessToken;
+      AuthSession.instance.accessToken = 'token';
+      addTearDown(() => AuthSession.instance.accessToken = wasToken);
+
+      final page = await ChatService.instance.searchConversations('framed oak', cursor: 'abc');
+
+      expect(server.requests.single.path, '/api/conversations/search');
+      expect(server.requests.single.queryParameters, {'q': 'framed oak', 'cursor': 'abc'});
+      expect(page.items.single.otherPartyName, 'Kofi Mensah');
+      expect(page.items.single.matchPreview, '…the larger one framed in oak');
+      expect(page.nextCursor, 'next');
+      expect(ConversationSummary.fromJson({'id': 'c1'}).matchPreview, isNull);
+    });
   });
 
   testWidgets('pending message requests sit behind a row', (tester) async {

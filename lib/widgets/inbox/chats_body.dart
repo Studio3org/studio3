@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../models/chat_message.dart';
@@ -16,11 +18,12 @@ import '../../utils/app_clock.dart';
 
 /// The Inbox's Messages tab (`NotifMessages`).
 ///
-/// "Search messages" (names and the last message, matches in 500 Ink); conversations newest
-/// first: 56 avatar, name 16/500 with the time 13 on the right, the last message 15 below —
-/// Ink with an 8 Ink dot when unread, Tertiary when read. Pending message requests sit
-/// behind a "Message requests" row at the top (the board has no sub-tabs). Tapping opens the
-/// chat. Muted chats and piece thumbnails wait on the server (BACKEND_CHANGES B8, B9).
+/// "Search messages" (names, handles and message text, matches in 500 Ink: the loaded chats
+/// at once, then the server's search of every message, BACKEND_CHANGES B10); conversations
+/// newest first: 56 avatar, name 16/500 with the time 13 on the right, the last message 15
+/// below — Ink with an 8 Ink dot when unread, Tertiary when read. Pending message requests
+/// sit behind a "Message requests" row at the top (the board has no sub-tabs). Tapping opens
+/// the chat. Muted chats show a crossed-out bell (B8); a chat about a piece, its thumbnail (B9).
 class ChatsBody extends StatefulWidget {
   const ChatsBody({
     super.key,
@@ -28,6 +31,7 @@ class ChatsBody extends StatefulWidget {
     this.onNewMessage,
     this.debugConversations,
     this.debugRequests,
+    this.debugSearch,
   });
 
   /// Called after opening/returning from a thread so the parent can refresh badges.
@@ -42,6 +46,11 @@ class ChatsBody extends StatefulWidget {
   @visibleForTesting
   final List<ConversationSummary>? debugRequests;
 
+  /// For tests: the server's search. With [debugConversations] and no [debugSearch], search
+  /// only filters the loaded chats.
+  @visibleForTesting
+  final Future<ConversationInboxPage> Function(String query, String? cursor)? debugSearch;
+
   @override
   State<ChatsBody> createState() => ChatsBodyState();
 }
@@ -55,6 +64,14 @@ class ChatsBodyState extends State<ChatsBody> {
   final _scrollController = ScrollController();
   final _searchController = TextEditingController();
   String _query = '';
+
+  /// The server's results for [_resultsFor] (B10); until they come, the loaded chats filtered.
+  List<ConversationSummary>? _results;
+  String _resultsFor = '';
+  String? _resultsCursor;
+  bool _searching = false;
+  int _searchRequest = 0;
+  Timer? _searchDebounce;
 
   /// People from the inbox, newest first, for the New message screen's Recent list.
   List<ConversationSummary> get conversations => List.unmodifiable(_conversations);
@@ -79,6 +96,7 @@ class ChatsBodyState extends State<ChatsBody> {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _searchController.dispose();
+    _searchDebounce?.cancel();
     super.dispose();
   }
 
@@ -118,13 +136,63 @@ class ChatsBodyState extends State<ChatsBody> {
   }
 
   void _onScroll() {
-    if (!_scrollController.hasClients || _loadingMore || _query.isNotEmpty) return;
+    if (!_scrollController.hasClients || _loadingMore) return;
     final pos = _scrollController.position;
-    if (pos.pixels >= pos.maxScrollExtent - 200) _load(append: true);
+    if (pos.pixels < pos.maxScrollExtent - 200) return;
+    if (_query.isEmpty) {
+      _load(append: true);
+    } else if (_results != null && _resultsCursor != null) {
+      _search(_query, append: true);
+    }
+  }
+
+  Future<ConversationInboxPage> Function(String, String?)? get _searchServer {
+    if (widget.debugSearch != null) return widget.debugSearch;
+    if (widget.debugConversations != null) return null;
+    return (query, cursor) => ChatService.instance.searchConversations(query, cursor: cursor);
+  }
+
+  void _onQuery(String value) {
+    _searchDebounce?.cancel();
+    final query = value.trim();
+    setState(() {
+      _query = query;
+      _searching = query.isNotEmpty && _searchServer != null;
+    });
+    if (!_searching) return;
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () => _search(query));
+  }
+
+  /// Every message on the server, not just the chats loaded so far.
+  Future<void> _search(String query, {bool append = false}) async {
+    final server = _searchServer;
+    if (server == null) return;
+    final request = ++_searchRequest;
+    if (append) setState(() => _loadingMore = true);
+    try {
+      final page = await server(query, append ? _resultsCursor : null);
+      if (!mounted || request != _searchRequest || query != _query) return;
+      setState(() {
+        _results = [if (append) ...?_results, ...page.items];
+        _resultsFor = query;
+        _resultsCursor = page.nextCursor;
+      });
+    } catch (_) {
+      // Offline or failing: the loaded chats, filtered, stay up.
+    } finally {
+      if (mounted && request == _searchRequest) {
+        setState(() {
+          _searching = false;
+          _loadingMore = false;
+        });
+      }
+    }
   }
 
   List<ConversationSummary> get _visible {
     if (_query.isEmpty) return _conversations;
+    final results = _results;
+    if (results != null && _resultsFor == _query) return results;
     final q = _query.toLowerCase();
     return _conversations
         .where(
@@ -139,8 +207,10 @@ class ChatsBodyState extends State<ChatsBody> {
   Future<void> _openThread(ConversationSummary conversation) async {
     if (conversation.unread) {
       setState(() {
-        final i = _conversations.indexWhere((c) => c.id == conversation.id);
-        if (i != -1) _conversations[i] = _conversations[i].copyWith(unread: false);
+        for (final list in [_conversations, ?_results]) {
+          final i = list.indexWhere((c) => c.id == conversation.id);
+          if (i != -1) list[i] = list[i].copyWith(unread: false);
+        }
       });
       widget.onCountsChanged?.call();
     }
@@ -160,6 +230,7 @@ class ChatsBodyState extends State<ChatsBody> {
     if (widget.debugConversations != null) return;
     _load();
     _loadRequests();
+    if (_query.isNotEmpty) _search(_query);
     widget.onCountsChanged?.call();
   }
 
@@ -189,7 +260,7 @@ class ChatsBodyState extends State<ChatsBody> {
             controller: _searchController,
             hintText: 'Search messages',
             height: 44,
-            onChanged: (v) => setState(() => _query = v.trim()),
+            onChanged: _onQuery,
           ),
         ),
         Expanded(
@@ -207,7 +278,20 @@ class ChatsBodyState extends State<ChatsBody> {
                     children: [
                       if (_requests.isNotEmpty && _query.isEmpty)
                         _RequestsRow(count: _requests.length, onTap: _openRequests),
-                      if (visible.isEmpty)
+                      if (visible.isEmpty && _searching)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 64),
+                          child: Center(
+                            child: SizedBox.square(
+                              dimension: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: c.textSecondary,
+                              ),
+                            ),
+                          ),
+                        )
+                      else if (visible.isEmpty)
                         Padding(
                           padding: EdgeInsets.only(top: empty ? 200 : 64),
                           child: _query.isEmpty
@@ -308,7 +392,8 @@ class ConversationRow extends StatelessWidget {
     final c = context.studio;
     final unread = conversation.unread;
     final match = TextStyle(fontWeight: StudioType.medium, color: c.textPrimary);
-    final preview = conversation.preview ?? 'No messages yet';
+    // A search result shows the message that matched (B10), else the last message.
+    final preview = conversation.matchPreview ?? conversation.preview ?? 'No messages yet';
     return Semantics(
       button: true,
       child: GestureDetector(
