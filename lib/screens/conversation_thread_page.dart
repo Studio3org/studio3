@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:video_thumbnail/video_thumbnail.dart';
 
 import '../models/chat_message.dart';
 import '../models/feed_preview_item.dart';
@@ -30,6 +29,7 @@ import 'chat_video_page.dart';
 import 'image_preview_page.dart';
 import '../widgets/studio/studio_tap_area.dart';
 import '../utils/app_clock.dart';
+import '../utils/video_frame.dart';
 
 /// A single 1:1 chat thread — real-time via [ChatSocketService], with REST
 /// ([ChatService]) as the source of truth for history and pagination.
@@ -431,12 +431,7 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
   /// The video's first frame, uploaded as its poster. A video still sends without one.
   Future<String?> _uploadPoster(String path) async {
     try {
-      final bytes = await VideoThumbnail.thumbnailData(
-        video: path,
-        imageFormat: ImageFormat.JPEG,
-        maxWidth: 480,
-        quality: 80,
-      );
+      final bytes = await videoFrameJpeg(path, width: 480);
       if (bytes == null || bytes.isEmpty) return null;
       return await MediaService.instance.uploadBytes(
         purpose: MediaPurpose.chat,

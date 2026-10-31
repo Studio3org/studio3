@@ -217,11 +217,15 @@ void main() {
     video = _FakeVideo();
     VideoPlayerPlatform.instance = video;
     posterAsked.clear();
+    // easy_video_editor writes the frame to a JPEG file and returns its path.
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
-      const MethodChannel('plugins.justsoft.xyz/video_thumbnail'),
+      const MethodChannel('easy_video_editor'),
       (call) async {
+        if (call.method != 'generateThumbnail') return null;
         posterAsked.add(call.arguments as Map<Object?, Object?>);
-        return Uint8List.fromList(List.filled(1200, 7));
+        final frame = File('${Directory.systemTemp.path}/poster_${posterAsked.length}.jpg');
+        frame.writeAsBytesSync(List.filled(1200, 7));
+        return frame.path;
       },
     );
   });
@@ -356,7 +360,8 @@ void main() {
         {'purpose': 'chat', 'contentType': 'video/mp4', 'contentLength': 2048},
         {'purpose': 'chat', 'contentType': 'image/jpeg', 'contentLength': 1200},
       ]);
-      expect(posterAsked.single['video'], clip.path);
+      expect(posterAsked.single['videoPath'], clip.path);
+      expect(posterAsked.single['width'], 480);
       final start = server.requests.firstWhere((r) => r.method == 'POST' && r.path == '/api/conversations');
       expect(start.body, {
         'username': 'amarasart',

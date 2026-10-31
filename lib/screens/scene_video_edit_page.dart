@@ -4,10 +4,10 @@ import 'dart:typed_data';
 import 'package:easy_video_editor/easy_video_editor.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
-import 'package:video_thumbnail/video_thumbnail.dart';
 
 import '../theme/home_feed_tokens.dart';
 import '../utils/crop_cover_math.dart';
+import '../utils/video_frame.dart';
 import '../widgets/create_flow/scene_video_tracks.dart';
 import '../theme/app_fonts.dart';
 
@@ -150,13 +150,7 @@ class _SceneVideoEditPageState extends State<SceneVideoEditPage> {
       final timeMs = _isTrimmed && path == widget.videoPath
           ? (_start * _duration.inMilliseconds).round()
           : 0;
-      thumb = await VideoThumbnail.thumbnailData(
-        video: path,
-        imageFormat: ImageFormat.JPEG,
-        maxWidth: 720,
-        quality: 80,
-        timeMs: timeMs,
-      );
+      thumb = await videoFrameJpeg(path, atMs: timeMs, width: 720, quality: 80);
     } catch (_) {}
 
     if (!mounted) return;

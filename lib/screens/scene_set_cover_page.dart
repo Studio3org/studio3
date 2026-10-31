@@ -4,9 +4,9 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
-import 'package:video_thumbnail/video_thumbnail.dart';
 
 import '../services/permission_service.dart';
+import '../utils/video_frame.dart';
 import '../theme/home_feed_tokens.dart';
 import '../widgets/create_flow/create_flow_widgets.dart';
 import '../widgets/create_flow/scene_video_tracks.dart';
@@ -118,13 +118,7 @@ class _SceneSetCoverPageState extends State<SceneSetCoverPage> {
           ? (_fraction * controller.value.duration.inMilliseconds).round()
           : 0;
       try {
-        bytes = await VideoThumbnail.thumbnailData(
-          video: widget.videoPath,
-          imageFormat: ImageFormat.JPEG,
-          maxWidth: 1080,
-          quality: 85,
-          timeMs: timeMs,
-        );
+        bytes = await videoFrameJpeg(widget.videoPath, atMs: timeMs, width: 1080, quality: 85);
       } catch (_) {}
     }
     if (!mounted) return;
