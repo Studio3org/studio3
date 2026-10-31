@@ -1,33 +1,76 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
-import 'package:google_fonts/google_fonts.dart';
-
-import '../data/post_material_options.dart';
 import '../data/post_location_options.dart';
+import '../data/post_material_options.dart';
 import '../data/post_picker_options.dart';
-import '../data/post_media_assets.dart';
-import '../models/listing_details.dart';
+import '../models/feed_item.dart';
+import '../models/auction.dart';
+import '../models/feed_preview_item.dart';
 import '../models/piece_summary.dart';
 import '../models/post_image_transform.dart';
+import '../models/post_summary.dart';
+import '../models/user_profile.dart' show CommissionQuote;
 import '../services/auth_session.dart';
-import '../services/api_exception.dart';
+import '../services/drafts_service.dart';
 import '../services/piece_service.dart';
 import '../services/post_publish_service.dart';
-import '../theme/home_feed_tokens.dart';
+import '../services/user_service.dart';
+import '../theme/studio_colors.dart';
+import '../utils/explore_detail_route.dart';
 import '../widgets/choose_location_sheet.dart';
-import '../widgets/create_flow/create_flow_widgets.dart';
+import '../widgets/create_flow/link_piece_sheet.dart';
 import '../widgets/create_flow/listing_details_form.dart';
+import '../widgets/create_flow/post_availability_step.dart';
+import '../widgets/create_flow/post_flow_widgets.dart';
+import '../widgets/create_flow/post_result_views.dart';
+import '../widgets/create_flow/post_review_step.dart';
+import '../widgets/create_flow/scene_details_step.dart';
 import '../widgets/create_flow/series_picker_sheet.dart';
+import '../widgets/piece_detail/piece_share_sheet.dart';
 import '../widgets/post_create_option_sheet.dart';
 import '../widgets/post_crop_preview.dart';
-import '../widgets/seller_mode_required_dialog.dart';
-import '../widgets/uploading_dialog.dart';
+import '../widgets/studio/studio_toast.dart';
 import 'add_materials_page.dart';
+import 'related_scenes_page.dart';
+import 'seller/seller_setup_flow.dart';
 
-/// Add Piece / Scene details — posting flow step (Figma 1995:1486).
+/// Steps after the photos. Pieces: availability (`PostAvailFixed`) → details
+/// (`PostDetailsForSale`) → review (`PostReview`) → published (`PostSuccess`) or failed
+/// (`PostError`). Scenes: details (`ScenePhotoDetails`) → posted (`ScenePhotoPosted`) or
+/// failed — no review (Flow 5).
+enum _CreateStep { availability, details, review, done, failed }
+
+/// Opens the posting flow on a Scene already linked to a piece ("Add a Scene from the
+/// studio" on the published screen).
+class ScenePostArgs {
+  const ScenePostArgs({required this.pieceId, required this.pieceTitle, this.pieceImageUrl});
+
+  final String pieceId;
+  final String pieceTitle;
+  final String? pieceImageUrl;
+}
+
+/// The calls the posting flow makes to save and publish.
+class PostPublisher {
+  const PostPublisher({required this.saveDraft, required this.goLive, required this.postScene});
+
+  factory PostPublisher.api() {
+    final s = PostPublishService.instance;
+    return PostPublisher(saveDraft: s.saveDraft, goLive: s.goLive, postScene: s.postScene);
+  }
+
+  final Future<PieceSummary> Function(PostDraft draft) saveDraft;
+  final Future<PieceSummary> Function(String pieceId) goLive;
+  final Future<PostSummary> Function(PostDraft draft) postScene;
+}
+
+/// Details, review and result steps of posting (D11: the board's steps).
+///
+/// The editing steps stay mounted (off stage when not shown) so what was entered survives
+/// going back. Back moves one step at a time; from the first step it returns to the photo
+/// step ([onEdit]).
 class PostCreatePage extends StatefulWidget {
   const PostCreatePage({
     super.key,
@@ -40,9 +83,19 @@ class PostCreatePage extends StatefulWidget {
     this.mediaKind = 'image',
     this.videoPath,
     this.videoThumbnailBytes,
+    this.videoLength,
+    this.initialLinkedPiece,
+    this.commissionQuote,
+    this.publisher,
+    this.active = true,
+    this.debugLocation,
+    this.debugMediumIds = const [],
   });
 
   final String postType;
+
+  /// Pieces: every photo in order (the first is the cover). Scenes: the photo at
+  /// [previewImageIndex] is posted.
   final List<String> imagePaths;
   final List<PostImageTransform> transforms;
   final int previewImageIndex;
@@ -51,904 +104,599 @@ class PostCreatePage extends StatefulWidget {
   final String mediaKind;
   final String? videoPath;
   final Uint8List? videoThumbnailBytes;
+  final Duration? videoLength;
+  final ScenePostArgs? initialLinkedPiece;
+
+  /// False while the photo steps are on screen: the page stays mounted (keeping what was
+  /// typed) but leaves the back button to them.
+  final bool active;
+
+  /// Seller's earnings for a price; defaults to the API. Tests pass their own.
+  @visibleForTesting
+  final Future<CommissionQuote?> Function(int priceCents)? commissionQuote;
+
+  /// Saving and publishing; defaults to [PostPublishService]. Tests pass their own.
+  @visibleForTesting
+  final PostPublisher? publisher;
+
+  /// Starting location and mediums, for tests (the pickers need the network).
+  @visibleForTesting
+  final PostLocationOption? debugLocation;
+  @visibleForTesting
+  final List<String> debugMediumIds;
 
   @override
   State<PostCreatePage> createState() => _PostCreatePageState();
 }
 
 class _PostCreatePageState extends State<PostCreatePage> {
-  static const _neutral700 = Color(0xFF4A4843);
-  static const _neutral300 = Color(0xFFC8C5BC);
-
-  final _nameController = TextEditingController();
+  final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
-  final _listingFormKey = GlobalKey<ListingDetailsFormState>();
-  bool _aiToolsUsed = false;
-  bool _isProcess = false;
+  final _priceController = TextEditingController();
+  final _startingBidController = TextEditingController();
+  final _reserveController = TextEditingController();
+  int _auctionDays = AuctionTerms.defaultDays;
+  final _detailsKey = GlobalKey<PieceDetailsStepState>();
+  late final PostPublisher _publisher = widget.publisher ?? PostPublisher.api();
+
+  late _CreateStep _step;
+  SaleMode _mode = SaleMode.notForSale;
   bool _publishing = false;
-  bool _listForSale = false;
-  bool _reviewMode = false;
-  PostLocationOption? _selectedLocation;
-  String? _selectedMediumId;
-  final Set<String> _selectedStyleIds = {};
-  final List<PostMaterialOption> _selectedMaterials = [];
-  String? _selectedSeriesId;
+  late PostLocationOption? _location = widget.debugLocation;
+  late final List<String> _mediumIds = List.of(widget.debugMediumIds);
+  final Set<String> _styleIds = {};
+  final List<PostMaterialOption> _materials = [];
+  String? _seriesId;
   String? _newSeriesName;
+  String? _newSeriesDescription;
   String? _seriesLabel;
-  String? _linkedPieceId;
-  String? _linkedPieceLabel;
+  final List<SceneLinkedPiece> _linkedPieces = [];
+  final List<PostSummary> _relatedScenes = [];
+  CommissionQuote? _reviewQuote;
+
+  /// The piece once saved as a draft; publishing again only takes it live.
+  PieceSummary? _draftPiece;
+  DateTime? _savedAt;
+  PieceSummary? _publishedPiece;
+  PostSummary? _postedScene;
 
   bool get _isPiece => widget.postType == 'piece';
+  bool get _listForSale => _mode != SaleMode.notForSale;
+  double? get _price => PostAvailabilityStep.parsePrice(_priceController.text);
+
+  /// The auction's terms when posting one (`PostAvailAuction`).
+  AuctionTerms? get _auction {
+    if (_mode != SaleMode.auction) return null;
+    final start = PostAvailabilityStep.parseCents(_startingBidController.text);
+    if (start == null) return null;
+    return AuctionTerms(
+      startingBidCents: start,
+      durationDays: _auctionDays,
+      reserveCents: PostAvailabilityStep.parseCents(_reserveController.text),
+    );
+  }
 
   @override
   void initState() {
     super.initState();
-    _listForSale = _isPiece && AuthSession.instance.sellerEnabled;
+    _step = _isPiece ? _CreateStep.availability : _CreateStep.details;
+    if (_isPiece && AuthSession.instance.sellerEnabled) _mode = SaleMode.fixed;
+    final linked = widget.initialLinkedPiece;
+    if (linked != null) {
+      _linkedPieces.add(SceneLinkedPiece(id: linked.pieceId, title: linked.pieceTitle, imageUrl: linked.pieceImageUrl));
+    }
     AuthSession.instance.addListener(_onSessionChanged);
   }
 
   @override
   void dispose() {
     AuthSession.instance.removeListener(_onSessionChanged);
-    _nameController.dispose();
+    _titleController.dispose();
     _descriptionController.dispose();
+    _priceController.dispose();
+    _startingBidController.dispose();
+    _reserveController.dispose();
     super.dispose();
   }
 
   void _onSessionChanged() {
     if (!mounted) return;
     if (_isPiece && AuthSession.instance.sellerEnabled && !_listForSale) {
-      setState(() => _listForSale = true);
+      setState(() => _mode = SaleMode.fixed);
     }
   }
 
-  Future<void> _onListForSaleChanged(bool value) async {
-    if (!value) {
-      setState(() {
-        _listForSale = false;
-        _listingFormKey.currentState?.clear();
-      });
+  /// Selling (fixed price or auction) needs seller mode; Not for sale never does.
+  Future<void> _onModeChanged(SaleMode mode) async {
+    if (mode == SaleMode.notForSale || AuthSession.instance.sellerEnabled) {
+      // What was typed stays in case they switch back; it is only sent for that mode.
+      setState(() => _mode = mode);
       return;
     }
-
-    if (AuthSession.instance.sellerEnabled) {
-      setState(() => _listForSale = true);
+    // Turn on selling first (`SellerPrompt`): the setup keeps this draft open underneath; the
+    // other choice posts it as not for sale.
+    final choice = await showSellerPrompt(context);
+    if (!mounted || choice == null) return;
+    if (choice == SellerPromptChoice.notForSale) {
+      setState(() => _mode = SaleMode.notForSale);
       return;
     }
-
-    final switchToSeller = await showSellerModeRequiredDialog(context);
-    if (!mounted) return;
-    if (switchToSeller == true) {
-      await Navigator.pushNamed(context, '/profile-settings');
-      if (!mounted) return;
-      if (AuthSession.instance.sellerEnabled) {
-        setState(() => _listForSale = true);
-      }
+    await SellerSetupPage.start(context, returnLabel: 'Back to your draft');
+    if (mounted && AuthSession.instance.sellerEnabled) {
+      setState(() => _mode = mode);
     }
   }
+
+  // ---------------------------------------------------------------- pickers
 
   void _openLocationPicker() {
     ChooseLocationSheet.show(
       context,
-      onLocationSelected: (location) {
-        setState(() => _selectedLocation = location);
-      },
+      selected: _location,
+      subtitle: _isPiece ? 'Where the piece is now.' : 'Optional. Only a city is ever shown.',
+      onLocationSelected: (location) => setState(() => _location = location),
     );
   }
 
+  /// Multi-select (`PostMedium`): the first picked is the one shown and filtered on.
   void _openMediumPicker() {
     PostCreateOptionSheet.show(
       context,
-      title: 'Select medium',
-      searchHint: 'Search medium',
+      title: 'Medium',
+      searchHint: 'Search mediums',
       options: PostMediumOptions.all,
-      selectedIds: _selectedMediumId != null ? {_selectedMediumId!} : const {},
-      mode: PostPickerSelectionMode.singleRadio,
-      closeOnSelection: true,
-      onSelectionChanged: (ids) {
-        setState(() {
-          _selectedMediumId = ids.isEmpty ? null : ids.first;
-        });
-      },
+      selectedIds: {..._mediumIds},
+      mode: PostPickerSelectionMode.multiCheckbox,
+      onSelectionChanged: (ids) => setState(() {
+        _mediumIds
+          ..removeWhere((id) => !ids.contains(id))
+          ..addAll(ids.where((id) => !_mediumIds.contains(id)));
+      }),
     );
   }
 
   void _openStylePicker() {
     PostCreateOptionSheet.show(
       context,
-      title: 'Select style',
-      searchHint: 'Search style',
+      title: 'Style',
+      searchHint: 'Search styles',
       options: PostStyleOptions.all,
-      selectedIds: Set<String>.from(_selectedStyleIds),
+      selectedIds: {..._styleIds},
       mode: PostPickerSelectionMode.multiCheckbox,
       maxSelections: PostStyleOptions.maxSelections,
-      onSelectionChanged: (ids) {
-        setState(() {
-          _selectedStyleIds
-            ..clear()
-            ..addAll(ids);
-        });
-      },
+      onSelectionChanged: (ids) => setState(() {
+        _styleIds
+          ..clear()
+          ..addAll(ids);
+      }),
     );
-  }
-
-  String? get _mediumTrailing =>
-      PostMediumOptions.byId(_selectedMediumId ?? '')?.name;
-
-  String? get _styleTrailing {
-    if (_selectedStyleIds.isEmpty) return null;
-    if (_selectedStyleIds.length == 1) {
-      return PostStyleOptions.byId(_selectedStyleIds.first)?.name;
-    }
-    return '${_selectedStyleIds.length}/${PostStyleOptions.maxSelections}';
   }
 
   Future<void> _openMaterialsPage() async {
     final result = await Navigator.push<List<PostMaterialOption>>(
       context,
       MaterialPageRoute<List<PostMaterialOption>>(
-        builder: (_) => AddMaterialsPage(
-          previewImagePath: widget.imagePaths[widget.previewImageIndex],
-          transform: widget.transforms[widget.previewImageIndex],
-          initialMaterials: List<PostMaterialOption>.from(_selectedMaterials),
-        ),
+        builder: (_) => AddMaterialsPage(initialMaterials: List<PostMaterialOption>.from(_materials)),
       ),
     );
     if (result != null && mounted) {
       setState(() {
-        _selectedMaterials
+        _materials
           ..clear()
           ..addAll(result);
       });
     }
   }
 
-  Future<void> _openLinkedPiecePicker() async {
+  Future<void> _openSeriesPicker() async {
+    final result = await SeriesPickerSheet.show(
+      context,
+      selectedSeriesId: _seriesId,
+      newSeriesName: _newSeriesName,
+      newSeriesDescription: _newSeriesDescription,
+    );
+    if (result == null || !mounted) return;
+    setState(() {
+      if (!result.hasSelection) {
+        _seriesId = null;
+        _newSeriesName = null;
+        _newSeriesDescription = null;
+        _seriesLabel = null;
+      } else {
+        _seriesId = result.selectedSeriesId;
+        _newSeriesName = result.newSeriesName;
+        _newSeriesDescription = result.newSeriesDescription;
+        _seriesLabel = result.displayLabel;
+      }
+    });
+  }
+
+  Future<void> _openRelatedScenes() async {
+    final picked = await RelatedScenesPage.open(context, selected: _relatedScenes);
+    if (picked == null || !mounted) return;
+    setState(() {
+      _relatedScenes
+        ..clear()
+        ..addAll(picked);
+    });
+  }
+
+  Future<void> _openLinkPieces() async {
     final username = AuthSession.instance.user?.username;
     if (username == null || username.isEmpty) return;
     List<PieceSummary> pieces;
     try {
       pieces = await PieceService.instance.getUserPieces(username);
     } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not load your pieces')),
-      );
+      if (mounted) showStudioToast(context, 'Could not load your pieces', icon: null);
       return;
     }
     if (!mounted) return;
-    final selected = await showModalBottomSheet<PieceSummary?>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withValues(alpha: 0.5),
-      builder: (context) =>
-          _LinkedPiecePickerSheet(pieces: pieces, selectedId: _linkedPieceId),
-    );
-    if (!mounted) return;
-    setState(() {
-      _linkedPieceId = selected?.id;
-      _linkedPieceLabel = selected?.title;
-    });
-  }
-
-  Future<void> _openSeriesPicker() async {
-    final result = await SeriesPickerSheet.show(
+    final picked = await LinkPieceSheet.show(
       context,
-      selectedSeriesId: _selectedSeriesId,
-      newSeriesName: _newSeriesName,
+      pieces: pieces,
+      selectedIds: _linkedPieces.map((p) => p.id).toList(),
     );
-    if (result == null || !mounted) return;
+    if (picked == null || !mounted) return;
     setState(() {
-      if (!result.hasSelection) {
-        _selectedSeriesId = null;
-        _newSeriesName = null;
-        _seriesLabel = null;
-      } else {
-        _selectedSeriesId = result.selectedSeriesId;
-        _newSeriesName = result.newSeriesName;
-        _seriesLabel = result.displayLabel;
-      }
+      _linkedPieces
+        ..clear()
+        ..addAll(picked.map((p) => SceneLinkedPiece(id: p.id, title: p.title, imageUrl: p.mediaUrl)));
     });
   }
 
-  String get _title =>
-      widget.postType == 'scene' ? 'Create scene' : 'Create piece';
+  // ---------------------------------------------------------------- labels
+
+  /// Pieces: the cover is the first photo. Scenes: the photo being posted.
+  int get _coverIndex =>
+      _isPiece ? 0 : widget.previewImageIndex.clamp(0, widget.imagePaths.isEmpty ? 0 : widget.imagePaths.length - 1);
+
+  String? get _mediumLabel {
+    if (_mediumIds.isEmpty) return null;
+    return _mediumIds.map((id) => PostMediumOptions.byId(id)?.name ?? id).join(', ');
+  }
+
+  String? get _styleLabel {
+    if (_styleIds.isEmpty) return null;
+    return _styleIds.map((id) => PostStyleOptions.byId(id)?.name ?? id).join(', ');
+  }
+
+  String get _titleText {
+    final t = _titleController.text.trim();
+    return t.isEmpty ? 'Your piece' : t;
+  }
+
+  /// Width / height of [_cover]: the photo's crop, or 9:16 for a video's frame.
+  double get _coverAspect {
+    if (widget.mediaKind == 'video' || widget.imagePaths.isEmpty) return 9 / 16;
+    return widget.transforms[_coverIndex].aspectRatio.value;
+  }
+
+  Widget _cover() {
+    if (widget.mediaKind == 'video' || widget.imagePaths.isEmpty) {
+      final bytes = widget.videoThumbnailBytes;
+      return bytes == null ? ColoredBox(color: context.studio.surface) : Image.memory(bytes, fit: BoxFit.cover);
+    }
+    return PostCropPreview(imagePath: widget.imagePaths[_coverIndex], transform: widget.transforms[_coverIndex]);
+  }
 
   PostDraft _buildDraft() {
-    ListingDetails? listingDetails;
-    if (_isPiece) {
-      listingDetails = _listingFormKey.currentState?.buildListingDetails();
-    }
-
+    final details = _isPiece
+        ? _detailsKey.currentState?.buildListingDetails(priceUsd: _mode == SaleMode.fixed ? _price : null)
+        : null;
     return PostDraft(
       postType: widget.postType,
       imagePaths: widget.imagePaths,
       mediaKind: widget.mediaKind,
       videoPath: widget.videoPath,
       videoThumbnailBytes: widget.videoThumbnailBytes,
-      title: _nameController.text,
+      title: _titleController.text,
       description: _descriptionController.text,
-      mediumId: _selectedMediumId,
-      styleTags: _selectedStyleIds.toList(),
-      location: _selectedLocation?.displayName,
-      materials: List<PostMaterialOption>.from(_selectedMaterials),
-      listingDetails: listingDetails,
-      selectedSeriesId: _selectedSeriesId,
+      mediumIds: List.of(_mediumIds),
+      styleTags: _styleIds.toList(),
+      location: _location?.displayName,
+      materials: List.of(_materials),
+      listingDetails: details,
+      selectedSeriesId: _seriesId,
       newSeriesName: _newSeriesName,
+      newSeriesDescription: _newSeriesDescription,
       transforms: widget.transforms,
       previewImageIndex: widget.previewImageIndex,
-      aiDisclosed: _aiToolsUsed,
-      linkedPieceId: _linkedPieceId,
-      isProcess: _isProcess,
+      aiDisclosed: _detailsKey.currentState?.aiDisclosed ?? false,
+      linkedPieceIds: _linkedPieces.map((p) => p.id).toList(),
       isForSale: _isPiece && _listForSale,
+      auction: _isPiece ? _auction : null,
+      relatedScenes: _isPiece ? List.of(_relatedScenes) : const [],
     );
   }
 
-  Future<void> _publish(PostDraft draft) async {
+  // ---------------------------------------------------------------- navigation
+
+  void _goBack() {
+    switch (_step) {
+      case _CreateStep.review:
+        setState(() => _step = _CreateStep.details);
+      case _CreateStep.details when _isPiece:
+        setState(() => _step = _CreateStep.availability);
+      case _CreateStep.details:
+      case _CreateStep.availability:
+        widget.onEdit?.call();
+      case _CreateStep.done:
+      case _CreateStep.failed:
+        widget.onClose();
+    }
+  }
+
+  Future<CommissionQuote?> _quote(int priceCents) =>
+      (widget.commissionQuote ?? UserService.instance.getCommissionQuote)(priceCents);
+
+  void _toReview() {
+    setState(() => _step = _CreateStep.review);
+    final price = _price;
+    if (_mode == SaleMode.fixed && price != null) {
+      _quote((price * 100).round()).then((q) {
+        if (mounted) setState(() => _reviewQuote = q);
+      }, onError: (Object _) {});
+    }
+  }
+
+  // ---------------------------------------------------------------- publishing
+
+  Future<void> _publishPiece() async {
     setState(() => _publishing = true);
-    showUploadingDialog(context, message: 'Publishing…');
     try {
-      await PostPublishService.instance.publish(draft);
+      var piece = _draftPiece;
+      if (piece == null) {
+        piece = await _publisher.saveDraft(_buildDraft());
+        _draftPiece = piece;
+        _savedAt = DateTime.now();
+      }
+      // An auction is created live (its clock starts then), so there is no draft to publish.
+      final live = piece.isLive && _mode == SaleMode.auction ? piece : await _publisher.goLive(piece.id);
+      DraftsService.instance.clearFailed(piece.id);
       if (!mounted) return;
-      hideUploadingDialog(context);
-      Navigator.of(context).popUntil((route) => route.isFirst);
-      final message = draft.isForSale
-          ? 'Piece listed for sale'
-          : 'Published successfully';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: Colors.white,
-          elevation: 6,
-          margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-          content: Row(
-            children: [
-              const Icon(
-                Icons.check_circle,
-                color: Color(0xFF3BA55D),
-                size: 20,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  message,
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: HomeFeedTokens.textPrimary,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      hideUploadingDialog(context);
-      final message = e is ApiException ? e.message : e.toString();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
+      setState(() {
+        _publishedPiece = live;
+        _step = _CreateStep.done;
+      });
+    } catch (_) {
+      // Saved but not live: Drafts says "Didn't publish. Tap to try again."
+      final saved = _draftPiece;
+      if (saved != null) DraftsService.instance.markFailed(saved.id);
+      if (mounted) setState(() => _step = _CreateStep.failed);
     } finally {
       if (mounted) setState(() => _publishing = false);
     }
   }
 
-  bool _validate() {
-    if (_isPiece && _listForSale) {
-      final form = _listingFormKey.currentState;
-      if (form == null || !form.isPriceValid) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Enter a valid price to list for sale')),
-        );
-        return false;
-      }
+  Future<void> _postScene() async {
+    setState(() => _publishing = true);
+    try {
+      final post = await _publisher.postScene(_buildDraft());
+      if (!mounted) return;
+      setState(() {
+        _postedScene = post;
+        _step = _CreateStep.done;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _step = _CreateStep.failed);
+    } finally {
+      if (mounted) setState(() => _publishing = false);
     }
-    return true;
   }
 
-  void _onSave() {
-    if (!_validate()) return;
-    _publish(_buildDraft().copyWith(status: 'draft'));
+  /// Leaves the flow, then runs [then] with a context that outlives it.
+  void _closeThen(void Function(BuildContext context) then) {
+    final navigator = Navigator.of(context);
+    widget.onClose();
+    then(navigator.context);
   }
 
-  void _onNext() {
-    if (!_validate()) return;
-    setState(() => _reviewMode = true);
+  void _addSceneForPiece(PieceSummary piece) {
+    _closeThen(
+      (context) => Navigator.of(context).pushNamed(
+        '/post',
+        arguments: ScenePostArgs(pieceId: piece.id, pieceTitle: piece.title, pieceImageUrl: piece.mediaUrl),
+      ),
+    );
   }
 
-  void _onBackToEdit() {
-    setState(() => _reviewMode = false);
+  /// Could not publish → Go to drafts (`PostError`, `Drafts`).
+  void _goToDrafts() {
+    _closeThen((context) => Navigator.of(context).pushNamed('/drafts'));
   }
 
-  void _onCreate() {
-    _publish(_buildDraft());
-  }
+  // ---------------------------------------------------------------- build
 
   @override
   Widget build(BuildContext context) {
-    final topInset = MediaQuery.paddingOf(context).top;
-    final bottomInset = MediaQuery.paddingOf(context).bottom;
-
+    final finished = _step == _CreateStep.done || _step == _CreateStep.failed;
+    final steps = _isPiece
+        ? const [_CreateStep.availability, _CreateStep.details, _CreateStep.review]
+        : const [_CreateStep.details];
     return PopScope(
-      canPop: !_reviewMode,
-      onPopInvokedWithResult: (didPop, result) {
-        if (!didPop) _onBackToEdit();
+      canPop: !widget.active,
+      onPopInvokedWithResult: (didPop, _) {
+        if (widget.active && !didPop && !_publishing) _goBack();
       },
-      child: Scaffold(
-      backgroundColor: Colors.black,
-      body: Column(
+      child: Stack(
+        fit: StackFit.expand,
         children: [
-          CreateFlowBanner(
-            topInset: topInset,
-            title: _title,
-            onClose: widget.onClose,
-          ),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: _reviewMode ? _buildSummary() : _buildEditableForm(),
+          for (final step in steps)
+            Offstage(
+              offstage: _step != step,
+              child: TickerMode(enabled: _step == step, child: _buildStep(step)),
             ),
-          ),
-          Padding(
-            padding: EdgeInsets.fromLTRB(16, 8, 16, bottomInset + 16),
-            child: Row(
-              children: [
-                CreateFlowBottomButton(
-                  label: _reviewMode ? 'Back' : 'Save',
-                  backgroundColor: _neutral700,
-                  textColor: HomeFeedTokens.textInverse,
-                  width: 68,
-                  onTap: _publishing
-                      ? null
-                      : (_reviewMode ? _onBackToEdit : _onSave),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: CreateFlowBottomButton(
-                    label: _reviewMode ? 'Publish' : 'Next',
-                    backgroundColor: _neutral300,
-                    textColor: HomeFeedTokens.textPrimary,
-                    onTap: _publishing
-                        ? null
-                        : (_reviewMode ? _onCreate : _onNext),
-                    child: _publishing
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : null,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          if (finished) _buildResult(),
         ],
       ),
-      ),
     );
   }
 
-  Widget _buildEditableForm() {
-    return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 13),
-                  Center(
-                    child: widget.mediaKind == 'video'
-                        ? _VideoPreviewCard(
-                            thumbnailBytes: widget.videoThumbnailBytes,
-                            onEdit: widget.onEdit,
-                          )
-                        : _PreviewCard(
-                            imagePath:
-                                widget.imagePaths[widget.previewImageIndex],
-                            transform:
-                                widget.transforms[widget.previewImageIndex],
-                            onEdit: widget.onEdit,
-                          ),
-                  ),
-                  const SizedBox(height: 24),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-                    child: CreateFlowTextField(
-                      controller: _nameController,
-                      hint: widget.postType == 'scene'
-                          ? 'Give this scene a name'
-                          : 'Give this piece a name',
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: createFlowHorizontalInset,
-                    ),
-                    child: CreateFlowDivider(),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-                    child: CreateFlowTextField(
-                      controller: _descriptionController,
-                      hint:
-                          'Tell us what was happening in the studio. The more you share,\nthe further it travels.',
-                      style: CreateFlowTextFieldStyle.body,
-                      maxLines: 4,
-                      minLines: 3,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: createFlowHorizontalInset,
-                    ),
-                    child: CreateFlowDivider(),
-                  ),
-                  const SizedBox(height: 4),
-                  CreateFlowMetadataRow(
-                    iconAsset: PostMediaAssets.createLocationIcon,
-                    iconWidth: 12,
-                    iconHeight: 16,
-                    label: 'Location',
-                    trailing: _selectedLocation?.name,
-                    onTap: _openLocationPicker,
-                  ),
-                  CreateFlowMetadataRow(
-                    iconAsset: PostMediaAssets.createMediumIcon,
-                    iconWidth: 12,
-                    iconHeight: 11,
-                    label: 'Medium',
-                    trailing: _mediumTrailing,
-                    onTap: _openMediumPicker,
-                  ),
-                  CreateFlowMetadataRow(
-                    iconAsset: PostMediaAssets.createStyleIcon,
-                    iconWidth: 12,
-                    iconHeight: 12,
-                    label: 'Style',
-                    trailing: _styleTrailing,
-                    onTap: _openStylePicker,
-                  ),
-                  CreateFlowMetadataRow(
-                    iconAsset: PostMediaAssets.createMaterialsIcon,
-                    iconWidth: 12,
-                    iconHeight: 11,
-                    label: 'Materials used',
-                    countBadge: _selectedMaterials.isEmpty
-                        ? null
-                        : _selectedMaterials.length,
-                    onTap: _openMaterialsPage,
-                  ),
-                  if (_isPiece) ...[
-                    CreateFlowMetadataRow(
-                      iconAsset: PostMediaAssets.createSeriesIcon,
-                      iconWidth: 13,
-                      iconHeight: 13,
-                      label: 'Series',
-                      trailing: _seriesLabel,
-                      onTap: _openSeriesPicker,
-                    ),
-                    CreateFlowMetadataRow(
-                      iconAsset: PostMediaAssets.createScenesIcon,
-                      iconWidth: 12,
-                      iconHeight: 11,
-                      label: 'Related scenes',
-                      onTap: () {},
-                    ),
-                  ] else ...[
-                    CreateFlowMetadataRow(
-                      iconAsset: PostMediaAssets.createScenesIcon,
-                      iconWidth: 12,
-                      iconHeight: 11,
-                      label: 'Link to piece',
-                      trailing: _linkedPieceLabel,
-                      onTap: _openLinkedPiecePicker,
-                    ),
-                    CreateFlowToggleRow(
-                      label: 'Process / work-in-progress scene',
-                      value: _isProcess,
-                      onChanged: (value) => setState(() => _isProcess = value),
-                    ),
-                  ],
-                  CreateFlowToggleRow(
-                    label: 'AI tools used',
-                    iconAsset: PostMediaAssets.createAiToolsIcon,
-                    value: _aiToolsUsed,
-                    onChanged: (value) => setState(() => _aiToolsUsed = value),
-                  ),
-                  if (_isPiece) ...[
-                    CreateFlowToggleRow(
-                      label: 'List for sale',
-                      value: _listForSale,
-                      onChanged: _onListForSaleChanged,
-                    ),
-                    ListingDetailsForm(
-                      key: _listingFormKey,
-                      showSaleFields: _listForSale,
-                    ),
-                  ],
-                ],
-    );
-  }
-
-  /// Read-only recap of everything entered so far — reuses the same values
-  /// as [_buildEditableForm] but as plain text (no fields, no chevrons, no
-  /// toggles, no edit affordance on the preview image), so this reads as a
-  /// summary to confirm rather than a second copy of the editable form.
-  Widget _buildSummary() {
-    ListingDetails? listingDetails;
-    if (_isPiece && _listForSale) {
-      listingDetails = _listingFormKey.currentState?.buildListingDetails();
+  Widget _buildStep(_CreateStep step) {
+    switch (step) {
+      case _CreateStep.availability:
+        return PostAvailabilityStep(
+          cover: _cover(),
+          photoCount: widget.imagePaths.length,
+          mode: _mode,
+          onModeChanged: _onModeChanged,
+          priceController: _priceController,
+          startingBidController: _startingBidController,
+          reserveController: _reserveController,
+          durationDays: _auctionDays,
+          onDurationChanged: (days) => setState(() => _auctionDays = days),
+          onBack: _goBack,
+          onEdit: () => widget.onEdit?.call(),
+          onContinue: () => setState(() => _step = _CreateStep.details),
+          quote: _quote,
+        );
+      case _CreateStep.details when _isPiece:
+        return PieceDetailsStep(
+          key: _detailsKey,
+          forSale: _listForSale,
+          titleController: _titleController,
+          descriptionController: _descriptionController,
+          location: _location?.name,
+          medium: _mediumLabel,
+          style: _styleLabel,
+          materialsCount: _materials.length,
+          series: _seriesLabel,
+          onLocation: _openLocationPicker,
+          onMedium: _openMediumPicker,
+          onStyle: _openStylePicker,
+          onMaterials: _openMaterialsPage,
+          onSeries: _openSeriesPicker,
+          relatedScenesCount: _relatedScenes.length,
+          onRelatedScenes: _openRelatedScenes,
+          onBack: _goBack,
+          onContinue: _toReview,
+        );
+      case _CreateStep.details:
+        final length = widget.videoLength;
+        return SceneDetailsStep(
+          preview: _cover(),
+          previewAspect: _coverAspect,
+          videoLength: length == null
+              ? null
+              : '${length.inMinutes}:${(length.inSeconds % 60).toString().padLeft(2, '0')}',
+          captionController: _descriptionController,
+          linkedPieces: _linkedPieces,
+          location: _location?.name,
+          onBack: _goBack,
+          onLinkPiece: _openLinkPieces,
+          onUnlink: (p) => setState(() => _linkedPieces.removeWhere((l) => l.id == p.id)),
+          onLocation: _openLocationPicker,
+          onPost: _postScene,
+          posting: _publishing,
+        );
+      case _CreateStep.review:
+        return _buildReview();
+      case _CreateStep.done:
+      case _CreateStep.failed:
+        return const SizedBox.shrink();
     }
-    final materialsLabel = _selectedMaterials.isEmpty
-        ? null
-        : _selectedMaterials.map((m) => m.name).join(', ');
-    final title = _nameController.text.trim();
-    final description = _descriptionController.text.trim();
+  }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 13),
-        Center(
-          child: widget.mediaKind == 'video'
-              ? _VideoPreviewCard(thumbnailBytes: widget.videoThumbnailBytes)
-              : _PreviewCard(
-                  imagePath: widget.imagePaths[widget.previewImageIndex],
-                  transform: widget.transforms[widget.previewImageIndex],
-                ),
-        ),
-        const SizedBox(height: 24),
-        if (title.isNotEmpty) _summaryRow('Name', title),
-        if (description.isNotEmpty) _summaryRow('Description', description),
-        const Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: createFlowHorizontalInset,
-            vertical: 8,
-          ),
-          child: CreateFlowDivider(),
-        ),
-        if (_selectedLocation != null)
-          _summaryRow('Location', _selectedLocation!.name),
-        if (_mediumTrailing != null) _summaryRow('Medium', _mediumTrailing!),
-        if (_styleTrailing != null) _summaryRow('Style', _styleTrailing!),
-        if (materialsLabel != null) _summaryRow('Materials', materialsLabel),
-        if (_isPiece) ...[
-          if (_seriesLabel != null) _summaryRow('Series', _seriesLabel!),
-        ] else ...[
-          if (_linkedPieceLabel != null)
-            _summaryRow('Link to piece', _linkedPieceLabel!),
-          if (_isProcess) _summaryRow('Process / work-in-progress', 'Yes'),
+  Widget _buildReview() {
+    final details = _detailsKey.currentState?.buildListingDetails(priceUsd: _mode == SaleMode.fixed ? _price : null);
+    final price = _price;
+    final quote = _reviewQuote;
+    final weight = details?.weight;
+    final auction = _auction;
+    return PostReviewStep(
+      cover: _cover(),
+      title: _titleText,
+      photoCount: widget.imagePaths.length,
+      forSale: _listForSale,
+      auction: auction != null,
+      availabilityRows: [
+        PostReviewRow('Selling', switch (_mode) {
+          SaleMode.fixed => 'Fixed price',
+          SaleMode.auction => 'Auction',
+          SaleMode.notForSale => 'Not for sale',
+        }),
+        if (_mode == SaleMode.fixed && price != null)
+          PostReviewRow('Price', formatUsd((price * 100).round()), small: true),
+        if (_mode == SaleMode.fixed && quote != null)
+          PostReviewRow('You receive', formatUsd(quote.netCents), small: true),
+        if (auction != null) ...[
+          PostReviewRow('Starting bid', formatUsd(auction.startingBidCents), small: true),
+          PostReviewRow('Duration', '${auction.durationDays} days', mono: true),
+          if (auction.reserveCents != null)
+            PostReviewRow('Reserve', '${formatUsd(auction.reserveCents!)} · private', small: true),
         ],
-        if (_aiToolsUsed) _summaryRow('AI tools used', 'Yes'),
-        if (_isPiece && _listForSale) ...[
-          _summaryRow('List for sale', 'Yes'),
-          if (listingDetails?.priceUsd != null)
-            _summaryRow(
-              'Price',
-              '\$${listingDetails!.priceUsd!.toStringAsFixed(2)}',
-            ),
-          if (listingDetails?.dimensionsString != null)
-            _summaryRow('Dimensions', listingDetails!.dimensionsString!),
-          if (listingDetails?.framingMounting?.trim().isNotEmpty == true)
-            _summaryRow(
-              'Framing/mounting',
-              listingDetails!.framingMounting!.trim(),
-            ),
-          if (listingDetails?.provenance?.trim().isNotEmpty == true)
-            _summaryRow('Provenance', listingDetails!.provenance!.trim()),
-          if (listingDetails?.yearCreated != null)
-            _summaryRow('Year created', '${listingDetails!.yearCreated}'),
-          if (listingDetails?.handlingNotes?.trim().isNotEmpty == true)
-            _summaryRow(
-              'Handling notes',
-              listingDetails!.handlingNotes!.trim(),
-            ),
-        ],
-        const SizedBox(height: 8),
       ],
+      detailRows: [
+        if (details?.dimensionsLabel != null) PostReviewRow('Size', details!.dimensionsLabel!, mono: true),
+        if (_listForSale && weight != null)
+          PostReviewRow('Weight', '${PieceDetailsFormat.number(weight)} ${details!.weightUnit}', mono: true),
+        if (_listForSale && details?.framingMounting != null) PostReviewRow('Framing', details!.framingMounting!),
+        if (_location != null) PostReviewRow('Location', _location!.name),
+        if (_mediumLabel != null) PostReviewRow('Medium', _mediumLabel!),
+        if (_seriesLabel != null) PostReviewRow('Series', _seriesLabel!),
+      ],
+      onBack: _goBack,
+      onEditPhotos: () => widget.onEdit?.call(),
+      onEditAvailability: () => setState(() => _step = _CreateStep.availability),
+      onEditDetails: () => setState(() => _step = _CreateStep.details),
+      onPublish: _publishPiece,
+      publishing: _publishing,
     );
   }
 
-  Widget _summaryRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 110,
-            child: Text(
-              label,
-              style: GoogleFonts.inter(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: const Color(0xFF8C8880),
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: GoogleFonts.inter(
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-                color: HomeFeedTokens.textInverse,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _VideoPreviewCard extends StatelessWidget {
-  const _VideoPreviewCard({this.thumbnailBytes, this.onEdit});
-
-  static const _cardWidth = 200.0;
-  static const _cardHeight = 266.0;
-  static const _cardRadius = 8.0;
-
-  final Uint8List? thumbnailBytes;
-  final VoidCallback? onEdit;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: _cardWidth,
-      height: _cardHeight,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(_cardRadius),
-            child: ColoredBox(
-              color: const Color(0xFF4A4843),
-              child: Stack(
-                fit: StackFit.expand,
-                alignment: Alignment.center,
-                children: [
-                  if (thumbnailBytes != null)
-                    Image.memory(
-                      thumbnailBytes!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) =>
-                          const SizedBox.shrink(),
-                    ),
-                  const Icon(
-                    Icons.play_circle_fill,
-                    color: Colors.white,
-                    size: 56,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          if (onEdit != null)
-            Positioned(
-              top: 8,
-              right: 8,
-              child: GestureDetector(
-                onTap: onEdit,
-                behavior: HitTestBehavior.opaque,
-                child: Container(
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.4),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  alignment: Alignment.center,
-                  child: SvgPicture.asset(
-                    PostMediaAssets.createPencilIcon,
-                    width: 12,
-                    height: 12,
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PreviewCard extends StatelessWidget {
-  const _PreviewCard({
-    required this.imagePath,
-    required this.transform,
-    this.onEdit,
-  });
-
-  static const _cardWidth = 200.0;
-  static const _cardRadius = 8.0;
-
-  final String imagePath;
-  final PostImageTransform transform;
-  final VoidCallback? onEdit;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: _cardWidth,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          PostCropPreview(
-            imagePath: imagePath,
-            transform: transform,
-            borderRadius: BorderRadius.circular(_cardRadius),
-          ),
-          if (onEdit != null)
-            Positioned(
-              top: 8,
-              right: 8,
-              child: GestureDetector(
-                onTap: onEdit,
-                behavior: HitTestBehavior.opaque,
-                child: Container(
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.4),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  alignment: Alignment.center,
-                  child: SvgPicture.asset(
-                    PostMediaAssets.createPencilIcon,
-                    width: 12,
-                    height: 12,
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Single-select picker for linking a scene to one of the user's pieces.
-class _LinkedPiecePickerSheet extends StatelessWidget {
-  const _LinkedPiecePickerSheet({required this.pieces, this.selectedId});
-
-  final List<PieceSummary> pieces;
-  final String? selectedId;
-
-  @override
-  Widget build(BuildContext context) {
-    final safeAreaBottom = MediaQuery.paddingOf(context).bottom;
-    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
-
-    return Padding(
-      padding: EdgeInsets.only(bottom: keyboardInset),
-      child: DraggableScrollableSheet(
-        initialChildSize: 0.45,
-        minChildSize: 0.32,
-        maxChildSize: 0.88,
-        builder: (context, scrollController) {
-          return DecoratedBox(
-            decoration: const BoxDecoration(
-              color: Color(0xFF231F1B),
-              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-            ),
-            child: Column(
-              children: [
-                const SizedBox(height: 10),
-                Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF4A4843),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-                  child: Text(
-                    'Link to piece',
-                    style: GoogleFonts.inter(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: pieces.isEmpty
-                      ? Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: Text(
-                              'You don\'t have any pieces yet.',
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.inter(
-                                fontSize: 14,
-                                color: const Color(0xFF8C8880),
-                              ),
-                            ),
-                          ),
-                        )
-                      : ListView(
-                          controller: scrollController,
-                          padding: EdgeInsets.fromLTRB(
-                            8,
-                            0,
-                            8,
-                            safeAreaBottom + 16,
-                          ),
-                          children: [
-                            _LinkedPieceTile(
-                              title: 'None',
-                              selected: selectedId == null,
-                              onTap: () => Navigator.pop(context),
-                            ),
-                            for (final piece in pieces)
-                              _LinkedPieceTile(
-                                title: piece.title,
-                                selected: selectedId == piece.id,
-                                onTap: () => Navigator.pop(context, piece),
-                              ),
-                          ],
-                        ),
-                ),
-              ],
-            ),
-          );
+  Widget _buildResult() {
+    final user = AuthSession.instance.user;
+    final authorName = (user?.name.trim().isNotEmpty ?? false) ? user!.name : (user?.username ?? '');
+    if (_step == _CreateStep.failed) {
+      return PostErrorView(
+        isScene: !_isPiece,
+        savedAt: _isPiece ? _savedAt : null,
+        retrying: _publishing,
+        onClose: widget.onClose,
+        onRetry: _isPiece ? _publishPiece : _postScene,
+        onDrafts: _goToDrafts,
+      );
+    }
+    final piece = _publishedPiece;
+    if (piece != null) {
+      final item = FeedPreviewItem.fromPieceSummary(piece);
+      final price = _price;
+      return PostPublishedView(
+        title: piece.title,
+        cover: _cover(),
+        coverAspect: _coverAspect,
+        photoCount: widget.imagePaths.length,
+        authorName: authorName,
+        avatarUrl: user?.profilePhotoUrl,
+        priceLabel: switch (_mode) {
+          SaleMode.fixed when price != null => formatUsd((price * 100).round()),
+          SaleMode.auction when _auction != null => formatUsd(_auction!.startingBidCents),
+          _ => null,
         },
-      ),
+        onClose: widget.onClose,
+        onAddScene: () => _addSceneForPiece(piece),
+        onShare: () => PieceShareSheet.show(context, item),
+        onView: () => _closeThen((context) => openPieceDetailPreview(context, item)),
+      );
+    }
+    final scene = _postedScene!;
+    return SceneLiveView(
+      preview: _cover(),
+      previewAspect: _coverAspect,
+      isVideo: widget.mediaKind == 'video',
+      authorName: authorName,
+      avatarUrl: user?.profilePhotoUrl,
+      linkedPieces: [for (final p in _linkedPieces) LinkedPieceThumb(title: p.title, imageUrl: p.imageUrl)],
+      onClose: widget.onClose,
+      onShare: () => PieceShareSheet.show(context, FeedPreviewItem.fromFeedItem(FeedItem.post(scene))),
+      onView: () => _closeThen((context) => openExploreDetail(context, FeedItem.post(scene))),
     );
   }
 }
 
-class _LinkedPieceTile extends StatelessWidget {
-  const _LinkedPieceTile({
-    required this.title,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String title;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-          child: Row(
-            children: [
-              Icon(
-                selected ? Icons.radio_button_checked : Icons.radio_button_off,
-                color: selected ? Colors.white : Colors.white38,
-                size: 22,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  title,
-                  style: GoogleFonts.inter(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+/// Number formatting for the review rows.
+abstract final class PieceDetailsFormat {
+  /// 8 → "8", 1.5 → "1.5".
+  static String number(double v) => v == v.roundToDouble() ? v.round().toString() : v.toString();
 }

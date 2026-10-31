@@ -6,6 +6,7 @@ import 'blocked_authors_store.dart';
 import 'cache_service.dart';
 import 'engagement_store.dart';
 import 'saved_content_store.dart';
+import 'theme_service.dart';
 
 class AuthSession {
   AuthSession._();
@@ -21,6 +22,13 @@ class AuthSession {
   String? accessToken;
   AuthUser? user;
   bool sellerEnabled = false;
+
+  /// In-memory only — listing permission comes from GET /artists/connect/status.
+  bool? canListForSale;
+
+  void setCanListForSale(bool? value) {
+    canListForSale = value;
+  }
 
   final List<VoidCallback> _listeners = [];
 
@@ -111,11 +119,15 @@ class AuthSession {
       currentTermsVersion: json['currentTermsVersion'] as String? ??
           current.currentTermsVersion,
     );
+    if (json.containsKey('themePreference')) {
+      await ThemeService.instance.applyServerValue(json['themePreference']);
+    }
     await updateUser(merged);
   }
 
   Future<void> setSellerEnabled(bool enabled) async {
     sellerEnabled = enabled;
+    if (!enabled) canListForSale = null;
     await _prefs?.setBool(_sellerKey, enabled);
     if (user != null) {
       await updateUser(user!.copyWith(sellerEnabled: enabled));
@@ -148,6 +160,7 @@ class AuthSession {
     accessToken = null;
     user = null;
     sellerEnabled = false;
+    canListForSale = null;
     await _prefs?.remove(_tokenKey);
     await _prefs?.remove(_userKey);
     await _prefs?.remove(_sellerKey);

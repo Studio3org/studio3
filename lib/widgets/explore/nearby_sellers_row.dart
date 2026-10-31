@@ -1,16 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/nearby_seller.dart';
+import '../../services/auth_session.dart';
 import '../../services/nearby_service.dart';
-import '../../theme/home_feed_tokens.dart';
+import '../../services/social_service.dart';
+import '../../theme/studio_colors.dart';
+import '../../theme/studio_metrics.dart';
+import '../../theme/studio_type.dart';
 import '../../utils/profile_navigation.dart';
-import '../home_feed/home_feed_widgets.dart';
+import '../../utils/require_login.dart';
+import '../follow_button.dart';
+import '../studio/studio_toast.dart';
+import 'explore_browse.dart';
 
-/// Horizontal row of sellers near the viewer's current location.
+/// Nearby sellers, drawn as the Artists shelf. Hidden under about 6 people.
+/// [onOccupied] reports whether the shelf or the location prompt is showing.
 class NearbySellersRow extends StatefulWidget {
-  const NearbySellersRow({super.key});
+  const NearbySellersRow({super.key, this.onOccupied, this.topGap = exploreSectionGap});
+
+  final ValueChanged<bool>? onOccupied;
+  final double topGap;
 
   @override
   State<NearbySellersRow> createState() => _NearbySellersRowState();
@@ -20,6 +30,8 @@ class _NearbySellersRowState extends State<NearbySellersRow> {
   List<NearbySeller> _sellers = [];
   bool _loading = true;
   bool _permissionDenied = false;
+  final Map<String, FollowState> _follow = {};
+  final Set<String> _followBusy = {};
 
   @override
   void initState() {
@@ -44,6 +56,7 @@ class _NearbySellersRowState extends State<NearbySellersRow> {
           _permissionDenied = true;
           _loading = false;
         });
+        _publish(true);
         return;
       }
       final position = await Geolocator.getCurrentPosition();
@@ -55,11 +68,64 @@ class _NearbySellersRowState extends State<NearbySellersRow> {
       setState(() {
         _sellers = sellers;
         _loading = false;
+        for (final seller in sellers) {
+          _follow.putIfAbsent(
+            seller.username,
+            () => seller.isFollowing ? FollowState.following : FollowState.none,
+          );
+        }
       });
+      _publish(sellers.length >= exploreShelfMinCount);
     } catch (_) {
       if (!mounted) return;
       setState(() => _loading = false);
+      _publish(false);
     }
+  }
+
+  bool _isSelf(NearbySeller seller) {
+    final me = AuthSession.instance.user?.username;
+    return me != null && me.isNotEmpty && me == seller.username;
+  }
+
+  Future<void> _toggleFollow(NearbySeller seller) async {
+    if (_followBusy.contains(seller.username) || seller.username.isEmpty) return;
+    if (!await requireLogin(
+      context,
+      title: 'Sign in to follow',
+      message: 'Log in or create a free account to follow artists.',
+    )) {
+      return;
+    }
+    if (!mounted) return;
+    final wasActive = (_follow[seller.username] ?? FollowState.none) != FollowState.none;
+    setState(() => _followBusy.add(seller.username));
+    try {
+      if (wasActive) {
+        await SocialService.instance.unfollow(seller.username);
+        if (!mounted) return;
+        setState(() => _follow[seller.username] = FollowState.none);
+      } else {
+        final result = await SocialService.instance.follow(seller.username);
+        if (!mounted) return;
+        setState(() {
+          _follow[seller.username] = result.following
+              ? FollowState.following
+              : (result.requested ? FollowState.pending : FollowState.none);
+        });
+      }
+    } catch (_) {
+      if (!mounted) return;
+      showStudioToast(context, 'Could not update follow', icon: null);
+    } finally {
+      if (mounted) setState(() => _followBusy.remove(seller.username));
+    }
+  }
+
+  void _publish(bool occupied) {
+    final report = widget.onOccupied;
+    if (report == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) => report(occupied));
   }
 
   @override
@@ -67,82 +133,71 @@ class _NearbySellersRowState extends State<NearbySellersRow> {
     if (_loading) return const SizedBox.shrink();
 
     if (_permissionDenied) {
+      final c = context.studio;
       return Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+        padding: EdgeInsets.fromLTRB(
+          StudioSpace.marginFeed,
+          widget.topGap,
+          StudioSpace.marginFeed,
+          0,
+        ),
         child: GestureDetector(
           onTap: _load,
-          child: Text(
-            'Enable location to discover nearby sellers',
-            style: GoogleFonts.inter(
-              fontSize: 12,
-              color: HomeFeedTokens.textSecondary,
+          behavior: HitTestBehavior.opaque,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: StudioSize.tapTarget),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Enable location to discover nearby sellers',
+                style: StudioType.body14(color: c.textSecondary),
+              ),
             ),
           ),
         ),
       );
     }
 
-    if (_sellers.isEmpty) return const SizedBox.shrink();
+    if (_sellers.length < exploreShelfMinCount) return const SizedBox.shrink();
+
+    final scale = MediaQuery.textScalerOf(context).scale(13) / 13;
+    final text = 13 * StudioType.normalLineHeight(13) +
+        4 +
+        12 * StudioType.normalLineHeight(12);
+    final height = exploreArtistAvatar +
+        StudioSpace.s8 +
+        text * scale +
+        StudioSpace.s8 +
+        StudioSize.tapTarget;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: EdgeInsets.only(top: widget.topGap),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-            child: Text(
-              'Sellers near you',
-              style: GoogleFonts.inter(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: HomeFeedTokens.textPrimary,
-              ),
-            ),
-          ),
+          const ExploreShelfHeader(title: 'Artists to know'),
+          const SizedBox(height: exploreShelfInnerGap),
           SizedBox(
-            height: 96,
+            height: height,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: StudioSpace.marginFeed),
               itemCount: _sellers.length,
-              separatorBuilder: (context, _) => const SizedBox(width: 12),
+              separatorBuilder: (context, index) => const SizedBox(width: StudioSpace.s12),
               itemBuilder: (context, index) {
                 final seller = _sellers[index];
-                return GestureDetector(
+                final state = _follow[seller.username] ??
+                    (seller.isFollowing ? FollowState.following : FollowState.none);
+                final label = state.actionLabel;
+                final showFollow = !_isSelf(seller) && seller.username.isNotEmpty;
+                return ExploreArtistTile(
+                  name: seller.displayName,
+                  photoUrl: seller.profilePhotoUrl,
+                  subtitle: seller.distanceDisplay,
                   onTap: () => openUserProfile(context, seller.username),
-                  child: SizedBox(
-                    width: 72,
-                    child: Column(
-                      children: [
-                        UserAvatar(
-                          url: seller.profilePhotoUrl,
-                          name: seller.displayName,
-                          size: 56,
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          seller.displayName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.inter(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                            color: HomeFeedTokens.textPrimary,
-                          ),
-                        ),
-                        Text(
-                          seller.distanceDisplay,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.inter(
-                            fontSize: 10,
-                            color: HomeFeedTokens.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  followLabel: showFollow ? label : null,
+                  followBusy: _followBusy.contains(seller.username),
+                  onFollow: showFollow ? () => _toggleFollow(seller) : null,
                 );
               },
             ),

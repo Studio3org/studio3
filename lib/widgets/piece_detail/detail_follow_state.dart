@@ -27,6 +27,7 @@ mixin DetailFollowState<T extends StatefulWidget> on State<T> {
     if (followBusy || followUsername.isEmpty) return;
     if (!await requireLogin(
       context,
+      title: 'Sign in to follow',
       message: 'Log in or create a free account to follow artists.',
     )) {
       return;

@@ -1,22 +1,26 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../services/chat_service.dart';
-import '../services/notification_service.dart';
 import '../services/social_service.dart';
-import '../theme/home_feed_tokens.dart';
-import '../utils/snappy_page_physics.dart';
-import '../widgets/home_feed/home_feed_widgets.dart';
+import '../theme/studio_colors.dart';
+import '../theme/studio_type.dart';
+import '../widgets/create_flow/post_flow_widgets.dart' show PostIconButton;
 import '../widgets/inbox/chats_body.dart';
+import 'new_message_page.dart';
 import '../widgets/inbox/follow_requests_body.dart';
 import '../widgets/inbox/notifications_body.dart';
+import '../widgets/studio/studio_icon.dart';
+import '../widgets/studio/studio_tab_bar.dart';
 
 enum InboxTab { notifications, chats, requests }
 
-/// Full-page Inbox — opened from the Home feed's inbox icon (and from
-/// Profile Settings' Notifications / Follow requests links). Styled like
-/// Home: a top bar with a centered switcher between the three sections,
-/// instead of the popup menu this used to be.
+/// Inbox (`NotifActivity`): opened from the home top bar's inbox icon (and from Profile
+/// Settings' Notifications / Follow requests links).
+///
+/// Back and "Inbox" 16/500; Activity, Messages and Requests as the boards' tabs, Messages
+/// and Requests with a Mono count when there is one. Requests is the app's follow requests
+/// (kept; the board draws two tabs). No settings icon: notification settings live in
+/// Profile settings.
 class InboxPage extends StatefulWidget {
   const InboxPage({super.key, this.initialTab = InboxTab.notifications});
 
@@ -26,214 +30,127 @@ class InboxPage extends StatefulWidget {
   State<InboxPage> createState() => _InboxPageState();
 }
 
-class _InboxPageState extends State<InboxPage> {
-  late InboxTab _activeTab = widget.initialTab;
-  late final PageController _pageController = PageController(
-    initialPage: widget.initialTab.index,
+class _InboxPageState extends State<InboxPage> with SingleTickerProviderStateMixin {
+  late final TabController _tabs = TabController(
+    length: InboxTab.values.length,
+    vsync: this,
+    initialIndex: widget.initialTab.index,
   );
 
-  int _notificationsCount = 0;
   int _chatsCount = 0;
   int _requestsCount = 0;
+  final _chatsKey = GlobalKey<ChatsBodyState>();
 
   @override
   void initState() {
     super.initState();
+    _tabs.addListener(_onTab);
+    _refreshCounts();
+  }
+
+  void _onTab() {
+    if (!_tabs.indexIsChanging) setState(() {});
+  }
+
+  /// The + on the Messages tab (`NotifMessages`): New message, with the people already in
+  /// the inbox as Recent.
+  Future<void> _newMessage() async {
+    final recent = [
+      for (final c in _chatsKey.currentState?.conversations ?? const [])
+        if (c.otherPartyUsername != null && c.status != 'pending')
+          MessageContact(
+            username: c.otherPartyUsername!,
+            name: c.otherPartyDisplayName,
+            avatarUrl: c.otherPartyAvatarUrl,
+          ),
+    ];
+    await Navigator.push(
+      context,
+      MaterialPageRoute<void>(builder: (_) => NewMessagePage(recent: recent)),
+    );
     _refreshCounts();
   }
 
   @override
   void dispose() {
-    _pageController.dispose();
+    _tabs.removeListener(_onTab);
+    _tabs.dispose();
     super.dispose();
   }
 
   Future<void> _refreshCounts() async {
     final results = await Future.wait<int>([
-      NotificationService.instance
-          .getUnreadCount()
-          .catchError((_) => _notificationsCount),
       SocialService.instance
           .listFollowRequests()
           .then((requests) => requests.length)
           .catchError((_) => _requestsCount),
-      ChatService.instance
-          .unreadCount()
-          .catchError((_) => _chatsCount),
+      ChatService.instance.unreadCount().catchError((_) => _chatsCount),
     ]);
     if (!mounted) return;
     setState(() {
-      _notificationsCount = results[0];
-      _requestsCount = results[1];
-      _chatsCount = results[2];
+      _requestsCount = results[0];
+      _chatsCount = results[1];
     });
-  }
-
-  void _onTabChanged(InboxTab tab) {
-    if (_activeTab == tab) return;
-    _pageController.animateToPage(
-      tab.index,
-      duration: const Duration(milliseconds: 250),
-      curve: Curves.easeOut,
-    );
-  }
-
-  void _onPageChanged(int index) {
-    final tab = InboxTab.values[index];
-    if (_activeTab == tab) return;
-    setState(() => _activeTab = tab);
-  }
-
-  Widget _tab({
-    required String label,
-    required bool active,
-    required VoidCallback onTap,
-    required int count,
-  }) {
-    return IntrinsicWidth(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              FeedFilterTab(
-                label: label,
-                active: active,
-                onTap: onTap,
-                underline: false,
-              ),
-              if (count > 0) ...[
-                const SizedBox(width: 6),
-                _CountBadge(count: count),
-              ],
-            ],
-          ),
-          const SizedBox(height: 6),
-          Container(
-            height: 1.5,
-            color: active ? HomeFeedTokens.textPrimary : Colors.transparent,
-          ),
-        ],
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final c = context.studio;
     return Scaffold(
-      backgroundColor: HomeFeedTokens.background,
+      backgroundColor: c.background,
       body: SafeArea(
         bottom: false,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(0, 8, 0, 12),
-              child: SizedBox(
-                height: 52,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Positioned(
-                      left: 4,
-                      top: 0,
-                      bottom: 0,
-                      child: Center(
-                        child: IconButton(
-                          icon: Icon(
-                            Icons.arrow_back_ios_new_rounded,
-                            color: HomeFeedTokens.textPrimary,
-                            size: 20,
-                          ),
-                          onPressed: () => Navigator.pop(context),
-                        ),
-                      ),
+              padding: const EdgeInsets.fromLTRB(8, 12, 8, 0),
+              child: Row(
+                children: [
+                  PostIconButton(
+                    icon: StudioIcons.backBold,
+                    label: 'Back',
+                    onTap: () => Navigator.maybePop(context),
+                  ),
+                  Expanded(
+                    child: Text(
+                      'Inbox',
+                      textAlign: TextAlign.center,
+                      style: StudioType.sans(16, weight: StudioType.medium, color: c.textPrimary),
                     ),
-                    Center(
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _tab(
-                              label: 'Notifications',
-                              active: _activeTab == InboxTab.notifications,
-                              onTap: () =>
-                                  _onTabChanged(InboxTab.notifications),
-                              count: _notificationsCount,
-                            ),
-                            const SizedBox(width: 24),
-                            _tab(
-                              label: 'Chats',
-                              active: _activeTab == InboxTab.chats,
-                              onTap: () => _onTabChanged(InboxTab.chats),
-                              count: _chatsCount,
-                            ),
-                            const SizedBox(width: 24),
-                            _tab(
-                              label: 'Requests',
-                              active: _activeTab == InboxTab.requests,
-                              onTap: () => _onTabChanged(InboxTab.requests),
-                              count: _requestsCount,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                  if (_tabs.index == InboxTab.chats.index)
+                    PostIconButton(
+                      icon: StudioIcons.newFolder,
+                      label: 'New message',
+                      onTap: _newMessage,
+                    )
+                  else
+                    const SizedBox(width: 44),
+                ],
               ),
             ),
+            StudioTabBar(
+              controller: _tabs,
+              labels: const ['Activity', 'Messages', 'Requests'],
+              counts: [null, _chatsCount, _requestsCount],
+              ruleFullWidth: true,
+            ),
             Expanded(
-              child: PageView(
-                controller: _pageController,
-                physics: const SnappyPageScrollPhysics(),
-                onPageChanged: _onPageChanged,
+              child: TabBarView(
+                controller: _tabs,
                 children: [
-                  NotificationsBody(onLiveNotification: _onLiveNotification),
-                  ChatsBody(onCountsChanged: _refreshCounts),
+                  NotificationsBody(onLiveNotification: () {}),
+                  ChatsBody(
+                    key: _chatsKey,
+                    onCountsChanged: _refreshCounts,
+                    onNewMessage: _newMessage,
+                  ),
                   const FollowRequestsBody(),
                 ],
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  void _onLiveNotification() {
-    if (!mounted) return;
-    setState(() => _notificationsCount += 1);
-  }
-}
-
-/// Small red Android-style count bubble — matches the badge on the Home
-/// feed's inbox icon (`home_feed_widgets.dart`), used here on each tab
-/// instead of appending "(count)" to the label text.
-class _CountBadge extends StatelessWidget {
-  const _CountBadge({required this.count});
-
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-      decoration: const BoxDecoration(
-        color: Color(0xFFE05252),
-        shape: BoxShape.circle,
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        count > 9 ? '9+' : '$count',
-        style: GoogleFonts.inter(
-          fontSize: 9,
-          fontWeight: FontWeight.w600,
-          color: Colors.white,
         ),
       ),
     );

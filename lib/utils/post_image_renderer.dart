@@ -45,7 +45,7 @@ abstract final class PostImageRenderer {
     final imgW = image.width.toDouble();
     final imgH = image.height.toDouble();
     final imageAspect = imgW / imgH;
-    final ratio = transform.aspectRatio.value;
+    final ratio = transform.aspectValue;
 
     double outW;
     double outH;
@@ -77,12 +77,14 @@ abstract final class PostImageRenderer {
       brightness: transform.brightness,
       contrast: transform.contrast,
       exposure: transform.exposure,
+      warmth: transform.warmth,
     )) {
       paint.colorFilter = ui.ColorFilter.matrix(
         ImageAdjustMath.combinedMatrix(
           brightness: transform.brightness,
           contrast: transform.contrast,
           exposure: transform.exposure,
+          warmth: transform.warmth,
         ),
       );
     }

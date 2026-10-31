@@ -32,6 +32,10 @@ migrate_working_dir/
 .pub/
 /build/
 /coverage/
+/ios/build/
+/macos/build/
+/linux/build/
+/windows/build/
 
 # Symbolication related
 app.*.symbols
@@ -51,3 +55,4 @@ docs/
 # Local tooling / caches (must not be committed — they blow past Cursor CAPI limits)
 .mcp.json
 **/node_modules/
+app/.chrome-pd/

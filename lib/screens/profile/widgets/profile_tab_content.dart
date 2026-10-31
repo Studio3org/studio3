@@ -6,6 +6,7 @@ import '../../../widgets/feed_skeleton.dart';
 import '../../../widgets/pill_chip.dart';
 import '../profile_constants.dart';
 import 'profile_masonry_grid.dart';
+import 'profile_seller_pieces.dart';
 import 'profile_series_grid.dart';
 import '../models/profile_series_data.dart';
 
@@ -32,6 +33,8 @@ class ProfileTabContent extends StatelessWidget {
     this.onPublishScene,
     this.sceneFilter = 'all',
     this.onSceneFilterChanged,
+    this.onSeeAllSeries,
+    this.onSeriesTap,
   });
 
   final String currentTab;
@@ -49,6 +52,8 @@ class ProfileTabContent extends StatelessWidget {
   final void Function(PostSummary post)? onPublishScene;
   final String sceneFilter;
   final ValueChanged<String>? onSceneFilterChanged;
+  final VoidCallback? onSeeAllSeries;
+  final void Function(ProfileSeriesData series)? onSeriesTap;
 
   /// A sliver — must be placed directly in a `CustomScrollView.slivers` list
   /// (or a `SliverPadding`'s `sliver:`), not wrapped in `SliverToBoxAdapter`,
@@ -77,12 +82,26 @@ class ProfileTabContent extends StatelessWidget {
     }
 
     if (currentTab == 'series') {
+      if (sellerMode && seriesItems.isEmpty && !loading) {
+        return const SliverToBoxAdapter(child: SizedBox.shrink());
+      }
       return SliverToBoxAdapter(
-        child: ProfileSeriesGrid(items: seriesItems, loading: loading),
+        child: ProfileSeriesGrid(items: seriesItems, loading: loading, onSeriesTap: onSeriesTap),
       );
     }
 
     if (currentTab == 'pieces') {
+      if (sellerMode) {
+        return ProfileSellerPieces(
+          pieces: pieces,
+          series: seriesItems,
+          showOwnerActions: isOwnProfile,
+          onPieceTap: (piece) => openProfilePiece(context, piece),
+          onDeletePiece: onDeletePiece,
+          onPublishPiece: onPublishPiece,
+          onSeeAllSeries: onSeeAllSeries,
+        );
+      }
       if (pieces.isNotEmpty) {
         return ProfileContentGrid.fromPieces(
           pieces,
@@ -101,6 +120,9 @@ class ProfileTabContent extends StatelessWidget {
       final visibleScenes = sceneFilter == 'videos'
           ? scenes.where(_isVideoPost).toList()
           : scenes;
+      if (sellerMode && scenes.isEmpty) {
+        return const SliverToBoxAdapter(child: SizedBox.shrink());
+      }
       final Widget gridSliver = visibleScenes.isNotEmpty
           ? ProfileContentGrid.fromPosts(
               visibleScenes,
@@ -160,12 +182,7 @@ class ProfileTabContent extends StatelessWidget {
       };
 
       if (visible.isEmpty) {
-        final label = switch (collectSegment) {
-          'sold' => 'No sold pieces yet',
-          'available' => 'No pieces listed for sale yet',
-          _ => 'No collect pieces yet',
-        };
-        return SliverToBoxAdapter(child: _EmptyState(label: label));
+        return const SliverToBoxAdapter(child: SizedBox.shrink());
       }
 
       return ProfileContentGrid.fromPieces(

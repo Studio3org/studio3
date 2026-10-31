@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../services/api_exception.dart';
 import '../services/user_service.dart';
-import '../theme/home_feed_tokens.dart';
+import '../widgets/auth_ui.dart' show AuthPillInput;
+import '../widgets/studio/studio.dart';
 import '../utils/auth_validators.dart';
-import '../widgets/pill_input.dart';
-import '../widgets/primary_button.dart';
 import '../widgets/studio_loading.dart';
 
 /// Authenticated password change, distinct from the unauthenticated
@@ -68,12 +66,8 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
         newPassword: _newController.text,
       );
       if (!mounted) return;
+      showStudioToast(context, 'Password updated. Your other devices were logged out.');
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text(
-          'Password updated. You have been logged out of your other devices.',
-        ),
-      ));
     } catch (e) {
       final message = e is ApiException ? e.message : e.toString();
       if (!mounted) return;
@@ -88,67 +82,39 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
     return StudioLoadingGate(
       loading: _loading,
       child: Scaffold(
-        backgroundColor: HomeFeedTokens.background,
-        appBar: AppBar(
-          backgroundColor: HomeFeedTokens.background,
-          elevation: 0,
-          title: Text(
-            'Change password',
-            style: GoogleFonts.inter(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: HomeFeedTokens.textPrimary,
-            ),
-          ),
-        ),
+        backgroundColor: context.studio.background,
+        appBar: StudioTopBar(context: context, title: 'Change password'),
         body: ListView(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.fromLTRB(StudioSpace.marginForm, 16, StudioSpace.marginForm, 40),
           children: [
-            _label('Current password'),
-            const SizedBox(height: 6),
-            PillInput(
+            AuthPillInput(
               controller: _currentController,
-              placeholder: 'Enter current password',
+              placeholder: 'Current password',
               obscureText: _obscureCurrent,
-              onToggleVisibility: () =>
-                  setState(() => _obscureCurrent = !_obscureCurrent),
+              onToggleVisibility: () => setState(() => _obscureCurrent = !_obscureCurrent),
               errorText: _currentError,
             ),
-            const SizedBox(height: 20),
-            _label('New password'),
-            const SizedBox(height: 6),
-            PillInput(
+            const SizedBox(height: 22),
+            AuthPillInput(
               controller: _newController,
-              placeholder: 'At least 8 characters',
+              placeholder: 'New password, at least 8 characters',
               obscureText: _obscureNew,
               onToggleVisibility: () => setState(() => _obscureNew = !_obscureNew),
               errorText: _newError,
             ),
-            const SizedBox(height: 20),
-            _label('Confirm new password'),
-            const SizedBox(height: 6),
-            PillInput(
+            const SizedBox(height: 22),
+            AuthPillInput(
               controller: _confirmController,
-              placeholder: 'Re-enter new password',
+              placeholder: 'Confirm new password',
               obscureText: _obscureConfirm,
-              onToggleVisibility: () =>
-                  setState(() => _obscureConfirm = !_obscureConfirm),
+              onToggleVisibility: () => setState(() => _obscureConfirm = !_obscureConfirm),
               errorText: _confirmError,
             ),
-            const SizedBox(height: 28),
-            PrimaryButton(label: 'Update password', onPressed: _submit),
+            const SizedBox(height: 32),
+            StudioButton(label: 'Update password', onPressed: _submit),
           ],
         ),
       ),
     );
   }
-
-  Widget _label(String text) => Text(
-        text,
-        style: GoogleFonts.inter(
-          fontSize: 13,
-          fontWeight: FontWeight.w500,
-          color: HomeFeedTokens.textPrimary.withValues(alpha: 0.6),
-        ),
-      );
 }

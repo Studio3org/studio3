@@ -9,6 +9,8 @@ import '../services/feed_service.dart';
 import '../services/reels_tab_service.dart';
 import '../utils/scrolls_to_top_on_double_tap.dart';
 import '../utils/snappy_page_physics.dart';
+import '../theme/studio_colors.dart';
+import '../theme/studio_type.dart';
 import '../widgets/feed_skeleton.dart';
 import '../widgets/reels/reel_player_page.dart';
 
@@ -23,7 +25,12 @@ class ReelsPage extends StatefulWidget {
     this.initialItems,
     this.activeListenable,
     this.jumpRequests,
+    this.onBack,
   });
+
+  /// The viewer's back arrow; defaults to popping it. The shell's own Reels page passes one
+  /// that returns to the page it came from.
+  final VoidCallback? onBack;
 
   final int initialIndex;
   final List<FeedItem>? initialItems;
@@ -170,7 +177,8 @@ class _ReelsPageState extends State<ReelsPage>
         if (append) {
           _items.addAll(page.items);
         } else {
-          _items = page.items;
+          // A copy: the service's list is fixed-length, and later pages are added to this one.
+          _items = List<FeedItem>.of(page.items);
         }
         _nextCursor = page.nextCursor;
         _loading = false;
@@ -194,7 +202,7 @@ class _ReelsPageState extends State<ReelsPage>
   void _onBackgroundUpdate(FeedPage page) {
     if (!mounted) return;
     setState(() {
-      _items = page.items;
+      _items = List<FeedItem>.of(page.items);
       _nextCursor = page.nextCursor;
     });
   }
@@ -226,33 +234,35 @@ class _ReelsPageState extends State<ReelsPage>
 
   @override
   Widget build(BuildContext context) {
-    final bottomPadding = MediaQuery.paddingOf(context).bottom + 96;
+    // Opened on its own (`SceneViewer`) it is full screen; as the shell's page the floating
+    // nav sits under it, so the controls stay above the nav.
+    final bottomInset = widget.activeListenable != null ? 100.0 : 0.0;
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: StudioColors.ink,
       body: _loading && _items.isEmpty
           ? const ReelSkeleton()
           : _items.isEmpty
             ? RefreshIndicator(
-                color: Colors.white,
-                backgroundColor: Colors.black,
+                color: StudioColors.galleryWhite,
+                backgroundColor: StudioColors.ink,
                 onRefresh: _onRefresh,
                 child: ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  children: const [
-                    SizedBox(height: 240),
+                  children: [
+                    const SizedBox(height: 240),
                     Center(
                       child: Text(
                         'No scene videos yet',
-                        style: TextStyle(color: Colors.white70, fontSize: 14),
+                        style: StudioType.body14(color: StudioColors.onDarkSecondary),
                       ),
                     ),
                   ],
                 ),
               )
             : RefreshIndicator(
-                color: Colors.white,
-                backgroundColor: Colors.black,
+                color: StudioColors.galleryWhite,
+                backgroundColor: StudioColors.ink,
                 onRefresh: _onRefresh,
                 child: PageView.builder(
                   controller: _pageController,
@@ -270,7 +280,8 @@ class _ReelsPageState extends State<ReelsPage>
                       key: ValueKey(_items[index].id),
                       item: _items[index],
                       isActive: index == _currentIndex && _playbackActive,
-                      bottomOverlayPadding: bottomPadding,
+                      bottomInset: bottomInset,
+                      onBack: widget.onBack,
                     );
                   },
                 ),

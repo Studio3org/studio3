@@ -1,6 +1,9 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../../../theme/home_feed_tokens.dart';
+import '../../../theme/studio_colors.dart';
+import '../../../theme/studio_metrics.dart';
+import '../../../theme/studio_type.dart';
 import '../models/profile_series_data.dart';
 import '../profile_constants.dart';
 
@@ -9,10 +12,14 @@ class ProfileSeriesGrid extends StatelessWidget {
     super.key,
     required this.items,
     this.loading = false,
+    this.onSeriesTap,
   });
 
   final List<ProfileSeriesData> items;
   final bool loading;
+
+  /// Opens the series (restored from before commit 76f4ef9).
+  final void Function(ProfileSeriesData series)? onSeriesTap;
 
   @override
   Widget build(BuildContext context) {
@@ -53,18 +60,19 @@ class ProfileSeriesGrid extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(child: _SeriesColumn(series: left)),
+        Expanded(child: _SeriesColumn(series: left, onSeriesTap: onSeriesTap)),
         const SizedBox(width: kProfileGutter),
-        Expanded(child: _SeriesColumn(series: right)),
+        Expanded(child: _SeriesColumn(series: right, onSeriesTap: onSeriesTap)),
       ],
     );
   }
 }
 
 class _SeriesColumn extends StatelessWidget {
-  const _SeriesColumn({required this.series});
+  const _SeriesColumn({required this.series, this.onSeriesTap});
 
   final List<ProfileSeriesData> series;
+  final void Function(ProfileSeriesData series)? onSeriesTap;
 
   @override
   Widget build(BuildContext context) {
@@ -73,7 +81,7 @@ class _SeriesColumn extends StatelessWidget {
       children: [
         for (var i = 0; i < series.length; i++) ...[
           if (i > 0) const SizedBox(height: 18),
-          _SeriesGridCard(data: series[i]),
+          _SeriesGridCard(data: series[i], onTap: onSeriesTap),
         ],
       ],
     );
@@ -81,15 +89,16 @@ class _SeriesColumn extends StatelessWidget {
 }
 
 class _SeriesGridCard extends StatelessWidget {
-  const _SeriesGridCard({required this.data});
+  const _SeriesGridCard({required this.data, this.onTap});
 
   final ProfileSeriesData data;
+  final void Function(ProfileSeriesData series)? onTap;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        return Column(
+        final card = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _StackedSeriesCovers(data: data, maxWidth: constraints.maxWidth),
@@ -107,6 +116,15 @@ class _SeriesGridCard extends StatelessWidget {
               ),
             ),
           ],
+        );
+        if (onTap == null || data.id == null) return card;
+        return Semantics(
+          button: true,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => onTap!(data),
+            child: card,
+          ),
         );
       },
     );
@@ -229,6 +247,115 @@ class _SeriesPaletteCard extends StatelessWidget {
         ],
       ),
       child: image,
+    );
+  }
+}
+
+/// Horizontal series row on a seller's Pieces tab. Hidden by the caller when
+/// this profile has no series loaded yet.
+class ProfileSeriesShelf extends StatelessWidget {
+  const ProfileSeriesShelf({
+    super.key,
+    required this.items,
+    this.onSeeAll,
+  });
+
+  final List<ProfileSeriesData> items;
+  final VoidCallback? onSeeAll;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.studio;
+    final textHeight = MediaQuery.textScalerOf(context).scale(14) * StudioType.normalLineHeight(14);
+    return Padding(
+      padding: const EdgeInsets.only(top: 22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Series',
+                  style: StudioType.header17(color: c.textPrimary),
+                ),
+              ),
+              if (onSeeAll != null)
+                GestureDetector(
+                  key: const Key('profile-series-see-all'),
+                  onTap: onSeeAll,
+                  behavior: HitTestBehavior.opaque,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minHeight: 44),
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: Text(
+                        'See all',
+                        style: StudioType.body14(weight: StudioType.medium, color: c.textSecondary),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 160 + 8 + textHeight,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: items.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 12),
+              itemBuilder: (context, index) => _ShelfCard(data: items[index]),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ShelfCard extends StatelessWidget {
+  const _ShelfCard({required this.data});
+
+  final ProfileSeriesData data;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.studio;
+    final url = data.previewUrls.isEmpty ? null : data.previewUrls.first;
+    final count = data.pieceCount == 1 ? '1 piece' : '${data.pieceCount} pieces';
+    return SizedBox(
+      width: 160,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(StudioRadius.card),
+            child: SizedBox(
+              width: 160,
+              height: 160,
+              child: url == null
+                  ? ColoredBox(color: c.surface)
+                  : CachedNetworkImage(imageUrl: url, fit: BoxFit.cover, errorWidget: (_, _, _) => ColoredBox(color: c.surface)),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Flexible(
+                child: Text(
+                  data.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: StudioType.body14(weight: StudioType.medium, color: c.textPrimary),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(count, style: StudioType.mono(12, color: c.textSecondary)),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

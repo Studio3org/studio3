@@ -46,6 +46,37 @@ class ConversationCreateResult {
 }
 
 /// One row in the chat inbox, from `GET /api/conversations`.
+/// The piece a conversation started from (BACKEND_CHANGES B9): the `Conversation` "About this
+/// piece" card and the piece's thumbnail in Messages. [priceCents] only while it is for sale.
+class ChatPiece {
+  const ChatPiece({
+    required this.id,
+    required this.title,
+    this.imageUrl,
+    this.priceCents,
+    this.artistUsername,
+  });
+
+  final String id;
+  final String title;
+  final String? imageUrl;
+  final int? priceCents;
+  final String? artistUsername;
+
+  static ChatPiece? fromJson(Object? json) {
+    if (json is! Map<String, dynamic>) return null;
+    final id = json['id'] as String?;
+    if (id == null || id.isEmpty) return null;
+    return ChatPiece(
+      id: id,
+      title: json['title'] as String? ?? '',
+      imageUrl: json['imageUrl'] as String?,
+      priceCents: (json['priceCents'] as num?)?.toInt(),
+      artistUsername: json['artistUsername'] as String?,
+    );
+  }
+}
+
 class ConversationSummary {
   const ConversationSummary({
     required this.id,
@@ -57,6 +88,9 @@ class ConversationSummary {
     required this.updatedAt,
     required this.unread,
     required this.status,
+    this.muted = false,
+    this.piece,
+    this.matchPreview,
   });
 
   final String id;
@@ -68,6 +102,16 @@ class ConversationSummary {
   final DateTime updatedAt;
   final bool unread;
   final String status;
+
+  /// Muted by the viewer (`ConvMenu` Mute notifications): the row shows a crossed-out bell.
+  final bool muted;
+
+  /// The piece the chat started from; its thumbnail shows on the right of the row.
+  final ChatPiece? piece;
+
+  /// From "Search messages" only: the newest message matching the search, cut so the match
+  /// shows (BACKEND_CHANGES B10). Null when only the name matched.
+  final String? matchPreview;
 
   factory ConversationSummary.fromJson(Map<String, dynamic> json) {
     final otherParty = json['otherParty'] as Map<String, dynamic>?;
@@ -82,6 +126,9 @@ class ConversationSummary {
           DateTime.now(),
       unread: json['unread'] as bool? ?? false,
       status: json['status'] as String? ?? 'open',
+      muted: json['muted'] as bool? ?? false,
+      piece: ChatPiece.fromJson(json['piece']),
+      matchPreview: json['matchPreview'] as String?,
     );
   }
 
@@ -90,7 +137,7 @@ class ConversationSummary {
           ? otherPartyName!
           : 'Someone';
 
-  ConversationSummary copyWith({bool? unread, String? status}) {
+  ConversationSummary copyWith({bool? unread, String? status, bool? muted}) {
     return ConversationSummary(
       id: id,
       otherPartyId: otherPartyId,
@@ -101,6 +148,9 @@ class ConversationSummary {
       updatedAt: updatedAt,
       unread: unread ?? this.unread,
       status: status ?? this.status,
+      muted: muted ?? this.muted,
+      piece: piece,
+      matchPreview: matchPreview,
     );
   }
 }
@@ -111,6 +161,8 @@ class ChatMessage {
     required this.id,
     this.body,
     this.imageUrl,
+    this.videoUrl,
+    this.thumbnailUrl,
     this.senderUsername,
     this.senderName,
     this.senderAvatarUrl,
@@ -121,6 +173,10 @@ class ChatMessage {
   final String id;
   final String? body;
   final String? imageUrl;
+
+  /// A video message (BACKEND_CHANGES B11) and its poster frame, when it has one.
+  final String? videoUrl;
+  final String? thumbnailUrl;
   final String? senderUsername;
   final String? senderName;
   final String? senderAvatarUrl;
@@ -137,6 +193,8 @@ class ChatMessage {
       id: json['id'] as String? ?? '',
       body: json['body'] as String?,
       imageUrl: json['imageUrl'] as String?,
+      videoUrl: json['videoUrl'] as String?,
+      thumbnailUrl: json['thumbnailUrl'] as String?,
       senderUsername: sender?['username'] as String?,
       senderName: sender?['name'] as String?,
       senderAvatarUrl: sender?['profilePhotoUrl'] as String?,
@@ -160,6 +218,8 @@ class ChatThread {
     this.otherPartyReadAt,
     required this.status,
     required this.messages,
+    this.muted = false,
+    this.piece,
   });
 
   final String id;
@@ -173,6 +233,12 @@ class ChatThread {
   final DateTime? otherPartyReadAt;
   final String status;
   final List<ChatMessage> messages;
+
+  /// Muted by the viewer: no alerts for this chat (BACKEND_CHANGES B8).
+  final bool muted;
+
+  /// The piece the chat started from (B9): the "About this piece" card at the top.
+  final ChatPiece? piece;
 
   factory ChatThread.fromJson(Map<String, dynamic> json) {
     final otherParty = json['otherParty'] as Map<String, dynamic>?;
@@ -196,6 +262,8 @@ class ChatThread {
       messages: items is List
           ? items.whereType<Map<String, dynamic>>().map(ChatMessage.fromJson).toList()
           : const [],
+      muted: json['muted'] as bool? ?? false,
+      piece: ChatPiece.fromJson(json['piece']),
     );
   }
 }

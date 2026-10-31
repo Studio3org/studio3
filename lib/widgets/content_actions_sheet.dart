@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../services/auth_session.dart';
 import '../services/report_service.dart';
 import '../services/social_service.dart';
-import '../theme/home_feed_tokens.dart';
 import '../utils/require_login.dart';
-
-const _danger = Color(0xFFE05252);
+import 'studio/studio.dart';
 
 /// "•••" menu for someone else's piece, scene, comment, or profile: Report
 /// it, and Block the account behind it (App Store guideline 1.2). Both need an
 /// account, so a guest is asked to log in first.
+///
+/// No board of its own: built as `ConvMenu` (Ink rows with outline icons, no red).
 ///
 /// [onBlocked] runs after a successful block — e.g. a detail page pops
 /// itself, since everything from that account is now hidden.
@@ -26,102 +25,197 @@ Future<void> showContentActionsSheet(
       authorUsername.isNotEmpty &&
       authorUsername.toLowerCase() != me?.toLowerCase();
 
-  return showModalBottomSheet<void>(
+  return showStudioSheet<void>(
     context: context,
     useRootNavigator: true,
-    backgroundColor: HomeFeedTokens.background,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
-    builder: (sheetContext) => SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(height: 8),
-          ListTile(
-            leading: const Icon(Icons.flag_outlined, color: _danger),
-            title: Text(
-              'Report ${target.noun}',
-              style: const TextStyle(
-                color: _danger,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+    builder: (sheetContext) => StudioSheet(
+      horizontalPadding: 24,
+      gap: 6,
+      children: [
+        const SizedBox(height: 2),
+        if (canBlock)
+          StudioActionRow(
+            icon: StudioIcons.block,
+            title: 'Block @$authorUsername',
             onTap: () {
               Navigator.pop(sheetContext);
-              showReportSheet(context, target: target);
+              confirmBlockUser(context, username: authorUsername, onBlocked: onBlocked);
             },
           ),
-          if (canBlock)
-            ListTile(
-              leading: const Icon(Icons.block_outlined, color: _danger),
-              title: Text(
-                'Block @$authorUsername',
-                style: const TextStyle(
-                  color: _danger,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              onTap: () {
-                Navigator.pop(sheetContext);
-                confirmBlockUser(
-                  context,
-                  username: authorUsername,
-                  onBlocked: onBlocked,
-                );
-              },
-            ),
-          const SizedBox(height: 8),
-        ],
-      ),
+        StudioActionRow(
+          icon: StudioIcons.report,
+          title: 'Report ${target.noun}',
+          onTap: () {
+            Navigator.pop(sheetContext);
+            showReportSheet(context, target: target);
+          },
+        ),
+      ],
     ),
   );
 }
+
+/// Conversation options (`ConvMenu`): opened from the three dots in a conversation.
+///
+/// Person header (40 avatar, name, handle), then Mute notifications (a switch: "You will
+/// still get messages, just no alerts"), View profile, Block [name] ("They will not be able to
+/// message you"; confirms first) and Report ("Tell Studio 3 about a message or this person";
+/// a short list of reasons).
+///
+/// Mute shows only with [onMuteChanged] (a chat that exists yet). It is called with the new
+/// state and returns the state the server kept; the switch follows it.
+Future<void> showConversationMenu(
+  BuildContext context, {
+  required String username,
+  required String name,
+  String? avatarUrl,
+  required VoidCallback onViewProfile,
+  VoidCallback? onBlocked,
+  bool muted = false,
+  Future<bool> Function(bool muted)? onMuteChanged,
+}) {
+  final shown = name.trim().isEmpty ? username : name.trim();
+  var mutedNow = muted;
+  return showStudioSheet<void>(
+    context: context,
+    useRootNavigator: true,
+    builder: (sheetContext) => StudioSheet(
+      horizontalPadding: 24,
+      gap: 6,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: StudioActionSheetPerson(
+            name: shown,
+            handle: '@$username',
+            avatarUrl: avatarUrl,
+          ),
+        ),
+        if (onMuteChanged != null)
+          StatefulBuilder(
+            builder: (context, setSheetState) {
+              Future<void> change(bool next) async {
+                setSheetState(() => mutedNow = next);
+                final kept = await onMuteChanged(next);
+                if (context.mounted) setSheetState(() => mutedNow = kept);
+              }
+
+              return StudioActionRow(
+                icon: StudioIcons.bellOff,
+                title: 'Mute notifications',
+                subtitle: 'You will still get messages, just no alerts',
+                onTap: () => change(!mutedNow),
+                trailing: StudioSwitch(
+                  value: mutedNow,
+                  onChanged: change,
+                  semanticLabel: 'Mute notifications',
+                ),
+              );
+            },
+          ),
+        StudioActionRow(
+          icon: StudioIcons.profile,
+          title: 'View profile',
+          onTap: () {
+            Navigator.pop(sheetContext);
+            onViewProfile();
+          },
+        ),
+        StudioActionRow(
+          icon: StudioIcons.block,
+          title: 'Block $shown',
+          subtitle: 'They will not be able to message you',
+          onTap: () {
+            Navigator.pop(sheetContext);
+            confirmBlockUser(context, username: username, name: shown, onBlocked: onBlocked);
+          },
+        ),
+        StudioActionRow(
+          icon: StudioIcons.report,
+          title: 'Report',
+          subtitle: 'Tell Studio 3 about a message or this person',
+          onTap: () {
+            Navigator.pop(sheetContext);
+            showReportSheet(
+              context,
+              target: ReportTarget.user(username),
+              title: 'Report $shown',
+              reasons: conversationReportReasons,
+            );
+          },
+        ),
+      ],
+    ),
+  );
+}
+
+/// The reasons offered from a conversation (`NoteConvMenu`: spam, scam or fraud,
+/// harassment, something else), plus inappropriate content.
+const conversationReportReasons = [
+  ReportReason.spam,
+  ReportReason.harassment,
+  ReportReason.inappropriate,
+  ReportReason.other,
+];
 
 /// Confirms, then blocks [username]. Their content disappears from feeds
 /// immediately (see `BlockedAuthorsStore`) and they can't message the user.
 Future<void> confirmBlockUser(
   BuildContext context, {
   required String username,
+  String? name,
   VoidCallback? onBlocked,
 }) async {
   if (!await requireLogin(
     context,
+    title: 'Sign in to block',
     message: 'Log in to block accounts you don\'t want to see.',
   )) {
     return;
   }
   if (!context.mounted) return;
-  final confirmed = await showDialog<bool>(
+  final confirmed = await showStudioSheet<bool>(
     context: context,
-    builder: (dialogContext) => AlertDialog(
-      title: Text('Block @$username?'),
-      content: const Text(
-        "You won't see their pieces, scenes, or comments, and they can't "
-        "message you. They won't be notified. You can unblock anytime from "
-        'Settings → Blocked accounts.',
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(dialogContext, false),
-          child: const Text('Cancel'),
-        ),
-        TextButton(
-          onPressed: () => Navigator.pop(dialogContext, true),
-          child: const Text('Block', style: TextStyle(color: _danger)),
-        ),
-      ],
-    ),
+    useRootNavigator: true,
+    builder: (_) => _BlockConfirmSheet(name: name ?? '@$username'),
   );
   if (confirmed != true || !context.mounted) return;
-  final messenger = ScaffoldMessenger.of(context);
   try {
     await SocialService.instance.blockUser(username);
-    messenger.showSnackBar(SnackBar(content: Text('Blocked @$username')));
+    if (context.mounted) showStudioToast(context, 'Blocked ${name ?? '@$username'}');
     onBlocked?.call();
   } catch (e) {
-    messenger.showSnackBar(
-      SnackBar(content: Text('Failed to block user: $e')),
+    if (context.mounted) showStudioToast(context, 'Could not block. Try again.', icon: null);
+  }
+}
+
+/// "Block [name]?", what blocking does, then Block (Ink) and Cancel.
+class _BlockConfirmSheet extends StatelessWidget {
+  const _BlockConfirmSheet({required this.name});
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.studio;
+    return StudioSheet(
+      horizontalPadding: StudioSpace.marginForm,
+      gap: 14,
+      children: [
+        Text('Block $name?', style: StudioType.title22(color: c.textPrimary)),
+        Text(
+          "They can't message you, and you won't see their pieces, scenes or comments. "
+          "They won't be told. You can unblock them in Settings, Blocked accounts.",
+          style: StudioType.body14(color: c.textSecondary),
+        ),
+        const SizedBox(height: 2),
+        StudioButton(label: 'Block', onPressed: () => Navigator.pop(context, true)),
+        StudioButton(
+          label: 'Cancel',
+          variant: StudioButtonVariant.text,
+          onPressed: () => Navigator.pop(context, false),
+        ),
+      ],
     );
   }
 }
@@ -130,46 +224,50 @@ Future<void> confirmBlockUser(
 Future<void> showReportSheet(
   BuildContext context, {
   required ReportTarget target,
+  String? title,
+  List<ReportReason> reasons = ReportReason.values,
 }) async {
   if (!await requireLogin(
     context,
+    title: 'Sign in to report',
     message: 'Log in to report content that breaks our Terms of Use.',
   )) {
     return;
   }
   if (!context.mounted) return;
-  final submitted = await showModalBottomSheet<bool>(
+  final submitted = await showStudioSheet<bool>(
     context: context,
     useRootNavigator: true,
-    isScrollControlled: true,
-    backgroundColor: HomeFeedTokens.background,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    builder: (_) => ReportSheet(
+      target: target,
+      title: title ?? 'Report ${target.noun}',
+      reasons: reasons,
     ),
-    builder: (_) => _ReportSheet(target: target),
   );
   if (submitted == true && context.mounted) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Thanks — we received your report and will review it within '
-          '24 hours.',
-        ),
-      ),
-    );
+    showStudioToast(context, 'Thanks. We will review it within 24 hours.');
   }
 }
 
-class _ReportSheet extends StatefulWidget {
-  const _ReportSheet({required this.target});
+/// Title, "The person is not told who reported them.", the reasons as list rows, optional
+/// details, then Send report.
+class ReportSheet extends StatefulWidget {
+  const ReportSheet({
+    super.key,
+    required this.target,
+    required this.title,
+    this.reasons = ReportReason.values,
+  });
 
   final ReportTarget target;
+  final String title;
+  final List<ReportReason> reasons;
 
   @override
-  State<_ReportSheet> createState() => _ReportSheetState();
+  State<ReportSheet> createState() => _ReportSheetState();
 }
 
-class _ReportSheetState extends State<_ReportSheet> {
+class _ReportSheetState extends State<ReportSheet> {
   final _detailsController = TextEditingController();
   ReportReason? _reason;
   bool _sending = false;
@@ -199,96 +297,55 @@ class _ReportSheetState extends State<_ReportSheet> {
       if (!mounted) return;
       setState(() {
         _sending = false;
-        _error = '$e';
+        _error = 'Could not send the report. Try again.';
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.viewInsetsOf(context).bottom,
-      ),
-      child: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Report ${widget.target.noun}',
-                style: GoogleFonts.inter(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: HomeFeedTokens.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Why are you reporting this? Your report is anonymous.',
-                style: GoogleFonts.inter(
-                  fontSize: 13,
-                  color: HomeFeedTokens.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 8),
-              RadioGroup<ReportReason>(
-                groupValue: _reason,
-                onChanged: (v) => setState(() => _reason = v),
-                child: Column(
-                  children: [
-                    for (final reason in ReportReason.values)
-                      RadioListTile<ReportReason>(
-                        value: reason,
-                        contentPadding: EdgeInsets.zero,
-                        dense: true,
-                        activeColor: HomeFeedTokens.textPrimary,
-                        title: Text(
-                          reason.label,
-                          style: GoogleFonts.inter(fontSize: 14),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 4),
-              TextField(
-                controller: _detailsController,
-                maxLength: 1000,
-                minLines: 2,
-                maxLines: 4,
-                decoration: InputDecoration(
-                  hintText: 'Add details (optional)',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-              if (_error != null) ...[
-                Text(
-                  _error!,
-                  style: GoogleFonts.inter(fontSize: 12, color: _danger),
-                ),
-                const SizedBox(height: 8),
-              ],
-              FilledButton(
-                onPressed: _reason == null || _sending ? null : _submit,
-                style: FilledButton.styleFrom(
-                  backgroundColor: _danger,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size.fromHeight(48),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-                child: Text(_sending ? 'Sending…' : 'Submit report'),
-              ),
-            ],
-          ),
+    final c = context.studio;
+    return StudioSheet(
+      horizontalPadding: StudioSpace.marginForm,
+      gap: 8,
+      scrollable: true,
+      children: [
+        const SizedBox(height: 4),
+        Text(widget.title, style: StudioType.title22(color: c.textPrimary)),
+        Text(
+          'Why are you reporting this? The person is not told who reported them.',
+          style: StudioType.body14(color: c.textSecondary),
         ),
-      ),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final reason in widget.reasons)
+              StudioListRow(
+                title: reason.label,
+                selected: _reason == reason,
+                onTap: () => setState(() => _reason = reason),
+                divider: reason != widget.reasons.last,
+              ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        StudioUnderlineField(
+          label: 'Details',
+          hint: 'Add details (optional)',
+          controller: _detailsController,
+          maxLength: 1000,
+          minLines: 1,
+          maxLines: 4,
+          valueSize: 15,
+          errorText: _error,
+        ),
+        const SizedBox(height: 8),
+        StudioButton(
+          label: 'Send report',
+          loading: _sending,
+          onPressed: _reason == null || _sending ? null : _submit,
+        ),
+      ],
     );
   }
 }

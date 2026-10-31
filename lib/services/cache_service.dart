@@ -154,6 +154,12 @@ class CacheService {
     return DateTime.now().difference(savedAt) > ttl;
   }
 
+  /// Write-through for a caller that fetched fresh data *outside* [fetchWithCache] —
+  /// typically because it had to await the network and must not fall back to cache on
+  /// failure. Its result is still the freshest anyone has, so storing it here stops other
+  /// screens from going on to serve an older one.
+  Future<void> write(String key, Map<String, dynamic> data) => _write(key, data);
+
   Future<void> _write(String key, Map<String, dynamic> data) async {
     final envelope = {
       'savedAt': DateTime.now().toIso8601String(),

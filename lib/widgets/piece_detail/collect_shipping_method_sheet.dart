@@ -1,25 +1,36 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/address.dart';
 import '../../models/collect_checkout.dart';
 import '../../services/api_exception.dart';
 import '../../services/order_service.dart';
-import '../../theme/collect_detail_tokens.dart';
+import '../../theme/studio_colors.dart';
+import '../../theme/studio_metrics.dart';
+import '../../theme/studio_type.dart';
+import '../studio/studio_button.dart';
+import '../studio/studio_icon.dart';
+import '../studio/studio_select_row.dart';
+import '../studio/studio_sheet.dart';
 import 'collect_shipping_sheet.dart';
 
-/// Shipping method picker — Figma 2382-1648.
+/// Shipping (`BuyShipping`), kept as a sheet: "Ship to" with Change, the delivery options
+/// from the shipping quote as select rows (left line, price on the right), the partner
+/// line, and Continue (54). No insurance card: the app does not offer insurance today.
 class CollectShippingMethodSheet extends StatefulWidget {
   const CollectShippingMethodSheet({
     super.key,
     required this.pieceId,
     required this.address,
     this.initialMethodId,
+    @visibleForTesting this.debugMethods,
   });
 
   final String pieceId;
   final Address address;
   final String? initialMethodId;
+
+  /// Tests only: show these instead of fetching the quote.
+  final List<CollectShippingMethod>? debugMethods;
 
   static Future<CollectShippingSelection?> show(
     BuildContext context, {
@@ -27,12 +38,8 @@ class CollectShippingMethodSheet extends StatefulWidget {
     required Address address,
     String? initialMethodId,
   }) {
-    return showModalBottomSheet<CollectShippingSelection>(
+    return showStudioSheet<CollectShippingSelection>(
       context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withValues(alpha: 0.2),
       builder: (context) => CollectShippingMethodSheet(
         pieceId: pieceId,
         address: address,
@@ -42,12 +49,10 @@ class CollectShippingMethodSheet extends StatefulWidget {
   }
 
   @override
-  State<CollectShippingMethodSheet> createState() =>
-      _CollectShippingMethodSheetState();
+  State<CollectShippingMethodSheet> createState() => _CollectShippingMethodSheetState();
 }
 
-class _CollectShippingMethodSheetState
-    extends State<CollectShippingMethodSheet> {
+class _CollectShippingMethodSheetState extends State<CollectShippingMethodSheet> {
   String? _selectedId;
   late Address _address;
   List<CollectShippingMethod> _methods = [];
@@ -59,7 +64,14 @@ class _CollectShippingMethodSheetState
     super.initState();
     _address = widget.address;
     _selectedId = widget.initialMethodId;
-    _load();
+    final debug = widget.debugMethods;
+    if (debug != null) {
+      _methods = debug;
+      _loading = false;
+      _selectedId ??= debug.isEmpty ? null : debug.first.id;
+    } else {
+      _load();
+    }
   }
 
   Future<void> _load() async {
@@ -84,191 +96,158 @@ class _CollectShippingMethodSheetState
     }
   }
 
-  CollectShippingMethod? get _selected =>
-      _methods.where((m) => m.id == _selectedId).firstOrNull;
+  CollectShippingMethod? get _selected => _methods.where((m) => m.id == _selectedId).firstOrNull;
 
   void _save() {
     final method = _selected;
     if (method == null) return;
-    Navigator.pop(
-      context,
-      CollectShippingSelection(address: _address, method: method),
-    );
+    Navigator.pop(context, CollectShippingSelection(address: _address, method: method));
   }
 
   Future<void> _changeAddress() async {
-    final updated = await CollectShippingSheet.show(
-      context,
-      initial: _address,
-    );
+    final updated = await CollectShippingSheet.show(context, initial: _address);
     if (!mounted || updated == null) return;
     setState(() => _address = updated);
   }
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.paddingOf(context).bottom;
-    final maxHeight = MediaQuery.sizeOf(context).height * 0.96;
+    final c = context.studio;
+    final mq = MediaQuery.of(context);
+    final safeBottom = mq.viewPadding.bottom;
     final address = _address;
+    final street = [
+      address.fullName,
+      address.line1,
+      if ((address.line2 ?? '').isNotEmpty) address.line2!,
+    ].where((part) => part.trim().isNotEmpty).join(', ');
 
-    return Align(
-      alignment: Alignment.bottomCenter,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: maxHeight),
-        child: Material(
-          color: CollectDetailTokens.sheetBackground,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            children: [
-              _SheetHeader(
-                title: 'Shipping',
-                onBack: () => Navigator.pop(context),
-              ),
-              Expanded(
-                child: _loading
-                    ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
-                    : ListView(
-                        padding: EdgeInsets.fromLTRB(16, 0, 16, 24 + bottomInset),
+    return SizedBox(
+      height: mq.size.height * StudioSize.sheetMaxHeightFactor,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: 10),
+          const Center(child: StudioSheetGrabber()),
+          _SheetHeader(title: 'Shipping', onBack: () => Navigator.pop(context)),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+              children: [
+                // Ship to: label 13 Graphite, then the address in 15 (ZIP in Mono 14),
+                // 3 apart; Change on the right.
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: CollectDetailTokens.sheetCardFill,
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Text(
-                                        'Ship to',
-                                        style: GoogleFonts.inter(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w400,
-                                          color: CollectDetailTokens.textSecondary,
-                                        ),
-                                      ),
-                                      const Spacer(),
-                                      GestureDetector(
-                                        onTap: _changeAddress,
-                                        child: Text(
-                                          'Change',
-                                          style: GoogleFonts.inter(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w500,
-                                            color: CollectDetailTokens.textSecondary,
-                                            decoration: TextDecoration.underline,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 12),
-                                  _AddressLine(
-                                    address.label?.isNotEmpty == true
-                                        ? address.label!
-                                        : address.fullName,
-                                  ),
-                                  _AddressLine(address.line1),
-                                  if (address.line2 != null &&
-                                      address.line2!.isNotEmpty)
-                                    _AddressLine(address.line2!),
-                                  _AddressLine(
-                                    '${address.city}, ${address.state} ${address.zip}',
-                                  ),
-                                  _AddressLine(address.phone),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: CollectDetailTokens.sheetCardFill,
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Shipping method',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w400,
-                                      color: CollectDetailTokens.textSecondary,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  if (_error != null)
-                                    Text(
-                                      _error!,
-                                      style: GoogleFonts.inter(
-                                        fontSize: 12,
-                                        color: Colors.red.shade300,
-                                      ),
-                                    )
-                                  else
-                                    for (var i = 0; i < _methods.length; i++) ...[
-                                      if (i > 0)
-                                        const Padding(
-                                          padding: EdgeInsets.symmetric(vertical: 10),
-                                          child: Divider(
-                                            height: 1,
-                                            color: CollectDetailTokens.divider,
-                                          ),
-                                        ),
-                                      _MethodOption(
-                                        method: _methods[i],
-                                        selected: _selectedId == _methods[i].id,
-                                        onTap: () => setState(
-                                          () => _selectedId = _methods[i].id,
-                                        ),
-                                      ),
-                                    ],
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          SizedBox(
-                            height: CollectDetailTokens.collectButtonHeight,
-                            width: double.infinity,
-                            child: Material(
-                              color: _selected != null
-                                  ? CollectDetailTokens.ctaFill
-                                  : CollectDetailTokens.ctaFill.withValues(alpha: 0.5),
-                              borderRadius: BorderRadius.circular(
-                                CollectDetailTokens.collectButtonRadius,
-                              ),
-                              child: InkWell(
-                                onTap: _selected != null ? _save : null,
-                                borderRadius: BorderRadius.circular(
-                                  CollectDetailTokens.collectButtonRadius,
+                          Text('Ship to', style: StudioType.label13(color: c.textSecondary)),
+                          const SizedBox(height: 3),
+                          Text(street, style: StudioType.sans(15, color: c.textPrimary)),
+                          const SizedBox(height: 3),
+                          Text.rich(
+                            TextSpan(
+                              children: [
+                                TextSpan(text: '${address.city}, ${address.state} '),
+                                TextSpan(
+                                  text: address.zip,
+                                  style: StudioType.mono(14, color: c.textPrimary),
                                 ),
-                                child: Center(
-                                  child: Text(
-                                    'Save and continue',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w400,
-                                      color: CollectDetailTokens.textInverse,
-                                    ),
-                                  ),
-                                ),
-                              ),
+                              ],
                             ),
+                            style: StudioType.sans(15, color: c.textPrimary),
                           ),
                         ],
                       ),
-              ),
-            ],
+                    ),
+                    const SizedBox(width: 12),
+                    Semantics(
+                      button: true,
+                      child: GestureDetector(
+                        onTap: _changeAddress,
+                        behavior: HitTestBehavior.opaque,
+                        // Underlined link, 6 above and below (`BuyShipping`); the padding
+                        // also takes the tap target to 44.
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(minHeight: 32),
+                            child: Text(
+                              'Change',
+                              style: StudioType.body14(color: c.textSecondary).copyWith(
+                                decoration: TextDecoration.underline,
+                                decorationColor: c.textSecondary,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 22),
+                Text(
+                  'Delivery',
+                  style: StudioType.sans(15, weight: StudioType.medium, color: c.textPrimary),
+                ),
+                const SizedBox(height: 4),
+                if (_loading)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 32),
+                    child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                  )
+                else if (_error != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    // Errors are Ink, never red (`HandoffRules`).
+                    child: Text(_error!, style: StudioType.body14(color: c.textPrimary)),
+                  )
+                else
+                  for (var i = 0; i < _methods.length; i++)
+                    StudioSelectRow(
+                      title: _methods[i].title,
+                      subtitle: _methods[i].duration.isEmpty ? null : _methods[i].duration,
+                      selected: _selectedId == _methods[i].id,
+                      titleSize: 17,
+                      titleLetterSpacing: 0,
+                      verticalPadding: 16,
+                      ruleInset: 16,
+                      subtitleSize: 13,
+                      subtitleGap: 3,
+                      divider: i < _methods.length - 1,
+                      trailing: Text(
+                        _methods[i].priceDisplay,
+                        style: StudioType.sans(
+                          15,
+                          color: _selectedId == _methods[i].id ? c.textPrimary : c.textTertiary,
+                        ),
+                      ),
+                      onTap: () => setState(() => _selectedId = _methods[i].id),
+                    ),
+                const SizedBox(height: 22),
+                Text(
+                  'Quotes come from our fine art shipping partner and include crating.',
+                  style: StudioType.caption12(height: 1.5, color: c.textSecondary),
+                ),
+              ],
+            ),
           ),
-        ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              24,
+              8,
+              24,
+              safeBottom > 0 ? safeBottom : StudioSize.noInsetBottomPadding,
+            ),
+            child: StudioButton(
+              label: 'Continue',
+              height: StudioSize.buttonPrimaryTall,
+              onPressed: _selected != null ? _save : null,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -278,97 +257,7 @@ extension<T> on Iterable<T> {
   T? get firstOrNull => isEmpty ? null : first;
 }
 
-class _AddressLine extends StatelessWidget {
-  const _AddressLine(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Text(
-        text,
-        style: GoogleFonts.inter(
-          fontSize: 12,
-          fontWeight: FontWeight.w400,
-          color: CollectDetailTokens.textPrimary,
-        ),
-      ),
-    );
-  }
-}
-
-class _MethodOption extends StatelessWidget {
-  const _MethodOption({
-    required this.method,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final CollectShippingMethod method;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: Icon(
-              selected
-                  ? Icons.radio_button_checked
-                  : Icons.radio_button_off,
-              size: 14,
-              color: selected
-                  ? CollectDetailTokens.textPrimary
-                  : CollectDetailTokens.textSecondary,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  method.title,
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
-                    color: CollectDetailTokens.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  method.duration,
-                  style: GoogleFonts.inter(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w400,
-                    color: CollectDetailTokens.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Text(
-            method.priceDisplay,
-            style: GoogleFonts.inter(
-              fontSize: 12,
-              fontWeight: FontWeight.w400,
-              color: CollectDetailTokens.textSecondary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
+/// Back (22 px, 44 target) on the left, the title 16/500 centred.
 class _SheetHeader extends StatelessWidget {
   const _SheetHeader({required this.title, required this.onBack});
 
@@ -377,36 +266,36 @@ class _SheetHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.studio;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 12, 16),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       child: SizedBox(
-        height: 24,
-        child: Stack(
-          alignment: Alignment.center,
+        height: 44,
+        child: Row(
           children: [
-            Align(
-              alignment: Alignment.centerLeft,
+            Semantics(
+              button: true,
+              label: 'Back',
+              excludeSemantics: true,
               child: GestureDetector(
                 onTap: onBack,
                 behavior: HitTestBehavior.opaque,
-                child: const Padding(
-                  padding: EdgeInsets.all(2),
-                  child: Icon(
-                    Icons.arrow_back_ios_new_rounded,
-                    size: 16,
-                    color: CollectDetailTokens.textPrimary,
+                child: SizedBox.square(
+                  dimension: 44,
+                  child: Center(
+                    child: StudioIcon(StudioIcons.back, size: 22, color: c.textPrimary),
                   ),
                 ),
               ),
             ),
-            Text(
-              title,
-              style: GoogleFonts.inter(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: CollectDetailTokens.textPrimary,
+            Expanded(
+              child: Text(
+                title,
+                textAlign: TextAlign.center,
+                style: StudioType.sans(16, weight: StudioType.medium, color: c.textPrimary),
               ),
             ),
+            const SizedBox(width: 44),
           ],
         ),
       ),

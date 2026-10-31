@@ -1,23 +1,40 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../services/auth_service.dart';
 import '../services/user_service.dart';
-import '../theme/home_feed_tokens.dart';
+import '../theme/studio_colors.dart';
+import '../theme/studio_metrics.dart';
+import '../theme/studio_type.dart';
+import 'studio/studio_toast.dart';
 
 /// Blocking prompt for a signed-in account that hasn't agreed to the current
 /// Terms of Use (EULA) — accounts created before the terms existed, or any
 /// account after the terms are revised. The only ways out are agreeing or
 /// logging out, so nobody keeps posting without having accepted them.
 Future<void> showTermsAcceptanceDialog(BuildContext context) {
-  return showDialog<void>(
+  return showGeneralDialog<void>(
     context: context,
     barrierDismissible: false,
+    barrierLabel: 'Terms of Use',
+    barrierColor: const Color(0x00000000),
     useRootNavigator: true,
-    builder: (_) => const PopScope(
-      canPop: false,
-      child: _TermsAcceptanceDialog(),
-    ),
+    pageBuilder: (context, animation, secondaryAnimation) {
+      return const PopScope(
+        canPop: false,
+        child: _TermsAcceptanceDialog(),
+      );
+    },
+    transitionBuilder: (context, animation, secondaryAnimation, child) {
+      return BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+        child: ColoredBox(
+          color: const Color(0x47000000),
+          child: FadeTransition(opacity: animation, child: child),
+        ),
+      );
+    },
   );
 }
 
@@ -36,12 +53,10 @@ class _TermsAcceptanceDialogState extends State<_TermsAcceptanceDialog> {
     try {
       await UserService.instance.acceptTerms();
       if (mounted) Navigator.of(context).pop();
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() => _saving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Couldn't save that — please try again. ($e)")),
-      );
+      showStudioToast(context, "Couldn't save that — please try again.", icon: null);
     }
   }
 
@@ -54,38 +69,40 @@ class _TermsAcceptanceDialogState extends State<_TermsAcceptanceDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.studio;
+    final label = StudioType.body14(weight: StudioType.medium, color: c.textPrimary);
     return AlertDialog(
-      backgroundColor: HomeFeedTokens.background,
-      title: Text(
-        'Terms of Use',
-        style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 18),
-      ),
+      backgroundColor: c.background,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(StudioRadius.button)),
+      title: Text('Terms of Use', style: StudioType.header17(color: c.textPrimary)),
       content: Text(
         'To keep using your Studio3 account, please review and agree to our '
         'Terms of Use (EULA). Studio3 has zero tolerance for objectionable '
         'content or abusive users — violating content is removed and the '
         'accounts behind it are ejected.',
-        style: GoogleFonts.inter(fontSize: 14, height: 1.45),
+        style: StudioType.body14(height: 1.45, color: c.textBody),
       ),
       actionsOverflowButtonSpacing: 4,
       actions: [
         TextButton(
-          onPressed: _saving
-              ? null
-              : () => Navigator.of(context).pushNamed('/terms'),
-          child: const Text('Read terms'),
+          onPressed: _saving ? null : () => Navigator.of(context).pushNamed('/terms'),
+          child: Text('Read terms', style: label),
         ),
         TextButton(
           onPressed: _saving ? null : _logOut,
-          child: const Text('Log out'),
+          child: Text('Log out', style: label),
         ),
         FilledButton(
           onPressed: _saving ? null : _agree,
           style: FilledButton.styleFrom(
-            backgroundColor: HomeFeedTokens.textPrimary,
-            foregroundColor: HomeFeedTokens.textInverse,
+            backgroundColor: c.buttonFill,
+            foregroundColor: c.buttonText,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(StudioRadius.button)),
           ),
-          child: Text(_saving ? 'Saving…' : 'I agree'),
+          child: Text(
+            _saving ? 'Saving…' : 'I agree',
+            style: StudioType.body14(weight: StudioType.medium, color: c.buttonText),
+          ),
         ),
       ],
     );

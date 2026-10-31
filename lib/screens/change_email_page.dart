@@ -1,14 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../services/api_exception.dart';
 import '../services/user_service.dart';
-import '../theme/home_feed_tokens.dart';
+import '../widgets/auth_ui.dart' show AuthPillInput, StudioOtpSlots;
+import '../widgets/studio/studio.dart';
 import '../utils/auth_validators.dart';
-import '../widgets/ghost_button.dart';
-import '../widgets/light_otp_input.dart';
-import '../widgets/pill_input.dart';
-import '../widgets/primary_button.dart';
 import '../widgets/studio_loading.dart';
 
 enum _Step { request, confirm }
@@ -78,9 +74,8 @@ class _ChangeEmailPageState extends State<ChangeEmailPage> {
         otp: _otpController.text.trim(),
       );
       if (!mounted) return;
+      showStudioToast(context, 'Email updated to $email');
       Navigator.pop(context, true);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Email updated to $email')));
     } catch (e) {
       if (!mounted) return;
       setState(() => _serverError = e is ApiException ? e.message : e.toString());
@@ -94,82 +89,53 @@ class _ChangeEmailPageState extends State<ChangeEmailPage> {
     return StudioLoadingGate(
       loading: _loading,
       child: Scaffold(
-        backgroundColor: HomeFeedTokens.background,
-        appBar: AppBar(
-          backgroundColor: HomeFeedTokens.background,
-          elevation: 0,
-          title: Text(
-            'Change email',
-            style: GoogleFonts.inter(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: HomeFeedTokens.textPrimary,
-            ),
-          ),
-        ),
-        body: Padding(
-          padding: const EdgeInsets.all(20),
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 250),
-            child: _step == _Step.request ? _requestView() : _confirmView(),
-          ),
+        backgroundColor: context.studio.background,
+        appBar: StudioTopBar(context: context, title: 'Change email'),
+        body: AnimatedSwitcher(
+          duration: StudioMotion.quick,
+          child: _step == _Step.request ? _requestView() : _confirmView(),
         ),
       ),
     );
   }
 
+  static const _padding = EdgeInsets.fromLTRB(StudioSpace.marginForm, 16, StudioSpace.marginForm, 40);
+
   Widget _requestView() {
     return ListView(
       key: const ValueKey('request'),
+      padding: _padding,
       children: [
-        _label('New email address'),
-        const SizedBox(height: 6),
-        PillInput(
+        AuthPillInput(
           controller: _emailController,
-          placeholder: 'you@example.com',
+          placeholder: 'New email address',
           keyboardType: TextInputType.emailAddress,
           errorText: _emailError ?? _serverError,
         ),
-        const SizedBox(height: 24),
-        PrimaryButton(label: 'Send code', onPressed: _requestChange),
+        const SizedBox(height: 32),
+        StudioButton(label: 'Send code', onPressed: _requestChange),
       ],
     );
   }
 
   Widget _confirmView() {
+    final c = context.studio;
+    final otpError = _submitted && _otpController.text.trim().length != 6 ? 'Enter the 6-digit code' : null;
     return ListView(
       key: const ValueKey('confirm'),
+      padding: _padding,
       children: [
         Text(
           'Enter the 6-digit code we sent to ${_emailController.text.trim()}.',
-          style: GoogleFonts.inter(
-            fontSize: 14,
-            color: HomeFeedTokens.textPrimary.withValues(alpha: 0.7),
-          ),
+          style: StudioType.body15(color: c.textSecondary),
         ),
-        const SizedBox(height: 20),
-        LightOtpInput(controller: _otpController),
-        if (_serverError != null) ...[
-          const SizedBox(height: 8),
-          Text(
-            _serverError!,
-            style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFFE05252)),
-          ),
-        ],
-        const SizedBox(height: 20),
-        PrimaryButton(label: 'Confirm', onPressed: _confirmChange),
-        const SizedBox(height: 12),
-        GhostButton(label: 'Resend code', onPressed: _requestChange),
+        const SizedBox(height: 24),
+        StudioOtpSlots(controller: _otpController, autofocus: true, errorText: _serverError ?? otpError),
+        const SizedBox(height: 32),
+        StudioButton(label: 'Confirm', onPressed: _confirmChange),
+        const SizedBox(height: 4),
+        StudioButton(label: 'Resend code', variant: StudioButtonVariant.text, onPressed: _requestChange),
       ],
     );
   }
-
-  Widget _label(String text) => Text(
-        text,
-        style: GoogleFonts.inter(
-          fontSize: 13,
-          fontWeight: FontWeight.w500,
-          color: HomeFeedTokens.textPrimary.withValues(alpha: 0.6),
-        ),
-      );
 }

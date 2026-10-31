@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 
-import '../theme/explore_tokens.dart';
 import '../theme/home_feed_tokens.dart';
-import '../utils/image_aspect_ratio_resolver.dart';
+import '../theme/studio_colors.dart';
+import '../theme/studio_metrics.dart';
+import 'loading/skeleton_primitives.dart';
 
 /// Wraps a skeleton's placeholder blocks in an animated shimmer sweep —
 /// shared by every skeleton below so first-load placeholders read as
@@ -88,143 +89,113 @@ class FeedListSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fill = HomeFeedTokens.skeletonBase;
-    final overlayFill = Colors.white.withValues(alpha: 0.75);
+    final c = context.studio;
+    final fill = c.surface;
+    final lineFill = c.line;
 
     Widget line(double width, double height) {
       return Container(
         width: width,
         height: height,
-        decoration: BoxDecoration(
-          color: overlayFill,
-          borderRadius: BorderRadius.circular(4),
-        ),
+        decoration: BoxDecoration(color: lineFill, borderRadius: BorderRadius.circular(4)),
       );
     }
 
     Widget card() {
-      return AspectRatio(
-        aspectRatio: ImageAspectRatioResolver.portrait3x4,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: fill,
-                borderRadius: BorderRadius.circular(HomeFeedTokens.cardRadius),
-              ),
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AspectRatio(
+            aspectRatio: 3 / 4,
+            child: ColoredBox(color: fill),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(color: lineFill, shape: BoxShape.circle),
+                ),
+                const SizedBox(width: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    line(96, 12),
+                    const SizedBox(height: 6),
+                    line(72, 10),
+                  ],
+                ),
+              ],
             ),
-            Positioned(
-              left: 8,
-              right: 8,
-              bottom: 8,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  SizedBox(
-                    width: HomeFeedTokens.avatarSize,
-                    height: HomeFeedTokens.avatarSize,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: overlayFill,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        line(80, 10),
-                        const SizedBox(height: 6),
-                        line(56, 8),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       );
     }
 
-    return _shimmer(
-      ListView.separated(
-        physics: const NeverScrollableScrollPhysics(),
-        padding: const EdgeInsets.symmetric(
-          horizontal: HomeFeedTokens.sideMargin,
-        ),
-        itemCount: itemCount,
-        separatorBuilder: (_, __) =>
-            const SizedBox(height: HomeFeedTokens.rowGap),
-        itemBuilder: (_, __) => card(),
-      ),
-      baseColor: fill,
-      highlightColor: HomeFeedTokens.skeletonHighlight,
+    final list = ListView.separated(
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: itemCount,
+      separatorBuilder: (_, _) => const SizedBox(height: StudioSpace.feedGap),
+      itemBuilder: (_, _) => card(),
     );
+    if (MediaQuery.disableAnimationsOf(context)) return list;
+    return _shimmer(list, baseColor: fill, highlightColor: c.card);
   }
 }
 
-/// Explore-style masonry placeholders (two columns, mixed heights).
+/// Two columns of 3:4 cards while Explore's first page is loading.
 class ExploreFeedSkeleton extends StatelessWidget {
   const ExploreFeedSkeleton({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final fill = ExploreTokens.skeleton;
+    final c = context.studio;
+    final fill = c.surface;
 
-    Widget tile(double aspect) {
+    Widget tile() {
       return AspectRatio(
-        aspectRatio: aspect,
+        aspectRatio: 3 / 4,
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: fill,
-            borderRadius: BorderRadius.circular(ExploreTokens.tileRadius),
+            borderRadius: BorderRadius.circular(StudioRadius.card),
           ),
         ),
       );
     }
 
-    return _shimmer(
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: ExploreTokens.sideMargin),
+    Widget column() {
+      return Expanded(
         child: Column(
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    children: [
-                      tile(3 / 4),
-                      const SizedBox(height: ExploreTokens.gutter),
-                      tile(1),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: ExploreTokens.gutter),
-                Expanded(
-                  child: Column(
-                    children: [
-                      tile(1),
-                      const SizedBox(height: ExploreTokens.gutter),
-                      tile(3 / 4),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: ExploreTokens.blockGap),
-            tile(16 / 9),
+            tile(),
+            const SizedBox(height: StudioSpace.feedGap),
+            tile(),
           ],
         ),
+      );
+    }
+
+    final grid = Padding(
+      padding: const EdgeInsets.fromLTRB(
+        StudioSpace.marginFeed,
+        36,
+        StudioSpace.marginFeed,
+        0,
       ),
-      baseColor: fill,
-      highlightColor: ExploreTokens.skeletonHighlight,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          column(),
+          const SizedBox(width: StudioSpace.s12),
+          column(),
+        ],
+      ),
     );
+    if (MediaQuery.disableAnimationsOf(context)) return grid;
+    return _shimmer(grid, baseColor: fill, highlightColor: c.card);
   }
 }
 
@@ -440,80 +411,38 @@ class FlatListRowSkeleton extends StatelessWidget {
   }
 }
 
-/// Placeholder for Profile Settings' first load — section-header bars
-/// followed by [SettingsTile]-shaped rows (icon circle + text bar +
-/// trailing blob), so the page reads as "loading settings" instead of a
-/// full-screen logo overlay.
+/// Placeholder for Settings' first load: a short bar for each Mono section label, then
+/// [SettingsTile]-shaped rows (a text bar, 14 above and below, a Line under), so the page
+/// reads as "loading settings" instead of a full-screen logo overlay. Theme colours.
 class SettingsListSkeleton extends StatelessWidget {
   const SettingsListSkeleton({super.key});
 
   @override
   Widget build(BuildContext context) {
-    const fill = HomeFeedTokens.skeletonBase;
-
-    Widget sectionHeader() {
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(4, 20, 4, 12),
-        child: Container(
-          width: 72,
-          height: 12,
-          decoration: BoxDecoration(
-            color: fill,
-            borderRadius: BorderRadius.circular(4),
+    final line = context.studio.line;
+    Widget section(int rows) => Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(top: 22, bottom: 8),
+          child: SkeletonBox(width: 64, height: 10, radius: 3),
+        ),
+        for (var i = 0; i < rows; i++)
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 18),
+            decoration: BoxDecoration(border: Border(bottom: BorderSide(color: line))),
+            child: SkeletonBox(width: 120.0 + (i * 37) % 80, height: 14, radius: 4),
           ),
-        ),
-      );
-    }
-
-    Widget tileRow({double labelWidth = 140}) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-        child: Row(
-          children: [
-            DecoratedBox(
-              decoration: BoxDecoration(color: fill, shape: BoxShape.circle),
-              child: const SizedBox(width: 22, height: 22),
-            ),
-            const SizedBox(width: 14),
-            Container(
-              width: labelWidth,
-              height: 14,
-              decoration: BoxDecoration(
-                color: fill,
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    Widget section(int rows) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          sectionHeader(),
-          for (var i = 0; i < rows; i++)
-            tileRow(labelWidth: 120 + (i * 37) % 80),
-        ],
-      );
-    }
-
-    return _shimmer(
-      Padding(
-        padding: const EdgeInsets.all(20),
+      ],
+    );
+    return SkeletonShimmer(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            section(3),
-            section(4),
-            section(3),
-            section(2),
-          ],
+          children: [section(2), section(4), section(4), section(3)],
         ),
       ),
-      baseColor: fill,
-      highlightColor: HomeFeedTokens.skeletonHighlight,
     );
   }
 }

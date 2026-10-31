@@ -28,12 +28,23 @@ class ChatService {
     );
   }
 
+  /// "Search messages": your conversations whose other person's name or handle, or any
+  /// message, contains [query] (BACKEND_CHANGES B10). Each comes with `matchPreview`.
+  Future<ConversationInboxPage> searchConversations(String query, {String? cursor}) {
+    return _getConversationPage(
+      '/api/conversations/search',
+      cursor: cursor,
+      extra: {'q': query},
+    );
+  }
+
   Future<ConversationInboxPage> _getConversationPage(
     String path, {
     String? cursor,
     int? limit,
+    Map<String, String>? extra,
   }) async {
-    final query = <String, String>{};
+    final query = <String, String>{...?extra};
     if (cursor != null && cursor.isNotEmpty) query['cursor'] = cursor;
     if (limit != null) query['limit'] = limit.toString();
 
@@ -64,6 +75,9 @@ class ChatService {
     String username,
     String message, {
     String? imageUrl,
+    String? videoUrl,
+    String? thumbnailUrl,
+    String? pieceId,
   }) async {
     final json = await _api.post(
       '/api/conversations',
@@ -71,11 +85,24 @@ class ChatService {
         'username': username,
         'message': message,
         if (imageUrl != null) 'imageUrl': imageUrl,
+        // A video message and its poster (BACKEND_CHANGES B11).
+        'videoUrl': ?videoUrl,
+        'thumbnailUrl': ?thumbnailUrl,
+        // Started from a piece page: the chat remembers it (BACKEND_CHANGES B9).
+        'pieceId': ?pieceId,
       },
       auth: true,
     );
     final data = _api.extractData(json) as Map<String, dynamic>;
     return ConversationCreateResult.fromJson(data);
+  }
+
+  /// Mutes or unmutes [id] for the viewer only (`ConvMenu`): messages still arrive, no alerts,
+  /// and it leaves the unread badge. Returns the state the server kept.
+  Future<bool> setMuted(String id, bool muted) async {
+    final json = await _api.patch('/api/conversations/$id/mute', body: {'muted': muted});
+    final data = _api.extractData(json);
+    return data is Map<String, dynamic> ? data['muted'] as bool? ?? muted : muted;
   }
 
   Future<ChatThread> getThread(String id) async {
@@ -100,12 +127,20 @@ class ChatService {
     return ConversationSummary.fromJson(conversation);
   }
 
-  Future<ChatMessage> sendMessage(String id, {String? body, String? imageUrl}) async {
+  Future<ChatMessage> sendMessage(
+    String id, {
+    String? body,
+    String? imageUrl,
+    String? videoUrl,
+    String? thumbnailUrl,
+  }) async {
     final json = await _api.post(
       '/api/conversations/$id/messages',
       body: {
         if (body != null) 'body': body,
         if (imageUrl != null) 'imageUrl': imageUrl,
+        'videoUrl': ?videoUrl,
+        'thumbnailUrl': ?thumbnailUrl,
       },
       auth: true,
     );

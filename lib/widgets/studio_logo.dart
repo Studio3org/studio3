@@ -25,16 +25,20 @@ class StudioHeaderLogo extends StatelessWidget {
   }
 }
 
-/// White icon + wordmark stack for auth screens (login, signup, etc.).
+/// Icon + wordmark stack for auth screens (login, signup, etc.). Defaults to
+/// the black mark for the Ivory auth background; pass [dark] for the white
+/// mark on a dark surface.
 class StudioAuthLogo extends StatelessWidget {
   const StudioAuthLogo({
     super.key,
     this.iconHeight = 64,
     this.textHeight = 40,
+    this.dark = false,
   });
 
   final double iconHeight;
   final double textHeight;
+  final bool dark;
 
   @override
   Widget build(BuildContext context) {
@@ -42,12 +46,12 @@ class StudioAuthLogo extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Image.asset(
-          StudioLogoPaths.iconWhite,
+          dark ? StudioLogoPaths.iconWhite : StudioLogoPaths.iconBlack,
           height: iconHeight,
           fit: BoxFit.contain,
         ),
         Image.asset(
-          StudioLogoPaths.textWhite,
+          dark ? StudioLogoPaths.textWhite : StudioLogoPaths.textBlack,
           height: textHeight,
           fit: BoxFit.contain,
         ),

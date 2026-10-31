@@ -9,6 +9,11 @@ class UserProfile {
     this.bio,
     this.location,
     this.pronouns,
+    this.website,
+    this.instagram,
+    this.twitter,
+    this.category,
+    this.tags = const [],
     this.latitude,
     this.longitude,
     this.profilePhotoUrl,
@@ -17,6 +22,7 @@ class UserProfile {
     this.onboardingComplete = false,
     this.sellerEnabled = false,
     this.canChangeUsername = true,
+    this.lastUsernameChangeAt,
     this.followingCount = 0,
     this.followersCount = 0,
     this.piecesCount = 0,
@@ -44,6 +50,11 @@ class UserProfile {
   final String? bio;
   final String? location;
   final String? pronouns;
+  final String? website;
+  final String? instagram;
+  final String? twitter;
+  final String? category;
+  final List<String> tags;
   final double? latitude;
   final double? longitude;
   final String? profilePhotoUrl;
@@ -52,6 +63,9 @@ class UserProfile {
   final bool onboardingComplete;
   final bool sellerEnabled;
   final bool canChangeUsername;
+
+  /// When the username last changed; it can change again 30 days later (own profile only).
+  final DateTime? lastUsernameChangeAt;
   final int followingCount;
   final int followersCount;
   final int piecesCount;
@@ -96,6 +110,11 @@ class UserProfile {
       bio: json['bio'] as String?,
       location: json['location'] as String?,
       pronouns: json['pronouns'] as String?,
+      website: json['website'] as String?,
+      instagram: json['instagram'] as String?,
+      twitter: json['twitter'] as String?,
+      category: json['category'] as String?,
+      tags: (json['tags'] as List?)?.whereType<String>().toList() ?? const [],
       latitude: (json['latitude'] as num?)?.toDouble(),
       longitude: (json['longitude'] as num?)?.toDouble(),
       profilePhotoUrl: json['profilePhotoUrl'] as String?,
@@ -105,6 +124,7 @@ class UserProfile {
       sellerEnabled:
           json['sellerEnabled'] as bool? ?? json['isSeller'] as bool? ?? false,
       canChangeUsername: json['canChangeUsername'] as bool? ?? true,
+      lastUsernameChangeAt: DateTime.tryParse(json['lastUsernameChangeAt'] as String? ?? '')?.toLocal(),
       followingCount: _intFrom(json['followingCount'] ?? json['following']),
       followersCount: _intFrom(json['followersCount'] ?? json['followers']),
       piecesCount: _intFrom(json['piecesCount'] ?? json['pieces']),
@@ -146,6 +166,11 @@ class UserProfile {
       bio: bio,
       location: location,
       pronouns: pronouns,
+      website: website,
+      instagram: instagram,
+      twitter: twitter,
+      category: category,
+      tags: tags,
       latitude: latitude,
       longitude: longitude,
       profilePhotoUrl: profilePhotoUrl,
@@ -154,6 +179,7 @@ class UserProfile {
       onboardingComplete: onboardingComplete,
       sellerEnabled: sellerEnabled,
       canChangeUsername: canChangeUsername,
+      lastUsernameChangeAt: lastUsernameChangeAt,
       followingCount: followingCount,
       followersCount: followersCount ?? this.followersCount,
       piecesCount: piecesCount,
@@ -242,11 +268,19 @@ class NotificationPreferences {
     },
     this.dailyDigestEnabled = false,
     this.dailyDigestTime = '09:00',
+    this.savesAndFollowsMode = savesAndFollowsDaily,
   });
 
   final Map<String, bool> push;
   final bool dailyDigestEnabled;
   final String dailyDigestTime;
+
+  /// Saves and follows: one push a day ([savesAndFollowsDaily], the default) or one for each
+  /// ([savesAndFollowsInstant]) (`NotifSettings`; BACKEND_CHANGES B7).
+  final String savesAndFollowsMode;
+
+  static const savesAndFollowsDaily = 'daily';
+  static const savesAndFollowsInstant = 'instant';
 
   static const _defaultPush = {
     'follow': true,
@@ -270,6 +304,9 @@ class NotificationPreferences {
       },
       dailyDigestEnabled: digestJson?['enabled'] as bool? ?? false,
       dailyDigestTime: digestJson?['time'] as String? ?? '09:00',
+      savesAndFollowsMode: json['savesAndFollowsMode'] == savesAndFollowsInstant
+          ? savesAndFollowsInstant
+          : savesAndFollowsDaily,
     );
   }
 
@@ -277,11 +314,13 @@ class NotificationPreferences {
     Map<String, bool>? push,
     bool? dailyDigestEnabled,
     String? dailyDigestTime,
+    String? savesAndFollowsMode,
   }) {
     return NotificationPreferences(
       push: push ?? this.push,
       dailyDigestEnabled: dailyDigestEnabled ?? this.dailyDigestEnabled,
       dailyDigestTime: dailyDigestTime ?? this.dailyDigestTime,
+      savesAndFollowsMode: savesAndFollowsMode ?? this.savesAndFollowsMode,
     );
   }
 }
@@ -301,6 +340,33 @@ class SellerStatus {
           false,
       location:
           json['location'] as String? ?? json['sellerLocation'] as String?,
+    );
+  }
+}
+
+/// What a seller keeps on a sale at their own rate (`GET /api/user/me/commission-quote`):
+/// the "You'll receive" line on the listing form.
+class CommissionQuote {
+  const CommissionQuote({
+    required this.priceCents,
+    required this.netCents,
+    required this.commissionBps,
+    this.reducedRate = false,
+  });
+
+  final int priceCents;
+  final int netCents;
+  final int commissionBps;
+
+  /// The seller's own rate is below the standard one (the founding-artist tier).
+  final bool reducedRate;
+
+  factory CommissionQuote.fromJson(Map<String, dynamic> json) {
+    return CommissionQuote(
+      priceCents: (json['priceCents'] as num?)?.toInt() ?? 0,
+      netCents: (json['netCents'] as num?)?.toInt() ?? 0,
+      commissionBps: (json['commissionBps'] as num?)?.toInt() ?? 0,
+      reducedRate: json['reducedRate'] as bool? ?? false,
     );
   }
 }

@@ -1,15 +1,19 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../models/series_summary.dart';
 import '../services/api_exception.dart';
 import '../services/series_service.dart';
-import '../theme/home_feed_tokens.dart';
-import '../widgets/create_flow/create_series_dialog.dart';
+import '../theme/studio_colors.dart';
+import '../theme/studio_type.dart';
+import '../widgets/studio/studio_top_bar.dart';
+import '../widgets/create_flow/series_picker_sheet.dart';
+import '../widgets/create_flow/post_flow_widgets.dart';
+import '../widgets/studio/studio_empty_state.dart';
+import '../widgets/studio/studio_icon.dart';
+import '../widgets/studio/studio_toast.dart';
 import '../widgets/studio_loading.dart';
 import 'profile/models/profile_series_data.dart';
-import 'profile/profile_constants.dart';
 import 'series_editor_page.dart';
 
 class ManageSeriesPage extends StatefulWidget {
@@ -47,21 +51,18 @@ class _ManageSeriesPageState extends State<ManageSeriesPage> {
 
   void _showError(Object e) {
     final message = e is ApiException ? e.message : e.toString();
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+    showStudioToast(context, message, icon: null);
   }
 
   Future<void> _createSeries() async {
-    final name = await CreateSeriesDialog.show(context);
-    if (name == null || !mounted) return;
+    final draft = await SeriesNewSheet.show(context, subtitle: null);
+    if (draft == null || !mounted) return;
+    final name = draft.name;
     try {
-      await SeriesService.instance.create(name: name);
+      await SeriesService.instance.create(name: name, description: draft.description);
       await _loadSeries();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Series "$name" created')),
-      );
+      showStudioToast(context, 'Series "$name" created');
     } catch (e) {
       _showError(e);
     }
@@ -77,75 +78,53 @@ class _ManageSeriesPageState extends State<ManageSeriesPage> {
     if (changed == true) await _loadSeries();
   }
 
+  /// No board: the light Studio list — 56 cover, name 16/500, Mono count, chevron, a
+  /// line between; "New series" in the top bar; the shared empty state.
   @override
   Widget build(BuildContext context) {
+    final c = context.studio;
     return StudioLoadingGate(
       loading: _loading && _series.isEmpty,
       child: Scaffold(
-        backgroundColor: HomeFeedTokens.background,
-        appBar: AppBar(
-          backgroundColor: HomeFeedTokens.background,
-          elevation: 0,
-          centerTitle: true,
-          title: Text(
-            'Manage series',
-            style: GoogleFonts.inter(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: HomeFeedTokens.textPrimary,
+        backgroundColor: c.background,
+        appBar: StudioTopBar(
+          context: context,
+          title: 'Manage series',
+          onBack: () => Navigator.pop(context, true),
+          actions: [
+            PostIconButton(
+              icon: StudioIcons.addBold,
+              label: 'New series',
+              onTap: _loading ? () {} : _createSeries,
             ),
-          ),
-          leading: IconButton(
-            icon: Icon(Icons.arrow_back_ios_new_rounded,
-                color: HomeFeedTokens.textPrimary, size: 20),
-            onPressed: () => Navigator.pop(context, true),
-          ),
-        ),
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: _loading ? null : _createSeries,
-          backgroundColor: HomeFeedTokens.textPrimary,
-          foregroundColor: HomeFeedTokens.textInverse,
-          icon: const Icon(Icons.add),
-          label: Text(
-            'New series',
-            style: GoogleFonts.inter(fontWeight: FontWeight.w600),
-          ),
+          ],
         ),
         body: RefreshIndicator(
+          color: c.textPrimary,
           onRefresh: _loadSeries,
           child: _series.isEmpty && !_loading
               ? ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(24),
+                  padding: const EdgeInsets.fromLTRB(24, 80, 24, 24),
                   children: [
-                    const SizedBox(height: 48),
-                    Icon(
-                      Icons.collections_bookmark_outlined,
-                      size: 56,
-                      color: HomeFeedTokens.textPrimary.withValues(alpha: 0.2),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Group related pieces into a series. Series appear on your profile once they have more than one piece.',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.inter(
-                        fontSize: 15,
-                        height: 1.5,
-                        color: kProfileTextMuted,
-                      ),
+                    StudioEmptyState(
+                      title: 'No series yet',
+                      message:
+                          'Group related pieces into a series. A series shows on your profile '
+                          'once it has more than one piece.',
+                      actionLabel: 'New series',
+                      onAction: _createSeries,
                     ),
                   ],
                 )
-              : ListView.separated(
+              : ListView.builder(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
+                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
                   itemCount: _series.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 12),
                   itemBuilder: (context, index) {
                     final series = _series[index];
-                    final card = ProfileSeriesData.fromSeries(series);
-                    return _ManageSeriesCard(
-                      data: card,
+                    return _SeriesRow(
+                      data: ProfileSeriesData.fromSeries(series),
                       onTap: () => _openEditor(series),
                     );
                   },
@@ -156,56 +135,38 @@ class _ManageSeriesPageState extends State<ManageSeriesPage> {
   }
 }
 
-class _ManageSeriesCard extends StatelessWidget {
-  const _ManageSeriesCard({
-    required this.data,
-    required this.onTap,
-  });
+class _SeriesRow extends StatelessWidget {
+  const _SeriesRow({required this.data, required this.onTap});
 
   final ProfileSeriesData data;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final c = context.studio;
     final urls = data.stackUrls;
     final previewUrl = urls.isNotEmpty ? urls.first : null;
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
+    return Semantics(
+      button: true,
+      child: GestureDetector(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        behavior: HitTestBehavior.opaque,
         child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: HomeFeedTokens.textPrimary.withValues(alpha: 0.1),
-            ),
-          ),
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(border: Border(bottom: BorderSide(color: c.line))),
           child: Row(
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: SizedBox(
-                  width: 56,
-                  height: 56,
+                child: SizedBox.square(
+                  dimension: 56,
                   child: previewUrl != null
                       ? CachedNetworkImage(
                           imageUrl: previewUrl,
                           fit: BoxFit.cover,
-                          errorWidget: (context, url, error) => ColoredBox(
-                            color: Colors.grey.shade300,
-                            child: const Icon(Icons.image_outlined),
-                          ),
+                          errorWidget: (context, url, error) => ColoredBox(color: c.surface),
                         )
-                      : ColoredBox(
-                          color: Colors.grey.shade300,
-                          child: Icon(
-                            Icons.collections_outlined,
-                            color: Colors.grey.shade500,
-                          ),
-                        ),
+                      : ColoredBox(color: c.surface),
                 ),
               ),
               const SizedBox(width: 14),
@@ -215,27 +176,17 @@ class _ManageSeriesCard extends StatelessWidget {
                   children: [
                     Text(
                       data.name,
-                      style: GoogleFonts.inter(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: HomeFeedTokens.textPrimary,
-                      ),
+                      style: StudioType.sans(16, weight: StudioType.medium, color: c.textPrimary),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${data.pieceCount} piece${data.pieceCount == 1 ? '' : 's'}',
-                      style: GoogleFonts.inter(
-                        fontSize: 13,
-                        color: kProfileTextMuted,
-                      ),
+                      '${data.pieceCount} ${data.pieceCount == 1 ? 'piece' : 'pieces'}',
+                      style: StudioType.mono(12, color: c.textSecondary),
                     ),
                   ],
                 ),
               ),
-              Icon(
-                Icons.chevron_right_rounded,
-                color: HomeFeedTokens.textPrimary.withValues(alpha: 0.35),
-              ),
+              StudioIcon(StudioIcons.chevronRight, size: 16, color: c.textTertiary),
             ],
           ),
         ),

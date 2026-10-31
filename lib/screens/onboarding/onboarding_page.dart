@@ -1,31 +1,35 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../data/post_picker_options.dart';
 import '../../services/api_exception.dart';
+import '../../services/auth_session.dart';
 import '../../services/media_service.dart';
 import '../../services/permission_service.dart';
 import '../../services/user_service.dart';
-import '../../theme/home_feed_tokens.dart';
 import '../../widgets/auth_ui.dart';
+import '../../widgets/studio/studio.dart';
 import '../../widgets/permission_denied_sheet.dart';
 import '../../widgets/profile_avatar.dart';
 import '../../widgets/profile_cover_image.dart';
 import '../../widgets/studio_loading.dart';
+import '../signup_page.dart';
 
 /// Multi-step onboarding: role → preferences → photos → complete.
 class OnboardingPage extends StatefulWidget {
-  const OnboardingPage({super.key});
+  const OnboardingPage({super.key, this.initialStep = 0});
+
+  /// 0 role, 1 preferences, 2 photos.
+  final int initialStep;
 
   @override
   State<OnboardingPage> createState() => _OnboardingPageState();
 }
 
 class _OnboardingPageState extends State<OnboardingPage> {
-  int _step = 0;
+  late int _step = widget.initialStep.clamp(0, 2);
   bool _loading = false;
   String? _role;
   final Set<String> _mediums = {};
@@ -37,9 +41,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
   bool _uploadingPhoto = false;
 
   static const _roles = [
-    ('artist', 'Artist', 'Create and share your work'),
-    ('collector', 'Collector', 'Discover and collect art'),
-    ('enthusiast', 'Enthusiast', 'Explore and engage with art'),
+    ('collector', 'Collecting art', 'Available pieces and prices first'),
+    ('artist', 'Sharing my work', 'Post pieces and build a following'),
+    ('enthusiast', 'Exploring and events', "A bit of everything, plus what's on at The Space"),
   ];
 
   static const _themeOptions = [
@@ -99,6 +103,14 @@ class _OnboardingPageState extends State<OnboardingPage> {
     if (_step == 2) {
       setState(() => _loading = true);
       try {
+        if (_profilePhotoUrl == null && SignupExtras.photoPath != null) {
+          final url = await MediaService.instance.uploadFile(
+            purpose: MediaPurpose.profile,
+            file: File(SignupExtras.photoPath!),
+          );
+          _profilePhotoUrl = url;
+          SignupExtras.photoPath = null;
+        }
         if (_profilePhotoUrl == null && _coverPhotoUrl == null) {
           await UserService.instance.setOnboardingPhotos(skip: true);
         } else {
@@ -109,7 +121,17 @@ class _OnboardingPageState extends State<OnboardingPage> {
         }
         await UserService.instance.completeOnboarding();
         if (!mounted) return;
-        Navigator.pushReplacementNamed(context, '/');
+        final firstName = AuthSession.instance.user?.name.split(' ').first;
+        final navigator = Navigator.of(context);
+        navigator.pushReplacementNamed('/');
+        final welcome = (firstName == null || firstName.isEmpty)
+            ? 'Welcome to Studio 3'
+            : 'Welcome to Studio 3, $firstName';
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (navigator.context.mounted) {
+            showStudioToast(navigator.context, welcome);
+          }
+        });
       } catch (e) {
         _showError(e);
       } finally {
@@ -167,113 +189,68 @@ class _OnboardingPageState extends State<OnboardingPage> {
   Widget build(BuildContext context) {
     return StudioLoadingGate(
       loading: _loading || _uploadingPhoto,
-      child: Scaffold(
-        backgroundColor: HomeFeedTokens.background,
-        appBar: AppBar(
-        backgroundColor: HomeFeedTokens.background,
-        elevation: 0,
-        title: Text(
-          'Set up your profile',
-          style: GoogleFonts.inter(
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-            color: HomeFeedTokens.textPrimary,
-          ),
-        ),
-      ),
-      body: SafeArea(
-        child: Column(
+      child: SignInStepScaffold(
+        progressCurrent: _step == 0 ? 3 : null,
+        bottom: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              child: Row(
-                children: List.generate(3, (i) {
-                  final active = i <= _step;
-                  return Expanded(
-                    child: Container(
-                      height: 3,
-                      margin: EdgeInsets.only(right: i < 2 ? 6 : 0),
-                      decoration: BoxDecoration(
-                        color: active
-                            ? HomeFeedTokens.textPrimary
-                            : HomeFeedTokens.textPrimary.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  );
-                }),
-              ),
+            StudioButton(
+              label: _step == 2 ? 'Finish' : 'Continue',
+              height: 54,
+              onPressed: _next,
             ),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: switch (_step) {
-                  0 => _buildRoleStep(),
-                  1 => _buildPreferencesStep(),
-                  _ => _buildPhotosStep(),
-                },
+            if (_step == 0) ...[
+              const SizedBox(height: 4),
+              AuthGhostButton(
+                label: 'Skip for now',
+                onPressed: () => setState(() => _step = 1),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-              child: AuthPrimaryButton(
-                label: _step == 2 ? 'Finish' : 'Continue',
-                onPressed: _next,
-              ),
-            ),
+            ],
           ],
         ),
+        body: switch (_step) {
+          0 => _buildRoleStep(),
+          1 => _buildPreferencesStep(),
+          _ => _buildPhotosStep(),
+        },
       ),
-    ),
     );
   }
 
   Widget _buildRoleStep() {
+    final c = context.studio;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Text('What brings you to Studio 3?', style: StudioType.title32(color: c.textPrimary)),
+        const SizedBox(height: 10),
         Text(
-          'What brings you to Studio 3?',
-          style: GoogleFonts.inter(
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
-            color: HomeFeedTokens.textPrimary,
-          ),
+          "We'll use this to get your feed started.",
+          style: StudioType.body16(color: c.textSecondary),
         ),
-        const SizedBox(height: 20),
-        for (final (id, title, subtitle) in _roles)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: _RoleCard(
-              title: title,
-              subtitle: subtitle,
-              selected: _role == id,
-              onTap: () => setState(() => _role = id),
-            ),
+        const SizedBox(height: 28),
+        for (var i = 0; i < _roles.length; i++)
+          StudioSelectRow(
+            title: _roles[i].$2,
+            subtitle: _roles[i].$3,
+            selected: _role == _roles[i].$1,
+            divider: i < _roles.length - 1,
+            onTap: () => setState(() => _role = _roles[i].$1),
           ),
       ],
     );
   }
 
   Widget _buildPreferencesStep() {
+    final c = context.studio;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Your taste',
-          style: GoogleFonts.inter(
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
-            color: HomeFeedTokens.textPrimary,
-          ),
-        ),
+        Text('Your taste', style: StudioType.title22(color: c.textPrimary)),
         const SizedBox(height: 8),
         Text(
           'Pick at least 3 mediums, styles, and themes.',
-          style: GoogleFonts.inter(
-            fontSize: 14,
-            color: HomeFeedTokens.textPrimary.withValues(alpha: 0.55),
-          ),
+          style: StudioType.body14(color: c.textSecondary),
         ),
         const SizedBox(height: 20),
         _ChipSection(
@@ -335,51 +312,52 @@ class _OnboardingPageState extends State<OnboardingPage> {
   }
 
   Widget _buildPhotosStep() {
+    final c = context.studio;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Profile photos',
-          style: GoogleFonts.inter(
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
-            color: HomeFeedTokens.textPrimary,
-          ),
-        ),
-        const SizedBox(height: 8),
+        Text('Add a photo', style: StudioType.title32(color: c.textPrimary)),
+        const SizedBox(height: 10),
         Text(
           'Add a profile photo and cover image, or tap Finish to skip for now.',
-          style: GoogleFonts.inter(
-            fontSize: 14,
-            color: HomeFeedTokens.textPrimary.withValues(alpha: 0.55),
-            height: 1.5,
-          ),
+          style: StudioType.body16(color: c.textSecondary),
         ),
-        const SizedBox(height: 28),
+        const SizedBox(height: 40),
         GestureDetector(
           onTap: () => _uploadPhoto(MediaPurpose.profile),
           child: Row(
             children: [
-              ProfileAvatar(
-                url: _profilePhotoUrl,
-                size: 72,
-              ),
+              _profilePhotoUrl == null && SignupExtras.photoPath == null
+                  ? Container(
+                      width: 72,
+                      height: 72,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(color: c.surface, shape: BoxShape.circle),
+                      child: StudioIcon(StudioIcons.post, size: 26, color: c.textTertiary),
+                    )
+                  : _profilePhotoUrl != null
+                      ? ProfileAvatar(url: _profilePhotoUrl, size: 72)
+                      : ClipOval(
+                          child: Image.file(
+                            File(SignupExtras.photoPath!),
+                            width: 72,
+                            height: 72,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
               const SizedBox(width: 16),
-              Expanded(
-                child: Text(
-                  _profilePhotoUrl == null
-                      ? 'Add profile photo'
-                      : 'Profile photo added',
-                  style: GoogleFonts.inter(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    color: HomeFeedTokens.textPrimary,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _profilePhotoUrl == null && SignupExtras.photoPath == null
+                        ? 'Add a photo'
+                        : 'Profile photo added',
+                    style: StudioType.body15(color: c.textPrimary).copyWith(fontWeight: StudioType.medium),
                   ),
-                ),
-              ),
-              Icon(
-                Icons.chevron_right,
-                color: HomeFeedTokens.textPrimary.withValues(alpha: 0.35),
+                  const SizedBox(height: 2),
+                  Text('Optional', style: StudioType.label13(color: c.textTertiary)),
+                ],
               ),
             ],
           ),
@@ -401,26 +379,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
               const SizedBox(height: 10),
               Row(
                 children: [
-                  Icon(
-                    Icons.image_outlined,
-                    color: HomeFeedTokens.textPrimary.withValues(alpha: 0.55),
-                  ),
-                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      _coverPhotoUrl == null
-                          ? 'Add cover photo'
-                          : 'Cover photo added',
-                      style: GoogleFonts.inter(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        color: HomeFeedTokens.textPrimary,
-                      ),
+                      _coverPhotoUrl == null ? 'Add cover photo' : 'Cover photo added',
+                      style: StudioType.body15(color: c.textPrimary).copyWith(fontWeight: StudioType.medium),
                     ),
-                  ),
-                  Icon(
-                    Icons.chevron_right,
-                    color: HomeFeedTokens.textPrimary.withValues(alpha: 0.35),
                   ),
                 ],
               ),
@@ -428,67 +391,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _RoleCard extends StatelessWidget {
-  const _RoleCard({
-    required this.title,
-    required this.subtitle,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String title;
-  final String subtitle;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: selected
-          ? HomeFeedTokens.textPrimary.withValues(alpha: 0.08)
-          : Colors.transparent,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: selected
-                  ? HomeFeedTokens.textPrimary
-                  : HomeFeedTokens.textPrimary.withValues(alpha: 0.2),
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: GoogleFonts.inter(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: HomeFeedTokens.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                subtitle,
-                style: GoogleFonts.inter(
-                  fontSize: 13,
-                  color: HomeFeedTokens.textPrimary.withValues(alpha: 0.55),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }
@@ -510,30 +412,21 @@ class _ChipSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.studio;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          style: GoogleFonts.inter(
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-            color: HomeFeedTokens.textPrimary,
-          ),
-        ),
+        Text(title, style: StudioType.body15(color: c.textPrimary).copyWith(fontWeight: StudioType.medium)),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
           runSpacing: 8,
           children: options.map((name) {
             final id = idForName(name);
-            final isSelected = selected.contains(id);
-            return FilterChip(
-              label: Text(name),
-              selected: isSelected,
-              onSelected: (_) => onToggle(name),
-              selectedColor: HomeFeedTokens.textPrimary.withValues(alpha: 0.15),
-              checkmarkColor: HomeFeedTokens.textPrimary,
+            return StudioChip(
+              label: name,
+              selected: selected.contains(id),
+              onTap: () => onToggle(name),
             );
           }).toList(),
         ),

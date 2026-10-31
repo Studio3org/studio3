@@ -8,6 +8,10 @@ import 'api_exception.dart';
 abstract final class MediaPurpose {
   static const profile = 'profile';
   static const cover = 'cover';
+
+  /// Event cover flyers. Distinct from [cover], which is the *profile* banner and resolves
+  /// to one fixed object per user — an event using it overwrote the host's banner.
+  static const event = 'event';
   static const piece = 'piece';
   static const post = 'post';
   static const chat = 'chat';
@@ -77,11 +81,14 @@ class MediaService {
     required String contentType,
     String? pieceId,
     String? postId,
+    int? contentLength,
   }) async {
     final body = <String, dynamic>{
       'purpose': purpose,
       'contentType': contentType,
     };
+    // The server checks the size against the same limits and signs it into the upload URL.
+    if (contentLength != null) body['contentLength'] = contentLength;
     if (pieceId != null) body['pieceId'] = pieceId;
     if (postId != null) body['postId'] = postId;
     final json = await _api.post('/api/media/presign', body: body, auth: true);
@@ -102,6 +109,8 @@ class MediaService {
       contentType: contentType,
       pieceId: pieceId,
       postId: postId,
+      // Chat uploads say their size; the server requires it for a video (BACKEND_CHANGES B11).
+      contentLength: purpose == MediaPurpose.chat ? bytes.length : null,
     );
     if (presign.url.isEmpty) {
       throw ApiException('Upload failed: server did not return a media URL');
@@ -124,11 +133,14 @@ class MediaService {
     String? pieceId,
     String? postId,
   }) async {
+    final type = contentType ?? contentTypeForPath(file.path);
+    // Too big is refused before the whole file is read into memory.
+    _validateSize(await file.length(), type);
     final bytes = await file.readAsBytes();
     return uploadBytes(
       purpose: purpose,
       bytes: bytes,
-      contentType: contentType ?? contentTypeForPath(file.path),
+      contentType: type,
       pieceId: pieceId,
       postId: postId,
     );

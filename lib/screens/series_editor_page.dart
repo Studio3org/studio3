@@ -1,6 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../models/piece_summary.dart';
 import '../models/series_summary.dart';
@@ -8,17 +7,30 @@ import '../services/api_exception.dart';
 import '../services/auth_session.dart';
 import '../services/piece_service.dart';
 import '../services/series_service.dart';
-import '../theme/home_feed_tokens.dart';
-import '../widgets/create_flow/create_series_dialog.dart';
-import '../widgets/studio_loading.dart';
+import '../theme/studio_type.dart';
+import '../theme/studio_colors.dart';
+import '../widgets/create_flow/link_piece_sheet.dart';
+import '../widgets/create_flow/series_picker_sheet.dart';
+import '../widgets/studio/studio_field.dart';
+import '../widgets/studio/studio_toast.dart';
+import '../widgets/studio_loading.dart';
+import '../widgets/studio/studio_tap_area.dart';
 
 class SeriesEditorPage extends StatefulWidget {
   const SeriesEditorPage({
     super.key,
     required this.seriesId,
+    this.debugSeries,
+    this.debugPieces,
   });
 
   final String seriesId;
+
+  /// For tests: the series and its pieces (newest first) instead of loading them.
+  @visibleForTesting
+  final SeriesSummary? debugSeries;
+  @visibleForTesting
+  final List<PieceSummary>? debugPieces;
 
   @override
   State<SeriesEditorPage> createState() => _SeriesEditorPageState();
@@ -29,11 +41,29 @@ class _SeriesEditorPageState extends State<SeriesEditorPage> {
   List<PieceSummary> _piecesInSeries = [];
   bool _loading = true;
   bool _busy = false;
+  final _name = TextEditingController();
+  final _description = TextEditingController();
 
   @override
   void initState() {
     super.initState();
+    final series = widget.debugSeries;
+    if (series != null) {
+      _series = series;
+      _piecesInSeries = widget.debugPieces ?? const [];
+      _name.text = series.name;
+      _description.text = series.description ?? '';
+      _loading = false;
+      return;
+    }
     _load();
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _description.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -45,14 +75,15 @@ class _SeriesEditorPageState extends State<SeriesEditorPage> {
       if (username != null) {
         allPieces = await PieceService.instance.getUserPieces(username);
       }
-      final pieceMap = {for (final p in allPieces) p.id: p};
-      final ordered = <PieceSummary>[];
-      for (final id in series.pieceIds) {
-        final piece = pieceMap[id];
-        if (piece != null) ordered.add(piece);
-      }
+      // Newest first, as the profile lists them (`NoteSeriesEdit`).
+      final inSeries = series.pieceIds.toSet();
+      final ordered = [for (final p in allPieces) if (inSeries.contains(p.id)) p];
       if (!mounted) return;
       setState(() {
+        if (_series == null) {
+          _name.text = series.name;
+          _description.text = series.description ?? '';
+        }
         _series = series;
         _piecesInSeries = ordered;
         _loading = false;
@@ -66,31 +97,24 @@ class _SeriesEditorPageState extends State<SeriesEditorPage> {
 
   void _showError(Object e) {
     final message = e is ApiException ? e.message : e.toString();
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+    showStudioToast(context, message, icon: null);
   }
 
-  Future<void> _renameSeries() async {
+  /// Save: the name and description, then back to the series list.
+  Future<void> _save() async {
     final series = _series;
-    if (series == null) return;
-    final name = await CreateSeriesDialog.show(
-      context,
-      initialName: series.name,
-      title: 'Rename series',
-    );
-    if (name == null || name == series.name || !mounted) return;
+    final name = _name.text.trim();
+    if (series == null || name.isEmpty || _busy) return;
+    final description = _description.text.trim();
     setState(() => _busy = true);
     try {
-      final updated = await SeriesService.instance.update(
+      await SeriesService.instance.update(
         widget.seriesId,
-        name: name,
+        name: name == series.name ? null : name,
+        description: description == (series.description ?? '') ? null : description,
       );
       if (!mounted) return;
-      setState(() {
-        _series = updated;
-        _busy = false;
-      });
+      Navigator.pop(context, true);
     } catch (e) {
       if (mounted) setState(() => _busy = false);
       _showError(e);
@@ -133,24 +157,18 @@ class _SeriesEditorPageState extends State<SeriesEditorPage> {
       setState(() => _busy = false);
 
       if (available.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No pieces available to add (each piece can belong to one series)'),
-          ),
-        );
+        showStudioToast(context, 'No pieces available to add (each piece can belong to one series)', icon: null);
         return;
       }
 
-      final selected = await showModalBottomSheet<Set<String>>(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: HomeFeedTokens.background,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-        ),
-        builder: (context) => _AddPiecesSheet(pieces: available),
+      final picked = await LinkPieceSheet.show(
+        context,
+        pieces: available,
+        selectedIds: const [],
+        title: 'Add pieces',
+        mark: 'Added',
       );
-
+      final selected = picked?.map((p) => p.id).toSet();
       if (selected == null || selected.isEmpty || !mounted) return;
       setState(() => _busy = true);
       var added = 0;
@@ -160,18 +178,14 @@ class _SeriesEditorPageState extends State<SeriesEditorPage> {
           added++;
         } on ApiException catch (e) {
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(e.message)),
-          );
+          showStudioToast(context, e.message, icon: null);
         }
       }
       await _load();
       if (!mounted) return;
       setState(() => _busy = false);
       if (added > 0) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Added $added piece${added == 1 ? '' : 's'}')),
-        );
+        showStudioToast(context, 'Added $added piece${added == 1 ? '' : 's'}', icon: null);
       }
     } catch (e) {
       if (mounted) setState(() => _busy = false);
@@ -179,219 +193,212 @@ class _SeriesEditorPageState extends State<SeriesEditorPage> {
     }
   }
 
+  /// `SeriesEdit`: Cancel, "Edit series" and Save; Name and Description (optional, up to 300
+  /// characters); "Pieces · newest first" with a 36 × 48 cover, the title 15 and Remove 13
+  /// Graphite per row; "+ Add pieces" under the list. Delete series waits on the server
+  /// (BACKEND_CHANGES B15).
   @override
   Widget build(BuildContext context) {
     final series = _series;
+    final c = context.studio;
 
     return StudioLoadingGate(
       loading: _loading || _busy,
       child: Scaffold(
-        backgroundColor: HomeFeedTokens.background,
-        appBar: AppBar(
-          backgroundColor: HomeFeedTokens.background,
-          elevation: 0,
-          title: Text(
-            series?.name ?? 'Series',
-            style: GoogleFonts.inter(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: HomeFeedTokens.textPrimary,
-            ),
-          ),
-          leading: IconButton(
-            icon: Icon(Icons.arrow_back_ios_new_rounded,
-                color: HomeFeedTokens.textPrimary, size: 20),
-            onPressed: () => Navigator.pop(context, true),
-          ),
-          actions: [
-            IconButton(
-              onPressed: _renameSeries,
-              icon: Icon(Icons.edit_outlined,
-                  color: HomeFeedTokens.textPrimary.withValues(alpha: 0.75)),
-            ),
-          ],
-        ),
-        body: series == null
-            ? const SizedBox.shrink()
-            : ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  Text(
-                    '${_piecesInSeries.length} piece${_piecesInSeries.length == 1 ? '' : 's'} in this series',
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      color: HomeFeedTokens.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    onPressed: _addPieces,
-                    icon: const Icon(Icons.add),
-                    label: const Text('Add pieces'),
-                  ),
-                  const SizedBox(height: 16),
-                  if (_piecesInSeries.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 32),
-                      child: Text(
-                        'No pieces yet. Tap Add pieces to include artwork from your profile.',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.inter(
-                          fontSize: 14,
-                          height: 1.45,
-                          color: HomeFeedTokens.textSecondary,
+        backgroundColor: c.background,
+        body: SafeArea(
+          bottom: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 12, 8, 0),
+                child: SizedBox(
+                  height: 44,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Text(
+                        'Edit series',
+                        style: StudioType.sans(16, weight: StudioType.medium, color: c.textPrimary),
+                      ),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: _HeaderAction(
+                          label: 'Cancel',
+                          onTap: () => Navigator.pop(context, false),
                         ),
                       ),
-                    )
-                  else
-                    ..._piecesInSeries.map(
-                      (piece) => _PieceRow(
-                        piece: piece,
-                        onRemove: () => _removePiece(piece.id),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: ValueListenableBuilder(
+                          valueListenable: _name,
+                          builder: (context, value, _) => _HeaderAction(
+                            label: 'Save',
+                            bold: true,
+                            onTap: value.text.trim().isEmpty ? null : _save,
+                          ),
+                        ),
                       ),
-                    ),
-                ],
+                    ],
+                  ),
+                ),
               ),
+              Expanded(
+                child: series == null
+                    ? const SizedBox.shrink()
+                    : ListView(
+                        padding: const EdgeInsets.fromLTRB(24, 18, 24, 40),
+                        children: [
+                          StudioUnderlineField(
+                            label: 'Name',
+                            controller: _name,
+                            valueSize: 16,
+                            textCapitalization: TextCapitalization.words,
+                          ),
+                          const SizedBox(height: 20),
+                          StudioUnderlineField(
+                            label: 'Description',
+                            controller: _description,
+                            hint: 'What ties these pieces together…',
+                            helper: 'Optional · up to ${SeriesNewSheet.maxDescription} characters',
+                            valueSize: 16,
+                            minLines: 1,
+                            maxLines: 5,
+                            maxLength: SeriesNewSheet.maxDescription,
+                            textCapitalization: TextCapitalization.sentences,
+                          ),
+                          const SizedBox(height: 26),
+                          Text(
+                            'Pieces · newest first',
+                            style: StudioType.sans(13, color: c.textSecondary),
+                          ),
+                          const SizedBox(height: 4),
+                          if (_piecesInSeries.isEmpty)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              child: Text(
+                                'No pieces in this series yet.',
+                                style: StudioType.body14(color: c.textSecondary),
+                              ),
+                            )
+                          else
+                            for (final piece in _piecesInSeries)
+                              _PieceRow(piece: piece, onRemove: () => _removePiece(piece.id)),
+                          Semantics(
+                            button: true,
+                            child: GestureDetector(
+                              onTap: _addPieces,
+                              behavior: HitTestBehavior.opaque,
+                              child: SizedBox(
+                                height: 52,
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    '+ Add pieces',
+                                    style: StudioType.sans(
+                                      15,
+                                      weight: StudioType.medium,
+                                      color: c.textPrimary,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
 }
 
+/// Cancel / Save in the header: 15, Save 500; 12 sides, 44 tall.
+class _HeaderAction extends StatelessWidget {
+  const _HeaderAction({required this.label, required this.onTap, this.bold = false});
+
+  final String label;
+  final VoidCallback? onTap;
+  final bool bold;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.studio;
+    return StudioTapArea(child: Semantics(
+      button: true,
+      enabled: onTap != null,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          child: Text(
+            label,
+            style: StudioType.sans(
+              15,
+              weight: bold ? StudioType.medium : StudioType.regular,
+              color: onTap == null ? c.textPlaceholder : c.textPrimary,
+            ),
+          ),
+        ),
+      ),
+    ));
+  }
+}
+
+/// 36 × 48 cover (radius 6), the title 15, Remove 13 Graphite; 10 above and below.
 class _PieceRow extends StatelessWidget {
-  const _PieceRow({
-    required this.piece,
-    required this.onRemove,
-  });
+  const _PieceRow({required this.piece, required this.onRemove});
 
   final PieceSummary piece;
   final VoidCallback onRemove;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+    final c = context.studio;
+    final url = piece.mediaUrl;
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: c.line))),
       child: Row(
         children: [
           ClipRRect(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(6),
             child: SizedBox(
-              width: 52,
-              height: 52,
-              child: piece.mediaUrl != null && piece.mediaUrl!.isNotEmpty
-                  ? CachedNetworkImage(imageUrl: piece.mediaUrl!, fit: BoxFit.cover)
-                  : ColoredBox(color: Colors.grey.shade300),
+              width: 36,
+              height: 48,
+              child: url != null && url.isNotEmpty
+                  ? CachedNetworkImage(imageUrl: url, fit: BoxFit.cover)
+                  : ColoredBox(color: c.surface),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               piece.title,
-              style: GoogleFonts.inter(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-                color: HomeFeedTokens.textPrimary,
-              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: StudioType.sans(15, color: c.textPrimary),
             ),
           ),
-          IconButton(
-            onPressed: onRemove,
-            icon: Icon(
-              Icons.close,
-              size: 20,
-              color: HomeFeedTokens.textSecondary,
+          Semantics(
+            button: true,
+            label: 'Remove ${piece.title}',
+            excludeSemantics: true,
+            child: GestureDetector(
+              onTap: onRemove,
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 0, 12),
+                child: Text('Remove', style: StudioType.sans(13, color: c.textSecondary)),
+              ),
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _AddPiecesSheet extends StatefulWidget {
-  const _AddPiecesSheet({required this.pieces});
-
-  final List<PieceSummary> pieces;
-
-  @override
-  State<_AddPiecesSheet> createState() => _AddPiecesSheetState();
-}
-
-class _AddPiecesSheetState extends State<_AddPiecesSheet> {
-  final Set<String> _selected = {};
-
-  @override
-  Widget build(BuildContext context) {
-    final bottom = MediaQuery.paddingOf(context).bottom;
-
-    return SafeArea(
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(16, 12, 16, bottom + 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'Add pieces',
-              style: GoogleFonts.inter(
-                fontSize: 17,
-                fontWeight: FontWeight.w600,
-                color: HomeFeedTokens.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.sizeOf(context).height * 0.5,
-              ),
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: widget.pieces.length,
-                itemBuilder: (context, index) {
-                  final piece = widget.pieces[index];
-                  final checked = _selected.contains(piece.id);
-                  return CheckboxListTile(
-                    value: checked,
-                    onChanged: (value) {
-                      setState(() {
-                        if (value == true) {
-                          _selected.add(piece.id);
-                        } else {
-                          _selected.remove(piece.id);
-                        }
-                      });
-                    },
-                    title: Text(
-                      piece.title,
-                      style: GoogleFonts.inter(fontSize: 15),
-                    ),
-                    secondary: ClipRRect(
-                      borderRadius: BorderRadius.circular(6),
-                      child: SizedBox(
-                        width: 44,
-                        height: 44,
-                        child: piece.mediaUrl != null
-                            ? CachedNetworkImage(imageUrl: piece.mediaUrl!, fit: BoxFit.cover)
-                            : ColoredBox(color: Colors.grey.shade300),
-                      ),
-                    ),
-                    controlAffinity: ListTileControlAffinity.leading,
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: _selected.isEmpty
-                  ? null
-                  : () => Navigator.pop(context, Set<String>.from(_selected)),
-              child: Text(
-                _selected.isEmpty
-                    ? 'Select pieces'
-                    : 'Add ${_selected.length} piece${_selected.length == 1 ? '' : 's'}',
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

@@ -65,6 +65,7 @@ mixin DetailSaveState<T extends StatefulWidget> on State<T> {
     if (_saveBusy) return;
     if (!await requireLogin(
       context,
+      title: 'Sign in to save this piece',
       message: 'Log in or create a free account to save art to your '
           'collections.',
     )) {
@@ -74,11 +75,16 @@ mixin DetailSaveState<T extends StatefulWidget> on State<T> {
     final item = saveItem;
     final nextSaved = !saved;
 
-    String? collectionId;
+    List<String> collectionIds = const [];
     if (nextSaved) {
-      final resolution = await resolveSaveCollection(context);
+      final resolution = await resolveSaveCollection(
+        context,
+        pieceTitle: item.title,
+        thumbnailUrl: item.heroImageUrl,
+        forSale: item.isAvailable,
+      );
       if (resolution.cancelled) return;
-      collectionId = resolution.collectionId;
+      collectionIds = resolution.collectionIds;
     }
 
     final generation = ++_saveGeneration;
@@ -88,7 +94,7 @@ mixin DetailSaveState<T extends StatefulWidget> on State<T> {
     if (!item.isApiBacked) {
       if (nextSaved) {
         savedStore.savePreview(item);
-        if (collectionId != null) {
+        for (final collectionId in collectionIds) {
           savedStore.addEntryToCollection(
             collectionId,
             item.id,
@@ -111,7 +117,7 @@ mixin DetailSaveState<T extends StatefulWidget> on State<T> {
         }
         _ownStoreWrite = true;
         savedStore.savePreview(item);
-        if (collectionId != null) {
+        for (final collectionId in collectionIds) {
           savedStore.addEntryToCollection(
             collectionId,
             item.id,
@@ -176,6 +182,7 @@ mixin DetailLikeState<T extends StatefulWidget> on State<T> {
     if (_likeBusy) return;
     if (!await requireLogin(
       context,
+      title: 'Sign in to like',
       message: 'Log in or create a free account to like pieces and scenes.',
     )) {
       return;

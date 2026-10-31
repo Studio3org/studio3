@@ -18,7 +18,11 @@ class PostCropPreview extends StatefulWidget {
     required this.imagePath,
     required this.transform,
     this.borderRadius = BorderRadius.zero,
+    this.frameSize,
   });
+
+  /// When set, the preview fills this box instead of the transform's crop ratio.
+  final Size? frameSize;
 
   final String imagePath;
   final PostImageTransform transform;
@@ -158,6 +162,7 @@ class PostCropPreview extends StatefulWidget {
       brightness: transform.brightness,
       contrast: transform.contrast,
       exposure: transform.exposure,
+      warmth: transform.warmth,
     )) {
       return image;
     }
@@ -167,6 +172,7 @@ class PostCropPreview extends StatefulWidget {
           brightness: transform.brightness,
           contrast: transform.contrast,
           exposure: transform.exposure,
+          warmth: transform.warmth,
         ),
       ),
       child: image,
@@ -243,14 +249,24 @@ class _PostCropPreviewState extends State<PostCropPreview> {
   Widget build(BuildContext context) {
     return ClipRRect(
       borderRadius: widget.borderRadius,
-      child: AspectRatio(
-        aspectRatio: widget.transform.aspectRatio.value,
-        child: PostCropPreview.buildTransformedContent(
-          imagePath: widget.imagePath,
-          transform: widget.transform,
-          imageAspect: _imageAspect ?? 1.0,
-        ),
-      ),
+      child: widget.frameSize != null
+          ? SizedBox(
+              width: widget.frameSize!.width,
+              height: widget.frameSize!.height,
+              child: PostCropPreview.buildTransformedContent(
+                imagePath: widget.imagePath,
+                transform: widget.transform,
+                imageAspect: _imageAspect ?? 1.0,
+              ),
+            )
+          : AspectRatio(
+              aspectRatio: widget.transform.aspectValue,
+              child: PostCropPreview.buildTransformedContent(
+                imagePath: widget.imagePath,
+                transform: widget.transform,
+                imageAspect: _imageAspect ?? 1.0,
+              ),
+            ),
     );
   }
 }

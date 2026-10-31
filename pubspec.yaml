@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+2
+version: 1.0.0+5
 
 environment:
   sdk: ^3.9.2
@@ -66,6 +66,13 @@ dependencies:
     git:
       url: https://github.com/iawtk2302/easy_video_editor.git
       ref: 17989b573f88442e49243820d7dbb7889e9cb15e
+  flutter_stripe: ^14.2.0
+  mobile_scanner: 7.4.2
+  qr_flutter: 4.1.0
+  pdf: 3.13.1
+  printing: 5.15.1
+  visibility_detector: 0.4.0+2
+  add_2_calendar: ^3.1.1
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -134,8 +141,38 @@ flutter:
     - assets/post/crop/
     - assets/post/adjust/
     - assets/post/create/
+    - assets/post/scene/
+    - assets/piece/
+    - assets/event/
+    # Inter + Geist, in the exact weights the app uses, under the filenames
+    # `google_fonts` looks for in the asset bundle (`<Family>-<Variant>.ttf`), so the
+    # package resolves GoogleFonts.inter()/geist() from here instead of the network.
+    - assets/google_fonts/
     - assets/nav/
     - assets/profile/
+    - assets/icons/
+    - assets/brand/
+
+  # New UI type (docs/new-ui/NEW_UI_EXECUTION_PLAN.md, HandoffRules "Type"): Geist for all UI
+  # at 400 and 500 only, Geist Mono for facts (dates, counts, dimensions, codes), Outfit 700
+  # for the "studio 3" wordmark only. Bundled (OFL, licences beside the files) so text never
+  # waits on a network fetch or falls back to another font.
+  fonts:
+    - family: Geist
+      fonts:
+        - asset: assets/fonts/Geist-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Geist-Medium.ttf
+          weight: 500
+    - family: GeistMono
+      fonts:
+        - asset: assets/fonts/GeistMono-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/GeistMono-Medium.ttf
+          weight: 500
+    - family: Outfit
+      fonts:
+        - asset: assets/fonts/Outfit-VariableFont_wght.ttf
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

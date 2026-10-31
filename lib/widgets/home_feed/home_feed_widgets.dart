@@ -1,159 +1,214 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../data/nav_assets.dart';
+import '../../models/feed_item.dart';
 import '../../models/feed_preview_item.dart';
+import '../../models/piece_summary.dart';
+import '../../models/series_summary.dart';
+import '../../screens/series_view_page.dart';
 import '../../services/auth_session.dart';
 import '../../services/chat_service.dart';
 import '../../services/chat_socket_service.dart';
+import '../../services/main_nav_service.dart';
 import '../../services/notification_service.dart';
 import '../../services/social_service.dart';
 import '../../theme/home_feed_tokens.dart';
+import '../../utils/explore_detail_route.dart';
 import '../../utils/profile_navigation.dart';
 import '../../utils/require_login.dart';
-import '../studio_logo.dart';
+import '../explore/explore_browse.dart' show exploreBrowseAspect;
+import '../studio/studio.dart';
 
+/// `Main` top bar: "All ▾" (17/500) on the left, the wordmark centered, Saved
+/// and inbox on the right. The chevron keeps the All / Available filter.
+/// Inbox keeps its unread check and shows a dot, not a count. Post lives in
+/// the floating nav.
 class FeedHomeHeader extends StatelessWidget {
   const FeedHomeHeader({
     super.key,
     required this.filter,
     required this.onFilterChanged,
-    required this.onAddTap,
     this.hasAvailableItems = false,
   });
 
   final FeedAvailabilityFilter filter;
   final ValueChanged<FeedAvailabilityFilter> onFilterChanged;
-  final VoidCallback onAddTap;
 
-  /// Shows a small green dot beside "Available" when there's at least one
-  /// item currently available to purchase.
+  /// Green dot on the Available choice when something is for sale.
   final bool hasAvailableItems;
-
-  static const _headerHeight = 52.0;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: _headerHeight,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Positioned(
-            left: 16,
-            top: 0,
-            bottom: 0,
-            child: Center(
-              child: Image.asset(
-                StudioLogoPaths.iconBlack,
-                width: 29,
-                height: 27,
-                fit: BoxFit.contain,
-              ),
-            ),
-          ),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _UnderlinedFilterTab(
-                label: 'All',
-                active: filter == FeedAvailabilityFilter.all,
-                onTap: () => onFilterChanged(FeedAvailabilityFilter.all),
-              ),
-              const SizedBox(width: 24),
-              _UnderlinedFilterTab(
-                label: 'Available',
-                active: filter == FeedAvailabilityFilter.available,
-                onTap: () =>
-                    onFilterChanged(FeedAvailabilityFilter.available),
-                showDot: hasAvailableItems,
-              ),
-            ],
-          ),
-          Positioned(
-            right: 12,
-            top: 0,
-            bottom: 0,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+      child: SizedBox(
+        height: StudioSize.tapTarget,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            const StudioLogo.header(),
+            Row(
               children: [
-                GestureDetector(
-                  onTap: onAddTap,
-                  behavior: HitTestBehavior.opaque,
-                  child: Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: SvgPicture.asset(
-                      NavAssets.plusIcon,
-                      width: 16,
-                      height: 16,
-                    ),
-                  ),
+                _FeedFilterButton(
+                  filter: filter,
+                  hasAvailableItems: hasAvailableItems,
+                  onSelected: onFilterChanged,
                 ),
-                const SizedBox(width: 4),
+                const Spacer(),
+                _HeaderIconButton(
+                  icon: StudioIcons.save,
+                  label: 'Saved',
+                  onTap: () => MainNavService.instance.goSaved(),
+                ),
                 const _InboxMenuButton(),
               ],
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
-/// Home header's "All"/"Available" tab — a gap between the label (plus an
-/// optional trailing "available" dot) and its active-state underline,
-/// matching the Inbox page's tab treatment, instead of a text-decoration
-/// underline flush against the label.
-class _UnderlinedFilterTab extends StatelessWidget {
-  const _UnderlinedFilterTab({
-    required this.label,
-    required this.active,
-    required this.onTap,
-    this.showDot = false,
+class _FeedFilterButton extends StatelessWidget {
+  const _FeedFilterButton({
+    required this.filter,
+    required this.hasAvailableItems,
+    required this.onSelected,
   });
 
-  final String label;
-  final bool active;
-  final VoidCallback onTap;
-  final bool showDot;
+  final FeedAvailabilityFilter filter;
+  final bool hasAvailableItems;
+  final ValueChanged<FeedAvailabilityFilter> onSelected;
 
-  @override
-  Widget build(BuildContext context) {
-    return IntrinsicWidth(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
+  Future<void> _open(BuildContext context) async {
+    final box = context.findRenderObject()! as RenderBox;
+    final overlay = Navigator.of(context).overlay!.context.findRenderObject()! as RenderBox;
+    final origin = box.localToGlobal(Offset(0, box.size.height), ancestor: overlay);
+    final position = RelativeRect.fromRect(
+      origin & box.size,
+      Offset.zero & overlay.size,
+    );
+    final c = context.studio;
+    final style = StudioType.body14(weight: StudioType.medium, color: c.textPrimary);
+    final next = await showMenu<FeedAvailabilityFilter>(
+      context: context,
+      position: position,
+      color: c.card,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(StudioRadius.button),
+        side: BorderSide(color: c.line),
+      ),
+      items: [
+        PopupMenuItem(
+          value: FeedAvailabilityFilter.all,
+          height: StudioSize.tapTarget,
+          child: Text('All', style: style),
+        ),
+        PopupMenuItem(
+          value: FeedAvailabilityFilter.available,
+          height: StudioSize.tapTarget,
+          child: Row(
             children: [
-              FeedFilterTab(
-                label: label,
-                active: active,
-                onTap: onTap,
-                underline: false,
-              ),
-              if (showDot) ...[
-                const SizedBox(width: 6),
+              Text('Available', style: style),
+              if (hasAvailableItems) ...[
+                const SizedBox(width: 8),
                 Container(
-                  width: HomeFeedTokens.dotSize,
-                  height: HomeFeedTokens.dotSize,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.green.shade500,
-                  ),
+                  width: 7,
+                  height: 7,
+                  decoration: BoxDecoration(color: c.available, shape: BoxShape.circle),
                 ),
               ],
             ],
           ),
-          const SizedBox(height: 6),
-          Container(
-            height: 1.5,
-            color: active ? HomeFeedTokens.textPrimary : Colors.transparent,
+        ),
+      ],
+    );
+    if (next != null) onSelected(next);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.studio;
+    final label = filter == FeedAvailabilityFilter.available ? 'Available' : 'All';
+    return Semantics(
+      button: true,
+      container: true,
+      excludeSemantics: true,
+      label: 'Filter feed',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => _open(context),
+        child: SizedBox(
+          height: StudioSize.tapTarget,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(label, style: StudioType.header17(color: c.textPrimary)),
+              const SizedBox(width: 4),
+              StudioIcon(StudioIcons.filter, size: 14, color: c.textPrimary),
+            ],
           ),
-        ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HeaderIconButton extends StatelessWidget {
+  const _HeaderIconButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.badge,
+  });
+
+  final String icon;
+  final String label;
+  final VoidCallback onTap;
+  final Widget? badge;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: label,
+      excludeSemantics: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: SizedBox(
+          width: StudioSize.tapTarget,
+          height: StudioSize.tapTarget,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              StudioIcon(icon, size: 22),
+              if (badge != null) Positioned(top: 8, right: 8, child: badge!),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 9 px alert dot with a 1.5 px page-colored ring (`Main` inbox). No count.
+class FeedUnreadDot extends StatelessWidget {
+  const FeedUnreadDot({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.studio;
+    return Container(
+      width: 12,
+      height: 12,
+      decoration: BoxDecoration(
+        color: c.alert,
+        shape: BoxShape.circle,
+        border: Border.all(color: c.background, width: 1.5),
       ),
     );
   }
@@ -220,6 +275,7 @@ class _InboxMenuButtonState extends State<_InboxMenuButton> {
   Future<void> _openInbox(BuildContext context) async {
     if (!await requireLogin(
       context,
+      title: 'Sign in to see your inbox',
       message: 'Log in to see your notifications and messages.',
     )) {
       return;
@@ -234,46 +290,12 @@ class _InboxMenuButtonState extends State<_InboxMenuButton> {
 
   @override
   Widget build(BuildContext context) {
-    return Builder(
-      builder: (context) => GestureDetector(
-        onTap: () => _openInbox(context),
-        behavior: HitTestBehavior.opaque,
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Icon(
-                Icons.inbox_outlined,
-                size: 20,
-                color: HomeFeedTokens.textPrimary,
-              ),
-              if (_badgeCount > 0)
-                Positioned(
-                  top: -2,
-                  right: -2,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFE05252),
-                      shape: BoxShape.circle,
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      _badgeCount > 9 ? '9+' : '$_badgeCount',
-                      style: GoogleFonts.inter(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
+    final unread = _badgeCount > 0;
+    return _HeaderIconButton(
+      icon: StudioIcons.inbox,
+      label: unread ? 'Inbox, unread items' : 'Inbox',
+      onTap: () => _openInbox(context),
+      badge: unread ? const FeedUnreadDot() : null,
     );
   }
 }
@@ -548,6 +570,9 @@ class FeedPicsumImage extends StatelessWidget {
             ? constraints.maxWidth
             : MediaQuery.sizeOf(context).width;
         final cacheWidth = (maxWidth * dpr).round().clamp(1, 2048);
+        final c = context.studio;
+        // Surface while loading (a spinner only when motion is allowed) and when it fails.
+        final still = MediaQuery.disableAnimationsOf(context);
         return CachedNetworkImage(
           imageUrl: url,
           fit: fit,
@@ -555,22 +580,17 @@ class FeedPicsumImage extends StatelessWidget {
           height: double.infinity,
           memCacheWidth: cacheWidth,
           progressIndicatorBuilder: (context, child, progress) => Container(
-            color: Colors.grey.shade300,
+            color: c.surface,
             alignment: Alignment.center,
-            child: const SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
+            child: still
+                ? null
+                : SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: c.textTertiary),
+                  ),
           ),
-          errorWidget: (context, error, stackTrace) => Container(
-            color: Colors.grey.shade400,
-            alignment: Alignment.center,
-            child: Icon(
-              Icons.image_not_supported_outlined,
-              color: Colors.grey.shade600,
-            ),
-          ),
+          errorWidget: (context, error, stackTrace) => ColoredBox(color: c.surface),
         );
       },
     );
@@ -595,6 +615,440 @@ class FeedCardBottomScrim extends StatelessWidget {
             colors: [
               Colors.transparent,
               const Color(0xFF231F1B).withValues(alpha: 0.8),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Full-bleed feed piece (`Main`): width × 4/3, square corners, artist row
+/// underneath. Dots and a sideways swipe only when the payload has 2+ photos. A photo
+/// Scene keeps its own shape (3:4, 1:1 or landscape, as in Explore) rather than being
+/// cropped to a piece's.
+class FeedPieceCard extends StatefulWidget {
+  const FeedPieceCard({super.key, required this.item, required this.onTap});
+
+  final FeedItem item;
+  final VoidCallback onTap;
+
+  @override
+  State<FeedPieceCard> createState() => _FeedPieceCardState();
+}
+
+class _FeedPieceCardState extends State<FeedPieceCard> {
+  int _page = 0;
+
+  List<String> get _urls => widget.item.imageUrls;
+
+  StudioStatus? get _status {
+    final piece = widget.item.piece;
+    if (piece == null) return null;
+    switch (piece.listingState) {
+      case 'available':
+        return StudioStatus.available;
+      case 'collected':
+        return StudioStatus.collected;
+      default:
+        if (piece.isForSale && piece.isLive) return StudioStatus.available;
+        return null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.studio;
+    final item = widget.item;
+    final urls = _urls;
+    final name = item.authorName?.trim().isNotEmpty == true ? item.authorName!.trim() : 'Artist';
+    final title = item.title?.trim();
+    final username = item.authorUsername;
+    final canOpenAuthor = username != null && username.trim().isNotEmpty;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AspectRatio(
+          aspectRatio: exploreBrowseAspect(item),
+          child: Semantics(
+            // A single photo still says what a tap does (section 19.1: every tap labelled).
+            label: urls.length > 1 ? 'Photo ${_page + 1} of ${urls.length}' : 'Open the piece',
+            child: GestureDetector(
+              onTap: widget.onTap,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (urls.length > 1)
+                    PageView.builder(
+                      itemCount: urls.length,
+                      onPageChanged: (page) => setState(() => _page = page),
+                      itemBuilder: (_, index) => _FeedPhoto(url: urls[index]),
+                    )
+                  else if (urls.isNotEmpty)
+                    _FeedPhoto(url: urls.first)
+                  else
+                    ColoredBox(color: c.surface),
+                  if (urls.length > 1)
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 12,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          for (var i = 0; i < urls.length; i++) ...[
+                            if (i > 0) const SizedBox(width: 5),
+                            Container(
+                              width: 6,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: StudioColors.galleryWhite.withValues(alpha: i == _page ? 1 : 0.5),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: Row(
+            children: [
+              StudioTapArea(child: GestureDetector(
+                onTap: canOpenAuthor ? () => openUserProfile(context, username) : null,
+                child: StudioAvatar(url: item.authorAvatarUrl, size: 32, semanticLabel: name),
+              )),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Semantics(link: true, child: GestureDetector(
+                      onTap: canOpenAuthor ? () => openUserProfile(context, username) : null,
+                      child: Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: StudioType.body14(weight: StudioType.medium, color: c.textPrimary),
+                      ),
+                    )),
+                    if (title != null && title.isNotEmpty)
+                      Semantics(link: true, child: GestureDetector(
+                        onTap: widget.onTap,
+                        child: Text(
+                          title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: StudioType.label13(color: c.textSecondary),
+                        ),
+                      )),
+                  ],
+                ),
+              ),
+              if (_status != null) ...[
+                const SizedBox(width: 10),
+                StudioStatusChip(_status!),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _FeedPhoto extends StatelessWidget {
+  const _FeedPhoto({required this.url});
+
+  final String url;
+
+  @override
+  Widget build(BuildContext context) {
+    return CachedNetworkImage(
+      imageUrl: url,
+      fit: BoxFit.cover,
+      memCacheWidth: (MediaQuery.sizeOf(context).width * MediaQuery.devicePixelRatioOf(context)).round(),
+      placeholder: (_, _) => ColoredBox(color: context.studio.surface),
+      errorWidget: (_, _, _) => ColoredBox(color: context.studio.surface),
+    );
+  }
+}
+
+/// Series shelf from a piece that already carries [PieceSeriesInfo]. Cards are
+/// 80% of the width inside the 16 px margins, 3:4, radius 12, and the next
+/// card peeks. Cover only. See all and the last card open the series (`SeriesPage`).
+class FeedSeriesRow extends StatefulWidget {
+  const FeedSeriesRow({
+    super.key,
+    required this.series,
+    required this.artistName,
+    this.artistUsername,
+  });
+
+  final PieceSeriesInfo series;
+  final String artistName;
+  final String? artistUsername;
+
+  @override
+  State<FeedSeriesRow> createState() => _FeedSeriesRowState();
+}
+
+class _FeedSeriesRowState extends State<FeedSeriesRow> {
+  PageController? _pages;
+
+  @override
+  void dispose() {
+    _pages?.dispose();
+    super.dispose();
+  }
+
+  int get _count {
+    final ids = widget.series.pieceIds.length;
+    if (ids > 0) return ids;
+    return widget.series.previewPieces.length;
+  }
+
+  void _seeAll() {
+    final series = widget.series;
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => SeriesViewPage(
+          seriesId: series.id,
+          initialName: series.name,
+          initialPieceCount: _count,
+          initialCoverUrl: series.previewPieces.firstOrNull?.mediaUrl,
+          authorName: widget.artistName,
+          authorUsername: widget.artistUsername,
+        ),
+      ),
+    );
+  }
+
+  void _openPreview(SeriesPreviewPiece preview) {
+    openExploreDetail(
+      context,
+      FeedItem.piece(
+        PieceSummary(
+          id: preview.id,
+          title: preview.title ?? '',
+          mediaUrl: preview.mediaUrl,
+          authorName: widget.artistName,
+          authorUsername: widget.artistUsername,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.studio;
+    final previews = widget.series.previewPieces;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 28),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth;
+          final cardWidth = (width - 32) * 0.8;
+          final cardHeight = cardWidth * 4 / 3;
+          final fraction = (cardWidth + 10) / (width - 16);
+          _pages ??= PageController(viewportFraction: fraction);
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(left: 16, right: 16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.series.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: StudioType.header17(color: c.textPrimary),
+                          ),
+                          Text.rich(
+                            TextSpan(
+                              style: StudioType.label13(color: c.textSecondary),
+                              children: [
+                                TextSpan(text: '${widget.artistName} · '),
+                                TextSpan(
+                                  text: '$_count pieces',
+                                  style: StudioType.mono(12, color: c.textSecondary),
+                                ),
+                              ],
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: _seeAll,
+                      style: TextButton.styleFrom(
+                        foregroundColor: c.textSecondary,
+                        minimumSize: const Size(44, 44),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        padding: const EdgeInsets.symmetric(horizontal: 0),
+                      ),
+                      child: Text('See all', style: StudioType.body14(weight: StudioType.medium, color: c.textSecondary)),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                height: cardHeight,
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 16),
+                  child: PageView.builder(
+                    controller: _pages,
+                    padEnds: false,
+                    itemCount: previews.length + 1,
+                    itemBuilder: (context, index) {
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 10),
+                        child: index == previews.length
+                            ? _SeeAllSeriesCard(
+                                width: cardWidth,
+                                count: _count,
+                                thumbs: [for (final preview in previews.take(3)) preview.mediaUrl],
+                                onTap: _seeAll,
+                              )
+                            : _SeriesCoverCard(
+                                width: cardWidth,
+                                preview: previews[index],
+                                onTap: () => _openPreview(previews[index]),
+                              ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _SeriesCoverCard extends StatelessWidget {
+  const _SeriesCoverCard({required this.width, required this.preview, required this.onTap});
+
+  final double width;
+  final SeriesPreviewPiece preview;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = preview.title?.trim() ?? '';
+    return Semantics(label: title.isEmpty ? 'Open the piece' : title, child: GestureDetector(
+      onTap: onTap,
+      child: SizedBox(
+        width: width,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(StudioRadius.button),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (preview.mediaUrl != null && preview.mediaUrl!.isNotEmpty)
+                _FeedPhoto(url: preview.mediaUrl!)
+              else
+                ColoredBox(color: context.studio.surface),
+              if (title.isNotEmpty)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: ColoredBox(
+                    color: StudioColors.imageCaptionBar,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: StudioType.label13(weight: StudioType.medium, color: StudioColors.galleryWhite),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    ));
+  }
+}
+
+class _SeeAllSeriesCard extends StatelessWidget {
+  const _SeeAllSeriesCard({
+    required this.width,
+    required this.count,
+    required this.thumbs,
+    required this.onTap,
+  });
+
+  final double width;
+  final int count;
+  final List<String?> thumbs;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.studio;
+    return GestureDetector(
+      onTap: onTap,
+      child: SizedBox(
+        width: width,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: c.surface,
+            borderRadius: BorderRadius.circular(StudioRadius.button),
+            border: Border.all(color: c.line),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  for (var i = 0; i < thumbs.length; i++) ...[
+                    if (i > 0) const SizedBox(width: 6),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: SizedBox(
+                        width: 44,
+                        height: 58,
+                        child: thumbs[i] != null && thumbs[i]!.isNotEmpty
+                            ? _FeedPhoto(url: thumbs[i]!)
+                            : ColoredBox(color: c.line),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 14),
+              Text('See all $count pieces', style: StudioType.header17(color: c.textPrimary)),
+              const SizedBox(height: 14),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('Open the series', style: StudioType.body14(color: c.textSecondary)),
+                  const SizedBox(width: 6),
+                  StudioIcon(StudioIcons.arrowRight, size: 16, color: c.textSecondary),
+                ],
+              ),
             ],
           ),
         ),

@@ -1,13 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/feed_preview_item.dart';
-import '../../theme/collect_detail_tokens.dart';
+import '../../theme/studio_colors.dart';
+import '../../theme/studio_type.dart';
 import '../../utils/profile_navigation.dart';
 import '../follow_button.dart';
-import '../home_feed/home_feed_widgets.dart';
+import '../studio/studio_avatar.dart';
+import '../studio/studio_button.dart';
+import '../studio/studio_tap_area.dart';
 
-/// Artist row for collect detail (Figma 2302-1554).
+/// Artist row under the piece image (`BuyPiece`): 36 avatar, 10 gap, name 14/500 over
+/// handle 12, and the small Follow (34, radius 8) only; 12 20 padding and a 1 px Line
+/// under the row. The board draws Follow as an outline; it keeps the app's follow
+/// convention instead (filled Follow, outline Following with a check / Requested; section 0.3).
+/// On your own piece, "Your piece" (13 Graphite) replaces Follow (`ListOwnerPiece`); on your
+/// own sold piece it reads "Your work" (`PieceCollectedArtist`).
 class CollectArtistRow extends StatelessWidget {
   const CollectArtistRow({
     super.key,
@@ -15,69 +22,78 @@ class CollectArtistRow extends StatelessWidget {
     required this.followState,
     this.followBusy = false,
     required this.onFollowToggle,
+    this.isOwner = false,
+    this.ownerLabel = 'Your piece',
   });
+
+  final String ownerLabel;
 
   final FeedPreviewItem item;
   final FollowState followState;
   final bool followBusy;
   final VoidCallback onFollowToggle;
+  final bool isOwner;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        CollectDetailTokens.horizontalPadding,
-        12,
-        CollectDetailTokens.horizontalPadding,
-        0,
+    final c = context.studio;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: c.line)),
       ),
       child: Row(
         children: [
-          GestureDetector(
-            onTap: () => openUserProfile(context, item.handle),
-            behavior: HitTestBehavior.opaque,
-            child: UserAvatar(
-              url: item.displayAvatarUrl,
-              name: item.displayName,
-              size: 28,
-            ),
-          ),
-          const SizedBox(width: 8),
           Expanded(
-            child: GestureDetector(
+            child: StudioTapArea(
+              child: GestureDetector(
               onTap: () => openUserProfile(context, item.handle),
               behavior: HitTestBehavior.opaque,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Text(
-                    item.displayName,
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w400,
-                      height: 14.52 / 12,
-                      color: CollectDetailTokens.textPrimary,
-                    ),
+                  StudioAvatar(
+                    url: item.displayAvatarUrl,
+                    size: 36,
+                    semanticLabel: item.displayName,
                   ),
-                  Text(
-                    item.handle,
-                    style: GoogleFonts.inter(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w400,
-                      height: 13 / 10,
-                      color: CollectDetailTokens.textSecondary,
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          item.displayName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: StudioType.body14(weight: StudioType.medium, color: c.textPrimary),
+                        ),
+                        Text(
+                          item.handle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: StudioType.caption12(color: c.textSecondary),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
             ),
+            ),
           ),
-          FollowButton(
-            state: followState,
-            onPressed: onFollowToggle,
-            dense: true,
-            busy: followBusy,
-          ),
+          const SizedBox(width: 12),
+          if (isOwner)
+            Text(ownerLabel, style: StudioType.label13(color: c.textSecondary))
+          else
+            StudioButton(
+              label: followState.actionLabel,
+              icon: followState.icon,
+              variant: StudioButtonVariant.small,
+              filled: followState.filled,
+              loading: followBusy,
+              onPressed: followBusy ? null : onFollowToggle,
+            ),
         ],
       ),
     );

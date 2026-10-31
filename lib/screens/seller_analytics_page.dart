@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
-import '../../theme/home_feed_tokens.dart';
+import '../widgets/studio/studio.dart';
 import 'profile/widgets/profile_seller_insights.dart';
 
-/// Seller analytics detail — opened from Settings when seller mode is on.
+/// Seller analytics detail — opened from Settings when seller mode is on. "Your insights"
+/// 22, a Graphite line, then the four counts on a Surface panel.
 class SellerAnalyticsPage extends StatelessWidget {
   const SellerAnalyticsPage({
     super.key,
@@ -21,52 +21,32 @@ class SellerAnalyticsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.studio;
     return Scaffold(
-      backgroundColor: HomeFeedTokens.background,
-      appBar: AppBar(
-        backgroundColor: HomeFeedTokens.background,
-        elevation: 0,
-        centerTitle: true,
-        title: Text(
-          'Seller analytics',
-          style: GoogleFonts.inter(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: HomeFeedTokens.textPrimary,
-          ),
-        ),
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new_rounded,
-              color: HomeFeedTokens.textPrimary, size: 20),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
+      backgroundColor: c.background,
+      appBar: StudioTopBar(context: context, title: 'Seller analytics'),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+        padding: const EdgeInsets.fromLTRB(StudioSpace.marginPage, 8, StudioSpace.marginPage, 40),
         children: [
-          Text(
-            'Your insights',
-            style: GoogleFonts.inter(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: HomeFeedTokens.textPrimary,
-            ),
-          ),
+          Text('Your insights', style: StudioType.title22(color: c.textPrimary)),
           const SizedBox(height: 6),
           Text(
             'Track how your listings perform over time.',
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              color: HomeFeedTokens.textPrimary.withValues(alpha: 0.55),
-              height: 1.4,
-            ),
+            style: StudioType.body14(color: c.textSecondary),
           ),
-          const SizedBox(height: 28),
-          ProfileSellerInsights(
-            savesCount: savesCount,
-            likesCount: likesCount,
-            inquiriesCount: inquiriesCount,
-            salesCount: salesCount,
+          const SizedBox(height: 24),
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 8),
+            decoration: BoxDecoration(
+              color: c.surface,
+              borderRadius: BorderRadius.circular(StudioRadius.panel),
+            ),
+            child: ProfileSellerInsights(
+              savesCount: savesCount,
+              likesCount: likesCount,
+              inquiriesCount: inquiriesCount,
+              salesCount: salesCount,
+            ),
           ),
         ],
       ),

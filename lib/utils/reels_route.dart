@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import '../models/feed_item.dart';
 import '../screens/reels_page.dart';
 import '../services/feed_service.dart';
-import '../services/reels_tab_service.dart';
 
+/// Opens the Scene viewer (`SceneViewer`) full screen over the app, on [items] from
+/// [initialIndex]. Swiping up goes to the next one, down to the previous. With no [items] it
+/// shows the video Scenes feed.
 Future<void> openReels(
   BuildContext context, {
   int initialIndex = 0,
@@ -22,12 +24,10 @@ Future<void> openReels(
   }
 
   if (!context.mounted) return;
-  // If MainShell is mounted, switch to its own Reels tab in place (keeps the
-  // bottom nav bar visible) instead of covering it with a pushed route.
-  if (ReelsTabService.instance.tryOpen(reelsItems, index)) return;
+  // Full screen with its own back arrow (the board), not the shell's Reels page under
+  // the floating nav.
   await Navigator.of(context).push<void>(
     MaterialPageRoute<void>(
-      fullscreenDialog: true,
       builder: (_) => ReelsPage(
         initialIndex: index,
         initialItems: reelsItems,
@@ -36,35 +36,41 @@ Future<void> openReels(
   );
 }
 
-Future<void> openReelsForItem(BuildContext context, FeedItem item) async {
-  final page = await FeedService.instance.getVideoScenes();
+/// Opens [item] in the Scene viewer. With [from] (the list it was tapped in) the viewer
+/// swipes through that list's Scenes, photo and video, in the same order. Otherwise it is
+/// this Scene, then the video Scenes feed.
+Future<void> openScenes(
+  BuildContext context,
+  FeedItem item, {
+  List<FeedItem>? from,
+}) async {
+  var scenes = [
+    for (final entry in from ?? const <FeedItem>[])
+      if (entry.type == FeedItemType.post) entry,
+  ];
+  if (!scenes.any((entry) => entry.id == item.id)) {
+    var more = const <FeedItem>[];
+    try {
+      more = (await FeedService.instance.getVideoScenes()).items;
+    } catch (_) {
+      // Just this Scene, then.
+    }
+    scenes = [item, ...more.where((entry) => entry.id != item.id)];
+  }
   if (!context.mounted) return;
-  final reelsItems = page.items;
-  final index = reelsItems.indexWhere((entry) => entry.id == item.id);
   await openReels(
     context,
-    initialIndex: index >= 0 ? index : 0,
-    items: reelsItems,
+    initialIndex: scenes.indexWhere((entry) => entry.id == item.id),
+    items: scenes,
   );
 }
+
+Future<void> openReelsForItem(BuildContext context, FeedItem item) =>
+    openScenes(context, item);
 
 Future<void> openReelsForPosts(
   BuildContext context,
   List<FeedItem> posts,
   FeedItem item,
-) async {
-  final videoPosts = posts
-      .where((entry) => entry.type == FeedItemType.post && entry.isVideo)
-      .toList();
-  if (videoPosts.isEmpty) {
-    await openReelsForItem(context, item);
-    return;
-  }
-  if (!context.mounted) return;
-  final index = videoPosts.indexWhere((entry) => entry.id == item.id);
-  await openReels(
-    context,
-    initialIndex: index >= 0 ? index : 0,
-    items: videoPosts,
-  );
-}
+) =>
+    openScenes(context, item, from: posts);

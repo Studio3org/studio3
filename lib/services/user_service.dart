@@ -8,6 +8,7 @@ import 'api_exception.dart';
 import 'auth_session.dart';
 import 'cache_service.dart';
 import 'connectivity_service.dart';
+import 'theme_service.dart';
 
 class UserService {
   UserService._();
@@ -58,6 +59,19 @@ class UserService {
     await _session.updateUserFromJson(data);
   }
 
+  /// Synchronous own-profile cache read, for seeding a screen's initial
+  /// state in `initState` — settings and edit screens paint their real
+  /// values on the first frame instead of a skeleton whenever the profile
+  /// has already been fetched, and the cached fetch above then refreshes
+  /// them silently.
+  UserProfile? peekMeCached() {
+    return CacheService.instance.peekCache<UserProfile>(
+      key: 'user.me',
+      parse: (json) =>
+          UserProfile.fromJson(_api.extractData(json) as Map<String, dynamic>),
+    );
+  }
+
   Future<UserProfile> getPublicProfile(String username) async {
     final json = await _api.get(
       '/api/user/$username',
@@ -72,6 +86,11 @@ class UserService {
     String? bio,
     String? location,
     String? pronouns,
+    String? website,
+    String? instagram,
+    String? twitter,
+    String? category,
+    List<String>? tags,
     String? profilePhotoUrl,
     String? coverPhotoUrl,
     double? latitude,
@@ -79,6 +98,7 @@ class UserService {
     String? bannerAutoRule,
     String? messagePermission,
     String? profileVisibility,
+    String? themePreference,
     bool updateBannerTarget = false,
     String? bannerTargetType,
     String? bannerTargetId,
@@ -91,6 +111,11 @@ class UserService {
     if (bio != null) body['bio'] = bio;
     if (location != null) body['location'] = location;
     if (pronouns != null) body['pronouns'] = pronouns;
+    if (website != null) body['website'] = website;
+    if (instagram != null) body['instagram'] = instagram;
+    if (twitter != null) body['twitter'] = twitter;
+    if (category != null) body['category'] = category;
+    if (tags != null) body['tags'] = tags;
     if (profilePhotoUrl != null) body['profilePhotoUrl'] = profilePhotoUrl;
     if (coverPhotoUrl != null) body['coverPhotoUrl'] = coverPhotoUrl;
     if (latitude != null) body['latitude'] = latitude;
@@ -98,6 +123,7 @@ class UserService {
     if (bannerAutoRule != null) body['bannerAutoRule'] = bannerAutoRule;
     if (messagePermission != null) body['messagePermission'] = messagePermission;
     if (profileVisibility != null) body['profileVisibility'] = profileVisibility;
+    if (themePreference != null) body['themePreference'] = themePreference;
     // Backend requires bannerTargetType/Id sent together (both null clears
     // the manual pin) — only include them when the caller explicitly wants
     // to change the pin, since plain nullable params can't tell "unset" from
@@ -174,9 +200,11 @@ class UserService {
     Map<String, bool>? push,
     bool? dailyDigestEnabled,
     String? dailyDigestTime,
+    String? savesAndFollowsMode,
   }) async {
     final body = <String, dynamic>{};
     if (push != null) body['push'] = push;
+    if (savesAndFollowsMode != null) body['savesAndFollowsMode'] = savesAndFollowsMode;
     if (dailyDigestEnabled != null || dailyDigestTime != null) {
       body['dailyDigest'] = {
         if (dailyDigestEnabled != null) 'enabled': dailyDigestEnabled,
@@ -258,6 +286,16 @@ class UserService {
     final status = SellerStatus.fromJson(data);
     await _session.setSellerEnabled(status.enabled);
     return status;
+  }
+
+  /// What the signed-in seller keeps on a sale of [priceCents] at their own rate.
+  Future<CommissionQuote> getCommissionQuote(int priceCents) async {
+    final json = await _api.get(
+      '/api/user/me/commission-quote',
+      query: {'priceCents': '$priceCents'},
+      auth: true,
+    );
+    return CommissionQuote.fromJson(_api.extractData(json) as Map<String, dynamic>);
   }
 
   Future<SellerStatus> enableSeller({
@@ -349,6 +387,9 @@ class UserService {
       termsVersion: data['termsVersion'] as String?,
       currentTermsVersion: data['currentTermsVersion'] as String?,
     ));
+    if (data.containsKey('themePreference')) {
+      await ThemeService.instance.applyServerValue(data['themePreference']);
+    }
     await _session.setSellerEnabled(profile.sellerEnabled);
   }
 }

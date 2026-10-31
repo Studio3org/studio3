@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
+
+import '../config/app_link_config.dart';
 
 import '../models/piece_summary.dart';
 import '../models/post_summary.dart';
@@ -12,13 +15,17 @@ import '../services/report_service.dart';
 import '../services/series_service.dart';
 import '../services/social_service.dart';
 import '../services/user_service.dart';
-import '../theme/home_feed_tokens.dart';
+import '../theme/studio_colors.dart';
 import 'conversation_thread_page.dart';
 import 'follow_list_page.dart';
 import '../widgets/content_actions_sheet.dart';
 import '../widgets/delete_confirmation_dialog.dart';
 import '../widgets/profile_avatar_preview_sheet.dart';
+import '../widgets/studio/studio_action_row.dart';
+import '../widgets/studio/studio_icon.dart';
+import '../widgets/studio/studio_sheet.dart';
 import 'profile/models/profile_series_data.dart';
+import 'series_view_page.dart';
 import 'profile/profile_constants.dart';
 import '../widgets/follow_button.dart';
 import 'profile/widgets/profile_header.dart';
@@ -437,6 +444,7 @@ class _ProfilePageState extends State<ProfilePage>
     if (target == null) return;
     if (!await requireLogin(
       context,
+      title: 'Sign in to message',
       message: 'Log in or create a free account to message artists.',
     )) {
       return;
@@ -454,6 +462,32 @@ class _ProfilePageState extends State<ProfilePage>
     );
   }
 
+  Future<void> _onEditProfileTap() async {
+    // The same screen Settings opens; reload afterwards as the ⋯ path does.
+    await Navigator.pushNamed(context, '/edit-profile');
+    if (!mounted) return;
+    _resetTabCache();
+    await _loadProfileShell(silent: true);
+  }
+
+  Future<void> _onShareProfileTap(BuildContext buttonContext) async {
+    final profile = _profile;
+    final username = profile?.username ?? AuthSession.instance.user?.username;
+    if (username == null || username.isEmpty) return;
+    final name = (profile?.name ?? AuthSession.instance.user?.name ?? '').trim();
+    final url = AppLinkConfig.profileUrl(username);
+    final box = buttonContext.findRenderObject() as RenderBox?;
+    final origin = box != null
+        ? box.localToGlobal(Offset.zero) & box.size
+        : const Rect.fromLTWH(0, 0, 1, 1);
+    await SharePlus.instance.share(
+      ShareParams(
+        text: '${name.isEmpty ? '@$username' : name} on Studio\n\n$url',
+        sharePositionOrigin: origin,
+      ),
+    );
+  }
+
   Future<void> _onFollowTap() async {
     if (widget.viewerMode) {
       _showViewerModePreviewSnackBar();
@@ -461,6 +495,7 @@ class _ProfilePageState extends State<ProfilePage>
     }
     if (!await requireLogin(
       context,
+      title: 'Sign in to follow',
       message: 'Log in or create a free account to follow artists.',
     )) {
       return;
@@ -569,64 +604,71 @@ class _ProfilePageState extends State<ProfilePage>
     }
   }
 
+  /// No board of its own: built as `ConvMenu` (person header, then Block and Report as
+  /// Ink rows with outline icons; no red outside status).
   void _showProfileActionsSheet(UserProfile? profile) {
     if (profile == null) return;
-    showModalBottomSheet<void>(
+    final name = profile.name.trim().isEmpty ? profile.handle : profile.name;
+    showStudioSheet<void>(
       context: context,
-      backgroundColor: HomeFeedTokens.background,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      builder: (sheetContext) => StudioSheet(
+        horizontalPadding: 24,
+        gap: 6,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: StudioActionSheetPerson(
+              name: name,
+              handle: profile.handle,
+              avatarUrl: profile.profilePhotoUrl,
+            ),
+          ),
+          StudioActionRow(
+            icon: StudioIcons.block,
+            title: 'Block $name',
+            onTap: () {
+              Navigator.pop(sheetContext);
+              confirmBlockUser(
+                context,
+                username: profile.username,
+                onBlocked: () {
+                  if (mounted) Navigator.pop(context);
+                },
+              );
+            },
+          ),
+          StudioActionRow(
+            icon: StudioIcons.report,
+            title: 'Report',
+            onTap: () {
+              Navigator.pop(sheetContext);
+              showReportSheet(
+                context,
+                target: ReportTarget.user(profile.username),
+              );
+            },
+          ),
+        ],
       ),
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 8),
-            ListTile(
-              leading: const Icon(
-                Icons.flag_outlined,
-                color: Color(0xFFE05252),
-              ),
-              title: Text(
-                'Report ${profile.handle}',
-                style: const TextStyle(
-                  color: Color(0xFFE05252),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              onTap: () {
-                Navigator.pop(sheetContext);
-                showReportSheet(
-                  context,
-                  target: ReportTarget.user(profile.username),
-                );
-              },
-            ),
-            ListTile(
-              leading: const Icon(
-                Icons.block_outlined,
-                color: Color(0xFFE05252),
-              ),
-              title: Text(
-                'Block ${profile.handle}',
-                style: const TextStyle(
-                  color: Color(0xFFE05252),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              onTap: () {
-                Navigator.pop(sheetContext);
-                confirmBlockUser(
-                  context,
-                  username: profile.username,
-                  onBlocked: () {
-                    if (mounted) Navigator.pop(context);
-                  },
-                );
-              },
-            ),
-            const SizedBox(height: 8),
-          ],
+    );
+  }
+
+
+  /// The series page (restored from before commit 76f4ef9).
+  void _openSeries(ProfileSeriesData series, UserProfile? profile) {
+    final id = series.id;
+    if (id == null || id.isEmpty) return;
+    final own = AuthSession.instance.user?.username == profile?.username && !widget.viewerMode;
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => SeriesViewPage(
+          seriesId: id,
+          initialName: series.name,
+          initialPieceCount: series.pieceCount,
+          initialCoverUrl: series.stackUrls.isNotEmpty ? series.stackUrls.first : null,
+          authorName: profile?.name,
+          authorUsername: profile?.username,
+          isOwner: own,
         ),
       ),
     );
@@ -663,6 +705,10 @@ class _ProfilePageState extends State<ProfilePage>
         profile?.sellerEnabled ??
         (isOwnProfile ? AuthSession.instance.sellerEnabled : false);
 
+    // `ProfileCollector`: someone who signed up to collect and has not turned on
+    // seller mode.
+    final collectorMode = !sellerEnabled && profile?.role == 'collector';
+
     final name =
         profile?.name ?? (isOwnProfile ? sessionUser?.name : null) ?? '';
     final handle =
@@ -678,7 +724,7 @@ class _ProfilePageState extends State<ProfilePage>
         statusBarBrightness: Brightness.dark,
       ),
       child: Scaffold(
-        backgroundColor: kProfilePageBackground,
+        backgroundColor: context.studio.background,
         body: Stack(
           children: [
             RefreshIndicator(
@@ -724,12 +770,9 @@ class _ProfilePageState extends State<ProfilePage>
                       piecesCount: profile?.piecesCount ?? _pieces.length,
                       scenesCount: _scenes.length,
                       savesCount: profile?.savesCount,
-                      availableCount: _listedPieces
-                          .where((p) => p.isForSale && p.status != 'sold')
-                          .length,
                       collectedCount: profile?.collectedCount,
-                      rating: profile?.rating,
                       sellerMode: sellerEnabled,
+                      collectorMode: collectorMode,
                       isOwnProfile: !showPublicActions,
                       followState: _followState,
                       followBusy: _followBusy,
@@ -737,6 +780,10 @@ class _ProfilePageState extends State<ProfilePage>
                           ? _onFollowTap
                           : null,
                       onMessage: showPublicActions ? _onMessageTap : null,
+                      onEditProfile: showPublicActions ? null : _onEditProfileTap,
+                      onShare: showPublicActions
+                          ? null
+                          : () => _onShareProfileTap(context),
                       onTapFollowing: () =>
                           _onTapFollowStat(FollowListTab.following),
                       onTapFollowers: () =>
@@ -768,7 +815,7 @@ class _ProfilePageState extends State<ProfilePage>
                     SliverPadding(
                       padding: EdgeInsets.fromLTRB(
                         kProfileHorizontalPad,
-                        kProfileGridTopGap,
+                        sellerEnabled && _tab == 'pieces' ? 0 : kProfileGridTopGap,
                         kProfileHorizontalPad,
                         bottomPad,
                       ),
@@ -788,6 +835,8 @@ class _ProfilePageState extends State<ProfilePage>
                         onPublishScene: _publishScene,
                         sceneFilter: _sceneFilter,
                         onSceneFilterChanged: _onSceneFilterChanged,
+                        onSeeAllSeries: () => _onTabChanged('series'),
+                        onSeriesTap: (series) => _openSeries(series, profile),
                       ),
                     ),
                   ],

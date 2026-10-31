@@ -406,7 +406,7 @@ void openProfileScene(
   PostSummary post,
 ) {
   final item = FeedItem.post(post);
-  openExploreDetail(context, item);
+  openExploreDetail(context, item, from: [for (final scene in scenes) FeedItem.post(scene)]);
 }
 
 void openProfilePiece(BuildContext context, PieceSummary piece) {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../models/feed_preview_item.dart';
@@ -8,9 +9,14 @@ import '../services/piece_service.dart';
 import '../services/post_service.dart';
 import '../services/report_service.dart';
 import '../theme/home_feed_tokens.dart';
+import '../theme/studio_colors.dart';
+import '../theme/studio_metrics.dart';
+import '../theme/studio_type.dart';
 import '../utils/content_detail_loader.dart';
 import 'edit_piece_page.dart';
+import 'series_view_page.dart';
 import 'edit_scene_page.dart';
+import 'list_piece_flow.dart';
 import '../widgets/content_actions_sheet.dart';
 import '../widgets/piece_detail/ask_about_piece_sheet.dart';
 import '../widgets/piece_detail/detail_hero_image.dart';
@@ -24,8 +30,16 @@ import '../widgets/piece_detail/piece_comment_sheet.dart';
 import '../widgets/piece_detail/piece_location_row.dart';
 import '../widgets/piece_detail/piece_related_scenes_row.dart';
 import '../widgets/piece_detail/piece_share_sheet.dart';
+import '../widgets/piece_detail/collect_artist_row.dart';
+import '../widgets/piece_detail/piece_page_sections.dart';
 import '../widgets/piece_detail/piece_series_row.dart';
+import '../widgets/studio/studio_bottom_bar.dart';
+import '../widgets/studio/studio_button.dart';
+import '../widgets/studio/studio_chip.dart';
+import '../widgets/studio/studio_icon.dart';
 
+/// Detail page for a piece that is not for sale (`PieceNotForSale`; your own piece:
+/// `ListOwnerPiece`, top part) and for Scenes, which keep their current layout.
 class PieceDetailPage extends StatefulWidget {
   const PieceDetailPage({
     super.key,
@@ -154,6 +168,200 @@ class _PieceDetailPageState extends State<PieceDetailPage>
 
   @override
   Widget build(BuildContext context) {
+    // Scenes keep this page as it was (plan, Phase 7); pieces follow the boards.
+    return item.isScene ? _buildScene(context) : _buildPiece(context);
+  }
+
+  /// Your own piece that isn't for sale and hasn't sold (`ListOwnerPiece`).
+  bool get _canList => _isOwner && item.status != 'sold' && !item.isAvailable;
+
+  /// "List for sale" (`ListOwnerPiece` → `PostListLater`).
+  void _onListForSale() =>
+      startListingLater(context, pieceId: item.id, onListed: _loadDetail);
+
+  /// `PieceNotForSale`: same image, top icons, artist row and body as the fixed-price page,
+  /// with no bottom bar and the not-for-sale line under the dimensions. Your own piece
+  /// (`ListOwnerPiece`) gets the bar with List for sale and the edit button; the board's
+  /// "Saved by [N] people" needs a save count (BACKEND_CHANGES B17).
+  Widget _buildPiece(BuildContext context) {
+    final c = context.studio;
+    final canList = _canList;
+    final details = PieceDetailsSection.rowsFor(item);
+    Widget padded(Widget child) => Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: child,
+    );
+
+    final sections = <Widget>[
+      padded(PieceTitleBlock(item: item, status: _statusLine(c))),
+      if (item.story.trim().isNotEmpty) padded(PieceDescription(item.story)),
+      if (item.materials.isNotEmpty)
+        padded(PieceMadeWith(materials: item.materials)),
+      if (item.relatedScenes.isNotEmpty)
+        PieceRelatedScenesRow(scenes: item.relatedScenes),
+      if (details.isNotEmpty) padded(PieceDetailsSection(rows: details)),
+      if (item.seriesName.isNotEmpty &&
+          (item.seriesThumbUrls.isNotEmpty || item.seriesThumbs.isNotEmpty))
+        padded(
+          PieceSeriesRow(
+            seriesName: item.seriesName,
+            thumbSeeds: item.seriesThumbs,
+            thumbUrls: item.seriesThumbUrls,
+            pieceCount: item.seriesPieceCount,
+            onTap: item.seriesId == null
+                ? null
+                : () => Navigator.of(context).push<void>(
+                    MaterialPageRoute<void>(
+                      builder: (_) => SeriesViewPage(
+                        seriesId: item.seriesId!,
+                        initialName: item.seriesName,
+                        initialPieceCount: item.seriesPieceCount,
+                        authorName: item.authorName,
+                        authorUsername: item.authorUsername,
+                        isOwner: _isOwner,
+                      ),
+                    ),
+                  ),
+          ),
+        ),
+    ];
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      // White status bar icons over the image, like the top icons.
+      value: SystemUiOverlayStyle.light.copyWith(
+        statusBarColor: Colors.transparent,
+      ),
+      child: Scaffold(
+        backgroundColor: c.background,
+        body: Stack(
+          children: [
+            DetailScrollHandoff(
+              tappedIndex: widget.tappedIndex,
+              filter: widget.filter,
+              onWillAdvance: widget.onWillAdvance,
+              // No bar: 48 under the content, as the board's main padding.
+              bottomInset: canList
+                  ? 28 +
+                        StudioSize.buttonPrimary +
+                        16 +
+                        MediaQuery.paddingOf(context).bottom
+                  : MediaQuery.paddingOf(context).bottom,
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Stack(
+                    children: [
+                      AspectRatio(
+                        aspectRatio: item.aspectRatioValue,
+                        child: DetailHeroImage(
+                          item: item,
+                          initialImageIndex: widget.initialImageIndex,
+                        ),
+                      ),
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        child: PieceTopIcons(
+                          isOwner: _isOwner,
+                          saved: saved,
+                          onBack: () => Navigator.pop(context),
+                          onSave: toggleSave,
+                          onShare: () => PieceShareSheet.show(
+                            context,
+                            item,
+                            imageIndex: widget.initialImageIndex,
+                          ),
+                          onMore: _onMore,
+                          onEdit: _onEdit,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      CollectArtistRow(
+                        item: item,
+                        followState: followState,
+                        followBusy: followBusy,
+                        onFollowToggle: toggleFollow,
+                        isOwner: _isOwner,
+                      ),
+                      // Like and comment stay on the page (plan rule 4); Save and Share are in
+                      // the top icons.
+                      PieceActionBar(
+                        liked: liked,
+                        saved: saved,
+                        onLike: toggleLike,
+                        onComment: () => PieceCommentSheet.show(
+                          context,
+                          contentId: item.id,
+                          isScene: item.isScene,
+                        ),
+                        onShare: () {},
+                        onSave: toggleSave,
+                        showSave: false,
+                      ),
+                      const SizedBox(height: 8),
+                      for (var i = 0; i < sections.length; i++) ...[
+                        if (i > 0) const SizedBox(height: 26),
+                        sections[i],
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            if (canList)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: StudioBottomBar(
+                  button: StudioButton(
+                    label: 'List for sale',
+                    fontSize: 16,
+                    onPressed: _onListForSale,
+                  ),
+                  messageButton: StudioMessageButton(
+                    icon: StudioIcons.edit,
+                    semanticLabel: 'Edit piece',
+                    onPressed: _onEdit,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// "Not for sale" as plain 13/500 Ink text, never a chip (`PieceNotForSale`, `HandoffRules`)
+  /// and, for visitors, "Save it to hear if it's ever listed." (13 Graphite), 10 apart. Saving is what subscribes them to the listing notice. On your
+  /// own piece the line is the pill alone: the board's "[N] people saved this" needs a save
+  /// count the piece payload does not have. A sold piece shows the Collected chip instead.
+  Widget _statusLine(StudioColors c) {
+    if (item.status == 'sold')
+      return const StudioStatusChip(StudioStatus.collected);
+    return Row(
+      children: [
+        Text('Not for sale', style: StudioType.label13(weight: StudioType.medium, color: c.textPrimary)),
+        if (!_isOwner) ...[
+          const SizedBox(width: 10),
+          Flexible(
+            child: Text(
+              "Save it to hear if it's ever listed.",
+              style: StudioType.label13(color: c.textSecondary),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildScene(BuildContext context) {
     return Scaffold(
       backgroundColor: HomeFeedTokens.detailBackground,
       body: DetailScrollHandoff(

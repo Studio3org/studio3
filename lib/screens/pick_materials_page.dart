@@ -1,249 +1,208 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../data/post_material_options.dart';
-import '../data/post_media_assets.dart';
-import '../theme/home_feed_tokens.dart';
-import '../widgets/post_picker_search_field.dart';
+import '../theme/studio_colors.dart';
+import '../theme/studio_metrics.dart';
+import '../theme/studio_type.dart';
+import '../widgets/studio/studio_icon.dart';
+import '../widgets/studio/studio_tap_area.dart';
+import 'add_materials_page.dart' show MaterialsTopBar;
 
-/// Material search & pick list — second step of add materials flow.
+/// Materials search (`PostMaterialsSearch`): the focused field (Card, 1.5 Ink border,
+/// radius 12), suggestions as you type with the matched text in 500 and a Mono
+/// material / tool tag, a custom entry only when nothing matches, and the note under it.
+/// Tapping a suggestion returns it.
 class PickMaterialsPage extends StatefulWidget {
-  const PickMaterialsPage({
-    super.key,
-    required this.initialSelection,
-  });
+  const PickMaterialsPage({super.key, required this.selected});
 
-  final List<PostMaterialOption> initialSelection;
+  /// Already picked; shown as such in the suggestions.
+  final List<PostMaterialOption> selected;
 
   @override
   State<PickMaterialsPage> createState() => _PickMaterialsPageState();
 }
 
 class _PickMaterialsPageState extends State<PickMaterialsPage> {
-  static const _neutral300 = Color(0xFFC8C5BC);
-
-  late List<PostMaterialOption> _selected;
-  final _searchController = TextEditingController();
-  String _query = '';
-
-  @override
-  void initState() {
-    super.initState();
-    _selected = List<PostMaterialOption>.from(widget.initialSelection);
-  }
+  final _controller = TextEditingController();
 
   @override
   void dispose() {
-    _searchController.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
-  List<PostMaterialOption> _filter(List<PostMaterialOption> source) {
-    if (_query.isEmpty) return source;
-    final q = _query.toLowerCase();
-    return source.where((m) => m.name.toLowerCase().contains(q)).toList();
-  }
-
-  void _toggleMaterial(PostMaterialOption material) {
-    setState(() {
-      final index = _selected.indexWhere((m) => m.id == material.id);
-      if (index >= 0) {
-        _selected.removeAt(index);
-      } else {
-        _selected.add(material);
-      }
-    });
-  }
-
-  List<Widget> _buildCategorySection(
-    String category,
-    List<PostMaterialOption> items,
-  ) {
-    if (items.isEmpty) return const [];
-    return [
-      _SectionHeader(title: category),
-      const SizedBox(height: 8),
-      ...items.map(
-        (material) => _MaterialPickerTile(
-          material: material,
-          selected: _selected.any((m) => m.id == material.id),
-          onTap: () => _toggleMaterial(material),
-        ),
-      ),
-      const SizedBox(height: 20),
-    ];
-  }
-
   @override
   Widget build(BuildContext context) {
-    final topInset = MediaQuery.paddingOf(context).top;
-    final bottomInset = MediaQuery.paddingOf(context).bottom;
-    final byCategory = PostMaterialOptions.byCategory;
-
+    final c = context.studio;
+    final query = _controller.text.trim();
+    final results = PostMaterialOptions.search(query);
     return Scaffold(
-      backgroundColor: Colors.black,
-      body: Column(
-        children: [
-          ColoredBox(
-            color: Colors.black,
-            child: Padding(
-              padding: EdgeInsets.only(top: topInset),
-              child: SizedBox(
-                height: 64,
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-                  child: Row(
-                    children: [
-                      GestureDetector(
-                        onTap: () => Navigator.pop(context),
-                        behavior: HitTestBehavior.opaque,
-                        child: SvgPicture.asset(
-                          PostMediaAssets.createCloseIcon,
-                          width: 14,
-                          height: 14,
+      backgroundColor: c.background,
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            MaterialsTopBar(
+              onBack: () => Navigator.pop(context),
+              onDone: () => Navigator.pop(context),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+              child: Container(
+                height: 48,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(
+                  color: c.card,
+                  borderRadius: BorderRadius.circular(StudioRadius.button),
+                  border: Border.all(color: c.textPrimary, width: 1.5),
+                ),
+                child: Row(
+                  children: [
+                    StudioIcon(StudioIcons.search, size: 20, color: c.textPrimary),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: StudioTapArea(child: TextField(
+                        controller: _controller,
+                        autofocus: true,
+                        onChanged: (_) => setState(() {}),
+                        style: StudioType.sans(16, color: c.textPrimary),
+                        cursorColor: c.textPrimary,
+                        textCapitalization: TextCapitalization.sentences,
+                        decoration: InputDecoration(
+                          isCollapsed: true,
+                          contentPadding: EdgeInsets.zero,
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          hintText: 'Search paints, surfaces, brushes…',
+                          hintStyle: StudioType.sans(16, color: c.textTertiary),
                         ),
-                      ),
-                      Expanded(
-                        child: Center(
-                          child: Text(
-                            'Add materials',
-                            style: GoogleFonts.inter(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                              color: HomeFeedTokens.textInverse,
-                            ),
-                          ),
-                        ),
-                      ),
-                      Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: () => Navigator.pop(context, _selected),
-                          borderRadius: BorderRadius.circular(100),
-                          child: Container(
-                            width: 60,
-                            height: 32,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: _neutral300,
-                              borderRadius: BorderRadius.circular(100),
-                            ),
-                            child: Text(
-                              'Done',
-                              style: GoogleFonts.inter(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: HomeFeedTokens.textPrimary,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                      )),
+                    ),
+                  ],
                 ),
               ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(10, 12, 10, 8),
-            child: PostPickerSearchField(
-              controller: _searchController,
-              hintText: 'Search materials',
-              onChanged: (value) => setState(() => _query = value),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+                children: [
+                  for (final m in results)
+                    _Suggestion(
+                      material: m,
+                      query: query,
+                      picked: widget.selected.contains(m),
+                      onTap: () => Navigator.pop(context, m),
+                    ),
+                  if (query.isNotEmpty && results.isEmpty)
+                    Semantics(
+                      button: true,
+                      child: GestureDetector(
+                        onTap: () => Navigator.pop(context, PostMaterialOption.custom(query)),
+                        behavior: HitTestBehavior.opaque,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          child: Row(
+                            children: [
+                              StudioIcon(StudioIcons.addBold, size: 20, color: c.textPrimary),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Text(
+                                  'Add “$query” as your own',
+                                  style: StudioType.sans(16, color: c.textPrimary),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (query.isNotEmpty) ...[
+                    const SizedBox(height: 18),
+                    Text(
+                      "Picking from the list keeps things easy to find later. Use your own only "
+                      "when it isn't here.",
+                      style: StudioType.caption12(height: 1.5, color: c.textSecondary),
+                    ),
+                  ],
+                ],
+              ),
             ),
-          ),
-          Expanded(
-            child: ListView(
-              padding: EdgeInsets.fromLTRB(10, 8, 10, bottomInset + 16),
-              children: [
-                for (final category in PostMaterialOptions.categories)
-                  ..._buildCategorySection(
-                    category,
-                    _filter(byCategory[category] ?? const []),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title});
-
-  static const _textSecondary = Color(0xFF8C8880);
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Padding(
-        padding: const EdgeInsets.only(left: 6),
-        child: Text(
-          title,
-          style: GoogleFonts.inter(
-            fontSize: 11,
-            fontWeight: FontWeight.w500,
-            color: _textSecondary,
-            letterSpacing: 0.2,
-          ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _MaterialRow extends StatelessWidget {
-  const _MaterialRow({required this.material});
-
-  final PostMaterialOption material;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Text(
-        material.name,
-        style: GoogleFonts.inter(
-          fontSize: 13,
-          fontWeight: FontWeight.w400,
-          color: HomeFeedTokens.textInverse,
-          height: 1.25,
-        ),
-      ),
-    );
-  }
-}
-
-class _MaterialPickerTile extends StatelessWidget {
-  const _MaterialPickerTile({
+/// Type 16 with the matched part in 500, brand 13 Graphite, a Mono 11 tag in a 1 px Line
+/// pill; 1 px Line under.
+class _Suggestion extends StatelessWidget {
+  const _Suggestion({
     required this.material,
-    required this.selected,
+    required this.query,
+    required this.picked,
     required this.onTap,
   });
 
   final PostMaterialOption material;
-  final bool selected;
+  final String query;
+  final bool picked;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: selected
-          ? Colors.white.withValues(alpha: 0.06)
-          : Colors.transparent,
-      child: InkWell(
+    final c = context.studio;
+    final type = material.type;
+    final at = type.toLowerCase().indexOf(query.toLowerCase());
+    final base = StudioType.sans(16, color: c.textPrimary);
+    final bold = base.copyWith(fontWeight: StudioType.medium);
+    final title = at < 0 || query.isEmpty
+        ? TextSpan(text: type)
+        : TextSpan(
+            children: [
+              TextSpan(text: type.substring(0, at)),
+              TextSpan(text: type.substring(at, at + query.length), style: bold),
+              TextSpan(text: type.substring(at + query.length)),
+            ],
+          );
+    return Semantics(
+      button: true,
+      selected: picked,
+      label: material.name,
+      excludeSemantics: true,
+      child: GestureDetector(
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-          child: _MaterialRow(material: material),
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(border: Border(bottom: BorderSide(color: c.line))),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text.rich(title, style: base),
+                    const SizedBox(height: 2),
+                    Text(material.brand, style: StudioType.label13(color: c.textSecondary)),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                decoration: BoxDecoration(
+                  border: Border.all(color: c.line),
+                  borderRadius: BorderRadius.circular(StudioRadius.round),
+                ),
+                child: Text(
+                  material.kind == MaterialKind.tool ? 'tool' : 'material',
+                  style: StudioType.mono(10, color: c.textSecondary),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

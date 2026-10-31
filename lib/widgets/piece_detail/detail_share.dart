@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../config/app_link_config.dart';
 import '../../models/feed_preview_item.dart';
+import '../studio/studio_toast.dart';
 
 String buildPieceShareText(FeedPreviewItem item, {int imageIndex = 0}) {
   final pieceUrl = AppLinkConfig.pieceUrl(item.id);
@@ -19,11 +20,7 @@ Future<void> shareFeedPreviewItem(
   FeedPreviewItem item, {
   int imageIndex = 0,
 }) async {
-  await Clipboard.setData(
-    ClipboardData(text: buildPieceShareText(item, imageIndex: imageIndex)),
-  );
+  await Clipboard.setData(ClipboardData(text: buildPieceShareText(item, imageIndex: imageIndex)));
   if (!context.mounted) return;
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(content: Text('Link copied')),
-  );
+  showStudioToast(context, 'Link copied');
 }

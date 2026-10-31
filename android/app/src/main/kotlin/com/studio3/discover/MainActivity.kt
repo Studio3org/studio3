@@ -1,5 +1,6 @@
 package com.studio3.discover
 
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 
-class MainActivity : FlutterActivity()
+// FlutterFragmentActivity: flutter_stripe's card field and payment sheet need a fragment host.
+class MainActivity : FlutterFragmentActivity()

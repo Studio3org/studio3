@@ -1,0 +1,447 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:studio3/models/chat_message.dart';
+import 'package:studio3/screens/new_message_page.dart';
+import 'package:studio3/services/api_client.dart';
+import 'package:studio3/services/auth_session.dart';
+import 'package:studio3/services/chat_service.dart';
+import 'package:studio3/theme/app_theme.dart';
+import 'package:studio3/theme/studio_colors.dart';
+import 'package:studio3/widgets/inbox/chats_body.dart';
+import 'package:studio3/widgets/studio/studio_avatar.dart';
+import 'package:studio3/widgets/studio/studio_icon.dart';
+import 'package:studio3/widgets/studio/studio_tab_bar.dart';
+import 'package:studio3/utils/app_clock.dart';
+
+import 'golden_harness.dart';
+
+/// `NotifMessages`, `NewMessage` (docs/new-ui/NEW_UI_EXECUTION_PLAN.md, Phase 9).
+final _now = DateTime(2026, 10, 27, 16, 40);
+final _today = DateTime(_now.year, _now.month, _now.day);
+
+ConversationSummary _c(String name, String preview, DateTime at, {bool unread = false, bool muted = false}) =>
+    ConversationSummary(
+      id: name,
+      otherPartyUsername: name.toLowerCase().replaceAll(' ', ''),
+      otherPartyName: name,
+      preview: preview,
+      updatedAt: at,
+      unread: unread,
+      status: 'open',
+      muted: muted,
+    );
+
+final _chats = [
+  _c('Amara Osei', 'It comes unframed, but I can recommend a framer.',
+      _today.add(const Duration(hours: 18, minutes: 30)).isAfter(_now)
+          ? _now.subtract(const Duration(minutes: 5))
+          : _today.add(const Duration(hours: 18, minutes: 30)),
+      unread: true),
+  _c('Cedric Okafor', 'Thanks for collecting! Shipping it Monday.',
+      _now.subtract(const Duration(minutes: 30)), unread: true),
+  // Muted, as on the board (BACKEND_CHANGES B8).
+  _c('Daisy Smith', 'Would you be open to a commission?', _now.subtract(const Duration(days: 2)), muted: true),
+  _c('Jordan Lee', 'See you at the show.', _now.subtract(const Duration(days: 20))),
+];
+
+/// The search endpoint (BACKEND_CHANGES B10), answering with one match.
+class _SearchServer implements HttpClientAdapter {
+  final requests = <Uri>[];
+
+  @override
+  Future<ResponseBody> fetch(RequestOptions options, Stream<List<int>>? requestStream, Future<void>? cancelFuture) async {
+    requests.add(options.uri);
+    final json = {
+      'success': true,
+      'data': {
+        'items': [
+          {
+            'id': 'c7',
+            'otherParty': {'username': 'kofimensah', 'name': 'Kofi Mensah'},
+            'preview': 'Talk soon',
+            'matchPreview': '…the larger one framed in oak',
+            'updatedAt': _now.toUtc().toIso8601String(),
+            'status': 'open',
+          },
+        ],
+        'nextCursor': 'next',
+      },
+    };
+    return ResponseBody.fromString(
+      jsonEncode(json),
+      200,
+      headers: {
+        Headers.contentTypeHeader: ['application/json'],
+      },
+    );
+  }
+
+  @override
+  void close({bool force = false}) {}
+}
+
+/// An older chat the inbox has not loaded, found by a message deep in it.
+final _kofi = ConversationSummary(
+  id: 'c7',
+  otherPartyName: 'Kofi Mensah',
+  preview: 'Talk soon',
+  matchPreview: '…the larger one framed in oak',
+  updatedAt: _now.subtract(const Duration(days: 60)),
+  unread: false,
+  status: 'open',
+);
+
+Widget _app(Widget home, {bool dark = false}) => MaterialApp(
+  key: UniqueKey(),
+  debugShowCheckedModeBanner: false,
+  theme: AppTheme.light,
+  darkTheme: AppTheme.dark,
+  themeMode: dark ? ThemeMode.dark : ThemeMode.light,
+  home: Scaffold(body: home),
+);
+
+void main() {
+  // A fixed date, so "Today · 2:14 PM", "Mon" and the goldens don't move with the real clock.
+  setUp(() => appNow = () => _now);
+  tearDown(() => appNow = DateTime.now);
+  setUpAll(() async {
+    SharedPreferences.setMockInitialValues({});
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+      const MethodChannel('plugins.flutter.io/path_provider'),
+      (call) async => '.',
+    );
+    dotenv.loadFromString(envString: '', isOptional: true);
+    await loadStudioFonts();
+  });
+
+  test('times: clock today, weekday this week, date before', () {
+    final now = DateTime(2026, 10, 25, 20); // Sunday
+    expect(conversationTime(DateTime(2026, 10, 25, 18, 30), now), '6:30 PM');
+    expect(conversationTime(DateTime(2026, 10, 25, 0, 5), now), '12:05 AM');
+    expect(conversationTime(DateTime(2026, 10, 21, 9), now), 'Wed');
+    expect(conversationTime(DateTime(2026, 10, 2), now), 'Oct 2');
+  });
+
+  test('matches are highlighted wherever they appear', () {
+    const match = TextStyle(fontWeight: FontWeight.w500);
+    final span = highlightMatches('Shipping it Monday', 'ship', match);
+    expect(span.children!.map((s) => (s as TextSpan).text), ['Ship', 'ping it Monday']);
+    expect((span.children!.first as TextSpan).style, match);
+  });
+
+  for (final dark in [false, true]) {
+    final c = dark ? StudioColors.dark : StudioColors.light;
+    testWidgets('rows: 56 avatars, unread Ink with a dot, read Tertiary (${dark ? 'dark' : 'light'})', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_app(ChatsBody(debugConversations: _chats), dark: dark));
+      await tester.pump();
+      expect(find.text('Search messages'), findsOneWidget);
+      expect(tester.widgetList<StudioAvatar>(find.byType(StudioAvatar)).map((a) => a.size).toSet(), {56.0});
+      RichText preview(String start) => tester.widget<RichText>(
+        find.byWidgetPredicate((w) => w is RichText && w.text.toPlainText().startsWith(start)),
+      );
+      expect(preview('Thanks for collecting').text.style!.color, c.textPrimary);
+      expect(preview('See you at the show').text.style!.color, c.textTertiary);
+      expect(
+        find.byWidgetPredicate((w) => w is Semantics && w.properties.label == 'Unread'),
+        findsNWidgets(2),
+      );
+      expect(find.text('Oct ${_now.subtract(const Duration(days: 20)).day}'), findsWidgets);
+      expect(find.byType(Icon), findsNothing);
+      // Muted: the crossed-out bell in Placeholder, 16, where the dot would be.
+      final bell = tester.widget<StudioIcon>(
+        find.byWidgetPredicate((w) => w is StudioIcon && w.semanticLabel == 'Muted'),
+      );
+      expect(bell.asset, StudioIcons.bellOff);
+      expect(bell.size, 16);
+      expect(bell.color, c.textPlaceholder);
+    });
+  }
+
+  // BACKEND_CHANGES B9.
+  testWidgets('a chat started about a piece shows its thumbnail on the right, 34 by 45', (tester) async {
+    final about = ConversationSummary(
+      id: 'c1',
+      otherPartyName: 'Amara Osei',
+      preview: 'Hi!',
+      updatedAt: _now,
+      unread: false,
+      status: 'open',
+      piece: const ChatPiece(id: 'p1', title: 'Bodies in Color', imageUrl: ''),
+    );
+    await tester.pumpWidget(_app(ChatsBody(debugConversations: [about, _chats.last])));
+    await tester.pump();
+    final thumbs = find.byWidgetPredicate((w) => w is SizedBox && w.width == 34 && w.height == 45);
+    expect(thumbs, findsOneWidget);
+    expect(
+      tester.getTopRight(thumbs).dx,
+      closeTo(tester.getTopRight(find.byType(ChatsBody)).dx - 20, 21),
+    );
+  });
+
+  testWidgets('a muted chat that is unread still shows the bell, not the dot', (tester) async {
+    await tester.pumpWidget(
+      _app(ChatsBody(debugConversations: [_c('Kai', 'New work', _now, unread: true, muted: true)])),
+    );
+    await tester.pump();
+    expect(find.byWidgetPredicate((w) => w is StudioIcon && w.semanticLabel == 'Muted'), findsOneWidget);
+    expect(find.byWidgetPredicate((w) => w is Semantics && w.properties.label == 'Unread'), findsNothing);
+    expect(
+      ConversationSummary.fromJson({'id': 'x', 'muted': true, 'updatedAt': _now.toIso8601String()}).muted,
+      isTrue,
+    );
+  });
+
+  testWidgets('search filters by name and message, highlighting the match', (tester) async {
+    await tester.pumpWidget(_app(ChatsBody(debugConversations: _chats)));
+    await tester.pump();
+    await tester.enterText(find.byType(TextField), 'commission');
+    await tester.pump();
+    expect(find.byType(ConversationRow), findsOneWidget);
+    expect(find.text('Daisy Smith', findRichText: true), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'nobody');
+    await tester.pump();
+    expect(find.text('No conversations match “nobody”'), findsOneWidget);
+  });
+
+  // BACKEND_CHANGES B10.
+  group('Search messages on the server', () {
+    testWidgets('finds chats beyond the loaded ones and shows the message that matched', (
+      tester,
+    ) async {
+      final asked = <String>[];
+      await tester.pumpWidget(
+        _app(
+          ChatsBody(
+            debugConversations: _chats,
+            debugSearch: (q, cursor) async {
+              asked.add(q);
+              return ConversationInboxPage(items: [_kofi]);
+            },
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.enterText(find.byType(TextField), 'fram');
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.enterText(find.byType(TextField), 'framed ');
+      await tester.pump();
+      // At once: the loaded chats, filtered ("unframed" in Amara's last message).
+      expect(find.text('Amara Osei', findRichText: true), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump();
+      // Typing settles before asking, once.
+      expect(asked, ['framed']);
+      expect(find.text('Amara Osei', findRichText: true), findsNothing);
+      expect(find.text('Kofi Mensah', findRichText: true), findsOneWidget);
+      // The matched message, not the last one, with the match in 500 Ink.
+      expect(find.text('Talk soon', findRichText: true), findsNothing);
+      final preview = tester.widget<RichText>(
+        find.byWidgetPredicate(
+          (w) => w is RichText && w.text.toPlainText() == '…the larger one framed in oak',
+        ),
+      );
+      final match = (preview.text as TextSpan).children!
+          .expand((s) => (s as TextSpan).children ?? [s])
+          .cast<TextSpan>()
+          .firstWhere((s) => s.text == 'framed');
+      expect(match.style!.fontWeight, FontWeight.w500);
+
+      // Clearing the search goes back to the inbox.
+      await tester.enterText(find.byType(TextField), '');
+      await tester.pump();
+      expect(find.byType(ConversationRow), findsNWidgets(_chats.length));
+    });
+
+    testWidgets('while it looks, a spinner rather than "no match"', (tester) async {
+      final answer = Completer<ConversationInboxPage>();
+      await tester.pumpWidget(
+        _app(ChatsBody(debugConversations: _chats, debugSearch: (q, cursor) => answer.future)),
+      );
+      await tester.pump();
+      await tester.enterText(find.byType(TextField), 'oak');
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.textContaining('No conversations match'), findsNothing);
+      answer.complete(const ConversationInboxPage(items: []));
+      await tester.pump();
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(find.text('No conversations match “oak”'), findsOneWidget);
+    });
+
+    testWidgets('if the search fails, the loaded chats stay filtered', (tester) async {
+      await tester.pumpWidget(
+        _app(
+          ChatsBody(
+            debugConversations: _chats,
+            debugSearch: (q, cursor) async => throw Exception('offline'),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.enterText(find.byType(TextField), 'commission');
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump();
+      expect(find.byType(ConversationRow), findsOneWidget);
+      expect(find.text('Daisy Smith', findRichText: true), findsOneWidget);
+    });
+
+    test('asks the search endpoint with what was typed and reads the matched message', () async {
+      final server = _SearchServer();
+      ApiClient.instance.debugUseAdapter(server);
+      final wasToken = AuthSession.instance.accessToken;
+      AuthSession.instance.accessToken = 'token';
+      addTearDown(() => AuthSession.instance.accessToken = wasToken);
+
+      final page = await ChatService.instance.searchConversations('framed oak', cursor: 'abc');
+
+      expect(server.requests.single.path, '/api/conversations/search');
+      expect(server.requests.single.queryParameters, {'q': 'framed oak', 'cursor': 'abc'});
+      expect(page.items.single.otherPartyName, 'Kofi Mensah');
+      expect(page.items.single.matchPreview, '…the larger one framed in oak');
+      expect(page.nextCursor, 'next');
+      expect(ConversationSummary.fromJson({'id': 'c1'}).matchPreview, isNull);
+    });
+  });
+
+  testWidgets('pending message requests sit behind a row', (tester) async {
+    await tester.pumpWidget(
+      _app(
+        ChatsBody(
+          debugConversations: _chats,
+          debugRequests: [_c('Kai Mori', 'Hi! Is this still available?', _now)],
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('Message requests'), findsOneWidget);
+    expect(find.text('1'), findsOneWidget);
+    expect(find.text('Kai Mori'), findsNothing);
+  });
+
+  testWidgets('empty Messages says how to start one', (tester) async {
+    await tester.pumpWidget(_app(const ChatsBody(debugConversations: [])));
+    await tester.pump();
+    expect(find.text('No messages yet'), findsOneWidget);
+  });
+
+  group('New message', () {
+    const following = [
+      MessageContact(username: 'amarasart', name: 'Amara Osei'),
+      MessageContact(username: 'cedricokafor', name: 'Cedric Okafor'),
+    ];
+    const recent = [
+      MessageContact(username: 'amarasart', name: 'Amara Osei'),
+      MessageContact(username: 'jordanlee', name: 'Jordan Lee'),
+    ];
+
+    testWidgets('Cancel, title, search; Artists you follow then Recent (no repeats)', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: const NewMessagePage(recent: recent, debugFollowing: following),
+        ),
+      );
+      await tester.pump();
+      expect(find.text('Cancel'), findsOneWidget);
+      expect(find.text('New message'), findsOneWidget);
+      expect(find.text('Search artists and collectors'), findsOneWidget);
+      expect(find.text('ARTISTS YOU FOLLOW'), findsOneWidget);
+      expect(find.text('RECENT'), findsOneWidget);
+      expect(find.text('Amara Osei'), findsOneWidget);
+      expect(find.text('@jordanlee'), findsOneWidget);
+      expect(
+        tester.widgetList<StudioAvatar>(find.byType(StudioAvatar)).map((a) => a.size).toSet(),
+        {44.0},
+      );
+    });
+
+    testWidgets('typing searches everyone', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: NewMessagePage(
+            debugFollowing: following,
+            debugSearch: (q) async => [MessageContact(username: 'sarahsunnyart', name: 'Sarah $q')],
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.enterText(find.byType(TextField), 'Osmei');
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump();
+      expect(find.text('Sarah Osmei'), findsOneWidget);
+      expect(find.text('ARTISTS YOU FOLLOW'), findsNothing);
+    });
+  });
+
+  group('goldens', () {
+    final skip = Platform.environment['NEW_UI_GOLDENS'] != '1';
+    testWidgets('NotifMessages', (tester) async {
+      setBoardViewport(tester);
+      await tester.pumpWidget(
+        MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.light,
+          home: DefaultTabController(
+            length: 3,
+            initialIndex: 1,
+            child: Scaffold(
+              body: SafeArea(
+                child: Column(
+                  children: [
+                    const SizedBox(height: 56),
+                    const StudioTabBar(
+                      labels: ['Activity', 'Messages', 'Requests'],
+                      counts: [null, 2, null],
+                      ruleFullWidth: true,
+                    ),
+                    Expanded(child: ChatsBody(debugConversations: _chats)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(seconds: 1));
+      await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/NotifMessages.png'));
+      await checkAcceptance(tester);
+    }, skip: skip);
+
+    testWidgets('NewMessage', (tester) async {
+      setBoardViewport(tester);
+      await tester.pumpWidget(
+        MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.light,
+          home: const NewMessagePage(
+            recent: [
+              MessageContact(username: 'jordanlee', name: 'Jordan Lee'),
+              MessageContact(username: 'sarahsunnyart', name: 'Sarah Osmei'),
+            ],
+            debugFollowing: [
+              MessageContact(username: 'amarasart', name: 'Amara Osei'),
+              MessageContact(username: 'cedricokafor', name: 'Cedric Okafor'),
+              MessageContact(username: 'daisysmith', name: 'Daisy Smith'),
+            ],
+          ),
+        ),
+      );
+      await tester.pump();
+      await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/NewMessage.png'));
+      await checkAcceptance(tester);
+    }, skip: skip);
+  });
+}

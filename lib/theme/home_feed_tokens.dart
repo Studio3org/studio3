@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 
 /// Home feed design tokens (Studio 3 For You).
+///
+/// Pre-redesign values, kept unchanged so screens not yet rebuilt don't shift mid-migration.
+/// Rebuilt screens read `context.studio` (`studio_colors.dart`), `StudioType` and
+/// `StudioRadius` / `StudioSpace` instead; this file is deleted in Phase 11 of
+/// docs/new-ui/NEW_UI_EXECUTION_PLAN.md once nothing imports it.
 abstract final class HomeFeedTokens {
   static const Color background = Color(0xFFFAFAF7);
   static const Color detailBackground = Color(0xFFF5F2EE);

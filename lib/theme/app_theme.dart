@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter/services.dart';
 
-/// Studio 3 Discover — design tokens
+import 'auth_palette.dart';
+import 'studio_colors.dart';
+import 'studio_metrics.dart';
+import 'studio_type.dart';
+
+/// Pre-redesign slate palette. Still read by screens not yet rebuilt; each screen moves to
+/// `context.studio` (`studio_colors.dart`) when it is rebuilt, and this goes in Phase 11.
 class AppColors {
   AppColors._();
   static const Color white = Color(0xFFFFFFFF);
@@ -19,6 +25,7 @@ class AppColors {
   static const Color black = Color(0xFF000000);
 }
 
+/// Pre-redesign sizes. New code uses `StudioSpace` / `StudioRadius` / `StudioSize`.
 class AppDims {
   AppDims._();
   static const double radiusSm = 8;
@@ -34,160 +41,207 @@ class AppDims {
   static const double primaryButtonHeight = 52;
 }
 
+/// Light and dark [ThemeData] built from the new-UI tokens (`StudioColors`, `StudioType`,
+/// `StudioRadius`). Both register [StudioColors] and [AuthPalette] as extensions.
 class AppTheme {
+  /// Where to look for a glyph the app fonts don't have — emoji, above all. Flutter only
+  /// resolves a glyph outside the primary font if it is told where to look; without this,
+  /// emoji in a chat message, caption or bio render blank on iOS.
+  static const List<String> emojiFallback = [
+    'Apple Color Emoji',
+    'Noto Color Emoji',
+    'Segoe UI Emoji',
+  ];
+
   AppTheme._();
 
-  /// Inter for all app text (via [GoogleFonts]).
-  static String get _interFamily => GoogleFonts.inter().fontFamily!;
+  static ThemeData get light => _build(StudioColors.light, Brightness.light, AuthPalette.light);
 
-  static ThemeData get light {
-    final base = ThemeData.light(useMaterial3: true);
-    final textTheme = GoogleFonts.interTextTheme(base.textTheme).copyWith(
-      headlineMedium: GoogleFonts.inter(
-        fontSize: 28,
-        fontWeight: FontWeight.w700,
-        color: AppColors.slate900,
+  static ThemeData get dark => _build(StudioColors.dark, Brightness.dark, AuthPalette.dark);
+
+  static ThemeData _build(StudioColors c, Brightness brightness, AuthPalette auth) {
+    final isDark = brightness == Brightness.dark;
+
+    final overlay = (isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark).copyWith(
+      statusBarColor: Colors.transparent,
+      systemNavigationBarColor: c.background,
+      systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+      systemNavigationBarDividerColor: Colors.transparent,
+    );
+
+    final colorScheme = ColorScheme(
+      brightness: brightness,
+      primary: c.buttonFill,
+      onPrimary: c.buttonText,
+      secondary: c.textSecondary,
+      onSecondary: c.background,
+      error: c.alert,
+      onError: StudioColors.galleryWhite,
+      surface: c.background,
+      onSurface: c.textPrimary,
+      onSurfaceVariant: c.textSecondary,
+      surfaceContainerLowest: c.background,
+      surfaceContainerLow: c.background,
+      surfaceContainer: c.surface,
+      surfaceContainerHigh: c.surface,
+      surfaceContainerHighest: c.surface,
+      outline: c.lineStrong,
+      outlineVariant: c.line,
+      shadow: StudioColors.ink,
+      scrim: c.scrim,
+      inverseSurface: c.tooltipFill,
+      onInverseSurface: c.tooltipText,
+      surfaceTint: Colors.transparent,
+    );
+
+    // Material roles mapped onto the HandoffRules type scale (titles 24–32, headers 17–20,
+    // body 14–16, labels 13, captions 12; Mono for facts).
+    final textTheme = TextTheme(
+      displayLarge: StudioType.title32(color: c.textPrimary),
+      displayMedium: StudioType.title30(color: c.textPrimary),
+      displaySmall: StudioType.title26(color: c.textPrimary),
+      headlineLarge: StudioType.title32(color: c.textPrimary),
+      headlineMedium: StudioType.title30(color: c.textPrimary),
+      headlineSmall: StudioType.title26(color: c.textPrimary),
+      titleLarge: StudioType.title22(color: c.textPrimary),
+      titleMedium: StudioType.header17(color: c.textPrimary),
+      titleSmall: StudioType.sans(15, weight: StudioType.medium, color: c.textPrimary),
+      bodyLarge: StudioType.body16(color: c.textPrimary),
+      bodyMedium: StudioType.body14(color: c.textPrimary),
+      bodySmall: StudioType.caption12(color: c.textSecondary),
+      labelLarge: StudioType.sans(15, weight: StudioType.medium, color: c.textPrimary),
+      labelMedium: StudioType.label13(color: c.textSecondary),
+      labelSmall: StudioType.mono11(color: c.textSecondary),
+    ).apply(fontFamilyFallback: emojiFallback);
+
+    final buttonShape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(StudioRadius.button),
+    );
+    final primaryStyle = ButtonStyle(
+      elevation: const WidgetStatePropertyAll(0),
+      shape: WidgetStatePropertyAll(buttonShape),
+      minimumSize: const WidgetStatePropertyAll(Size(0, StudioSize.buttonPrimary)),
+      padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 20)),
+      textStyle: WidgetStatePropertyAll(StudioType.sans(15, weight: StudioType.medium)),
+      backgroundColor: WidgetStateProperty.resolveWith(
+        (s) => s.contains(WidgetState.disabled) ? c.buttonDisabledFill : c.buttonFill,
       ),
-      titleLarge: GoogleFonts.inter(
-        fontSize: 22,
-        fontWeight: FontWeight.w700,
-        color: AppColors.slate900,
+      foregroundColor: WidgetStateProperty.resolveWith(
+        (s) => s.contains(WidgetState.disabled) ? c.buttonDisabledText : c.buttonText,
       ),
-      titleMedium: GoogleFonts.inter(
-        fontSize: 20,
-        fontWeight: FontWeight.w600,
-        color: AppColors.slate900,
-      ),
-      titleSmall: GoogleFonts.inter(
-        fontSize: 16,
-        fontWeight: FontWeight.w600,
-        color: AppColors.slate900,
-      ),
-      bodyMedium: GoogleFonts.inter(
-        fontSize: 14,
-        fontWeight: FontWeight.w400,
-        color: AppColors.slate700,
-      ),
-      bodySmall: GoogleFonts.inter(
-        fontSize: 13,
-        fontWeight: FontWeight.w400,
-        color: AppColors.slate500,
-      ),
-      labelMedium: GoogleFonts.inter(
-        fontSize: 12,
-        fontWeight: FontWeight.w400,
-        color: AppColors.slate400,
-      ),
-      labelSmall: GoogleFonts.inter(
-        fontSize: 11,
-        fontWeight: FontWeight.w400,
-        color: AppColors.slate400,
-      ),
+      overlayColor: WidgetStatePropertyAll(c.buttonText.withValues(alpha: 0.08)),
     );
 
     return ThemeData(
       useMaterial3: true,
-      fontFamily: _interFamily,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: AppColors.slate900,
-        brightness: Brightness.light,
-        primary: AppColors.slate900,
-      ),
-      scaffoldBackgroundColor: AppColors.slate50,
-      appBarTheme: AppBarTheme(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        centerTitle: true,
-        titleTextStyle: GoogleFonts.inter(
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
-          color: AppColors.slate900,
-        ),
-      ),
+      brightness: brightness,
+      colorScheme: colorScheme,
+      fontFamily: StudioType.geist,
       textTheme: textTheme,
-      filledButtonTheme: FilledButtonThemeData(
-        style: FilledButton.styleFrom(
-          textStyle: GoogleFonts.inter(
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+      scaffoldBackgroundColor: c.background,
+      canvasColor: c.background,
+      dividerColor: c.line,
+      splashFactory: NoSplash.splashFactory,
+      highlightColor: Colors.transparent,
+      iconTheme: IconThemeData(color: c.textPrimary, size: 22),
+      appBarTheme: AppBarTheme(
+        backgroundColor: c.background,
+        foregroundColor: c.textPrimary,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: true,
+        systemOverlayStyle: overlay,
+        iconTheme: IconThemeData(color: c.textPrimary, size: 22),
+        titleTextStyle: StudioType.header17(color: c.textPrimary),
       ),
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          textStyle: GoogleFonts.inter(
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
+      filledButtonTheme: FilledButtonThemeData(style: primaryStyle),
+      elevatedButtonTheme: ElevatedButtonThemeData(style: primaryStyle),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          textStyle: GoogleFonts.inter(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
+          foregroundColor: c.textPrimary,
+          minimumSize: const Size(0, StudioSize.buttonInline),
+          shape: buttonShape,
+          side: BorderSide(color: c.lineStrong),
+          textStyle: StudioType.body14(weight: StudioType.medium),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          textStyle: GoogleFonts.inter(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
+          foregroundColor: c.textPrimary,
+          minimumSize: const Size(0, StudioSize.tapTarget),
+          textStyle: StudioType.body14(weight: StudioType.medium),
         ),
       ),
+      // Fields: label above, value on a single underline; focused underline is Ink.
       inputDecorationTheme: InputDecorationTheme(
-        labelStyle: GoogleFonts.inter(color: AppColors.slate500),
-        hintStyle: GoogleFonts.inter(color: AppColors.slate400),
-        helperStyle: GoogleFonts.inter(fontSize: 12, color: AppColors.slate500),
-        errorStyle: GoogleFonts.inter(fontSize: 12, color: AppColors.slate700),
-      ),
-    );
-  }
-
-  static ThemeData get dark {
-    final base = ThemeData.dark(useMaterial3: true);
-    final textTheme = GoogleFonts.interTextTheme(base.textTheme).copyWith(
-      headlineMedium: GoogleFonts.inter(
-        fontSize: 28,
-        fontWeight: FontWeight.w700,
-        color: const Color(0xFFFAFAF7),
-      ),
-      titleLarge: GoogleFonts.inter(
-        fontSize: 22,
-        fontWeight: FontWeight.w700,
-        color: const Color(0xFFFAFAF7),
-      ),
-      bodyMedium: GoogleFonts.inter(
-        fontSize: 14,
-        fontWeight: FontWeight.w400,
-        color: const Color(0xFFC8C5BC),
-      ),
-    );
-
-    return ThemeData(
-      useMaterial3: true,
-      fontFamily: _interFamily,
-      brightness: Brightness.dark,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: const Color(0xFF231F1B),
-        brightness: Brightness.dark,
-        primary: const Color(0xFFFAFAF7),
-      ),
-      scaffoldBackgroundColor: const Color(0xFF231F1B),
-      appBarTheme: AppBarTheme(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        centerTitle: true,
-        foregroundColor: const Color(0xFFFAFAF7),
-        titleTextStyle: GoogleFonts.inter(
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
-          color: const Color(0xFFFAFAF7),
+        isDense: true,
+        contentPadding: const EdgeInsets.only(bottom: 8, top: 6),
+        labelStyle: StudioType.label13(color: c.textSecondary),
+        floatingLabelStyle: StudioType.label13(color: c.textSecondary),
+        hintStyle: StudioType.sans(17, color: c.textPlaceholder),
+        helperStyle: StudioType.caption12(height: 1.45, color: c.textTertiary),
+        errorStyle: StudioType.caption12(height: 1.45, color: c.textPrimary),
+        border: UnderlineInputBorder(borderSide: BorderSide(color: c.lineStrong)),
+        enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: c.lineStrong)),
+        focusedBorder: UnderlineInputBorder(
+          borderSide: BorderSide(color: c.textPrimary, width: 1.5),
+        ),
+        errorBorder: UnderlineInputBorder(borderSide: BorderSide(color: c.textPrimary)),
+        focusedErrorBorder: UnderlineInputBorder(
+          borderSide: BorderSide(color: c.textPrimary, width: 1.5),
         ),
       ),
-      textTheme: textTheme,
+      textSelectionTheme: TextSelectionThemeData(
+        cursorColor: c.textPrimary,
+        selectionColor: c.textPrimary.withValues(alpha: 0.18),
+        selectionHandleColor: c.textPrimary,
+      ),
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith(
+          (s) => s.contains(WidgetState.selected) ? c.switchKnobOn : c.switchKnob,
+        ),
+        trackColor: WidgetStateProperty.resolveWith(
+          (s) => s.contains(WidgetState.selected) ? c.switchOn : c.switchOff,
+        ),
+        trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
+        thumbIcon: const WidgetStatePropertyAll(null),
+      ),
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: c.background,
+        modalBackgroundColor: c.background,
+        surfaceTintColor: Colors.transparent,
+        modalBarrierColor: c.scrim,
+        elevation: 0,
+        modalElevation: 0,
+        dragHandleColor: c.lineStrong,
+        dragHandleSize: const Size(40, 5),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(StudioRadius.sheet)),
+        ),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: c.background,
+        surfaceTintColor: Colors.transparent,
+        barrierColor: c.scrim,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(StudioRadius.panel)),
+        titleTextStyle: StudioType.title22(color: c.textPrimary),
+        contentTextStyle: StudioType.body15(color: c.textSecondary),
+      ),
+      dividerTheme: DividerThemeData(color: c.line, thickness: 1, space: 1),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: c.tooltipFill,
+        contentTextStyle: StudioType.body14(weight: StudioType.medium, color: c.tooltipText),
+        behavior: SnackBarBehavior.floating,
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(StudioRadius.button)),
+      ),
+      progressIndicatorTheme: ProgressIndicatorThemeData(
+        color: c.textPrimary,
+        linearTrackColor: c.line,
+        circularTrackColor: Colors.transparent,
+      ),
+      extensions: [c, auth],
     );
   }
 }

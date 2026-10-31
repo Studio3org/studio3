@@ -1,19 +1,24 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../models/feed_item.dart';
 import '../models/feed_page.dart';
 import '../models/feed_preview_item.dart' show FeedAvailabilityFilter;
-import '../theme/home_feed_tokens.dart';
+import '../models/studio_event.dart';
+import '../theme/studio_colors.dart';
+import '../theme/studio_metrics.dart';
+import '../theme/studio_type.dart';
 import '../utils/explore_detail_route.dart';
-import '../utils/require_login.dart';
-import '../utils/image_aspect_ratio_resolver.dart';
 import '../widgets/feed_skeleton.dart';
 import '../widgets/home_feed/home_feed_widgets.dart';
 import '../widgets/offline_state.dart';
+import '../widgets/studio/studio_empty_state.dart';
 import '../services/blocked_authors_store.dart';
 import '../services/connectivity_service.dart';
 import '../services/feed_service.dart';
+import '../services/event_service.dart';
+import '../utils/profile_navigation.dart';
+import '../widgets/home_feed/feed_event_card.dart';
+import 'event_detail_page.dart';
 import '../utils/scrolls_to_top_on_double_tap.dart';
 import 'reels_page.dart' show routeObserver;
 
@@ -27,15 +32,23 @@ class HomeFeedStore extends ChangeNotifier {
   String? nextCursor;
   bool showOfflineState = false;
 
+  /// The first page failed while online and there is nothing to show: Try again.
+  bool failed = false;
+
+  /// The last page after the first failed; the feed stops asking on its own until the next
+  /// scroll or refresh, so a server error doesn't turn into a request loop.
+  bool appendFailed = false;
+
   bool _initialized = false;
 
+  /// What can be collected now: available, or in a live auction. Not `isForSale`, which the
+  /// server leaves on after a piece is collected.
   List<FeedItem> get availableItems =>
-      apiItems.where((item) => item.isForSale).toList();
+      apiItems.where((item) => item.isAvailableListing || item.isAuctionLive).toList();
 
   /// The "All" tab never shows video scenes — those live in Explore/Reels
   /// only.
-  List<FeedItem> get feedItems =>
-      apiItems.where((item) => !item.isVideo).toList();
+  List<FeedItem> get feedItems => apiItems.where((item) => !item.isVideo).toList();
 
   /// Paints instantly from whatever's already cached (if anything) instead
   /// of starting from an empty spinner, then kicks off a fetch to silently
@@ -111,18 +124,20 @@ class HomeFeedStore extends ChangeNotifier {
       nextCursor = page.nextCursor;
       loading = false;
       loadingMore = false;
-      showOfflineState =
-          apiItems.isEmpty && !ConnectivityService.instance.isOnline;
+      failed = false;
+      appendFailed = false;
+      showOfflineState = apiItems.isEmpty && !ConnectivityService.instance.isOnline;
       notifyListeners();
     } catch (_) {
       // Keep whatever's already showing (cached or previously-loaded) on
       // a failed refresh — a silent background failure shouldn't blank a
       // screen that already has content, only a genuinely empty one
-      // falls through to the offline state.
+      // falls through to the offline state (or, online, to Try again).
       loading = false;
       loadingMore = false;
-      showOfflineState =
-          apiItems.isEmpty && !ConnectivityService.instance.isOnline;
+      if (append) appendFailed = true;
+      showOfflineState = apiItems.isEmpty && !ConnectivityService.instance.isOnline;
+      failed = apiItems.isEmpty && !showOfflineState;
       notifyListeners();
     }
   }
@@ -136,8 +151,7 @@ class HomeFeedStore extends ChangeNotifier {
       ..clear()
       ..addAll(page.items);
     nextCursor = page.nextCursor;
-    showOfflineState =
-        apiItems.isEmpty && !ConnectivityService.instance.isOnline;
+    showOfflineState = apiItems.isEmpty && !ConnectivityService.instance.isOnline;
     notifyListeners();
   }
 }
@@ -148,20 +162,27 @@ class HomeFeedStore extends ChangeNotifier {
 /// with local state, rather than separate pages in the shell's outer
 /// Home/Discover/Reels/Saved swipe sequence (`MainShell`, `lib/main.dart`).
 class HomePage extends StatefulWidget {
-  const HomePage({super.key, required this.store});
+  const HomePage({super.key, required this.store, this.debugFeedEvent});
 
   final HomeFeedStore store;
+
+  /// For tests: the event card's event, instead of picking one from the Events tab data.
+  @visibleForTesting
+  final StudioEvent? debugFeedEvent;
 
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage>
-    with RouteAware, ScrollsToTopOnDoubleTap<HomePage> {
+class _HomePageState extends State<HomePage> with RouteAware, ScrollsToTopOnDoubleTap<HomePage> {
   static const double _loadMoreThreshold = 200;
 
   final ScrollController _scrollController = ScrollController();
   bool _showAvailable = false;
+
+  /// The one event card for this feed load (`NoteMain`): picked when the feed loads and again
+  /// on pull to refresh.
+  StudioEvent? _feedEvent;
 
   @override
   void initState() {
@@ -169,6 +190,34 @@ class _HomePageState extends State<HomePage>
     widget.store.ensureInitialized();
     widget.store.addListener(_onStoreChanged);
     _scrollController.addListener(_onScroll);
+    _loadFeedEvent();
+  }
+
+  Future<void> _loadFeedEvent() async {
+    final given = widget.debugFeedEvent;
+    if (given != null) {
+      _feedEvent = given;
+      return;
+    }
+    try {
+      final browse = await EventService.instance.browseCached();
+      final picked = pickFeedEvent(browse, DateTime.now());
+      if (picked == null) {
+        if (mounted) setState(() => _feedEvent = null);
+        return;
+      }
+      if (mounted) setState(() => _feedEvent = picked);
+      // The browse card has no lineup; the detail says whether to show "Showing work".
+      final full = await EventService.instance.getById(picked.id);
+      if (mounted && _feedEvent?.id == full.id) setState(() => _feedEvent = full);
+    } catch (_) {
+      // No card this time; the feed itself is unaffected.
+    }
+  }
+
+  Future<void> _refresh() async {
+    await widget.store.refresh();
+    await _loadFeedEvent();
   }
 
   @override
@@ -186,11 +235,30 @@ class _HomePageState extends State<HomePage>
     super.dispose();
   }
 
+  /// Back from a piece or profile: refresh only near the top. Further down, a refresh would
+  /// swap the pages already scrolled through for the first one and move the list.
   @override
-  void didPopNext() => widget.store.refresh();
+  void didPopNext() {
+    final offset = _scrollController.hasClients ? _scrollController.offset : 0.0;
+    if (offset < _loadMoreThreshold) widget.store.refresh();
+  }
 
   void _onStoreChanged() {
     if (mounted) setState(() {});
+  }
+
+  /// A short list (few Available pieces, or a page of videos Home leaves out) can't be
+  /// scrolled to its end, so it asks for the next page itself until the screen is full.
+  void _fillScreen() {
+    final store = widget.store;
+    if (!mounted || store.loading || store.loadingMore || store.appendFailed) return;
+    if (store.nextCursor == null || store.nextCursor!.isEmpty) return;
+    final shown = _showAvailable ? store.availableItems : store.feedItems;
+    final short = shown.isEmpty ||
+        (_scrollController.hasClients &&
+            _scrollController.position.hasContentDimensions &&
+            _scrollController.position.maxScrollExtent <= _loadMoreThreshold);
+    if (short) store.loadMore();
   }
 
   void _onScroll() {
@@ -224,56 +292,36 @@ class _HomePageState extends State<HomePage>
   @override
   void scrollToTopAndRefresh() {
     if (_scrollController.hasClients) {
-      _scrollController.animateTo(
-        0,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
+      _scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
     }
     widget.store.refresh();
   }
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.paddingOf(context).bottom + 100;
+    final bottomInset = MediaQuery.paddingOf(context).bottom + 64 + 28 + 20;
     final store = widget.store;
     final items = _showAvailable ? store.availableItems : store.feedItems;
-    final filter = _showAvailable
-        ? FeedAvailabilityFilter.available
-        : FeedAvailabilityFilter.all;
+    final filter = _showAvailable ? FeedAvailabilityFilter.available : FeedAvailabilityFilter.all;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _fillScreen());
 
     return Scaffold(
-      backgroundColor: HomeFeedTokens.background,
+      backgroundColor: context.studio.background,
       body: SafeArea(
         bottom: false,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(0, 8, 0, 12),
-              child: FeedHomeHeader(
-                filter: filter,
-                onFilterChanged: _onFilterTap,
-                onAddTap: () async {
-                  if (!await requireLogin(
-                    context,
-                    message: 'Log in or create a free account to post '
-                        'your work.',
-                  )) {
-                    return;
-                  }
-                  if (context.mounted) Navigator.pushNamed(context, '/post');
-                },
-                hasAvailableItems: store.availableItems.isNotEmpty,
-              ),
+            FeedHomeHeader(
+              filter: filter,
+              onFilterChanged: _onFilterTap,
+              hasAvailableItems: store.availableItems.isNotEmpty,
             ),
             Expanded(
               child: _buildFeed(
                 bottomInset,
                 items: items,
-                emptyMessage: _showAvailable
-                    ? 'No available pieces yet'
-                    : 'No feed items yet',
+                emptyMessage: _showAvailable ? 'No available pieces yet' : 'No feed items yet',
               ),
             ),
           ],
@@ -282,11 +330,7 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  Widget _buildFeed(
-    double bottomInset, {
-    required List<FeedItem> items,
-    required String emptyMessage,
-  }) {
+  Widget _buildFeed(double bottomInset, {required List<FeedItem> items, required String emptyMessage}) {
     final store = widget.store;
     if (store.showOfflineState) {
       return OfflineState(onRetry: () => store.refresh());
@@ -297,157 +341,105 @@ class _HomePageState extends State<HomePage>
       // something in ensureInitialized().
       return const FeedListSkeleton();
     }
+    if (store.failed) {
+      return RefreshIndicator(
+        color: context.studio.textPrimary,
+        onRefresh: _refresh,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: [
+            SizedBox(height: MediaQuery.sizeOf(context).height * 0.22),
+            StudioEmptyState(
+              title: "Couldn't load your feed",
+              message: 'Check your connection and try again.',
+              actionLabel: 'Try again',
+              onAction: _refresh,
+            ),
+          ],
+        ),
+      );
+    }
+    // Nothing on this filter yet, but more pages to look through (see [_fillScreen]).
+    if (items.isEmpty && (store.loadingMore || (store.nextCursor?.isNotEmpty == true && !store.appendFailed))) {
+      return Center(
+        child: SizedBox.square(
+          dimension: 24,
+          child: CircularProgressIndicator(strokeWidth: 2, color: context.studio.textPrimary),
+        ),
+      );
+    }
 
     if (items.isEmpty) {
       return RefreshIndicator(
-        onRefresh: () => store.refresh(),
+        onRefresh: _refresh,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           children: [
             SizedBox(height: MediaQuery.sizeOf(context).height * 0.35),
             Center(
-              child: Text(
-                emptyMessage,
-                style: TextStyle(
-                  color: HomeFeedTokens.textSecondary,
-                  fontSize: 14,
-                ),
-              ),
+              child: Text(emptyMessage, style: StudioType.body14(color: context.studio.textSecondary)),
             ),
           ],
         ),
       );
     }
 
+    final rows = <Widget>[];
+    final seenSeries = <String>{};
+    for (final item in items) {
+      final series = item.piece?.series;
+      if (series != null && series.previewPieces.isNotEmpty && seenSeries.add(series.id)) {
+        rows.add(
+          FeedSeriesRow(
+            series: series,
+            artistName: item.authorName?.trim().isNotEmpty == true ? item.authorName!.trim() : 'Artist',
+            artistUsername: item.authorUsername,
+          ),
+        );
+      }
+      rows.add(FeedPieceCard(item: item, onTap: () => _openApiItem(item)));
+    }
+
+    // One event card per load, on All only, never next to a series row (`NoteMain`).
+    final event = _showAvailable ? null : _feedEvent;
+    final at = event == null ? -1 : feedEventSlot([for (final r in rows) r is FeedSeriesRow]);
+    if (event != null && at >= 0) {
+      rows.insert(
+        at,
+        FeedEventCard(
+          key: const ValueKey('feed-event'),
+          event: event,
+          onOpen: () => openEventDetail(context, event),
+          onGetTickets: () => openEventDetail(context, event, openTickets: true),
+          onArtist: (artist) => openUserProfile(context, artist.username),
+        ),
+      );
+    }
+
     return RefreshIndicator(
-      onRefresh: () => store.refresh(),
-      child: ListView.builder(
+      color: context.studio.textPrimary,
+      onRefresh: _refresh,
+      child: ListView.separated(
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         padding: EdgeInsets.only(bottom: bottomInset),
-        itemCount: items.length + (store.loadingMore ? 1 : 0),
+        itemCount: rows.length + (store.loadingMore ? 1 : 0),
+        separatorBuilder: (_, _) => const SizedBox(height: StudioSpace.feedGap),
         itemBuilder: (context, index) {
-          if (index >= items.length) {
-            return const Padding(
-              padding: EdgeInsets.symmetric(vertical: 16),
+          if (index >= rows.length) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
               child: Center(
                 child: SizedBox(
                   width: 24,
                   height: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  child: CircularProgressIndicator(strokeWidth: 2, color: context.studio.textPrimary),
                 ),
               ),
             );
           }
-          final item = items[index];
-          return Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: HomeFeedTokens.sideMargin,
-            ).copyWith(bottom: HomeFeedTokens.rowGap),
-            child: _ApiFeedTile(item: item, onTap: () => _openApiItem(item)),
-          );
+          return rows[index];
         },
-      ),
-    );
-  }
-}
-
-/// A "For You" feed card that sizes itself to the item's real posted
-/// aspect ratio (3:4 or 16:9) instead of a fixed shape, so the image shows
-/// fully instead of being cropped to a mismatched box.
-class _ApiFeedTile extends StatefulWidget {
-  const _ApiFeedTile({required this.item, required this.onTap});
-
-  final FeedItem item;
-  final VoidCallback onTap;
-
-  @override
-  State<_ApiFeedTile> createState() => _ApiFeedTileState();
-}
-
-class _ApiFeedTileState extends State<_ApiFeedTile> {
-  double _aspectRatio = ImageAspectRatioResolver.portrait3x4;
-
-  @override
-  void initState() {
-    super.initState();
-    _resolveAspectRatio();
-  }
-
-  @override
-  void didUpdateWidget(covariant _ApiFeedTile oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.item.mediaUrl != widget.item.mediaUrl) {
-      _resolveAspectRatio();
-    }
-  }
-
-  void _resolveAspectRatio() {
-    final stored = widget.item.mediaAspectRatio;
-    if (stored != null) {
-      // Known synchronously from the baked-at-publish-time ratio — no
-      // decode round-trip, so the tile never renders at the wrong shape
-      // before snapping to the real one.
-      _aspectRatio = stored == '16:9'
-          ? ImageAspectRatioResolver.landscape16x9
-          : ImageAspectRatioResolver.portrait3x4;
-      return;
-    }
-
-    // Fallback for legacy content published before mediaAspectRatio existed
-    // (and for videos, which have no crop/transform step today).
-    if (widget.item.isVideo) {
-      _aspectRatio = ImageAspectRatioResolver.landscape16x9;
-    }
-    final url = widget.item.mediaUrl;
-    if (url == null) return;
-    final cached = ImageAspectRatioResolver.cached(url);
-    if (cached != null) {
-      _aspectRatio = cached;
-      return;
-    }
-    ImageAspectRatioResolver.resolve(url).then((ratio) {
-      if (mounted) setState(() => _aspectRatio = ratio);
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final item = widget.item;
-    final url = item.mediaUrl;
-
-    return GestureDetector(
-      onTap: widget.onTap,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(HomeFeedTokens.cardRadius),
-        child: AspectRatio(
-          aspectRatio: _aspectRatio,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (url != null)
-                CachedNetworkImage(
-                  imageUrl: url,
-                  fit: BoxFit.cover,
-                  memCacheWidth:
-                      (MediaQuery.sizeOf(context).width *
-                              MediaQuery.devicePixelRatioOf(context))
-                          .round(),
-                  errorWidget: (context, error, stackTrace) =>
-                      ColoredBox(color: Colors.grey.shade300),
-                )
-              else
-                ColoredBox(color: Colors.grey.shade300),
-              if (item.type == FeedItemType.piece)
-                FeedApiCardOverlay(
-                  avatarUrl: item.authorAvatarUrl,
-                  name: item.authorName ?? 'Artist',
-                  medium: item.piece?.medium,
-                  authorUsername: item.authorUsername,
-                ),
-            ],
-          ),
-        ),
       ),
     );
   }

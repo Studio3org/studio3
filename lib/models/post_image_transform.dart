@@ -14,6 +14,8 @@ class PostImageTransform {
     this.brightness = 50,
     this.contrast = 50,
     this.exposure = 50,
+    this.warmth = 50,
+    this.originalAspect,
   });
 
   CropAspectRatio aspectRatio;
@@ -37,6 +39,14 @@ class PostImageTransform {
   double brightness;
   double contrast;
   double exposure;
+  double warmth;
+
+  /// Set when "Original" is chosen (`ScenePhotoEditSize`): the output keeps the photo's own
+  /// width / height instead of [aspectRatio].
+  double? originalAspect;
+
+  /// Width / height of the output.
+  double get aspectValue => originalAspect ?? aspectRatio.value;
 
   void reset() {
     resetCrop();
@@ -45,6 +55,7 @@ class PostImageTransform {
 
   void resetCrop() {
     aspectRatio = CropAspectRatio.ratio3x4;
+    originalAspect = null;
     rotationDegrees = 0;
     cropRect = null;
     fitMode = CropFitMode.fill;
@@ -56,6 +67,7 @@ class PostImageTransform {
     brightness = 50;
     contrast = 50;
     exposure = 50;
+    warmth = 50;
   }
 
   PostImageTransform copy() => PostImageTransform(
@@ -68,12 +80,15 @@ class PostImageTransform {
         brightness: brightness,
         contrast: contrast,
         exposure: exposure,
+        warmth: warmth,
+        originalAspect: originalAspect,
       );
 
   double adjustValueFor(AdjustSubTool tool) => switch (tool) {
         AdjustSubTool.brightness => brightness,
         AdjustSubTool.contrast => contrast,
         AdjustSubTool.exposure => exposure,
+        AdjustSubTool.warmth => warmth,
       };
 
   void setAdjustValue(AdjustSubTool tool, double value) {
@@ -85,6 +100,8 @@ class PostImageTransform {
         contrast = clamped;
       case AdjustSubTool.exposure:
         exposure = clamped;
+      case AdjustSubTool.warmth:
+        warmth = clamped;
     }
   }
 
@@ -94,7 +111,7 @@ class PostImageTransform {
   /// Fit so switching back to Fill restores exactly where the user left it.
   Rect resolvedCropRect(double imageAspect) {
     if (fitMode == CropFitMode.fit) return CropCoverMath.defaultFitBox();
-    return cropRect ?? CropCoverMath.defaultFillBox(aspectRatio.value, imageAspect);
+    return cropRect ?? CropCoverMath.defaultFillBox(aspectValue, imageAspect);
   }
 }
 
@@ -110,4 +127,5 @@ enum AdjustSubTool {
   brightness,
   contrast,
   exposure,
+  warmth,
 }
