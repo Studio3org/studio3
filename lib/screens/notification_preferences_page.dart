@@ -30,8 +30,8 @@ class NotificationSection {
   final bool yourWork;
 }
 
-/// The board's sections, for the notifications the server sends today. Saved pieces,
-/// Artists you follow and Text messages wait on the server (BACKEND_CHANGES B12, B13).
+/// The board's sections, for the notifications the server sends today. Text messages waits
+/// on the server (BACKEND_CHANGES B13).
 const notificationSections = [
   NotificationSection('Collecting', [
     NotificationSwitch('Auctions', 'Outbid, ending soon, won, lost, payment reminders.', [
@@ -49,12 +49,18 @@ const notificationSections = [
       'saved_piece_price',
       'saved_piece_auction',
     ]),
-    NotificationSwitch('Orders and shipping', 'Receipts and delivery updates.', ['purchase']),
+    // The buyer's side only: the seller's copy is `sale`, under Bids and sales (B14).
+    NotificationSwitch('Orders and shipping', 'Receipts and delivery updates.', [
+      'purchase',
+      'order_shipped',
+      'order_delivered',
+    ]),
   ]),
   NotificationSection('Following', [
     NotificationSwitch('Artists you follow', 'New pieces and Scenes.', ['followed_artist_post']),
     NotificationSwitch('Events', 'Reminders for events you have tickets to.', [
       'event_cancelled',
+      'event_reminder',
     ]),
   ]),
   NotificationSection('Your work', yourWork: true, [
@@ -63,6 +69,7 @@ const notificationSections = [
       'auction_sold',
       'auction_no_sale',
       'auction_winner_payment_failed',
+      'sale',
     ]),
     NotificationSwitch(
       'Saves and follows',

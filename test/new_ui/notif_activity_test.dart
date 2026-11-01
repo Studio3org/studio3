@@ -44,8 +44,9 @@ final _board = [
     targetType: 'piece',
     message: 'Someone bid \$3,700 on Bodies in Color. Bid \$3,800 to take it back.',
   ),
+  // The seller's copy of an order (BACKEND_CHANGES B14).
   _n(
-    'purchase',
+    'sale',
     actor: 'Jordan Lee',
     targetType: 'order',
     payload: {'pieceTitle': 'Companion Bloom', 'totalCents': 120000},
@@ -153,6 +154,35 @@ void main() {
       'Jordan Lee',
       'Companion Bloom',
     ]);
+  });
+
+  // BACKEND_CHANGES B14.
+  test('a sale and a purchase, shipping and an event reminder; which side an order opens', () {
+    String line(NotificationItem n) => activityLine(n).map((s) => s.$1).join();
+    expect(line(_n('sale', actor: 'Jordan Lee', payload: {'totalCents': 1})), 'Jordan Lee collected a piece of yours.');
+    // Before B14 the seller's copy was a `purchase` with the total: still read as a sale.
+    final before = _n('purchase', actor: 'Jordan Lee', payload: {'pieceTitle': 'Tide', 'totalCents': 1});
+    expect(line(before), 'Jordan Lee collected Tide.');
+    expect(
+      line(_n('order_shipped', targetType: 'order', message: 'Your order is on its way via UPS')),
+      'Your order is on its way via UPS',
+    );
+    expect(
+      line(_n('event_reminder', actor: 'Amara Osei', targetType: 'event',
+          message: 'Night Market is tomorrow at 7 PM at Cedars Union.')),
+      'Night Market is tomorrow at 7 PM at Cedars Union.',
+    );
+
+    NotificationItem order(String type, [Map<String, dynamic> payload = const {}]) =>
+        _n(type, targetType: 'order', targetId: 'o1', payload: payload);
+    expect(isSellerOrderNotice(order('sale')), isTrue);
+    expect(isSellerOrderNotice(order('order_shipped', {'side': 'seller'})), isTrue);
+    expect(isSellerOrderNotice(before), isTrue);
+    expect(isSellerOrderNotice(order('purchase', {'pieceTitle': 'Tide'})), isFalse);
+    expect(isSellerOrderNotice(order('order_shipped', {'side': 'buyer'})), isFalse);
+    expect(isSellerOrderNotice(order('order_delivered', {'side': 'buyer'})), isFalse);
+    expect(order('sale').isSale && before.isSale, isTrue);
+    expect(order('purchase').isSale, isFalse);
   });
 
   // BACKEND_CHANGES B7: saves and follows come bundled, one row per piece (or for follows) per day.

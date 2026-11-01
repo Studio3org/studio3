@@ -357,6 +357,11 @@ List<(String, bool)> activityLine(NotificationItem n) {
       String count(int c, String noun) => c == 1 ? 'a new $noun' : '$c new ${noun}s';
       final what = [if (pieces > 0) count(pieces, 'piece'), if (scenes > 0) count(scenes, 'Scene')];
       return [(name, true), (' posted ${what.join(' and ')}.', false)];
+    // The seller's copy is `sale` (BACKEND_CHANGES B14); older ones were `purchase` with a total.
+    case 'sale':
+      return title == null
+          ? [(name, true), (' collected a piece of yours.', false)]
+          : [(name, true), (' collected ', false), (title, true), ('.', false)];
     case 'purchase':
       if (n.payload.containsKey('totalCents')) {
         return title == null
@@ -410,6 +415,16 @@ const kAuctionOutcomeTypes = {
   'auction_payment_failed',
 };
 
+/// Whether an order notification is the seller's, to open My sales rather than My orders: a
+/// `sale`, or a shipping update with `side` seller (BACKEND_CHANGES B14); older ones by their
+/// total or wording.
+bool isSellerOrderNotice(NotificationItem n) =>
+    n.type == 'sale' ||
+    n.payload['side'] == 'seller' ||
+    n.payload.containsKey('totalCents') ||
+    (n.message ?? '').contains('your sale') ||
+    n.payload.containsKey('reason');
+
 Future<void> openNotificationTarget(BuildContext context, NotificationItem n) async {
   final id = n.targetId;
   try {
@@ -427,10 +442,7 @@ Future<void> openNotificationTarget(BuildContext context, NotificationItem n) as
         if (!context.mounted) return;
         await openExploreDetail(context, FeedItem.post(post));
       case 'order':
-        final seller = n.payload.containsKey('totalCents') ||
-            (n.message ?? '').contains('your sale') ||
-            n.payload.containsKey('reason');
-        await Navigator.of(context).pushNamed(seller ? '/sales' : '/orders');
+        await Navigator.of(context).pushNamed(isSellerOrderNotice(n) ? '/sales' : '/orders');
       case 'user':
         openUserProfile(context, n.actorUsername);
       // Events and series open through the shared destination router (restored from

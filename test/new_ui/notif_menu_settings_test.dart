@@ -426,6 +426,39 @@ void main() {
       });
     });
 
+    // BACKEND_CHANGES B14: the seller's `sale` under Bids and sales, shipping under Orders and
+    // shipping, reminders under Events.
+    testWidgets('Orders and shipping, Events and Bids and sales write their B14 types', (tester) async {
+      setBoardViewport(tester, height: 1300);
+      await tester.pumpWidget(
+        _app(
+          const NotificationPreferencesPage(
+            debugPrefs: _prefs,
+            debugHasPosted: true,
+            debugPushAllowed: true,
+          ),
+        ),
+      );
+      await tester.pump();
+      for (final label in ['Orders and shipping', 'Events', 'Bids and sales']) {
+        await tester.runAsync(() async {
+          await tester.tap(find.byWidgetPredicate((w) => w is StudioSwitch && w.semanticLabel == label));
+          await Future<void>.delayed(const Duration(milliseconds: 200));
+        });
+        await tester.pump();
+      }
+      final pushes = [for (final r in server.requests) r.body!['push'] as Map];
+      expect(pushes[0], {'purchase': false, 'order_shipped': false, 'order_delivered': false});
+      expect(pushes[1], {'event_cancelled': false, 'event_reminder': false});
+      expect(pushes[2], {
+        'bid_placed': false,
+        'auction_sold': false,
+        'auction_no_sale': false,
+        'auction_winner_payment_failed': false,
+        'sale': false,
+      });
+    });
+
     testWidgets('Your work hides for people who have not posted; push off says so', (
       tester,
     ) async {
