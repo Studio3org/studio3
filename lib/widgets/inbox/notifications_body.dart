@@ -15,6 +15,7 @@ import '../../theme/studio_colors.dart';
 import '../../theme/studio_type.dart';
 import '../../utils/app_destination.dart';
 import '../../utils/explore_detail_route.dart';
+import '../../utils/money_format.dart';
 import '../../utils/profile_navigation.dart';
 import '../feed_skeleton.dart';
 import '../home_feed/home_feed_widgets.dart';
@@ -297,7 +298,15 @@ _Look _lookFor(NotificationItem n) {
     case 'ending_soon':
       return const _Look(lead: _Lead.piece, status: 'Ending soon');
     case 'now_listed':
+    case 'saved_piece_listed':
       return const _Look(lead: _Lead.piece, status: 'Now listed');
+    // A piece you saved: a new price, or going to auction (BACKEND_CHANGES B12).
+    case 'saved_piece_price':
+    case 'saved_piece_auction':
+      return const _Look(lead: _Lead.piece);
+    // An artist you follow posted (B12): their face, the newest work on the right.
+    case 'followed_artist_post':
+      return _Look(lead: _Lead.person, trailingPiece: n.targetId != null);
     default:
       // Purchases, orders and auctions are about a piece; anything else about a person.
       final pieceLed = n.targetType == 'piece' || n.targetType == 'order';
@@ -336,6 +345,18 @@ List<(String, bool)> activityLine(NotificationItem n) {
       return preview == null || preview.isEmpty
           ? [(name, true), (' commented on your $what.', false)]
           : [(name, true), (' commented: “$preview”', false)];
+    case 'saved_piece_listed':
+    case 'saved_piece_price':
+    case 'saved_piece_auction':
+      return savedPieceLine(n) ?? _messageLine(n);
+    case 'followed_artist_post':
+      // "Amara Osei posted 3 new pieces." (`NotifActivity`)
+      final pieces = (n.payload['pieces'] as num?)?.toInt() ?? 0;
+      final scenes = (n.payload['scenes'] as num?)?.toInt() ?? 0;
+      if (pieces + scenes == 0) return _messageLine(n);
+      String count(int c, String noun) => c == 1 ? 'a new $noun' : '$c new ${noun}s';
+      final what = [if (pieces > 0) count(pieces, 'piece'), if (scenes > 0) count(scenes, 'Scene')];
+      return [(name, true), (' posted ${what.join(' and ')}.', false)];
     case 'purchase':
       if (n.payload.containsKey('totalCents')) {
         return title == null
@@ -346,9 +367,36 @@ List<(String, bool)> activityLine(NotificationItem n) {
           ? [('Your order is confirmed.', false)]
           : [('Your order ', false), (title, true), (' is confirmed.', false)];
     default:
-      final text = n.message?.trim();
-      return [(text == null || text.isEmpty ? 'You have a new update.' : text, false)];
+      return _messageLine(n);
   }
+}
+
+List<(String, bool)> _messageLine(NotificationItem n) {
+  final text = n.message?.trim();
+  return [(text == null || text.isEmpty ? 'You have a new update.' : text, false)];
+}
+
+/// A piece you saved (BACKEND_CHANGES B12), its title bold: "Paper Planes III, which you saved,
+/// is now available for $950." Null without a title or price, to fall back on the message.
+List<(String, bool)>? savedPieceLine(NotificationItem n) {
+  final title = (n.payload['pieceTitle'] as String?)?.trim();
+  final price = (n.payload['priceCents'] as num?)?.toInt();
+  if (title == null || title.isEmpty || price == null) return null;
+  final String rest;
+  switch (n.type) {
+    case 'saved_piece_listed':
+      rest = 'is now available for ${formatMoney(price)}.';
+    case 'saved_piece_price':
+      final was = (n.payload['wasPriceCents'] as num?)?.toInt();
+      rest = was == null || was == price
+          ? 'is now ${formatMoney(price)}.'
+          : 'is now ${formatMoney(price)} (was ${formatMoney(was)}).';
+    default:
+      rest = n.payload['biddingOpen'] == true
+          ? 'is up for auction. Bidding starts at ${formatMoney(price)}.'
+          : 'is going to auction. Bidding starts at ${formatMoney(price)}.';
+  }
+  return [(title, true), (', which you saved, $rest', false)];
 }
 
 /// Opens what a notification is about: the piece or Scene, the person, or the order list

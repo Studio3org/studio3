@@ -43,9 +43,16 @@ const notificationSections = [
       'auction_cancelled',
       'bid_hold_expired',
     ]),
+    // BACKEND_CHANGES B12.
+    NotificationSwitch('Saved pieces', 'Now listed, price changes, auctions starting.', [
+      'saved_piece_listed',
+      'saved_piece_price',
+      'saved_piece_auction',
+    ]),
     NotificationSwitch('Orders and shipping', 'Receipts and delivery updates.', ['purchase']),
   ]),
   NotificationSection('Following', [
+    NotificationSwitch('Artists you follow', 'New pieces and Scenes.', ['followed_artist_post']),
     NotificationSwitch('Events', 'Reminders for events you have tickets to.', [
       'event_cancelled',
     ]),

@@ -51,7 +51,23 @@ final _board = [
     payload: {'pieceTitle': 'Companion Bloom', 'totalCents': 120000},
     ago: const Duration(minutes: 48),
   ),
-  _n('follow', actor: 'Amara Osei', targetType: 'user', ago: const Duration(hours: 4), read: true),
+  // A piece you saved, and an artist you follow, as on the board (BACKEND_CHANGES B12).
+  _n(
+    'saved_piece_listed',
+    actor: 'Amara Osei',
+    targetType: 'piece',
+    payload: {'pieceTitle': 'Paper Planes III', 'priceCents': 95000},
+    ago: const Duration(hours: 2),
+  ),
+  _n(
+    'followed_artist_post',
+    actor: 'Amara Osei',
+    targetType: 'piece',
+    targetId: 'p3',
+    payload: {'pieces': 3, 'scenes': 0},
+    ago: const Duration(hours: 4),
+    read: true,
+  ),
   // Bundled, as on the board (BACKEND_CHANGES B7).
   _n(
     'save',
@@ -123,9 +139,11 @@ void main() {
   test('lines name people and pieces, never "your item"', () {
     String line(NotificationItem n) => activityLine(n).map((s) => s.$1).join();
     expect(line(_board[1]), 'Jordan Lee collected Companion Bloom.');
-    expect(line(_board[2]), 'Amara Osei followed you.');
-    expect(line(_board[3]), '12 people saved your piece Portrait Dream.');
-    expect(line(_board[5]), 'Sarah Osmei commented: “The underpainting is so warm”');
+    expect(line(_n('follow', actor: 'Amara Osei', targetType: 'user')), 'Amara Osei followed you.');
+    expect(line(_board[2]), 'Paper Planes III, which you saved, is now available for \$950.');
+    expect(line(_board[3]), 'Amara Osei posted 3 new pieces.');
+    expect(line(_board[4]), '12 people saved your piece Portrait Dream.');
+    expect(line(_board[6]), 'Sarah Osmei commented: “The underpainting is so warm”');
     expect(
       line(_n('purchase', payload: {'pieceTitle': 'Night Study'})),
       'Your order Night Study is confirmed.',
@@ -138,6 +156,55 @@ void main() {
   });
 
   // BACKEND_CHANGES B7: saves and follows come bundled, one row per piece (or for follows) per day.
+  // BACKEND_CHANGES B12.
+  test('a piece you saved: listed, a new price, going to auction; the title bold', () {
+    String line(NotificationItem n) => activityLine(n).map((s) => s.$1).join();
+    NotificationItem saved(String type, Map<String, dynamic> payload) => _n(
+      type,
+      targetType: 'piece',
+      payload: {'pieceTitle': 'Paper Planes III', ...payload},
+      message: 'From the server.',
+    );
+    expect(
+      line(saved('saved_piece_price', {'priceCents': 85000, 'wasPriceCents': 95000})),
+      'Paper Planes III, which you saved, is now \$850 (was \$950).',
+    );
+    expect(
+      line(saved('saved_piece_price', {'priceCents': 95000, 'wasPriceCents': 95000})),
+      'Paper Planes III, which you saved, is now \$950.',
+    );
+    expect(
+      line(saved('saved_piece_auction', {'priceCents': 80000, 'biddingOpen': true})),
+      'Paper Planes III, which you saved, is up for auction. Bidding starts at \$800.',
+    );
+    expect(
+      line(saved('saved_piece_auction', {'priceCents': 80000, 'biddingOpen': false})),
+      'Paper Planes III, which you saved, is going to auction. Bidding starts at \$800.',
+    );
+    expect(activityLine(_board[2]).where((s) => s.$2).map((s) => s.$1), ['Paper Planes III']);
+    // Without the title or price, the server's own line.
+    expect(line(_n('saved_piece_listed', message: 'From the server.')), 'From the server.');
+  });
+
+  test('an artist you follow: how many pieces and Scenes', () {
+    String line(Map<String, dynamic> payload) =>
+        activityLine(_n('followed_artist_post', actor: 'Amara Osei', payload: payload)).map((s) => s.$1).join();
+    expect(line({'pieces': 1, 'scenes': 0}), 'Amara Osei posted a new piece.');
+    expect(line({'pieces': 0, 'scenes': 2}), 'Amara Osei posted 2 new Scenes.');
+    expect(line({'pieces': 2, 'scenes': 1}), 'Amara Osei posted 2 new pieces and a new Scene.');
+    expect(activityLine(_board[3]).first, ('Amara Osei', true));
+  });
+
+  testWidgets('Now listed in green over the piece; a new post leads with the artist', (tester) async {
+    await tester.pumpWidget(_host([_board[2], _board[3]]));
+    await tester.pump();
+    final c = StudioColors.light;
+    expect(tester.widget<Text>(find.text('Now listed')).style!.color, c.positive);
+    final rows = find.byType(ActivityRow);
+    expect(find.descendant(of: rows.at(1), matching: find.byType(StudioAvatar)), findsOneWidget);
+    expect(find.descendant(of: rows.at(0), matching: find.byType(StudioAvatar)), findsNothing);
+  });
+
   test('bundled saves and follows: how many, and the newest name', () {
     String line(NotificationItem n) => activityLine(n).map((s) => s.$1).join();
     List<String> bold(NotificationItem n) => activityLine(n).where((s) => s.$2).map((s) => s.$1).toList();

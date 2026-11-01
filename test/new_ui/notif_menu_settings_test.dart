@@ -380,7 +380,9 @@ void main() {
         };
         expect(switches, {
           'Auctions': true,
+          'Saved pieces': true,
           'Orders and shipping': true,
+          'Artists you follow': true,
           'Events': true,
           'Bids and sales': true,
           'Saves and follows': false,
@@ -388,6 +390,41 @@ void main() {
         });
       });
     }
+
+    // BACKEND_CHANGES B12: in the board's places, each turning its types off together.
+    testWidgets('Saved pieces under Collecting, Artists you follow first under Following', (
+      tester,
+    ) async {
+      setBoardViewport(tester, height: 1300);
+      await tester.pumpWidget(
+        _app(
+          const NotificationPreferencesPage(
+            debugPrefs: _prefs,
+            debugHasPosted: true,
+            debugPushAllowed: true,
+          ),
+        ),
+      );
+      await tester.pump();
+      double y(String text) => tester.getTopLeft(find.text(text)).dy;
+      expect(y('Auctions') < y('Saved pieces') && y('Saved pieces') < y('Orders and shipping'), isTrue);
+      expect(y('FOLLOWING') < y('Artists you follow') && y('Artists you follow') < y('Events'), isTrue);
+      expect(find.text('Now listed, price changes, auctions starting.'), findsOneWidget);
+      expect(find.text('New pieces and Scenes.'), findsOneWidget);
+
+      await tester.runAsync(() async {
+        await tester.tap(find.byWidgetPredicate(
+          (w) => w is StudioSwitch && w.semanticLabel == 'Saved pieces',
+        ));
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+      });
+      await tester.pump();
+      expect(server.requests.single.body!['push'], {
+        'saved_piece_listed': false,
+        'saved_piece_price': false,
+        'saved_piece_auction': false,
+      });
+    });
 
     testWidgets('Your work hides for people who have not posted; push off says so', (
       tester,
