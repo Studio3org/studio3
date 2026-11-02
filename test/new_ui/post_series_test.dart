@@ -1,11 +1,16 @@
+import 'dart:convert';
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:studio3/models/piece_summary.dart';
 import 'package:studio3/models/series_summary.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:studio3/screens/series_editor_page.dart';
+import 'package:studio3/services/api_client.dart';
+import 'package:studio3/services/auth_session.dart';
 import 'package:studio3/theme/app_theme.dart';
 import 'package:studio3/theme/studio_colors.dart';
 import 'package:studio3/widgets/create_flow/series_picker_sheet.dart';
@@ -166,9 +171,73 @@ void main() {
       expect(find.text('Pieces · newest first'), findsOneWidget);
       expect(find.text('Remove'), findsNWidgets(4));
       expect(find.text('+ Add pieces'), findsOneWidget);
-      expect(find.text('Delete series'), findsNothing); // B15
+      expect(find.text('Delete series'), findsOneWidget); // B15
     });
   }
+
+  // BACKEND_CHANGES B15: "Delete series asks to confirm; the pieces stay on the profile, just not
+  // grouped." (`NoteSeriesEdit`)
+  group('Delete series', () {
+    Future<(_Server, List<Object?>)> open(WidgetTester tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final server = _Server();
+      ApiClient.instance.debugUseAdapter(server);
+      final wasToken = AuthSession.instance.accessToken;
+      AuthSession.instance.accessToken = 'token';
+      addTearDown(() => AuthSession.instance.accessToken = wasToken);
+      setBoardViewport(tester, height: 1000);
+      final results = <Object?>[];
+      await tester.pumpWidget(
+        _host(
+          (context) => Navigator.push<SeriesEditResult>(
+            context,
+            MaterialPageRoute<SeriesEditResult>(
+              builder: (_) => SeriesEditorPage(seriesId: 's1', debugSeries: edited, debugPieces: pieces),
+            ),
+          ),
+          results.add,
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      return (server, results);
+    }
+
+    testWidgets('asks first; Cancel keeps the series', (tester) async {
+      final (server, results) = await open(tester);
+      await tester.tap(find.text('Delete series'));
+      await tester.pumpAndSettle();
+      expect(find.text('Delete this series?'), findsOneWidget);
+      expect(find.text('The pieces stay on your profile, just not grouped.'), findsOneWidget);
+      await tester.tap(find.widgetWithText(StudioButton, 'Cancel'));
+      await tester.pumpAndSettle();
+      expect(server.requests, isEmpty);
+      expect(find.text('Edit series'), findsOneWidget);
+      expect(results, isEmpty);
+    });
+
+    testWidgets('confirmed, deletes it on the server and closes saying so', (tester) async {
+      final (server, results) = await open(tester);
+      await tester.tap(find.text('Delete series'));
+      await tester.pumpAndSettle();
+      await tester.runAsync(() async {
+        await tester.tap(find.widgetWithText(StudioButton, 'Delete series'));
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+      });
+      await tester.pumpAndSettle();
+      expect(server.requests, [('DELETE', '/api/series/s1')]);
+      expect(find.text('Edit series'), findsNothing);
+      expect(results, [SeriesEditResult.deleted]);
+    });
+
+    testWidgets('Cancel in the header closes with nothing changed', (tester) async {
+      final (server, results) = await open(tester);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(server.requests, isEmpty);
+      expect(results, [null]);
+    });
+  });
 
   group('goldens', () {
     final skip = Platform.environment['NEW_UI_GOLDENS'] != '1';
@@ -208,4 +277,25 @@ void main() {
       await checkAcceptance(tester);
     }, skip: skip);
   });
+}
+
+/// Answers `DELETE /api/series/<id>` as the server does.
+class _Server implements HttpClientAdapter {
+  final requests = <(String, String)>[];
+
+  @override
+  Future<ResponseBody> fetch(RequestOptions options, Stream<List<int>>? requestStream, Future<void>? cancelFuture) async {
+    requests.add((options.method, options.uri.path));
+    final id = options.uri.pathSegments.last;
+    return ResponseBody.fromString(
+      jsonEncode({'success': true, 'message': 'Series deleted.', 'data': {'id': id, 'deleted': true}}),
+      200,
+      headers: {
+        Headers.contentTypeHeader: ['application/json'],
+      },
+    );
+  }
+
+  @override
+  void close({bool force = false}) {}
 }

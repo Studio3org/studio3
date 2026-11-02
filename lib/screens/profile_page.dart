@@ -659,8 +659,8 @@ class _ProfilePageState extends State<ProfilePage>
     final id = series.id;
     if (id == null || id.isEmpty) return;
     final own = AuthSession.instance.user?.username == profile?.username && !widget.viewerMode;
-    Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
+    Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
         builder: (_) => SeriesViewPage(
           seriesId: id,
           initialName: series.name,
@@ -671,7 +671,10 @@ class _ProfilePageState extends State<ProfilePage>
           isOwner: own,
         ),
       ),
-    );
+    ).then((deleted) {
+      // The series was deleted from its page (BACKEND_CHANGES B15): its pieces are ungrouped.
+      if (deleted == true && mounted) _loadProfile();
+    });
   }
 
   void _onBackToHome() {

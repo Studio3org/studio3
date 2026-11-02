@@ -1,5 +1,6 @@
 import '../models/series_summary.dart';
 import 'api_client.dart';
+import 'auth_session.dart';
 import 'cache_service.dart';
 import 'connectivity_service.dart';
 
@@ -123,6 +124,14 @@ class SeriesService {
     final data = _api.extractData(json) as Map<String, dynamic>;
     await invalidateMySeries();
     return SeriesSummary.fromJson(data);
+  }
+
+  /// Deletes the series; its pieces stay on the profile, ungrouped (BACKEND_CHANGES B15).
+  Future<void> delete(String id) async {
+    await _api.delete('/api/series/$id');
+    await invalidateMySeries();
+    final username = AuthSession.instance.user?.username;
+    if (username != null) await CacheService.instance.invalidate('profile.series.$username');
   }
 
   Future<SeriesSummary> addPiece(String seriesId, String pieceId) async {

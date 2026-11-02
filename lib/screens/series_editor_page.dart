@@ -12,9 +12,14 @@ import '../theme/studio_colors.dart';
 import '../widgets/create_flow/link_piece_sheet.dart';
 import '../widgets/create_flow/series_picker_sheet.dart';
 import '../widgets/studio/studio_field.dart';
+import '../widgets/studio/studio_sheet.dart';
 import '../widgets/studio/studio_toast.dart';
-import '../widgets/studio_loading.dart';
+import '../widgets/studio_loading.dart';
 import '../widgets/studio/studio_tap_area.dart';
+
+/// How Edit series closed, for the page that opened it: saved, or the series is gone.
+/// Cancel closes with null.
+enum SeriesEditResult { saved, deleted }
 
 class SeriesEditorPage extends StatefulWidget {
   const SeriesEditorPage({
@@ -114,7 +119,29 @@ class _SeriesEditorPageState extends State<SeriesEditorPage> {
         description: description == (series.description ?? '') ? null : description,
       );
       if (!mounted) return;
-      Navigator.pop(context, true);
+      Navigator.pop(context, SeriesEditResult.saved);
+    } catch (e) {
+      if (mounted) setState(() => _busy = false);
+      _showError(e);
+    }
+  }
+
+  /// Delete series (`NoteSeriesEdit`): asks first; the pieces stay on the profile, just not
+  /// grouped (BACKEND_CHANGES B15).
+  Future<void> _delete() async {
+    if (_busy) return;
+    final confirmed = await showStudioConfirm(
+      context,
+      title: 'Delete this series?',
+      message: 'The pieces stay on your profile, just not grouped.',
+      confirmLabel: 'Delete series',
+    );
+    if (!confirmed || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      await SeriesService.instance.delete(widget.seriesId);
+      if (!mounted) return;
+      Navigator.pop(context, SeriesEditResult.deleted);
     } catch (e) {
       if (mounted) setState(() => _busy = false);
       _showError(e);
@@ -195,8 +222,8 @@ class _SeriesEditorPageState extends State<SeriesEditorPage> {
 
   /// `SeriesEdit`: Cancel, "Edit series" and Save; Name and Description (optional, up to 300
   /// characters); "Pieces · newest first" with a 36 × 48 cover, the title 15 and Remove 13
-  /// Graphite per row; "+ Add pieces" under the list. Delete series waits on the server
-  /// (BACKEND_CHANGES B15).
+  /// Graphite per row; "+ Add pieces" under the list; "Delete series" 14 Graphite, centred,
+  /// 8 below (BACKEND_CHANGES B15).
   @override
   Widget build(BuildContext context) {
     final series = _series;
@@ -226,7 +253,7 @@ class _SeriesEditorPageState extends State<SeriesEditorPage> {
                         alignment: Alignment.centerLeft,
                         child: _HeaderAction(
                           label: 'Cancel',
-                          onTap: () => Navigator.pop(context, false),
+                          onTap: () => Navigator.pop(context),
                         ),
                       ),
                       Align(
@@ -300,6 +327,28 @@ class _SeriesEditorPageState extends State<SeriesEditorPage> {
                                       15,
                                       weight: StudioType.medium,
                                       color: c.textPrimary,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          // A link on the board: 14 Graphite, underlined, centred (as Cancel
+                          // event on Manage event).
+                          Semantics(
+                            button: true,
+                            child: GestureDetector(
+                              onTap: _delete,
+                              behavior: HitTestBehavior.opaque,
+                              child: SizedBox(
+                                height: 44,
+                                child: Center(
+                                  child: Text(
+                                    'Delete series',
+                                    style: StudioType.body14(color: c.textSecondary).copyWith(
+                                      decoration: TextDecoration.underline,
+                                      decorationColor: c.textSecondary,
                                     ),
                                   ),
                                 ),

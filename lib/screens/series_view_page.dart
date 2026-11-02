@@ -151,13 +151,22 @@ class _SeriesViewPageState extends State<SeriesViewPage> with DetailFollowState<
   static bool canBuy(PieceSummary piece) => piece.isAvailableListing || piece.isAuctionLive;
 
   Future<void> _onEdit() async {
-    final changed = await Navigator.push<bool>(
+    final result = await Navigator.push<SeriesEditResult>(
       context,
-      MaterialPageRoute<bool>(
+      MaterialPageRoute<SeriesEditResult>(
         builder: (_) => SeriesEditorPage(seriesId: widget.seriesId),
       ),
     );
-    if (changed == true) await _load();
+    if (!mounted) return;
+    switch (result) {
+      case SeriesEditResult.saved:
+        await _load();
+      // Gone (BACKEND_CHANGES B15): back to where it was opened from, telling it so.
+      case SeriesEditResult.deleted:
+        Navigator.pop(context, true);
+      case null:
+        break;
+    }
   }
 
   void _onShare() {

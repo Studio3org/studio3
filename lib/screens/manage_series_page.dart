@@ -69,13 +69,17 @@ class _ManageSeriesPageState extends State<ManageSeriesPage> {
   }
 
   Future<void> _openEditor(SeriesSummary series) async {
-    final changed = await Navigator.push<bool>(
+    final result = await Navigator.push<SeriesEditResult>(
       context,
-      MaterialPageRoute<bool>(
+      MaterialPageRoute<SeriesEditResult>(
         builder: (_) => SeriesEditorPage(seriesId: series.id),
       ),
     );
-    if (changed == true) await _loadSeries();
+    if (result == null) return;
+    await _loadSeries();
+    if (result == SeriesEditResult.deleted && mounted) {
+      showStudioToast(context, 'Series "${series.name}" deleted');
+    }
   }
 
   /// No board: the light Studio list — 56 cover, name 16/500, Mono count, chevron, a
