@@ -264,7 +264,8 @@ void main() {
       MaterialApp(theme: AppTheme.light, home: EventPage(debugNow: _now)),
     );
     await _settle(tester);
-    expect(_server.count0('GET', '/api/events/browse'), 1);
+    // The tab as a whole, then narrowed on the server to Today (BACKEND_CHANGES B23).
+    expect(_server.count0('GET', '/api/events/browse'), 2);
     await _tap(tester, find.text('This week').first);
 
     // The event on the tab opens its page, which loads the full event.

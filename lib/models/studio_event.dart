@@ -22,6 +22,8 @@ class StudioEvent {
     this.timezoneName,
     this.venueName,
     this.address,
+    this.city,
+    this.featured = false,
     this.latitude,
     this.longitude,
     this.isFree = true,
@@ -63,6 +65,12 @@ class StudioEvent {
 
   final String? venueName;
   final String? address;
+
+  /// The town, read from the address by the server (BACKEND_CHANGES B23), for "Near me".
+  final String? city;
+
+  /// The team's pick for the Events tab's Featured slot (B23).
+  final bool featured;
   final double? latitude;
   final double? longitude;
   final bool isFree;
@@ -287,6 +295,8 @@ class StudioEvent {
         timezoneName: timezoneName,
         venueName: venueName,
         address: address,
+        city: city,
+        featured: featured,
         latitude: latitude,
         longitude: longitude,
         isFree: isFree,
@@ -328,6 +338,8 @@ class StudioEvent {
         if (timezoneName != null) 'timezone': timezoneName,
         if (venueName != null) 'venueName': venueName,
         if (address != null) 'address': address,
+        if (city != null) 'city': city,
+        if (featured) 'featured': featured,
         'isFree': isFree,
         if (hostUsername != null) 'hostUsername': hostUsername,
         if (hostName != null) 'hostName': hostName,
@@ -350,6 +362,8 @@ class StudioEvent {
       timezoneName: json['timezone'] as String?,
       venueName: json['venueName'] as String?,
       address: json['address'] as String?,
+      city: json['city'] as String?,
+      featured: json['featured'] as bool? ?? false,
       latitude: (json['latitude'] as num?)?.toDouble(),
       longitude: (json['longitude'] as num?)?.toDouble(),
       isFree: json['isFree'] as bool? ?? true,
@@ -607,12 +621,15 @@ class EventTaggingPreview {
 /// coming up. One round trip rather than four, because the tab shows all of them at once.
 class EventBrowse {
   const EventBrowse({
+    this.featured,
     this.today = const [],
     this.following = const [],
     this.upcoming = const [],
     this.categories = const [],
   });
 
+  /// The team's Featured pick in the asked range and place (BACKEND_CHANGES B23), if any.
+  final StudioEvent? featured;
   final List<StudioEvent> today;
   final List<StudioEvent> following;
   final List<StudioEvent> upcoming;
@@ -629,7 +646,9 @@ class EventBrowse {
             .toList() ??
         const [];
 
+    final featured = json['featured'];
     return EventBrowse(
+      featured: featured is Map<String, dynamic> ? StudioEvent.fromJson(featured) : null,
       today: events('today'),
       following: events('following'),
       upcoming: events('upcoming'),

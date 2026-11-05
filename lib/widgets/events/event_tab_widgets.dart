@@ -64,16 +64,20 @@ extension EventRangeLabel on EventRange {
     EventRange.month => 'This month',
   };
 
-  /// Whether [e] happens at some point in this range from [now].
-  bool includes(StudioEvent e, DateTime now) {
+  /// Where this range ends, in the viewer's own time: tomorrow, a week from today, or the
+  /// first of next month.
+  DateTime endFrom(DateTime now) {
     final today = DateTime(now.year, now.month, now.day);
-    final end = switch (this) {
+    return switch (this) {
       EventRange.today => today.add(const Duration(days: 1)),
       EventRange.week => today.add(const Duration(days: 7)),
       EventRange.month => DateTime(now.year, now.month + 1),
     };
-    return e.startsAt.isBefore(end) && e.endsAt.isAfter(now);
   }
+
+  /// Whether [e] happens at some point in this range from [now].
+  bool includes(StudioEvent e, DateTime now) =>
+      e.startsAt.isBefore(endFrom(now)) && e.endsAt.isAfter(now);
 }
 
 /// The filters sheet's choices (`EvTab`: "price, free only, category"; every event is free
@@ -811,6 +815,9 @@ Future<String?> showEventPlaceSheet(
 
 /// The city in an address: "1 Main St, Dallas, TX 75201" → "Dallas"; null when unclear.
 String? eventCity(StudioEvent e) {
+  // The server's, read from the address on save (BACKEND_CHANGES B23); else the same rule here.
+  final known = e.city?.trim();
+  if (known != null && known.isNotEmpty) return known;
   final parts = (e.address ?? '').split(',').map((p) => p.trim()).where((p) => p.isNotEmpty);
   final list = parts.toList();
   if (list.length < 2) return null;

@@ -29,9 +29,25 @@ class EventService {
   /// The whole events tab in one request. Works signed out — entry is free and open.
   static const _browseKey = 'events.browse';
 
-  Future<EventBrowse> browse() async {
-    final json = await _api.get('/api/events/browse', auth: true);
+  /// The Events tab, narrowed to a range ([from] to [to]), a [city] and a search [q] on the
+  /// server (BACKEND_CHANGES B23). With none of them, everything coming up.
+  Future<EventBrowse> browse({DateTime? from, DateTime? to, String? city, String? q, int? limit}) async {
+    final json = await _api.get(
+      '/api/events/browse',
+      query: eventFilterQuery(from: from, to: to, city: city, q: q, limit: limit),
+      auth: true,
+    );
     return EventBrowse.fromJson(_api.extractData(json) as Map<String, dynamic>);
+  }
+
+  /// The Near me sheet's places: cities with something coming up (B23).
+  Future<List<String>> cities() async {
+    final json = await _api.get('/api/events/cities');
+    final data = _api.extractData(json) as Map<String, dynamic>;
+    return [
+      for (final c in (data['cities'] as List? ?? const []).whereType<Map<String, dynamic>>())
+        if ((c['city'] as String?)?.isNotEmpty ?? false) c['city'] as String,
+    ];
   }
 
   /// Cache-first browse payload, so returning to the Events tab paints the
@@ -72,14 +88,18 @@ class EventService {
     String? category,
     int? limit,
     int? offset,
+    DateTime? from,
+    DateTime? to,
+    String? city,
+    String? q,
   }) async {
     final json = await _api.get(
       '/api/events',
       query: {
         'scope': scope,
         if (category != null) 'category': category,
-        if (limit != null) 'limit': '$limit',
         if (offset != null) 'offset': '$offset',
+        ...eventFilterQuery(from: from, to: to, city: city, q: q, limit: limit),
       },
       auth: true,
     );
@@ -369,4 +389,17 @@ class EventService {
   Future<void> delete(String eventId) async {
     await _api.delete('/api/events/$eventId', auth: true);
   }
+}
+
+/// `?from=&to=&city=&q=&limit=` for the Events tab (BACKEND_CHANGES B23); times in UTC.
+Map<String, String> eventFilterQuery({DateTime? from, DateTime? to, String? city, String? q, int? limit}) {
+  final place = city?.trim();
+  final search = q?.trim();
+  return {
+    if (from != null) 'from': from.toUtc().toIso8601String(),
+    if (to != null) 'to': to.toUtc().toIso8601String(),
+    if (place != null && place.isNotEmpty) 'city': place,
+    if (search != null && search.isNotEmpty) 'q': search,
+    if (limit != null) 'limit': '$limit',
+  };
 }
