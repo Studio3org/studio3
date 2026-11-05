@@ -181,8 +181,8 @@ class _PieceDetailPageState extends State<PieceDetailPage>
 
   /// `PieceNotForSale`: same image, top icons, artist row and body as the fixed-price page,
   /// with no bottom bar and the not-for-sale line under the dimensions. Your own piece
-  /// (`ListOwnerPiece`) gets the bar with List for sale and the edit button; the board's
-  /// "Saved by [N] people" needs a save count (BACKEND_CHANGES B17).
+  /// (`ListOwnerPiece`) gets the bar: "Saved by [N] people" when anyone has (BACKEND_CHANGES
+  /// B17), then List for sale and the edit button.
   Widget _buildPiece(BuildContext context) {
     final c = context.studio;
     final canList = _canList;
@@ -320,6 +320,9 @@ class _PieceDetailPageState extends State<PieceDetailPage>
                 right: 0,
                 bottom: 0,
                 child: StudioBottomBar(
+                  left: (item.savesCount ?? 0) > 0
+                      ? StudioBottomBarInfo(label: 'Saved by', value: savedPeople(item.savesCount!))
+                      : null,
                   button: StudioButton(
                     label: 'List for sale',
                     fontSize: 16,
@@ -340,11 +343,27 @@ class _PieceDetailPageState extends State<PieceDetailPage>
 
   /// "Not for sale" as plain 13/500 Ink text, never a chip (`PieceNotForSale`, `HandoffRules`)
   /// and, for visitors, "Save it to hear if it's ever listed." (13 Graphite), 10 apart. Saving is what subscribes them to the listing notice. On your
-  /// own piece the line is the pill alone: the board's "[N] people saved this" needs a save
-  /// count the piece payload does not have. A sold piece shows the Collected chip instead.
+  /// own piece (`ListOwnerPiece`) it is "[N] people saved this. They'll hear if you list it."
+  /// (13 Graphite, the number in Mono; BACKEND_CHANGES B17), or "Not for sale" alone when
+  /// nobody has. A sold piece shows the Collected chip instead.
   Widget _statusLine(StudioColors c) {
     if (item.status == 'sold')
       return const StudioStatusChip(StudioStatus.collected);
+    final saved = item.savesCount ?? 0;
+    if (_isOwner && saved > 0) {
+      final style = StudioType.label13(color: c.textSecondary);
+      return Text.rich(
+        TextSpan(
+          style: style,
+          children: [
+            TextSpan(text: '$saved', style: StudioType.mono13(color: c.textSecondary)),
+            TextSpan(
+              text: " ${saved == 1 ? 'person' : 'people'} saved this. They'll hear if you list it.",
+            ),
+          ],
+        ),
+      );
+    }
     return Row(
       children: [
         Text('Not for sale', style: StudioType.label13(weight: StudioType.medium, color: c.textPrimary)),

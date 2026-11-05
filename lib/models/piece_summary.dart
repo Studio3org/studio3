@@ -68,6 +68,7 @@ class PieceSummary {
     this.handlingNotes,
     this.likeCount = 0,
     this.commentCount = 0,
+    this.savesCount,
     this.isLiked = false,
     this.isSaved = false,
     this.authorUsername,
@@ -136,6 +137,9 @@ class PieceSummary {
   final String? handlingNotes;
   final int likeCount;
   final int commentCount;
+
+  /// How many people saved it: sent to its owner only, else null (BACKEND_CHANGES B17).
+  final int? savesCount;
   final bool isLiked;
   final bool isSaved;
   final String? authorUsername;
@@ -241,6 +245,7 @@ class PieceSummary {
       handlingNotes: json['handlingNotes'] as String?,
       likeCount: _intFrom(json['likeCount'] ?? json['likes']) ?? 0,
       commentCount: _intFrom(json['commentCount'] ?? json['comments']) ?? 0,
+      savesCount: _intFrom(json['savesCount']),
       isLiked: json['isLiked'] as bool? ?? false,
       isSaved: json['isSaved'] as bool? ?? false,
       authorUsername: author?['username'] as String? ??
@@ -347,6 +352,7 @@ class PieceSummary {
         if (handlingNotes != null) 'handlingNotes': handlingNotes,
         'likeCount': likeCount,
         'commentCount': commentCount,
+        if (savesCount != null) 'savesCount': savesCount,
         'isLiked': isLiked,
         'isSaved': isSaved,
         if (authorUsername != null) 'authorUsername': authorUsername,
