@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:studio3/models/auction.dart';
 import 'package:studio3/models/feed_preview_item.dart';
 import 'package:studio3/screens/saved_page.dart';
 import 'package:studio3/services/saved_content_store.dart';
@@ -7,6 +8,7 @@ import 'package:studio3/theme/app_theme.dart';
 import 'package:studio3/theme/studio_colors.dart';
 import 'package:studio3/theme/studio_metrics.dart';
 import 'package:studio3/theme/studio_type.dart';
+import 'package:studio3/utils/app_clock.dart';
 import 'package:studio3/widgets/saved/saved_collection_widgets.dart';
 import 'package:studio3/widgets/studio/studio_button.dart';
 import 'package:studio3/widgets/studio/studio_chip.dart';
@@ -20,6 +22,7 @@ SavedEntry _entry({
   int? priceCents,
   String? status,
   int savedAt = 0,
+  AuctionSummary? auction,
 }) {
   return SavedEntry(
     id: id,
@@ -39,9 +42,22 @@ SavedEntry _entry({
       authorName: author,
       priceCents: priceCents,
       status: status,
+      listingType: auction == null ? null : 'auction',
+      auction: auction,
     ),
   );
 }
+
+/// A live auction in a list payload (BACKEND_CHANGES B21), ending [left] from now.
+AuctionSummary _bidding(Duration left, {int? highest, int starting = 100000, String status = 'live'}) =>
+    AuctionSummary.fromJson({
+      'auctionId': 'a',
+      'auctionStatus': status,
+      'startingBidCents': starting,
+      'highestBidCents': ?highest,
+      'bidCount': highest == null ? 0 : 3,
+      'auctionEndsAt': appNow().add(left).toIso8601String(),
+    });
 
 Widget _app({
   required Widget home,
@@ -80,6 +96,70 @@ void main() {
 
     final quiet = _entry(id: '4', title: 'Bodies');
     expect(savedChangeLine(quiet), isNull);
+  });
+
+  // BACKEND_CHANGES B21: "Auction ends in 6h" (red under 24 hours), "Bid $1,300 · 6h left",
+  // auctions ending soonest first.
+  group('auctions in Saved', () {
+    setUp(() => appNow = () => DateTime(2026, 11, 5, 12));
+    tearDown(() => appNow = DateTime.now);
+
+    test('the folder line and the Available line', () {
+      final soon = _entry(id: 's', title: 'Companion Bloom', available: true, priceCents: 100000,
+          auction: _bidding(const Duration(hours: 6), highest: 130000));
+      expect(savedChangeLine(soon), 'Auction ends in 6h');
+      expect(savedAvailablePrice(soon), r'Bid $1,300 · 6h left');
+      expect(savedAuctionEndsSoon(soon), isTrue);
+
+      final later = _entry(id: 'l', title: 'Tide', available: true, priceCents: 80000,
+          auction: _bidding(const Duration(days: 3, hours: 2)));
+      expect(savedChangeLine(later), 'Auction ends in 3d');
+      // No bids yet: the starting bid.
+      expect(savedAvailablePrice(later), r'Bid $1,000 · 3d left');
+      expect(savedAuctionEndsSoon(later), isFalse);
+
+      expect(savedTimeLeft(appNow().add(const Duration(minutes: 40))), '40m');
+      // Closed or past its end: no auction line, the fixed-price rules again.
+      final closed = _entry(id: 'c', title: 'Gone', available: true, priceCents: 80000,
+          auction: _bidding(const Duration(hours: 2), status: 'awaiting_winner'));
+      expect(savedLiveAuction(closed), isNull);
+      expect(savedChangeLine(closed), r'Now listed · $800');
+    });
+
+    test('Available: auctions ending soonest first, then newest saved', () {
+      final fixedNew = _entry(id: 'fn', title: 'A', available: true, priceCents: 1000, savedAt: 9);
+      final fixedOld = _entry(id: 'fo', title: 'B', available: true, priceCents: 1000, savedAt: 1);
+      final endsLater = _entry(id: 'al', title: 'C', available: true, savedAt: 8,
+          auction: _bidding(const Duration(days: 2)));
+      final endsSoon = _entry(id: 'as', title: 'D', available: true, savedAt: 2,
+          auction: _bidding(const Duration(hours: 3)));
+      expect(savedAvailableEntries([fixedOld, endsLater, fixedNew, endsSoon]).map((e) => e.id),
+          ['as', 'al', 'fn', 'fo']);
+    });
+
+    testWidgets('red under 24 hours, Ink otherwise, 500', (tester) async {
+      final c = StudioColors.light;
+      Future<TextStyle> style(SavedEntry entry, String text, {bool available = false}) async {
+        await tester.pumpWidget(_app(
+          home: Scaffold(
+            body: SizedBox(
+              width: 167,
+              child: SavedPieceTile(entry: entry, onTap: () {}, onLongPress: () {}, availablePrice: available),
+            ),
+          ),
+        ));
+        return tester.widget<Text>(find.text(text)).style!;
+      }
+
+      final soon = _entry(id: 's', title: 'Companion Bloom', available: true,
+          auction: _bidding(const Duration(hours: 6), highest: 130000));
+      final later = _entry(id: 'l', title: 'Tide', available: true, auction: _bidding(const Duration(days: 3)));
+      final folderSoon = await style(soon, 'Auction ends in 6h');
+      expect((folderSoon.color, folderSoon.fontWeight, folderSoon.fontSize), (c.alert, StudioType.medium, 12));
+      expect((await style(later, 'Auction ends in 3d')).color, c.textPrimary);
+      final availableSoon = await style(soon, r'Bid $1,300 · 6h left', available: true);
+      expect((availableSoon.color, availableSoon.fontWeight, availableSoon.fontSize), (c.alert, StudioType.medium, 13));
+    });
   });
 
   testWidgets('folder index is two across, with Available only when something is for sale', (tester) async {
