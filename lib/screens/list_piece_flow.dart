@@ -20,9 +20,9 @@ import '../widgets/studio/studio.dart';
 import 'post_create_page.dart' show ScenePostArgs;
 import 'seller/seller_setup_flow.dart';
 
-/// Listing an auction from a posted piece needs the server to open its auction on PATCH
-/// (BACKEND_CHANGES B16). Until then List later offers Fixed price only.
-const kListLaterAuction = false;
+/// Listing an auction from a posted piece: the server opens its auction on PATCH
+/// (BACKEND_CHANGES B16, 2026-11-05), so List later offers Fixed price or Auction.
+const kListLaterAuction = true;
 
 /// "List it later" (`ListOwnerPiece` → `PostListLater` → `ListPricing` → `ListDone`): turns
 /// the owner's not-for-sale piece into a sale. Seller mode first; then the details only a
@@ -323,7 +323,7 @@ class ListDonePage extends StatelessWidget {
     return PostPublishedView(
       title: piece.title,
       heading: '${piece.title} is listed',
-      subheading: 'Collectors can collect it now.',
+      subheading: piece.isAuction ? 'Collectors can bid on it now.' : 'Collectors can collect it now.',
       cover: cover == null || cover.isEmpty
           ? ColoredBox(color: context.studio.surface)
           : CachedNetworkImage(imageUrl: cover, fit: BoxFit.cover),

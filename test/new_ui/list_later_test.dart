@@ -170,6 +170,57 @@ void main() {
     expect(find.text('View piece'), findsOneWidget);
   });
 
+  // BACKEND_CHANGES B16: the server opens the auction on PATCH, so List later offers Auction.
+  testWidgets('pricing: Auction sends the starting bid, length and reserve', (tester) async {
+    setBoardViewport(tester, height: 1000);
+    final patches = <Map<String, dynamic>>[];
+    await tester.pumpWidget(
+      _app(
+        ListPricingPage(
+          piece: _piece,
+          details: _details,
+          quote: _founding,
+          update: (id, body) async {
+            patches.add(body);
+            return PieceSummary(
+              id: id,
+              title: _piece.title,
+              isForSale: true,
+              listingType: 'auction',
+              priceCents: body['priceCents'] as int?,
+              status: 'live',
+            );
+          },
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    final rows = tester.widgetList<StudioSelectRow>(find.byType(StudioSelectRow)).map((r) => r.title);
+    expect(rows, ['Fixed price', 'Auction']);
+    await tester.tap(find.text('Auction'));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.enterText(find.byType(TextField).first, '360');
+    await tester.enterText(find.byType(TextField).last, '1200');
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.text('List it'));
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 300));
+    }
+    final sent = patches.single;
+    expect(
+      {for (final k in ['isForSale', 'listingType', 'priceCents', 'auctionDurationDays', 'reserveCents']) k: sent[k]},
+      {
+        'isForSale': true,
+        'listingType': 'auction',
+        'priceCents': 36000,
+        'auctionDurationDays': 7,
+        'reserveCents': 120000,
+      },
+    );
+    expect(find.text('Bodies in Color is listed'), findsOneWidget);
+    expect(find.text('Collectors can bid on it now.'), findsOneWidget);
+  });
+
   group("owner's not-for-sale piece", () {
     late AuthUser? wasUser;
     setUp(() {
