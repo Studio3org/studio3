@@ -69,6 +69,8 @@ class PieceSummary {
     this.likeCount = 0,
     this.commentCount = 0,
     this.savesCount,
+    this.myTopBidCents,
+    this.myBidStatus,
     this.isLiked = false,
     this.isSaved = false,
     this.authorUsername,
@@ -140,6 +142,12 @@ class PieceSummary {
 
   /// How many people saved it: sent to its owner only, else null (BACKEND_CHANGES B17).
   final int? savesCount;
+
+  /// The viewer's own bid, from the server (BACKEND_CHANGES B18): the most they bid in this
+  /// run, and `leading`, `outbid`, `won`, `lost` or `none`. Null signed out (or from an older
+  /// server), when the app falls back on what this phone remembers (`BidStore`).
+  final int? myTopBidCents;
+  final String? myBidStatus;
   final bool isLiked;
   final bool isSaved;
   final String? authorUsername;
@@ -246,6 +254,8 @@ class PieceSummary {
       likeCount: _intFrom(json['likeCount'] ?? json['likes']) ?? 0,
       commentCount: _intFrom(json['commentCount'] ?? json['comments']) ?? 0,
       savesCount: _intFrom(json['savesCount']),
+      myTopBidCents: _intFrom(json['myTopBidCents']),
+      myBidStatus: json['myBidStatus'] as String?,
       isLiked: json['isLiked'] as bool? ?? false,
       isSaved: json['isSaved'] as bool? ?? false,
       authorUsername: author?['username'] as String? ??
@@ -353,6 +363,8 @@ class PieceSummary {
         'likeCount': likeCount,
         'commentCount': commentCount,
         if (savesCount != null) 'savesCount': savesCount,
+        if (myTopBidCents != null) 'myTopBidCents': myTopBidCents,
+        if (myBidStatus != null) 'myBidStatus': myBidStatus,
         'isLiked': isLiked,
         'isSaved': isSaved,
         if (authorUsername != null) 'authorUsername': authorUsername,

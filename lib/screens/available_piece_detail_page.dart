@@ -86,7 +86,8 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
     return base + (item.isAuction && reserveNote ? 21 : 0);
   }
 
-  /// The viewer's own top bid here, from this phone (`BidStore`).
+  /// The viewer's own top bid here, from this phone (`BidStore`); the server's
+  /// `myTopBidCents` comes first (BACKEND_CHANGES B18).
   int? _myTopBid;
 
   bool get _sold => item.status == 'sold';
@@ -153,7 +154,8 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
   AuctionBarState get _auctionState => auctionBarState(
     auction: item.auction,
     isOwner: _isOwner,
-    myTopBidCents: _myTopBid,
+    myTopBidCents: item.myTopBidCents ?? _myTopBid,
+    myBidStatus: item.myBidStatus,
   );
 
   Future<void> _onAuctionAction() async {

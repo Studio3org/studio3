@@ -199,6 +199,33 @@ void main() {
       expect(s(_auction(status: 'awaiting_winner')), AuctionBarState.ended);
       expect(s(null), AuctionBarState.ended);
     });
+
+    // BACKEND_CHANGES B18: the server's own-bid status comes first, from any phone.
+    test("the server's own-bid status wins over this phone's", () {
+      AuctionBarState s({String? status, int? mine}) =>
+          auctionBarState(auction: _auction(), isOwner: false, myTopBidCents: mine, myBidStatus: status);
+      // Bid from another phone: this one remembers nothing, the server says outbid.
+      expect(s(status: 'outbid', mine: 360000), AuctionBarState.outbid);
+      // A bid this phone remembers from an earlier run: the server says none in this one.
+      expect(s(status: 'none', mine: 360000), AuctionBarState.open);
+      // No word from the server: this phone's memory, as before.
+      expect(s(mine: 360000), AuctionBarState.outbid);
+      expect(s(), AuctionBarState.open);
+
+      final piece = PieceSummary.fromJson({
+        'id': 'p1',
+        'title': 'Bodies in Color',
+        'listingType': 'auction',
+        'myTopBidCents': 360000,
+        'myBidStatus': 'lost',
+      });
+      expect((piece.myTopBidCents, piece.myBidStatus), (360000, 'lost'));
+      final item = FeedPreviewItem.fromPieceSummary(piece);
+      expect((item.myTopBidCents, item.myBidStatus), (360000, 'lost'));
+      final back = FeedPreviewItem.fromCacheJson(item.toJson());
+      expect((back.myTopBidCents, back.myBidStatus), (360000, 'lost'));
+      expect(PieceSummary.fromJson({'id': 'p1', 'title': 'T'}).myBidStatus, isNull);
+    });
   });
 
   group('bar', () {

@@ -79,7 +79,8 @@ Future<void> openAuctionOutcome(
     return;
   }
   if (!context.mounted) return;
-  final myTop = await BidStore.instance.topBid(pieceId);
+  // "Your top bid" from the server, from any phone (BACKEND_CHANGES B18); else this phone's.
+  final myTop = piece.myTopBidCents ?? await BidStore.instance.topBid(pieceId);
   if (!context.mounted) return;
   final auction = piece.auction;
   final Widget page;
