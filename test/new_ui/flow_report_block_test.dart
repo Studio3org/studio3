@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -222,6 +223,10 @@ Future<void> _sendReport(WidgetTester tester, String reason, {String? details}) 
   await _tap(tester, _button('Send report'));
 }
 
+/// This file's own folder for the app's files (created once): test files run side by side and
+/// must not share the cache.
+final _files = Directory.systemTemp.createTempSync('studio3_flow_report_block');
+
 void main() {
   setUpAll(() async {
     SharedPreferences.setMockInitialValues({});
@@ -229,7 +234,7 @@ void main() {
     await loadStudioFonts();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
       const MethodChannel('plugins.flutter.io/path_provider'),
-      (call) async => '.',
+      (call) async => _files.path,
     );
   });
 

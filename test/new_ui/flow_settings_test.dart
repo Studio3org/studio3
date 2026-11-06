@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -171,13 +172,17 @@ Widget _app() => ListenableBuilder(
   ),
 );
 
+/// This file's own folder for the app's files (created once): test files run side by side and
+/// must not share the cache.
+final _files = Directory.systemTemp.createTempSync('studio3_flow_settings');
+
 void main() {
   setUpAll(() async {
     dotenv.loadFromString(envString: '', isOptional: true);
     await loadStudioFonts();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
       const MethodChannel('plugins.flutter.io/path_provider'),
-      (call) async => '.',
+      (call) async => _files.path,
     );
   });
 
