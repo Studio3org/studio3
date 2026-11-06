@@ -99,6 +99,7 @@ class UserService {
     String? messagePermission,
     String? profileVisibility,
     String? themePreference,
+    String? phone,
     bool updateBannerTarget = false,
     String? bannerTargetType,
     String? bannerTargetId,
@@ -124,6 +125,8 @@ class UserService {
     if (messagePermission != null) body['messagePermission'] = messagePermission;
     if (profileVisibility != null) body['profileVisibility'] = profileVisibility;
     if (themePreference != null) body['themePreference'] = themePreference;
+    // An empty phone clears it (`SettingsAccount`).
+    if (phone != null) body['phone'] = phone;
     // Backend requires bannerTargetType/Id sent together (both null clears
     // the manual pin) — only include them when the caller explicitly wants
     // to change the pin, since plain nullable params can't tell "unset" from

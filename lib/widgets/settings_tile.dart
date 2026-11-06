@@ -92,6 +92,74 @@ class SettingsTile extends StatelessWidget {
   }
 }
 
+/// A row on the Settings boards (`Settings`, `SettingsAccount`, … Flow 12): the label 16 Ink
+/// (or [labelColor], red for Delete account) with an optional 12 Graphite line 2 under it; on
+/// the right the [value] in 14 Graphite (or [valueWidget]) and an 18 chevron in the placeholder
+/// grey, 8 apart; 14 above and below, 12 between the sides, a 1 px Line under. No chevron on
+/// actions that open nothing (Log out).
+class SettingsRow extends StatelessWidget {
+  const SettingsRow({
+    super.key,
+    required this.label,
+    this.subtitle,
+    this.value,
+    this.valueWidget,
+    this.labelColor,
+    this.chevron = true,
+    this.onTap,
+  });
+
+  final String label;
+  final String? subtitle;
+  final String? value;
+  final Widget? valueWidget;
+  final Color? labelColor;
+  final bool chevron;
+
+  /// Null makes the row inert (its destination isn't known yet).
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.studio;
+    final trailing = valueWidget ??
+        (value == null ? null : Text(value!, style: StudioType.body14(color: c.textSecondary)));
+    return Semantics(
+      button: onTap != null,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        // 50 tall with the Line, as the board's rows (16 at the browser's normal line height).
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(border: Border(bottom: BorderSide(color: c.line))),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(label, style: StudioType.sans(16, height: 1.3, color: labelColor ?? c.textPrimary)),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 2),
+                      Text(subtitle!, style: StudioType.caption12(color: c.textSecondary)),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              ?trailing,
+              if (trailing != null && chevron) const SizedBox(width: 8),
+              if (chevron) StudioIcon(StudioIcons.chevronRight, size: 18, color: c.textPlaceholder),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// A Settings switch row: label 15 (and an optional 12 line) with the [StudioSwitch] on the
 /// right; 14 above and below, 1 px Line under (`NotifSettings`).
 class SettingsToggleTile extends StatelessWidget {

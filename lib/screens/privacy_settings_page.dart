@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../services/api_exception.dart';
 import '../services/user_service.dart';
+import '../utils/profile_navigation.dart';
+import 'inbox_page.dart';
+import '../widgets/settings_tile.dart';
 import '../widgets/studio/studio.dart';
 import '../widgets/labeled_dropdown.dart';
 import '../widgets/studio_loading.dart';
@@ -77,6 +81,18 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
     }
   }
 
+  Future<void> _openPrivacyPolicy() async {
+    try {
+      final launched = await launchUrl(
+        Uri.parse('https://studiosthree.com/privacy'),
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched && mounted) showStudioToast(context, 'Could not open the browser.', icon: null);
+    } catch (_) {
+      if (mounted) showStudioToast(context, 'Could not open the privacy policy.', icon: null);
+    }
+  }
+
   void _showError(Object e) {
     showStudioToast(context, e is ApiException ? e.message : 'Could not save that.', icon: null);
   }
@@ -104,6 +120,14 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
               options: _messagePermissionOptions,
               onChanged: _saving ? (_) {} : _updateMessagePermission,
             ),
+            // Moved here from Settings when it was rebuilt to its board (`Settings`); this page
+            // follows `SettingsPrivacy` next (plan section 17.10).
+            const SizedBox(height: 12),
+            SettingsRow(label: 'Follow requests', onTap: () => Navigator.pushNamed(context, '/inbox', arguments: InboxTab.requests)),
+            SettingsRow(label: 'See your profile as others do', onTap: () => openOwnProfileAsViewer(context)),
+            SettingsRow(label: 'Blocked accounts', onTap: () => Navigator.pushNamed(context, '/blocked-users')),
+            SettingsRow(label: 'My reports', onTap: () => Navigator.pushNamed(context, '/my-reports')),
+            SettingsRow(label: 'Privacy policy', onTap: _openPrivacyPolicy),
           ],
         ),
       ),

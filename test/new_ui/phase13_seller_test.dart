@@ -314,8 +314,9 @@ void main() {
       ),
     );
     await tester.pump();
-    expect(find.text('Seller profile: setup not finished'), findsOneWidget);
-    expect(find.text('Continue'), findsOneWidget);
+    // `Settings`: Payouts with "Finish setup" in red until Stripe can pay them.
+    expect(find.text('Payouts'), findsOneWidget);
+    expect(find.text('Finish setup'), findsOneWidget);
     await tester.pump(const Duration(seconds: 11));
   });
 
