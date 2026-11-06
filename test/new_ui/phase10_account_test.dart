@@ -3,13 +3,13 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:studio3/models/blocked_user.dart';
+import 'package:studio3/models/user_profile.dart';
 import 'package:studio3/screens/blocked_users_page.dart';
 import 'package:studio3/screens/change_email_page.dart';
 import 'package:studio3/screens/change_password_page.dart';
 import 'package:studio3/screens/edit_profile_page.dart';
 import 'package:studio3/screens/privacy_settings_page.dart';
 import 'package:studio3/theme/app_theme.dart';
-import 'package:studio3/widgets/labeled_dropdown.dart';
 import 'package:studio3/widgets/profile_edit_header.dart';
 import 'package:studio3/widgets/studio/studio.dart';
 
@@ -78,15 +78,16 @@ void main() {
       expect(find.text('Most saved'), findsOneWidget); // now the field's value
     });
 
-    testWidgets('Privacy: two pickers as underline fields ($theme)', (tester) async {
+    testWidgets('Privacy: Who can message you in a sheet ($theme)', (tester) async {
       setBoardViewport(tester);
-      await tester.pumpWidget(_app(const PrivacySettingsPage(), dark: dark));
-      await _settle(tester);
+      await tester.pumpWidget(
+        _app(const PrivacySettingsPage(debugProfile: UserProfile(username: 'jo', name: 'Jo')), dark: dark),
+      );
+      await tester.pump();
       _themed(tester, c);
-      expect(find.byType(LabeledDropdown), findsNWidgets(2));
       await tester.tap(find.text('Everyone'));
       await tester.pumpAndSettle();
-      expect(find.text('People I follow'), findsOneWidget);
+      expect(find.text('People you follow'), findsOneWidget);
       expect(find.text('No one'), findsOneWidget);
     });
 

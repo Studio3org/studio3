@@ -15,6 +15,7 @@ import '../widgets/loading/skeleton_primitives.dart';
 import '../widgets/settings_tile.dart';
 import '../widgets/studio/studio.dart';
 import 'account_settings_page.dart';
+import 'delete_account_page.dart';
 import 'payment_shipping_page.dart';
 import 'seller/seller_setup_flow.dart';
 import 'seller_analytics_page.dart';
@@ -135,26 +136,6 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
         _sellerEnabled = AuthSession.instance.sellerEnabled;
         _loadingSeller = false;
       });
-    }
-  }
-
-  Future<void> _confirmDeleteAccount() async {
-    final password = await showStudioSheet<String>(
-      context: context,
-      builder: (_) => const _DeleteAccountSheet(),
-    );
-    if (password == null || password.isEmpty || !mounted) return;
-    try {
-      await DeviceService.instance.unregisterCurrentDevice();
-      await AuthService.instance.deleteAccount(password);
-      if (!mounted) return;
-      Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
-    } on ApiException catch (e) {
-      // e.g. wrong password, or an active listing / in-progress order that has to be
-      // resolved first — the server's message says which.
-      if (mounted) showStudioToast(context, e.message, icon: null);
-    } catch (_) {
-      if (mounted) showStudioToast(context, 'Could not delete your account. Please try again.', icon: null);
     }
   }
 
@@ -332,7 +313,7 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
                   label: 'Delete account',
                   labelColor: c.alert,
                   chevron: false,
-                  onTap: _confirmDeleteAccount,
+                  onTap: () => openDeleteAccount(context),
                 ),
                 const SizedBox(height: 18),
                 Text(
@@ -378,60 +359,5 @@ class PayoutSettingsTile extends StatelessWidget {
       );
     }
     return SettingsRow(label: 'Payouts', onTap: onOpenDashboard);
-  }
-}
-
-/// "Delete your account?", what it removes, the password (an underline field), then Delete
-/// account (on once a password is typed) and Cancel. Pops the password, or null. Until the
-/// delete account page (`SettingsDelete`) is built.
-class _DeleteAccountSheet extends StatefulWidget {
-  const _DeleteAccountSheet();
-
-  @override
-  State<_DeleteAccountSheet> createState() => _DeleteAccountSheetState();
-}
-
-class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
-  final _password = TextEditingController();
-
-  @override
-  void dispose() {
-    _password.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.studio;
-    return StudioSheet(
-      horizontalPadding: StudioSpace.marginForm,
-      gap: 14,
-      children: [
-        Text('Delete your account?', style: StudioType.title22(color: c.textPrimary)),
-        Text(
-          'This permanently deletes your account and your data — profile, pieces, scenes, '
-          'and listings. This cannot be undone.',
-          style: StudioType.body14(color: c.textSecondary),
-        ),
-        StudioUnderlineField(
-          label: 'Confirm your password',
-          controller: _password,
-          obscureText: true,
-          autofocus: true,
-          autofillHints: const [AutofillHints.password],
-          onChanged: (_) => setState(() {}),
-        ),
-        const SizedBox(height: 4),
-        StudioButton(
-          label: 'Delete account',
-          onPressed: _password.text.isEmpty ? null : () => Navigator.pop(context, _password.text),
-        ),
-        StudioButton(
-          label: 'Cancel',
-          variant: StudioButtonVariant.text,
-          onPressed: () => Navigator.pop(context),
-        ),
-      ],
-    );
   }
 }

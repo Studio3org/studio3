@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:studio3/screens/delete_account_page.dart';
 import 'package:studio3/screens/profile_settings_page.dart';
 import 'package:studio3/theme/app_theme.dart';
 import 'package:studio3/widgets/delete_confirmation_dialog.dart';
@@ -90,17 +91,14 @@ void main() {
     expect(find.text('Log out?'), findsNothing);
   });
 
-  testWidgets('Delete account: the password turns the button on', (tester) async {
+  testWidgets('Delete account opens its page (SettingsDelete)', (tester) async {
     setBoardViewport(tester, height: 2400);
     await tester.pumpWidget(_app(const ProfileSettingsPage()));
     await _loaded(tester);
     await tester.tap(find.text('Delete account'));
-    await tester.pumpAndSettle();
-    expect(find.text('Delete your account?'), findsOneWidget);
-    expect(tester.widget<StudioButton>(_button('Delete account')).onPressed, isNull);
-    await tester.enterText(find.byType(TextField), 'secret');
     await tester.pump();
-    expect(tester.widget<StudioButton>(_button('Delete account')).onPressed, isNotNull);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byType(DeleteAccountPage), findsOneWidget);
   });
 
   group('confirm sheets', () {

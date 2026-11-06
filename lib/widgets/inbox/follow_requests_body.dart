@@ -13,8 +13,15 @@ import 'notifications_body.dart' show activityTime;
 /// The Inbox "Requests" tab: people asking to follow a private profile. No board of its
 /// own: rows like Activity (40 avatar, name 15/500, "@handle · 4h" 12 Graphite, 12 above
 /// and below, 1 px Line) with the small Decline / Accept pair; the `SavedEmpty` empty state.
+///
+/// With [settings], the Settings › Privacy › Follow requests page (`SettingsFollowRequests`):
+/// 44 avatars, the age in Mono ("2h", "1d"), Approve then Decline, and under the rows "They
+/// aren't told if you decline." Newest first either way.
 class FollowRequestsBody extends StatefulWidget {
-  const FollowRequestsBody({super.key, this.debugRequests});
+  const FollowRequestsBody({super.key, this.debugRequests, this.settings = false});
+
+  /// The Settings page's look (`SettingsFollowRequests`).
+  final bool settings;
 
   /// For tests: the requests instead of loading them.
   @visibleForTesting
@@ -35,12 +42,15 @@ class FollowRequestsBodyState extends State<FollowRequestsBody> {
     super.initState();
     final debug = widget.debugRequests;
     if (debug != null) {
-      _requests = List.of(debug);
+      _requests = _newestFirst(debug);
       _loading = false;
       return;
     }
     _load();
   }
+
+  static List<FollowRequest> _newestFirst(List<FollowRequest> requests) =>
+      List.of(requests)..sort((a, b) => b.requestedAt.compareTo(a.requestedAt));
 
   Future<void> _load() async {
     if (widget.debugRequests != null) return;
@@ -49,7 +59,7 @@ class FollowRequestsBodyState extends State<FollowRequestsBody> {
       final requests = await SocialService.instance.listFollowRequests();
       if (!mounted) return;
       setState(() {
-        _requests = requests;
+        _requests = _newestFirst(requests);
         _loading = false;
         _showOfflineState = false;
       });
@@ -123,8 +133,17 @@ class FollowRequestsBodyState extends State<FollowRequestsBody> {
             FollowRequestRow(
               request: request,
               busy: _busy.contains(request.username),
+              settings: widget.settings,
               onAccept: () => _accept(request),
               onDecline: () => _decline(request),
+            ),
+          if (widget.settings && _requests.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 14),
+              child: Text(
+                "They aren't told if you decline.",
+                style: StudioType.caption12(color: c.textSecondary),
+              ),
             ),
         ],
       ),
@@ -132,7 +151,8 @@ class FollowRequestsBodyState extends State<FollowRequestsBody> {
   }
 }
 
-/// 40 avatar and name open the profile; Decline / Accept on the right.
+/// 40 avatar and name open the profile; Decline / Accept on the right. With [settings]
+/// (`SettingsFollowRequests`): a 44 avatar, the age in Mono, Approve then Decline.
 class FollowRequestRow extends StatelessWidget {
   const FollowRequestRow({
     super.key,
@@ -140,10 +160,12 @@ class FollowRequestRow extends StatelessWidget {
     required this.busy,
     required this.onAccept,
     required this.onDecline,
+    this.settings = false,
   });
 
   final FollowRequest request;
   final bool busy;
+  final bool settings;
   final VoidCallback onAccept;
   final VoidCallback onDecline;
 
@@ -164,7 +186,7 @@ class FollowRequestRow extends StatelessWidget {
                 behavior: HitTestBehavior.opaque,
                 child: Row(
                   children: [
-                    StudioAvatar(url: request.profilePhotoUrl, size: 40),
+                    StudioAvatar(url: request.profilePhotoUrl, size: settings ? 44 : 40),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -181,13 +203,29 @@ class FollowRequestRow extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 2),
-                          Text(
-                            '@${request.username} · '
-                            '${activityTime(request.requestedAt, appNow())}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: StudioType.caption12(color: c.textSecondary),
-                          ),
+                          if (settings)
+                            Text.rich(
+                              TextSpan(
+                                text: '@${request.username} · ',
+                                children: [
+                                  TextSpan(
+                                    text: requestAge(request.requestedAt, appNow()),
+                                    style: StudioType.mono(12, color: c.textSecondary),
+                                  ),
+                                ],
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: StudioType.caption12(color: c.textSecondary),
+                            )
+                          else
+                            Text(
+                              '@${request.username} · '
+                              '${activityTime(request.requestedAt, appNow())}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: StudioType.caption12(color: c.textSecondary),
+                            ),
                         ],
                       ),
                     ),
@@ -197,9 +235,55 @@ class FollowRequestRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          AcceptDeclineButtons(onAccept: onAccept, onDecline: onDecline, busy: busy),
+          if (settings)
+            _ApproveDecline(onApprove: onAccept, onDecline: onDecline, busy: busy)
+          else
+            AcceptDeclineButtons(onAccept: onAccept, onDecline: onDecline, busy: busy),
         ],
       ),
     );
   }
+}
+
+/// Approve (Ink) then Decline (outlined), small, 12 apart (`SettingsFollowRequests`). The
+/// small buttons keep their 16 sides (the board has 14 and 12).
+class _ApproveDecline extends StatelessWidget {
+  const _ApproveDecline({required this.onApprove, required this.onDecline, required this.busy});
+
+  final VoidCallback onApprove;
+  final VoidCallback onDecline;
+  final bool busy;
+
+  @override
+  Widget build(BuildContext context) {
+    if (busy) {
+      return SizedBox.square(
+        dimension: 34,
+        child: Center(
+          child: SizedBox.square(
+            dimension: 18,
+            child: CircularProgressIndicator(strokeWidth: 2, color: context.studio.textPrimary),
+          ),
+        ),
+      );
+    }
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        StudioButton(label: 'Approve', variant: StudioButtonVariant.small, filled: true, onPressed: onApprove),
+        const SizedBox(width: 12),
+        StudioButton(label: 'Decline', variant: StudioButtonVariant.small, onPressed: onDecline),
+      ],
+    );
+  }
+}
+
+/// How long ago a request came: "now", "12m", "2h", "1d", "3w".
+String requestAge(DateTime at, DateTime now) {
+  final diff = now.difference(at.toLocal());
+  if (diff.inMinutes < 1) return 'now';
+  if (diff.inHours < 1) return '${diff.inMinutes}m';
+  if (diff.inDays < 1) return '${diff.inHours}h';
+  if (diff.inDays < 7) return '${diff.inDays}d';
+  return '${diff.inDays ~/ 7}w';
 }

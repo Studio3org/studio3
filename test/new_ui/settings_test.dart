@@ -5,14 +5,18 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:studio3/models/address.dart';
+import 'package:studio3/models/follow_request.dart';
 import 'package:studio3/models/order.dart';
 import 'package:studio3/models/piece_summary.dart';
 import 'package:studio3/models/saved_card.dart';
 import 'package:studio3/models/user_profile.dart';
 import 'package:studio3/screens/account_settings_page.dart';
+import 'package:studio3/screens/delete_account_page.dart';
+import 'package:studio3/screens/follow_requests_page.dart';
 import 'package:studio3/screens/my_orders_page.dart';
 import 'package:studio3/screens/my_sales_page.dart';
 import 'package:studio3/screens/payment_shipping_page.dart';
+import 'package:studio3/screens/privacy_settings_page.dart';
 import 'package:studio3/screens/profile_settings_page.dart';
 import 'package:studio3/screens/selling_settings_page.dart';
 import 'package:studio3/services/api_exception.dart';
@@ -20,6 +24,7 @@ import 'package:studio3/services/payout_service.dart';
 import 'package:studio3/theme/app_theme.dart';
 import 'package:studio3/utils/app_clock.dart';
 import 'package:studio3/utils/app_version.dart';
+import 'package:studio3/widgets/inbox/follow_requests_body.dart';
 import 'package:studio3/widgets/orders/order_list_row.dart';
 import 'package:studio3/widgets/settings_tile.dart';
 import 'package:studio3/widgets/studio/studio.dart';
@@ -120,6 +125,50 @@ const _studio = Address(
   state: 'TX',
   zip: '78701',
 );
+
+Widget _privacy({bool private = false, bool seller = false, List<String> requests = const ['a', 'b', 'c']}) =>
+    PrivacySettingsPage(
+      debugProfile: UserProfile(
+        username: 'jordan',
+        name: 'Jordan Lee',
+        profileVisibility: private ? 'private' : 'public',
+      ),
+      debugSeller: seller,
+      debugRequests: requests,
+      debugBlocked: 1,
+    );
+
+final _requestsNow = DateTime(2026, 11, 6, 12);
+
+/// The board's three, given oldest first: the page shows them newest first.
+final _followRequests = [
+  FollowRequest(username: 'mariabruno', name: 'Maria Bruno', requestedAt: _requestsNow.subtract(const Duration(days: 3))),
+  FollowRequest(username: 'daisysmith', name: 'Daisy Smith', requestedAt: _requestsNow.subtract(const Duration(hours: 2))),
+  FollowRequest(username: 'cedric', name: 'Cedric Okafor', requestedAt: _requestsNow.subtract(const Duration(days: 1))),
+];
+
+/// The board's three: a running auction, a piece shipping, a payout not paid yet.
+List<DeletionBlocker> _boardBlockers() {
+  final auction = PieceSummary(
+    id: 'q',
+    title: 'Quiet Hours',
+    isForSale: true,
+    listingType: 'auction',
+    status: 'live',
+    auctionEndsAt: DateTime(2026, 11, 8, 18),
+  );
+  final shipping = _sale('s', 'shipped', cents: 350000, at: DateTime(2026, 11, 2));
+  final payout = _sale('p', 'completed', cents: 350000, at: DateTime(2026, 10, 20), payout: 'pending');
+  return deletionBlockers(
+    listed: [auction],
+    sales: [payout],
+    purchases: [shipping],
+    pieces: {
+      'p-s': const PieceSummary(id: 'p-s', title: 'Bodies in Color I'),
+      'p-p': const PieceSummary(id: 'p-p', title: 'Paper Planes III'),
+    },
+  );
+}
 
 Widget _purchasesPage() => MyOrdersPage(debugOrders: _purchases, debugPieces: _purchasePieces);
 
@@ -554,6 +603,210 @@ void main() {
     });
   });
 
+  group('Privacy', () {
+    for (final dark in [false, true]) {
+      testWidgets('rows, counts and the switch (${dark ? 'dark' : 'light'})', (tester) async {
+        setBoardViewport(tester);
+        await tester.pumpWidget(_app(_privacy(), dark: dark));
+        await tester.pump();
+
+        expect(find.text('Privacy'), findsOneWidget);
+        final rows = tester.widgetList<SettingsRow>(find.byType(SettingsRow)).toList();
+        expect(rows.map((r) => r.label), [
+          'Private account',
+          'Follow requests',
+          'Who can message you',
+          'Blocked accounts',
+          'See your profile as others do',
+          'My reports',
+          'Privacy policy',
+        ]);
+        expect(rows[0].subtitle, 'Only approved followers see your profile');
+        expect(rows[0].chevron, isFalse);
+        expect(rows.map((r) => r.value).take(4), [null, '3', 'Everyone', '1']);
+        expect(tester.widget<StudioSwitch>(find.byType(StudioSwitch)).value, isFalse);
+        // Private Collection waits on B34, Hidden pieces on B32.
+        expect(find.text('Private Collection'), findsNothing);
+        expect(find.text('Hidden pieces'), findsNothing);
+      });
+    }
+
+    testWidgets('a seller profile stays public', (tester) async {
+      setBoardViewport(tester);
+      await tester.pumpWidget(_app(_privacy(seller: true)));
+      await tester.pump();
+      await tester.tap(find.byType(StudioSwitch));
+      await tester.pump();
+      expect(find.text('Seller profiles stay public, since listings are.'), findsOneWidget);
+      expect(tester.widget<StudioSwitch>(find.byType(StudioSwitch)).value, isFalse);
+      await tester.pump(const Duration(seconds: 5));
+    });
+
+    testWidgets('going public asks first, then approves everyone waiting', (tester) async {
+      setBoardViewport(tester);
+      await tester.pumpWidget(_app(_privacy(private: true)));
+      await tester.pump();
+      expect(tester.widget<StudioSwitch>(find.byType(StudioSwitch)).value, isTrue);
+      await tester.tap(find.byType(StudioSwitch));
+      await tester.pumpAndSettle();
+      expect(find.text('Make your account public?'), findsOneWidget);
+      expect(find.text('The 3 people waiting to follow you will be approved.'), findsOneWidget);
+      await tester.tap(find.text('Make public'));
+      await tester.pumpAndSettle();
+      expect(tester.widget<StudioSwitch>(find.byType(StudioSwitch)).value, isFalse);
+      final requests = tester.widgetList<SettingsRow>(find.byType(SettingsRow)).elementAt(1);
+      expect(requests.value, isNull);
+    });
+
+    testWidgets('going private with no one waiting needs no question', (tester) async {
+      setBoardViewport(tester);
+      await tester.pumpWidget(_app(_privacy(requests: const [])));
+      await tester.pump();
+      await tester.tap(find.text('Private account'));
+      await tester.pumpAndSettle();
+      expect(find.text('Make your account public?'), findsNothing);
+      expect(tester.widget<StudioSwitch>(find.byType(StudioSwitch)).value, isTrue);
+    });
+
+    testWidgets('Who can message you: Everyone, People you follow, No one', (tester) async {
+      setBoardViewport(tester);
+      await tester.pumpWidget(_app(_privacy()));
+      await tester.pump();
+      await tester.tap(find.text('Who can message you'));
+      await tester.pumpAndSettle();
+      expect(find.text('People you follow'), findsOneWidget);
+      await tester.tap(find.text('No one'));
+      await tester.pumpAndSettle();
+      final row = tester.widgetList<SettingsRow>(find.byType(SettingsRow)).elementAt(2);
+      expect(row.value, 'No one');
+    });
+  });
+
+  group('Follow requests', () {
+    setUp(() => appNow = () => _requestsNow);
+    tearDown(() => appNow = DateTime.now);
+
+    for (final dark in [false, true]) {
+      final c = dark ? StudioColors.dark : StudioColors.light;
+      testWidgets('newest first, 44 avatars, age in Mono, Approve then Decline, the footnote (${dark ? 'dark' : 'light'})', (
+        tester,
+      ) async {
+        setBoardViewport(tester);
+        await tester.pumpWidget(_app(FollowRequestsPage(debugRequests: _followRequests), dark: dark));
+        await tester.pump();
+
+        expect(find.text('Follow requests'), findsOneWidget);
+        final names = tester.widgetList<FollowRequestRow>(find.byType(FollowRequestRow)).map((r) => r.request.name);
+        expect(names, ['Daisy Smith', 'Cedric Okafor', 'Maria Bruno']);
+        expect(tester.widgetList<StudioAvatar>(find.byType(StudioAvatar)).map((a) => a.size), everyElement(44));
+        expect(find.text('@daisysmith · 2h', findRichText: true), findsOneWidget);
+        expect(find.text('@cedric · 1d', findRichText: true), findsOneWidget);
+        final buttons = tester
+            .widgetList<StudioButton>(
+              find.descendant(of: find.byType(FollowRequestRow).first, matching: find.byType(StudioButton)),
+            )
+            .toList();
+        expect(buttons.map((b) => b.label), ['Approve', 'Decline']);
+        expect(buttons.map((b) => b.filled), [true, false]);
+        final note = tester.widget<Text>(find.text("They aren't told if you decline.")).style!;
+        expect((note.fontSize, note.color), (12, c.textSecondary));
+      });
+    }
+
+    testWidgets('no requests: the empty state, no footnote', (tester) async {
+      setBoardViewport(tester);
+      await tester.pumpWidget(_app(const FollowRequestsPage(debugRequests: [])));
+      await tester.pump();
+      expect(find.text('No follow requests'), findsOneWidget);
+      expect(find.text("They aren't told if you decline."), findsNothing);
+    });
+
+    test('ages', () {
+      final now = DateTime(2026, 11, 6, 12);
+      expect(requestAge(now, now), 'now');
+      expect(requestAge(now.subtract(const Duration(minutes: 12)), now), '12m');
+      expect(requestAge(now.subtract(const Duration(hours: 2)), now), '2h');
+      expect(requestAge(now.subtract(const Duration(days: 3)), now), '3d');
+      expect(requestAge(now.subtract(const Duration(days: 15)), now), '2w');
+    });
+  });
+
+  group('Delete account', () {
+    setUp(() => appNow = () => DateTime(2026, 11, 6, 10));
+    tearDown(() => appNow = DateTime.now);
+
+    test('what keeps the account: auctions, listings, sales and purchases in progress, payouts', () {
+      final blockers = _boardBlockers();
+      expect(blockers.map((b) => b.label), ['Auction running', 'Piece shipping', 'Payout pending']);
+      expect(blockers.map((b) => b.subtitle), ['Ends Nov 8', 'Shipped', null]);
+      expect(blockers.map((b) => b.value), ['Quiet Hours', 'Bodies in Color I', 'Paper Planes III']);
+
+      final none = deletionBlockers(
+        listed: const [],
+        sales: [
+          _sale('a', 'completed', cents: 1, at: DateTime(2026, 1, 1), payout: 'released'),
+          _sale('b', 'cancelled', cents: 1, at: DateTime(2026, 1, 1)),
+        ],
+        purchases: [_sale('c', 'refunded', cents: 1, at: DateTime(2026, 1, 1))],
+        pieces: const {},
+      );
+      expect(none, isEmpty);
+
+      final more = deletionBlockers(
+        listed: const [PieceSummary(id: 'l', title: 'Dune', isForSale: true, status: 'live')],
+        sales: [_sale('d', 'pending_payment', cents: 1, at: DateTime(2026, 1, 1))],
+        purchases: [_sale('e', 'disputed', cents: 1, at: DateTime(2026, 1, 1))],
+        pieces: const {},
+      );
+      expect(more.map((b) => b.label), ['Listed for sale', 'Sale waiting for payment', 'Issue open']);
+    });
+
+    for (final dark in [false, true]) {
+      final c = dark ? StudioColors.dark : StudioColors.light;
+      testWidgets('in progress: Finish these first, the rows, Delete account off (${dark ? 'dark' : 'light'})', (
+        tester,
+      ) async {
+        setBoardViewport(tester);
+        await tester.pumpWidget(_app(DeleteAccountPage(debugBlockers: _boardBlockers()), dark: dark));
+        await tester.pump();
+        final title = tester.widget<Text>(find.text('Finish these first')).style!;
+        expect((title.fontSize, title.fontWeight, title.color), (24, FontWeight.w500, c.textPrimary));
+        expect(find.text('Your account can be deleted once nothing is in progress.'), findsOneWidget);
+        expect(tester.widgetList<SettingsRow>(find.byType(SettingsRow)).map((r) => r.label), [
+          'Auction running',
+          'Piece shipping',
+          'Payout pending',
+        ]);
+        expect(
+          find.text('Removes your profile, pieces, Scenes and messages. Sale records are kept as the law requires.'),
+          findsOneWidget,
+        );
+        expect(tester.widget<StudioButton>(find.widgetWithText(StudioButton, 'Delete account')).onPressed, isNull);
+      });
+    }
+
+    testWidgets('nothing in progress: Delete account asks for DELETE and the password', (tester) async {
+      setBoardViewport(tester);
+      await tester.pumpWidget(_app(const DeleteAccountPage(debugBlockers: [])));
+      await tester.pump();
+      expect(find.text('Finish these first'), findsNothing);
+      expect(find.text('Delete your account?'), findsOneWidget);
+      await tester.tap(find.widgetWithText(StudioButton, 'Delete account'));
+      await tester.pumpAndSettle();
+      expect(find.text('Type DELETE to confirm.'), findsOneWidget);
+      StudioButton confirm() => tester.widget<StudioButton>(find.widgetWithText(StudioButton, 'Delete account').last);
+      expect(confirm().onPressed, isNull);
+      await tester.enterText(find.byType(TextField).first, 'delete');
+      await tester.pump();
+      expect(confirm().onPressed, isNull);
+      await tester.enterText(find.byType(TextField).last, 'secret');
+      await tester.pump();
+      expect(confirm().onPressed, isNotNull);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+    });
+  });
+
   group('goldens', () {
     final skip = Platform.environment['NEW_UI_GOLDENS'] != '1';
     testWidgets('Settings', (tester) async {
@@ -597,6 +850,34 @@ void main() {
       await tester.pumpWidget(_app(const PaymentShippingPage(debugCards: [_visa], debugAddresses: [_home])));
       await tester.pump();
       await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/SettingsPayment.png'));
+      await checkAcceptance(tester);
+    }, skip: skip);
+
+    testWidgets('SettingsPrivacy', (tester) async {
+      setBoardViewport(tester);
+      await tester.pumpWidget(_app(_privacy()));
+      await tester.pump();
+      await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/SettingsPrivacy.png'));
+      await checkAcceptance(tester);
+    }, skip: skip);
+
+    testWidgets('SettingsFollowRequests', (tester) async {
+      appNow = () => _requestsNow;
+      addTearDown(() => appNow = DateTime.now);
+      setBoardViewport(tester);
+      await tester.pumpWidget(_app(FollowRequestsPage(debugRequests: _followRequests)));
+      await tester.pump();
+      await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/SettingsFollowRequests.png'));
+      await checkAcceptance(tester);
+    }, skip: skip);
+
+    testWidgets('SettingsDelete', (tester) async {
+      appNow = () => DateTime(2026, 11, 6, 10);
+      addTearDown(() => appNow = DateTime.now);
+      setBoardViewport(tester);
+      await tester.pumpWidget(_app(DeleteAccountPage(debugBlockers: _boardBlockers())));
+      await tester.pump();
+      await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/SettingsDelete.png'));
       await checkAcceptance(tester);
     }, skip: skip);
 
