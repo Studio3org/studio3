@@ -15,6 +15,7 @@ import '../widgets/loading/skeleton_primitives.dart';
 import '../widgets/settings_tile.dart';
 import '../widgets/studio/studio.dart';
 import 'account_settings_page.dart';
+import 'payment_shipping_page.dart';
 import 'seller/seller_setup_flow.dart';
 import 'seller_analytics_page.dart';
 import 'selling_settings_page.dart';
@@ -307,7 +308,10 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
                 ),
                 SettingsRow(
                   label: 'Payment and shipping',
-                  onTap: () => Navigator.pushNamed(context, '/addresses'),
+                  onTap: () => Navigator.push<void>(
+                    context,
+                    MaterialPageRoute<void>(builder: (_) => const PaymentShippingPage()),
+                  ),
                 ),
 
                 const SettingsSectionLabel('App', top: 26),

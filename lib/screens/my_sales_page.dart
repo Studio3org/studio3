@@ -1,13 +1,36 @@
 import 'package:flutter/material.dart';
 
+import '../models/feed_preview_item.dart';
 import '../models/order.dart';
+import '../models/piece_summary.dart';
 import '../services/order_service.dart';
-import '../widgets/orders/order_row.dart';
+import '../utils/slide_up_page_route.dart';
+import '../widgets/orders/order_list_row.dart';
 import '../widgets/studio/studio.dart';
+import 'available_piece_detail_page.dart';
 import 'order_detail_page.dart';
 
+/// Sales (`SettingsSales`, Flow 12), for seller profiles: everything they sold, newest first.
+/// Each row has the piece's picture and title, what comes next (red when it is their move:
+/// "Pack it for pickup"), then SOLD or AUCTION, the amount and the date in Mono.
+///
+/// A sold piece opens its page, where the artist sees the delivery card; anything else (waiting
+/// for payment, cancelled, refunded) opens the order. The board's All / Art / Tickets filter and
+/// the ticket rows wait on ticket sales (BACKEND_CHANGES B22, on hold), so every row is art and
+/// there is no filter; the pickup date in "Pack it for pickup Nov 5" waits on B32.
+///
+/// Orders carry piece ids only, so each piece is read (cached) for its title and picture;
+/// a piece summary on the order is in BACKEND_CHANGES B34.
 class MySalesPage extends StatefulWidget {
-  const MySalesPage({super.key});
+  const MySalesPage({super.key, this.debugSales, this.debugPieces});
+
+  /// For tests: the sales instead of loading them.
+  @visibleForTesting
+  final List<Order>? debugSales;
+
+  /// For tests: the pieces on [debugSales], by id.
+  @visibleForTesting
+  final Map<String, PieceSummary>? debugPieces;
 
   @override
   State<MySalesPage> createState() => _MySalesPageState();
@@ -15,6 +38,7 @@ class MySalesPage extends StatefulWidget {
 
 class _MySalesPageState extends State<MySalesPage> {
   final List<Order> _orders = [];
+  final Map<String, PieceSummary> _pieces = {};
   bool _loading = true;
   bool _loadingMore = false;
   String? _nextCursor;
@@ -23,6 +47,13 @@ class _MySalesPageState extends State<MySalesPage> {
   @override
   void initState() {
     super.initState();
+    final given = widget.debugSales;
+    if (given != null) {
+      _orders.addAll(given);
+      _pieces.addAll(widget.debugPieces ?? const {});
+      _loading = false;
+      return;
+    }
     _scrollController.addListener(_onScroll);
     _load();
   }
@@ -35,27 +66,22 @@ class _MySalesPageState extends State<MySalesPage> {
   }
 
   Future<void> _load({bool append = false}) async {
+    if (widget.debugSales != null) return;
     if (append && (_nextCursor == null || _nextCursor!.isEmpty)) return;
     setState(() {
       if (append) {
         _loadingMore = true;
       } else {
-        _loading = true;
+        _loading = _orders.isEmpty;
       }
     });
     try {
-      final page = await OrderService.instance.getMySales(
-        cursor: append ? _nextCursor : null,
-      );
+      final page = await OrderService.instance.getMySales(cursor: append ? _nextCursor : null);
+      await loadOrderPieces(page.items, _pieces);
       if (!mounted) return;
       setState(() {
-        if (append) {
-          _orders.addAll(page.items);
-        } else {
-          _orders
-            ..clear()
-            ..addAll(page.items);
-        }
+        if (!append) _orders.clear();
+        _orders.addAll(page.items);
         _nextCursor = page.nextCursor;
         _loading = false;
         _loadingMore = false;
@@ -78,12 +104,34 @@ class _MySalesPageState extends State<MySalesPage> {
     }
   }
 
+  PieceSummary? _pieceOf(Order order) => orderPiece(order, _pieces);
+
+  /// A sold piece opens its page (the artist's delivery card); anything else, the order.
+  Future<void> _open(Order order) async {
+    final piece = _pieceOf(order);
+    if (piece != null && piece.status == 'sold') {
+      await Navigator.of(context).push<void>(
+        SlideUpPageRoute<void>(
+          page: AvailablePieceDetailPage(item: FeedPreviewItem.fromPieceSummary(piece)),
+        ),
+      );
+    } else {
+      await Navigator.push<void>(
+        context,
+        MaterialPageRoute<void>(
+          builder: (_) => OrderDetailPage(orderId: order.id, isSeller: true),
+        ),
+      );
+    }
+    _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = context.studio;
     return Scaffold(
       backgroundColor: c.background,
-      appBar: StudioTopBar(context: context, title: 'My sales'),
+      appBar: StudioTopBar(context: context, title: 'Sales'),
       body: RefreshIndicator(
         color: c.textPrimary,
         onRefresh: () => _load(),
@@ -92,17 +140,13 @@ class _MySalesPageState extends State<MySalesPage> {
     );
   }
 
-  Widget _spinner() {
-    final c = context.studio;
-    return SizedBox.square(
-      dimension: 20,
-      child: CircularProgressIndicator(strokeWidth: 2, color: c.textSecondary),
-    );
-  }
-
   Widget _buildBody() {
+    final c = context.studio;
     if (_loading && _orders.isEmpty) {
-      return Center(child: _spinner());
+      return const SingleChildScrollView(
+        physics: NeverScrollableScrollPhysics(),
+        child: OrderListSkeleton(),
+      );
     }
     if (_orders.isEmpty) {
       return ListView(
@@ -116,27 +160,30 @@ class _MySalesPageState extends State<MySalesPage> {
     return ListView.builder(
       controller: _scrollController,
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(StudioSpace.marginPage, 4, StudioSpace.marginPage, 40),
+      padding: const EdgeInsets.fromLTRB(20, 6, 20, 40),
       itemCount: _orders.length + (_loadingMore ? 1 : 0),
       itemBuilder: (context, index) {
         if (index >= _orders.length) {
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Center(child: _spinner()),
+            child: Center(
+              child: SizedBox.square(
+                dimension: 20,
+                child: CircularProgressIndicator(strokeWidth: 2, color: c.textSecondary),
+              ),
+            ),
           );
         }
         final order = _orders[index];
-        return OrderRow(
-          order: order,
-          onTap: () async {
-            await Navigator.push<void>(
-              context,
-              MaterialPageRoute<void>(
-                builder: (_) => OrderDetailPage(orderId: order.id, isSeller: true),
-              ),
-            );
-            _load();
-          },
+        final piece = _pieceOf(order);
+        final step = saleStep(order);
+        return OrderListRow(
+          title: orderPieceTitle(piece),
+          imageUrl: piece?.mediaUrl,
+          step: step.text,
+          urgent: step.urgent,
+          meta: saleMeta(order, piece),
+          onTap: () => _open(order),
         );
       },
     );
