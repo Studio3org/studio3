@@ -109,8 +109,11 @@ Future<String> _png(Directory dir, String name, int w, int h, img.Color color) a
   return (File('${dir.path}/$name.png')..writeAsBytesSync(img.encodePng(image))).path;
 }
 
+/// Light, or dark while the dark group runs (flow regression 19.2, once in each theme).
+var _dark = false;
+
 Widget _page(PostCreatePage page) =>
-    MaterialApp(theme: AppTheme.light, home: page);
+    MaterialApp(theme: _dark ? AppTheme.dark : AppTheme.light, home: page);
 
 /// Taps [label] in the real event loop, so the publish it starts (file reads, image
 /// encoding, the fake server) actually runs, then lets it finish.
@@ -172,6 +175,85 @@ void main() {
     AuthSession.instance.accessToken = wasToken;
   });
 
+  group('renderer: the uploaded image matches what was chosen', () {
+    Future<(int, int, Uint8List)> render(WidgetTester tester, String path, PostImageTransform t) async {
+      late (int, int, Uint8List) out;
+      await tester.runAsync(() async {
+        final bytes = await PostImageRenderer.render(imagePath: path, transform: t);
+        final codec = await ui.instantiateImageCodec(bytes);
+        final image = (await codec.getNextFrame()).image;
+        final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+        out = (image.width, image.height, data!.buffer.asUint8List());
+      });
+      return out;
+    }
+
+    for (final (ratio, expected) in [
+      (CropAspectRatio.ratio3x4, 3 / 4),
+      (CropAspectRatio.ratio4x5, 4 / 5),
+      (CropAspectRatio.ratio1x1, 1.0),
+      (CropAspectRatio.ratio9x16, 9 / 16),
+      (CropAspectRatio.ratio16x9, 16 / 9),
+    ]) {
+      testWidgets('size ${ratio.label}', (tester) async {
+        final (w, h, _) = await render(
+          tester,
+          _landscape,
+          PostImageTransform()..aspectRatio = ratio,
+        );
+        expect(w / h, closeTo(expected, 0.01));
+        expect(w > h ? w : h, PostImageRenderer.maxOutputLongSide.round());
+      });
+    }
+
+    testWidgets('Original keeps the photo shape', (tester) async {
+      final (w, h, _) = await render(
+        tester,
+        _landscape,
+        PostImageTransform()..originalAspect = 400 / 300,
+      );
+      expect(w / h, closeTo(4 / 3, 0.01));
+    });
+
+    testWidgets('warmth shifts red up and blue down; neutral leaves grey alone', (tester) async {
+      final (_, _, plain) = await render(tester, _landscape, PostImageTransform());
+      expect(plain[0], plain[2]); // grey: red == blue
+      final (_, _, warm) = await render(tester, _landscape, PostImageTransform()..warmth = 100);
+      expect(warm[0], greaterThan(plain[0]));
+      expect(warm[2], lessThan(plain[2]));
+    });
+
+    testWidgets('brightness lifts every channel; contrast pivots around mid-grey', (tester) async {
+      final (_, _, plain) = await render(tester, _landscape, PostImageTransform());
+      final (_, _, bright) = await render(tester, _landscape, PostImageTransform()..brightness = 75);
+      expect(bright[0], greaterThan(plain[0] + 40));
+      // The grey (120) sits below the middle, so more contrast darkens it.
+      final (_, _, punchy) = await render(tester, _landscape, PostImageTransform()..contrast = 75);
+      expect(punchy[0], lessThan(plain[0]));
+    });
+
+    testWidgets('a quarter turn keeps the output shape', (tester) async {
+      final (w, h, _) = await render(
+        tester,
+        _landscape,
+        PostImageTransform()..rotationDegrees = -90,
+      );
+      expect(w / h, closeTo(3 / 4, 0.01));
+    });
+  });
+
+  // Flow regression 19.2 (post a piece, post a Scene): once in each theme.
+  for (final dark in [false, true]) {
+    group(dark ? 'dark' : 'light', () {
+      setUp(() => _dark = dark);
+      tearDown(() => _dark = false);
+      _postFlows();
+    });
+  }
+}
+
+/// The posting flows, run by [main] in light and in dark (`_dark`).
+void _postFlows() {
   testWidgets('piece for sale: two photos uploaded in order, draft created, then live', (
     tester,
   ) async {
@@ -407,73 +489,6 @@ void main() {
     expect(post['thumbnailUrl'], 'https://cdn.test/sarah/post/2');
     expect(post.containsKey('linkedPieceIds'), isFalse);
     expect(find.byType(SceneLiveView), findsOneWidget);
-  });
-
-  group('renderer: the uploaded image matches what was chosen', () {
-    Future<(int, int, Uint8List)> render(WidgetTester tester, String path, PostImageTransform t) async {
-      late (int, int, Uint8List) out;
-      await tester.runAsync(() async {
-        final bytes = await PostImageRenderer.render(imagePath: path, transform: t);
-        final codec = await ui.instantiateImageCodec(bytes);
-        final image = (await codec.getNextFrame()).image;
-        final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
-        out = (image.width, image.height, data!.buffer.asUint8List());
-      });
-      return out;
-    }
-
-    for (final (ratio, expected) in [
-      (CropAspectRatio.ratio3x4, 3 / 4),
-      (CropAspectRatio.ratio4x5, 4 / 5),
-      (CropAspectRatio.ratio1x1, 1.0),
-      (CropAspectRatio.ratio9x16, 9 / 16),
-      (CropAspectRatio.ratio16x9, 16 / 9),
-    ]) {
-      testWidgets('size ${ratio.label}', (tester) async {
-        final (w, h, _) = await render(
-          tester,
-          _landscape,
-          PostImageTransform()..aspectRatio = ratio,
-        );
-        expect(w / h, closeTo(expected, 0.01));
-        expect(w > h ? w : h, PostImageRenderer.maxOutputLongSide.round());
-      });
-    }
-
-    testWidgets('Original keeps the photo shape', (tester) async {
-      final (w, h, _) = await render(
-        tester,
-        _landscape,
-        PostImageTransform()..originalAspect = 400 / 300,
-      );
-      expect(w / h, closeTo(4 / 3, 0.01));
-    });
-
-    testWidgets('warmth shifts red up and blue down; neutral leaves grey alone', (tester) async {
-      final (_, _, plain) = await render(tester, _landscape, PostImageTransform());
-      expect(plain[0], plain[2]); // grey: red == blue
-      final (_, _, warm) = await render(tester, _landscape, PostImageTransform()..warmth = 100);
-      expect(warm[0], greaterThan(plain[0]));
-      expect(warm[2], lessThan(plain[2]));
-    });
-
-    testWidgets('brightness lifts every channel; contrast pivots around mid-grey', (tester) async {
-      final (_, _, plain) = await render(tester, _landscape, PostImageTransform());
-      final (_, _, bright) = await render(tester, _landscape, PostImageTransform()..brightness = 75);
-      expect(bright[0], greaterThan(plain[0] + 40));
-      // The grey (120) sits below the middle, so more contrast darkens it.
-      final (_, _, punchy) = await render(tester, _landscape, PostImageTransform()..contrast = 75);
-      expect(punchy[0], lessThan(plain[0]));
-    });
-
-    testWidgets('a quarter turn keeps the output shape', (tester) async {
-      final (w, h, _) = await render(
-        tester,
-        _landscape,
-        PostImageTransform()..rotationDegrees = -90,
-      );
-      expect(w / h, closeTo(3 / 4, 0.01));
-    });
   });
 
   testWidgets('piece at auction: terms on review, created live with the auction, Scene linked', (

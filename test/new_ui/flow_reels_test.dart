@@ -57,17 +57,26 @@ final _piece = {
 };
 
 class _Fake implements HttpClientAdapter {
-  final requests = <({String method, String path, Map<String, String> query, String? auth})>[];
+  final requests = <({String method, String path, Map<String, String> query, String? auth, Object? body})>[];
   List<Map<String, dynamic>> firstPage = [];
 
-  Iterable<({String method, String path, Map<String, String> query, String? auth})> to(String method, String path) =>
+  Iterable<({String method, String path, Map<String, String> query, String? auth, Object? body})> to(
+    String method,
+    String path,
+  ) =>
       requests.where((r) => r.method == method && r.path == path);
 
   @override
   Future<ResponseBody> fetch(RequestOptions options, Stream<List<int>>? requestStream, Future<void>? cancelFuture) async {
     final path = options.uri.path;
     final query = options.uri.queryParameters;
-    requests.add((method: options.method, path: path, query: query, auth: options.headers['Authorization'] as String?));
+    requests.add((
+      method: options.method,
+      path: path,
+      query: query,
+      auth: options.headers['Authorization'] as String?,
+      body: options.data,
+    ));
     Object json = {'success': true, 'data': {}};
     var status = 200;
     switch ('${options.method} $path') {
@@ -89,7 +98,10 @@ class _Fake implements HttpClientAdapter {
         };
       case 'POST /api/users/kofi/follow':
         json = {'success': true, 'data': {'following': true, 'requested': false}};
-      case 'POST /api/posts/v3/save' || 'DELETE /api/posts/v3/save' || 'POST /api/users/kofi/block':
+      case 'POST /api/posts/v3/save' ||
+          'DELETE /api/posts/v3/save' ||
+          'POST /api/users/kofi/block' ||
+          'POST /api/posts/v3/report':
         break;
       default:
         status = 404;
@@ -429,6 +441,16 @@ void main() {
       expect(_video_.disposed, contains(v3Again));
       Navigator.of(tester.element(find.text('profile @kofi'))).pop();
       await _settle(tester);
+
+      // Report Scene: a reason, Send report, the thanks (19.2 report and block).
+      await _tap(tester, _control('More'));
+      await _tap(tester, find.text('Report Scene'));
+      expect(find.text('Report scene'), findsOneWidget);
+      await _tap(tester, find.text('Spam or scam'));
+      await _tap(tester, find.widgetWithText(StudioButton, 'Send report'));
+      expect(_server.to('POST', '/api/posts/v3/report').single.body, {'reason': 'spam'});
+      expect(find.text('Thanks. We will review it within 24 hours.'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 4));
 
       // Block: asks first, then their Scenes leave the viewer.
       await _tap(tester, _control('More'));
