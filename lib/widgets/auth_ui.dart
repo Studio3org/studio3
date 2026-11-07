@@ -1184,3 +1184,106 @@ class _StudioOtpSlotsState extends State<StudioOtpSlots> {
     );
   }
 }
+
+/// The code screen's body (`SignIn2Code`), shared by sign-up and the emailed login and reset
+/// codes (`NoteLoginPassword`: "opens the same code screen used for new accounts"): "Enter
+/// your code" 32, "We sent it to [email]. Wrong email?", the six slots, the resend line (a
+/// countdown, then Resend code) and the hint.
+class AuthCodeStepBody extends StatelessWidget {
+  const AuthCodeStepBody({
+    super.key,
+    required this.email,
+    required this.onCompleted,
+    required this.onWrongEmail,
+    required this.resendCooldown,
+    required this.onResend,
+    this.onChanged,
+    this.errorText,
+  });
+
+  final String email;
+  final ValueChanged<String> onCompleted;
+  final ValueChanged<String>? onChanged;
+  final VoidCallback onWrongEmail;
+
+  /// Seconds until Resend code shows; 0 shows it.
+  final int resendCooldown;
+
+  /// Null while something is loading.
+  final VoidCallback? onResend;
+  final String? errorText;
+
+  static String _cooldown(int seconds) => '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.studio;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('Enter your code', style: StudioType.title32(color: c.textPrimary)),
+        const SizedBox(height: 10),
+        Text.rich(
+          TextSpan(
+            style: StudioType.body16(color: c.textSecondary),
+            children: [
+              TextSpan(text: 'We sent it to $email. '),
+              WidgetSpan(
+                alignment: PlaceholderAlignment.baseline,
+                baseline: TextBaseline.alphabetic,
+                child: GestureDetector(
+                  onTap: onWrongEmail,
+                  child: Text(
+                    'Wrong email?',
+                    style: StudioType.body16(color: c.textPrimary).copyWith(fontWeight: StudioType.medium),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 48),
+        AuthOtpInput(
+          errorText: errorText,
+          onChanged: onChanged,
+          onCompleted: onCompleted,
+        ),
+        const SizedBox(height: 48),
+        if (resendCooldown > 0)
+          Text.rich(
+            TextSpan(
+              style: StudioType.body14(color: c.textSecondary),
+              children: [
+                const TextSpan(text: "Didn't get it? You can resend in "),
+                TextSpan(
+                  text: _cooldown(resendCooldown),
+                  style: StudioType.mono13(color: c.textPrimary),
+                ),
+              ],
+            ),
+          )
+        else
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: onResend,
+              style: TextButton.styleFrom(
+                padding: EdgeInsets.zero,
+                minimumSize: const Size(44, 44),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: Text(
+                'Resend code',
+                style: StudioType.body14(weight: StudioType.medium, color: c.textPrimary),
+              ),
+            ),
+          ),
+        const SizedBox(height: 6),
+        Text(
+          "Check your inbox and spam folder. On iPhone the code can fill in straight from Mail, and we'll keep going as soon as it's in.",
+          style: StudioType.label13(color: c.textPlaceholder).copyWith(height: 1.5),
+        ),
+      ],
+    );
+  }
+}

@@ -11,16 +11,21 @@ enum _ResetStep { email, sent, reset }
 
 /// Forgot password, on the log-in boards' frame (`LoginReset`).
 ///
-/// The board sends a 6-digit code to the code screen, then "Set a new password" with Save and
-/// log in. The server emails a reset link instead (a code is BACKEND_CHANGES B30), so: from
-/// Welcome back the email is sent straight away and "Check your email" says to open the link;
-/// "Have a reset code?" opens Set a new password, where the code from the email goes above the
-/// new password. Save and log in sets it and logs in, then the home feed.
+/// With a [resetToken] (BACKEND_CHANGES B30: Forgot password? sent a 6-digit code and the code
+/// screen spent it) it is the board's "Set a new password": For [email], New password, and
+/// Save and log in, which sets it and logs in, then the home feed.
+///
+/// Without one (a server without reset codes) the server emails a reset link: from Welcome
+/// back the email is sent straight away and "Check your email" says to open the link; "Have a
+/// reset code?" opens Set a new password with the code from the email above the new password.
 class ForgotPasswordPage extends StatefulWidget {
-  const ForgotPasswordPage({super.key, this.email});
+  const ForgotPasswordPage({super.key, this.email, this.resetToken});
 
   /// Known when it opens from Welcome back: the email is sent without asking again.
   final String? email;
+
+  /// From a reset code (B30): the page opens on Set a new password, with no code to type.
+  final String? resetToken;
 
   static Future<void> open(BuildContext context, {String? email}) => Navigator.of(
     context,
@@ -42,7 +47,10 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   void initState() {
     super.initState();
     final known = widget.email?.trim() ?? '';
-    if (AuthValidators.email(known) == null) {
+    if (widget.resetToken != null) {
+      _email.text = known;
+      _step = _ResetStep.reset;
+    } else if (AuthValidators.email(known) == null) {
       _email.text = known;
       _step = _ResetStep.sent;
       WidgetsBinding.instance.addPostFrameCallback((_) => _send());
@@ -75,14 +83,20 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     }
   }
 
-  bool get _canReset => _code.text.trim().isNotEmpty && AuthValidators.password(_password.text) == null;
+  bool get _codeGiven => widget.resetToken != null;
+
+  bool get _canReset =>
+      (_codeGiven || _code.text.trim().isNotEmpty) && AuthValidators.password(_password.text) == null;
 
   Future<void> _saveAndLogIn() async {
     if (!_canReset || _loading) return;
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _loading = true);
     try {
-      await AuthService.instance.resetPassword(token: _code.text.trim(), newPassword: _password.text);
+      await AuthService.instance.resetPassword(
+        token: widget.resetToken ?? _code.text.trim(),
+        newPassword: _password.text,
+      );
       await AuthService.instance.login(identifier: _address, password: _password.text);
       await AuthSession.instance.saveRememberedLoginIdentifier(_address);
       if (!mounted) return;
@@ -95,7 +109,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   }
 
   void _back() {
-    if (_step == _ResetStep.reset) {
+    if (_step == _ResetStep.reset && !_codeGiven) {
       setState(() => _step = _ResetStep.sent);
     } else {
       Navigator.maybePop(context);
@@ -200,16 +214,18 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       children: [
         _heading('Set a new password', 'For $_address'),
         const SizedBox(height: 22),
-        StudioUnderlineField(
-          label: 'Reset code',
-          controller: _code,
-          hint: 'From the email',
-          valueSize: 18,
-          labelColor: c.textTertiary,
-          textInputAction: TextInputAction.next,
-          onChanged: (_) => setState(() {}),
-        ),
-        const SizedBox(height: 22),
+        if (!_codeGiven) ...[
+          StudioUnderlineField(
+            label: 'Reset code',
+            controller: _code,
+            hint: 'From the email',
+            valueSize: 18,
+            labelColor: c.textTertiary,
+            textInputAction: TextInputAction.next,
+            onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: 22),
+        ],
         StudioUnderlineField(
           label: 'New password',
           controller: _password,
@@ -220,6 +236,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           labelColor: c.textTertiary,
           helper: 'At least 8 characters',
           helperColor: c.textTertiary,
+          autofocus: _codeGiven,
           autofillHints: const [AutofillHints.newPassword],
           textInputAction: TextInputAction.done,
           onSubmitted: (_) => _saveAndLogIn(),

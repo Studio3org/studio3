@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:studio3/models/auth_user.dart';
@@ -9,6 +11,7 @@ import 'package:studio3/screens/onboarding/onboarding_page.dart';
 import 'package:studio3/screens/signup_page.dart';
 import 'package:studio3/screens/terms_page.dart';
 import 'package:studio3/screens/welcome_page.dart';
+import 'package:studio3/services/api_client.dart';
 import 'package:studio3/theme/app_theme.dart';
 import 'package:studio3/utils/require_login.dart';
 import 'package:studio3/widgets/auth_ui.dart';
@@ -129,13 +132,18 @@ void main() {
 
   testWidgets('Continue with an email opens Welcome back: the email, Password with the eye, Forgot password?, Log in', (tester) async {
     await _surface(tester, const Size(390, 844));
+    // A server that can't say whether the email is known (no email check, BACKEND_CHANGES B30).
+    ApiClient.instance.debugUseAdapter(_NoEmailCheck());
     await tester.pumpWidget(_routed(home: const LoginPage()));
     await tester.pump();
     await tester.enterText(find.byType(TextField), 'jordan@email.com');
     await tester.pump();
     expect(tester.widget<StudioButton>(find.widgetWithText(StudioButton, 'Continue')).onPressed, isNotNull);
     await tester.tap(find.widgetWithText(StudioButton, 'Continue'));
-    await tester.pump();
+    for (var i = 0; i < 4; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 30)));
+      await tester.pump();
+    }
     await tester.pump(const Duration(milliseconds: 400));
 
     // `LoginPassword`: 28/500 title, the email 15 Graphite, Password 13 Tertiary over 18.
@@ -160,7 +168,7 @@ void main() {
     await tester.enterText(find.byType(TextField), 'secret-pass');
     await tester.pump();
     expect(tester.widget<StudioButton>(find.widgetWithText(StudioButton, 'Log in')).onPressed, isNotNull);
-    // Until the server can tell a new email from a known one (B30), new people start here.
+    // When the server can't tell a new email from a known one (B30), new people start here.
     expect(find.textContaining('Create an account', findRichText: true), findsOneWidget);
 
     // Back returns to the first screen.
@@ -474,4 +482,20 @@ void main() {
     expect(find.textContaining('Welcome, Amara'), findsOneWidget);
     expect(find.text('Get Started'), findsOneWidget);
   });
+}
+
+/// Answers every request 404: a server without the email check (BACKEND_CHANGES B30).
+class _NoEmailCheck implements HttpClientAdapter {
+  @override
+  Future<ResponseBody> fetch(RequestOptions options, Stream<List<int>>? requestStream, Future<void>? cancelFuture) async =>
+      ResponseBody.fromString(
+        jsonEncode({'success': false, 'message': 'Not found'}),
+        404,
+        headers: {
+          Headers.contentTypeHeader: ['application/json'],
+        },
+      );
+
+  @override
+  void close({bool force = false}) {}
 }
