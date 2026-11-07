@@ -49,10 +49,15 @@ class FeedService {
     );
   }
 
-  Future<FeedPage> getForYou({String? cursor, int? limit}) async {
+  /// For You. [available] asks the server for only pieces that can be collected now
+  /// (`?available=1`, BACKEND_CHANGES B29); its pages carry no event card.
+  Future<FeedPage> getForYou({String? cursor, int? limit, bool available = false}) async {
     final json = await _api.get(
       '/api/feed/for-you',
-      query: {..._query(cursor: cursor, limit: limit), ..._withEvents},
+      query: {
+        ..._query(cursor: cursor, limit: limit),
+        if (available) 'available': '1' else ..._withEvents,
+      },
       auth: AuthSession.instance.isLoggedIn,
     );
     return _parseFeedPage(json);

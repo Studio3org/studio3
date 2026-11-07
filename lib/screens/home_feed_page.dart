@@ -44,10 +44,64 @@ class HomeFeedStore extends ChangeNotifier {
   /// The event card the server put on the first page (BACKEND_CHANGES B27), if any.
   StudioEvent? feedEvent;
 
+  // --- Available (BACKEND_CHANGES B29): its own pages from the server's filter --------------
+
+  /// Pages from `?available=1`, once the Available tab has been opened.
+  final List<FeedItem> availableApi = [];
+  String? availableCursor;
+  bool availableStarted = false;
+  bool availableLoading = false;
+  bool availableLoadingMore = false;
+  bool availableFailed = false;
+  bool availableAppendFailed = false;
+
+  static bool _collectable(FeedItem item) => item.isAvailableListing || item.isAuctionLive;
+
   /// What can be collected now: available, or in a live auction. Not `isForSale`, which the
-  /// server leaves on after a piece is collected.
+  /// server leaves on after a piece is collected. From the server's filter once Available has
+  /// loaded; before that (and to decide whether to offer the tab), from All's pages. Filtered
+  /// here as well, so a server without the filter still shows only these.
   List<FeedItem> get availableItems =>
-      apiItems.where((item) => item.isAvailableListing || item.isAuctionLive).toList();
+      (availableStarted ? availableApi : apiItems).where(_collectable).toList();
+
+  /// Loads Available's first page (again with [refresh]) or its next page ([append]). An older
+  /// server ignores the filter and sends everything; the screen then keeps asking for pages
+  /// until something collectable shows, as before.
+  Future<void> loadAvailable({bool append = false, bool refresh = false}) async {
+    if (availableLoadingMore || (availableLoading && !refresh)) return;
+    if (append && (availableCursor == null || availableCursor!.isEmpty)) return;
+    if (!append && availableStarted && !refresh) return;
+    availableStarted = true;
+    if (append) {
+      availableLoadingMore = true;
+    } else {
+      availableLoading = availableApi.isEmpty;
+    }
+    notifyListeners();
+    try {
+      final page = await FeedService.instance.getForYou(
+        cursor: append ? availableCursor : null,
+        available: true,
+      );
+      final blocked = BlockedAuthorsStore.instance;
+      final items = page.items.where((item) => !blocked.isBlocked(item.authorUsername));
+      if (!append) availableApi.clear();
+      availableApi.addAll(items);
+      availableCursor = page.nextCursor;
+      availableFailed = false;
+      availableAppendFailed = false;
+    } catch (_) {
+      if (append) {
+        availableAppendFailed = true;
+      } else {
+        availableFailed = availableApi.isEmpty;
+      }
+    } finally {
+      availableLoading = false;
+      availableLoadingMore = false;
+      notifyListeners();
+    }
+  }
 
   /// The "All" tab never shows video scenes — those live in Explore/Reels
   /// only.
@@ -83,9 +137,10 @@ class HomeFeedStore extends ChangeNotifier {
   /// already leaves it out of every later fetch.
   void _onAuthorBlocked() {
     final store = BlockedAuthorsStore.instance;
-    final before = apiItems.length;
+    final before = apiItems.length + availableApi.length;
     apiItems.removeWhere((item) => store.isBlocked(item.authorUsername));
-    if (apiItems.length != before) notifyListeners();
+    availableApi.removeWhere((item) => store.isBlocked(item.authorUsername));
+    if (apiItems.length + availableApi.length != before) notifyListeners();
   }
 
   Future<void> _onReconnected() => loadFeed(refresh: true);
@@ -266,6 +321,10 @@ class _HomePageState extends State<HomePage> with RouteAware, ScrollsToTopOnDoub
   }
 
   Future<void> _refresh() async {
+    if (_showAvailable) {
+      await widget.store.loadAvailable(refresh: true);
+      return;
+    }
     await widget.store.refresh();
     _fromFeedId = null;
     await _loadFeedEvent();
@@ -291,7 +350,7 @@ class _HomePageState extends State<HomePage> with RouteAware, ScrollsToTopOnDoub
   @override
   void didPopNext() {
     final offset = _scrollController.hasClients ? _scrollController.offset : 0.0;
-    if (offset < _loadMoreThreshold) widget.store.refresh();
+    if (offset < _loadMoreThreshold) _refreshShown();
   }
 
   void _onStoreChanged() {
@@ -307,25 +366,36 @@ class _HomePageState extends State<HomePage> with RouteAware, ScrollsToTopOnDoub
   /// scrolled to its end, so it asks for the next page itself until the screen is full.
   void _fillScreen() {
     final store = widget.store;
-    if (!mounted || store.loading || store.loadingMore || store.appendFailed) return;
-    if (store.nextCursor == null || store.nextCursor!.isEmpty) return;
+    if (!mounted || !_canLoadMore) return;
+    if (_showAvailable ? store.availableLoading : store.loading) return;
     final shown = _showAvailable ? store.availableItems : store.feedItems;
     final short = shown.isEmpty ||
         (_scrollController.hasClients &&
             _scrollController.position.hasContentDimensions &&
             _scrollController.position.maxScrollExtent <= _loadMoreThreshold);
-    if (short) store.loadMore();
+    if (short) _loadMore();
   }
 
-  void _onScroll() {
+  /// The tab on screen has another page and isn't fetching or stopped on a failure.
+  bool get _canLoadMore {
     final store = widget.store;
-    if (store.loadingMore) return;
-    if (store.nextCursor == null || store.nextCursor!.isEmpty) return;
+    if (_showAvailable) {
+      if (store.availableLoadingMore || store.availableAppendFailed) return false;
+      return store.availableCursor?.isNotEmpty == true;
+    }
+    if (store.loadingMore || store.appendFailed) return false;
+    return store.nextCursor?.isNotEmpty == true;
+  }
+
+  void _loadMore() => _showAvailable ? widget.store.loadAvailable(append: true) : widget.store.loadMore();
+
+  void _onScroll() {
+    if (!_canLoadMore) return;
     if (!_scrollController.hasClients) return;
     final pos = _scrollController.position;
     if (!pos.hasPixels || !pos.hasViewportDimension) return;
     if (pos.pixels >= pos.maxScrollExtent - _loadMoreThreshold) {
-      store.loadMore();
+      _loadMore();
     }
   }
 
@@ -340,6 +410,8 @@ class _HomePageState extends State<HomePage> with RouteAware, ScrollsToTopOnDoub
     final showAvailable = filter == FeedAvailabilityFilter.available;
     if (showAvailable == _showAvailable) return;
     setState(() => _showAvailable = showAvailable);
+    // Available asks the server for its own pages the first time (B29).
+    if (showAvailable) widget.store.loadAvailable();
     if (_scrollController.hasClients) {
       _scrollController.jumpTo(0);
     }
@@ -350,7 +422,13 @@ class _HomePageState extends State<HomePage> with RouteAware, ScrollsToTopOnDoub
     if (_scrollController.hasClients) {
       _scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
     }
+    _refreshShown();
+  }
+
+  /// Refreshes the tab on screen without a spinner.
+  void _refreshShown() {
     widget.store.refresh();
+    if (_showAvailable) widget.store.loadAvailable(refresh: true);
   }
 
   @override
@@ -391,13 +469,16 @@ class _HomePageState extends State<HomePage> with RouteAware, ScrollsToTopOnDoub
     if (store.showOfflineState) {
       return OfflineState(onRetry: () => store.refresh());
     }
+    if (_showAvailable && store.availableLoading && store.availableApi.isEmpty) {
+      return const FeedListSkeleton();
+    }
     if (store.loading && store.apiItems.isEmpty) {
       // First-load only — a revisit (cache hit) never reaches this branch
       // since loading is seeded false whenever peekForYouCached() finds
       // something in ensureInitialized().
       return const FeedListSkeleton();
     }
-    if (store.failed) {
+    if (store.failed || (_showAvailable && store.availableFailed)) {
       return RefreshIndicator(
         color: context.studio.textPrimary,
         onRefresh: _refresh,
@@ -416,7 +497,8 @@ class _HomePageState extends State<HomePage> with RouteAware, ScrollsToTopOnDoub
       );
     }
     // Nothing on this filter yet, but more pages to look through (see [_fillScreen]).
-    if (items.isEmpty && (store.loadingMore || (store.nextCursor?.isNotEmpty == true && !store.appendFailed))) {
+    final fetching = _showAvailable ? store.availableLoadingMore : store.loadingMore;
+    if (items.isEmpty && (fetching || _canLoadMore)) {
       return Center(
         child: SizedBox.square(
           dimension: 24,
@@ -479,7 +561,7 @@ class _HomePageState extends State<HomePage> with RouteAware, ScrollsToTopOnDoub
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         padding: EdgeInsets.only(bottom: bottomInset),
-        itemCount: rows.length + (store.loadingMore ? 1 : 0),
+        itemCount: rows.length + (fetching ? 1 : 0),
         separatorBuilder: (_, _) => const SizedBox(height: StudioSpace.feedGap),
         itemBuilder: (context, index) {
           if (index >= rows.length) {

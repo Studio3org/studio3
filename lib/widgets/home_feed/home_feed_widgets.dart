@@ -949,10 +949,25 @@ class _SeriesCoverCard extends StatelessWidget {
   final SeriesPreviewPiece preview;
   final VoidCallback onTap;
 
+  /// The piece's chip (`Main` series card): Available (a live auction too) or Collected.
+  StudioStatus? get _status => switch (preview.listingState) {
+    'available' || 'auction_live' => StudioStatus.available,
+    'collected' => StudioStatus.collected,
+    _ => null,
+  };
+
   @override
   Widget build(BuildContext context) {
     final title = preview.title?.trim() ?? '';
-    return Semantics(label: title.isEmpty ? 'Open the piece' : title, child: GestureDetector(
+    final status = _status;
+    final photos = preview.imageCount;
+    final label = [
+      title.isEmpty ? 'Open the piece' : title,
+      if (status == StudioStatus.available) 'Available',
+      if (status == StudioStatus.collected) 'Collected',
+      if (photos > 1) '$photos photos',
+    ].join(', ');
+    return Semantics(label: label, excludeSemantics: true, child: GestureDetector(
       onTap: onTap,
       child: SizedBox(
         width: width,
@@ -965,7 +980,29 @@ class _SeriesCoverCard extends StatelessWidget {
                 _FeedPhoto(url: preview.mediaUrl!)
               else
                 ColoredBox(color: context.studio.surface),
-              if (title.isNotEmpty)
+              // How many photos (`Main`): the stack icon and Mono 11, white with a soft shadow.
+              if (photos > 1)
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const StudioIcon(StudioIcons.layers, size: 14, color: StudioColors.galleryWhite),
+                        const SizedBox(width: 4),
+                        Text(
+                          '$photos',
+                          style: StudioType.mono11(color: StudioColors.galleryWhite).copyWith(
+                            shadows: const [Shadow(color: Color(0x66000000), offset: Offset(0, 1), blurRadius: 2)],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              if (title.isNotEmpty || status != null)
                 Positioned(
                   left: 0,
                   right: 0,
@@ -974,11 +1011,21 @@ class _SeriesCoverCard extends StatelessWidget {
                     color: StudioColors.imageCaptionBar,
                     child: Padding(
                       padding: const EdgeInsets.all(12),
-                      child: Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: StudioType.label13(weight: StudioType.medium, color: StudioColors.galleryWhite),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: StudioType.label13(weight: StudioType.medium, color: StudioColors.galleryWhite),
+                            ),
+                          ),
+                          if (status != null) ...[
+                            const SizedBox(width: 8),
+                            StudioStatusChip(status, onImage: true),
+                          ],
+                        ],
                       ),
                     ),
                   ),

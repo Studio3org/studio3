@@ -5,24 +5,36 @@ class SeriesPreviewPiece {
     required this.id,
     this.mediaUrl,
     this.title,
+    this.listingState,
+    this.imageCount = 1,
   });
 
   final String id;
   final String? mediaUrl;
   final String? title;
 
+  /// `available` · `auction_live` · `collected` · `auction_ended`, or null (BACKEND_CHANGES B29).
+  final String? listingState;
+
+  /// How many photos the piece has (the series card's count when more than one, B29).
+  final int imageCount;
+
   factory SeriesPreviewPiece.fromJson(Map<String, dynamic> json) {
     return SeriesPreviewPiece(
       id: json['id'] as String? ?? '',
       mediaUrl: json['mediaUrl'] as String?,
       title: json['title'] as String?,
+      listingState: json['listingState'] as String?,
+      imageCount: (json['imageCount'] as num?)?.toInt() ?? 1,
     );
   }
 
   Map<String, dynamic> toJson() => {
         'id': id,
-        if (mediaUrl != null) 'mediaUrl': mediaUrl,
-        if (title != null) 'title': title,
+        'mediaUrl': ?mediaUrl,
+        'title': ?title,
+        'listingState': ?listingState,
+        'imageCount': imageCount,
       };
 }
 
