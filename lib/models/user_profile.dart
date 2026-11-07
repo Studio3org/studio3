@@ -1,4 +1,5 @@
 import 'piece_summary.dart';
+import 'studio_event.dart';
 
 class UserProfile {
   const UserProfile({
@@ -41,6 +42,7 @@ class UserProfile {
     this.profileVisibility = 'public',
     this.notificationPreferences,
     this.isLocked = false,
+    this.upcomingEvent,
   });
 
   final String username;
@@ -88,6 +90,10 @@ class UserProfile {
   /// for a private profile the viewer can't yet see (see `isLocked` check
   /// in `fromJson`) — pieces/posts/series tabs must not be fetched.
   final bool isLocked;
+
+  /// The profile's Upcoming show (`ProfileSeller`, `ProfileOwn`): the soonest published event
+  /// they host that hasn't ended (BACKEND_CHANGES B27). Null when there is none.
+  final StudioEvent? upcomingEvent;
 
   bool get isPrivate => profileVisibility == 'private';
 
@@ -150,6 +156,9 @@ class UserProfile {
             )
           : null,
       isLocked: isLocked,
+      upcomingEvent: json['upcomingEvent'] is Map<String, dynamic>
+          ? StudioEvent.fromJson(json['upcomingEvent'] as Map<String, dynamic>)
+          : null,
     );
   }
 
@@ -198,6 +207,7 @@ class UserProfile {
       profileVisibility: profileVisibility,
       notificationPreferences: notificationPreferences,
       isLocked: isLocked,
+      upcomingEvent: upcomingEvent,
     );
   }
 

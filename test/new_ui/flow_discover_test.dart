@@ -9,10 +9,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:studio3/models/auth_user.dart';
 import 'package:studio3/models/feed_item.dart';
 import 'package:studio3/screens/available_piece_detail_page.dart';
+import 'package:studio3/screens/event_detail_page.dart';
 import 'package:studio3/screens/explore_page.dart';
 import 'package:studio3/screens/reels_page.dart' show routeObserver;
 import 'package:studio3/services/api_client.dart';
 import 'package:studio3/services/auth_session.dart';
+import 'package:studio3/services/cache_service.dart';
 import 'package:studio3/theme/app_theme.dart';
 import 'package:studio3/utils/profile_navigation.dart';
 import 'package:studio3/utils/slide_up_page_route.dart';
@@ -61,6 +63,9 @@ class _Fake implements HttpClientAdapter {
   /// When set, the first page says there is more (cursor c2) and c2 brings three more pieces.
   var paged = false;
 
+  /// Explore's Upcoming shows on the first page (BACKEND_CHANGES B27).
+  List<Map<String, dynamic>>? shows;
+
   Iterable<({String method, String path, Map<String, String> query, String? auth})> to(String method, String path) =>
       requests.where((r) => r.method == method && r.path == path);
 
@@ -95,7 +100,15 @@ class _Fake implements HttpClientAdapter {
               for (var i = 1; i <= 6; i++) _scene('s$i'),
             ],
             'nextCursor': paged ? 'c2' : null,
+            'upcomingShows': ?shows,
           },
+        };
+      case 'GET /api/events/sh1':
+        json = {'success': true, 'data': _show('sh1', 'Group Show', 6)};
+      case 'GET /api/pieces/sh1-p2':
+        json = {
+          'success': true,
+          'data': {..._piece('sh1-p2', 'Show piece 2', 'Painting', author: 'amara'), 'id': 'sh1-p2'},
         };
       case 'GET /api/users/nearby':
         json = {
@@ -147,6 +160,31 @@ class _Fake implements HttpClientAdapter {
 
   @override
   void close({bool force = false}) {}
+}
+
+/// A show in [days] days at Dec on Dragon, with [count] pieces on its bill.
+Map<String, dynamic> _show(String id, String title, int count, {int days = 5}) {
+  final starts = DateTime.now().add(Duration(days: days));
+  return {
+    'id': id,
+    'title': title,
+    'status': 'published',
+    'startsAt': starts.toUtc().toIso8601String(),
+    'endsAt': starts.add(const Duration(hours: 3)).toUtc().toIso8601String(),
+    'venueName': 'Dec on Dragon',
+    'hostUsername': 'esi',
+    'pieces': [
+      for (var i = 1; i <= count; i++)
+        {
+          'pieceId': '$id-p$i',
+          'title': 'Show piece $i',
+          'mediaUrl': '',
+          'mode': 'featured',
+          'artistUsername': i == 1 ? 'kofi' : 'amara',
+          'artistName': i == 1 ? 'Kofi Studio' : 'Amara Osei',
+        },
+    ],
+  };
 }
 
 class _Pushes extends NavigatorObserver {
@@ -274,6 +312,63 @@ void main() {
 
   for (final dark in [false, true]) {
     final theme = dark ? 'dark' : 'light';
+
+    testWidgets('Upcoming shows ($theme, B27): the soonest show with a full bill; See all opens it, a '
+        'piece opens the piece; not under Scenes', (tester) async {
+      await tester.runAsync(CacheService.instance.clearAll);
+      setBoardViewport(tester, height: 2400);
+      _mockGps(grant: () => false);
+      _server.shows = [
+        _show('sh0', 'Too Few', 3, days: 1),
+        _show('sh1', 'Group Show', 6),
+      ];
+      await tester.pumpWidget(_app(dark: dark));
+      await _settle(tester);
+
+      final shelf = find.byType(ExploreShowShelf);
+      expect(shelf, findsOneWidget);
+      expect(tester.widget<ExploreShowShelf>(shelf).show.id, 'sh1', reason: 'three pieces is not a shelf');
+      expect(find.text('Upcoming shows'), findsOneWidget);
+      expect(find.textContaining('Group Show · Dec on Dragon · '), findsOneWidget);
+      // After New series' place and before the nearby artists; under Available now.
+      expect(
+        tester.getTopLeft(find.text('Behind the work')).dy,
+        lessThan(tester.getTopLeft(find.text('Upcoming shows')).dy),
+      );
+
+      // See all opens the show.
+      await _tap(tester, find.descendant(of: shelf, matching: find.text('See all')));
+      expect(find.byType(EventDetailPage), findsOneWidget);
+      expect(tester.widget<EventDetailPage>(find.byType(EventDetailPage)).event.id, 'sh1');
+      await _back(tester);
+
+      // A piece opens that piece.
+      await _tap(tester, find.descendant(of: shelf, matching: find.text('Show piece 2')));
+      expect(_server.to('GET', '/api/pieces/sh1-p2'), isNotEmpty);
+      expect(find.byType(AvailablePieceDetailPage), findsOneWidget);
+      await _back(tester);
+
+      // Scenes has no shelf of pieces.
+      await tester.drag(_page, const Offset(0, 3000));
+      await _settle(tester);
+      await _tap(tester, _chip('Scenes'));
+      expect(find.byType(ExploreShowShelf), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pump(const Duration(seconds: 11));
+    });
+
+    testWidgets('no Upcoming shows ($theme) without a show of six pieces', (tester) async {
+      await tester.runAsync(CacheService.instance.clearAll);
+      setBoardViewport(tester, height: 2400);
+      _mockGps(grant: () => false);
+      _server.shows = [_show('sh0', 'Too Few', 5)];
+      await tester.pumpWidget(_app(dark: dark));
+      await _settle(tester);
+
+      expect(find.byType(ExploreShowShelf), findsNothing);
+      expect(find.text('Upcoming shows'), findsNothing);
+      await tester.pump(const Duration(seconds: 11));
+    });
 
     testWidgets('Discover ($theme): shelves, All / Pieces / Scenes, medium chips, nearby artists and Follow', (
       tester,

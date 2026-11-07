@@ -10,8 +10,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:studio3/models/auth_user.dart';
 import 'package:studio3/screens/available_piece_detail_page.dart';
 import 'package:studio3/screens/conversation_thread_page.dart';
+import 'package:studio3/screens/event_detail_page.dart';
 import 'package:studio3/screens/piece_detail_page.dart';
 import 'package:studio3/screens/profile_page.dart';
+import 'package:studio3/screens/profile/widgets/profile_upcoming_show.dart';
 import 'package:studio3/services/api_client.dart';
 import 'package:studio3/services/auth_session.dart';
 import 'package:studio3/services/cache_service.dart';
@@ -35,8 +37,29 @@ Map<String, dynamic> _piece(String id, String title, String author, {bool forSal
   'author': {'username': author, 'name': author},
 };
 
+/// Amara's show in five days (BACKEND_CHANGES B27).
+Map<String, dynamic> _show() {
+  final starts = DateTime.now().add(const Duration(days: 5));
+  return {
+    'id': 'ev1',
+    'title': 'Bodies in Color: the show',
+    'status': 'published',
+    'startsAt': starts.toUtc().toIso8601String(),
+    'endsAt': starts.add(const Duration(hours: 3)).toUtc().toIso8601String(),
+    'venueName': 'Dec on Dragon',
+    'hostUsername': 'amara',
+    'hostName': 'Amara Osei',
+    'capacity': 20,
+    'rsvpCount': 4,
+    'spotsLeft': 16,
+  };
+}
+
 class _Fake implements HttpClientAdapter {
   final requests = <({String method, String path})>[];
+
+  /// Whether Amara's profile has an Upcoming show.
+  var amaraShow = false;
 
   Iterable<({String method, String path})> to(String method, String path) =>
       requests.where((r) => r.method == method && r.path == path);
@@ -79,8 +102,11 @@ class _Fake implements HttpClientAdapter {
             'followingCount': 8,
             'piecesCount': 1,
             'isFollowing': false,
+            'upcomingEvent': amaraShow ? _show() : null,
           },
         };
+      case 'GET /api/events/ev1':
+        json = {'success': true, 'data': _show()};
       case 'GET /api/users/amara/pieces':
         json = {'success': true, 'data': [_piece('a1', 'Bodies in Color', 'amara', forSale: true)]};
       case 'GET /api/pieces/a1':
@@ -268,6 +294,42 @@ void main() {
       expect(find.byType(ConversationThreadPage), findsOneWidget);
       expect(tester.widget<ConversationThreadPage>(find.byType(ConversationThreadPage)).otherPartyUsername, 'amara');
       expect(tester.takeException(), isNull);
+      await tester.pump(const Duration(seconds: 11));
+    });
+
+    testWidgets('Upcoming show ($theme, B27): the card between the bio and the stats opens the show; '
+        'Tickets opens Choose tickets', (tester) async {
+      _server.amaraShow = true;
+      setBoardViewport(tester, height: 1200);
+      await _open(tester, const ProfilePage(username: 'amara'), dark: dark);
+
+      final card = find.byType(ProfileUpcomingShow);
+      expect(card, findsOneWidget);
+      expect(find.text('UPCOMING SHOW'), findsOneWidget);
+      expect(find.text('Bodies in Color: the show'), findsOneWidget);
+      expect(find.textContaining('Dec on Dragon · '), findsOneWidget);
+      expect(tester.getTopLeft(find.text('Oil on canvas.')).dy, lessThan(tester.getTopLeft(card).dy));
+      expect(tester.getBottomLeft(card).dy, lessThan(tester.getTopLeft(find.text('saves')).dy));
+      // Tickets: a 44 target.
+      expect(tester.getSize(find.bySemanticsLabel('Tickets')).height, greaterThanOrEqualTo(44));
+
+      await _tap(tester, find.text('Bodies in Color: the show'));
+      expect(find.byType(EventDetailPage), findsOneWidget);
+      expect(tester.widget<EventDetailPage>(find.byType(EventDetailPage)).openTickets, isFalse);
+      Navigator.of(tester.element(find.byType(EventDetailPage))).pop();
+      await _settle(tester);
+
+      await _tap(tester, find.bySemanticsLabel('Tickets'));
+      expect(tester.widget<EventDetailPage>(find.byType(EventDetailPage)).openTickets, isTrue);
+      expect(tester.takeException(), isNull);
+      await tester.pump(const Duration(seconds: 11));
+    });
+
+    testWidgets('no Upcoming show ($theme) when nothing is coming up', (tester) async {
+      setBoardViewport(tester, height: 1200);
+      await _open(tester, const ProfilePage(username: 'amara'), dark: dark);
+
+      expect(find.byType(ProfileUpcomingShow), findsNothing);
       await tester.pump(const Duration(seconds: 11));
     });
 

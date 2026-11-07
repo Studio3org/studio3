@@ -34,6 +34,7 @@ import 'profile/widgets/profile_locked_placeholder.dart';
 import 'profile/widgets/profile_tab_content.dart';
 import 'profile/widgets/profile_tabs.dart';
 import 'profile/widgets/profile_viewer_mode_capsule.dart';
+import 'event_detail_page.dart' show openEventDetail;
 import 'reels_page.dart' show routeObserver;
 import '../utils/require_login.dart';
 import '../utils/scrolls_to_top_on_double_tap.dart';
@@ -774,6 +775,13 @@ class _ProfilePageState extends State<ProfilePage>
                       scenesCount: _scenes.length,
                       savesCount: profile?.savesCount,
                       collectedCount: profile?.collectedCount,
+                      upcomingEvent: profile?.upcomingEvent,
+                      onOpenEvent: profile?.upcomingEvent == null
+                          ? null
+                          : () => openEventDetail(context, profile!.upcomingEvent!),
+                      onEventTickets: profile?.upcomingEvent == null
+                          ? null
+                          : () => openEventDetail(context, profile!.upcomingEvent!, openTickets: true),
                       sellerMode: sellerEnabled,
                       collectorMode: collectorMode,
                       isOwnProfile: !showPublicActions,

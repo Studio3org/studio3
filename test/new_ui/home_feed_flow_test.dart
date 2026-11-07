@@ -15,6 +15,7 @@ import 'package:studio3/screens/reels_page.dart' show routeObserver;
 import 'package:studio3/screens/series_view_page.dart';
 import 'package:studio3/services/api_client.dart';
 import 'package:studio3/theme/app_theme.dart';
+import 'package:studio3/widgets/home_feed/feed_event_card.dart';
 import 'package:studio3/widgets/home_feed/home_feed_widgets.dart';
 
 import 'golden_harness.dart';
@@ -40,11 +41,26 @@ class _Fake implements HttpClientAdapter {
   final feedRequests = <String>[];
   var failFirst = 0;
 
+  /// Every request's path, and the feed's `include` asks.
+  final paths = <String>[];
+  final includes = <String?>[];
+
+  /// What the Events tab returns (Home's own pick when the feed has no event card).
+  Map<String, dynamic>? browse;
+
   @override
   Future<ResponseBody> fetch(RequestOptions options, Stream<List<int>>? requestStream, Future<void>? cancelFuture) async {
+    paths.add(options.uri.path);
+    if (options.uri.path == '/api/events/browse' && browse != null) {
+      return _json({'success': true, 'data': browse}, 200);
+    }
+    if (options.uri.path.startsWith('/api/events/ev')) {
+      return _json({'success': true, 'data': _event(options.uri.pathSegments.last, 'From the detail')}, 200);
+    }
     if (options.uri.path == '/api/feed/for-you') {
       final cursor = options.uri.queryParameters['cursor'] ?? '';
       feedRequests.add(cursor);
+      includes.add(options.uri.queryParameters['include']);
       if (cursor.isEmpty && failFirst > 0) {
         failFirst--;
         return _json({'success': false, 'message': 'down'}, 500);
@@ -67,6 +83,20 @@ class _Fake implements HttpClientAdapter {
 }
 
 late _Fake _server;
+
+/// An event card in two days at Dec on Dragon.
+Map<String, dynamic> _event(String id, String title) {
+  final starts = DateTime.now().toUtc().add(const Duration(days: 2));
+  return {
+    'id': id,
+    'title': title,
+    'status': 'published',
+    'startsAt': starts.toIso8601String(),
+    'endsAt': starts.add(const Duration(hours: 3)).toIso8601String(),
+    'venueName': 'Dec on Dragon',
+    'hostUsername': 'amara',
+  };
+}
 
 Widget _home(HomeFeedStore store) => MaterialApp(
   theme: AppTheme.light,
@@ -270,6 +300,84 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     final page = tester.widget<SeriesViewPage>(find.byType(SeriesViewPage));
     expect((page.seriesId, page.initialName, page.initialPieceCount), ('series-1', 'Paper Planes', 3));
+  });
+
+  testWidgets("the feed's own event card (B27): asked for, after the third row, not a piece; "
+      'the Events tab is not asked', (tester) async {
+    setBoardViewport(tester, height: 4000);
+    _server.pages[''] = {
+      'items': [
+        for (var i = 1; i <= 3; i++) _piece('a$i'),
+        {'type': 'event', 'event': _event('ev9', 'Open Studio Night')},
+        for (var i = 4; i <= 6; i++) _piece('a$i'),
+      ],
+      'nextCursor': null,
+    };
+    final store = HomeFeedStore();
+    await tester.pumpWidget(_home(store));
+    await _settle(tester);
+
+    expect(_server.includes.first, 'events');
+    expect(store.apiItems.map((i) => i.id), [for (var i = 1; i <= 6; i++) 'a$i'], reason: 'the event is not a piece');
+    expect(store.feedEvent?.id, 'ev9');
+    final card = tester.widget<FeedEventCard>(find.byType(FeedEventCard));
+    expect(card.event.id, 'ev9');
+    // The detail fills in the lineup; the Events tab is never asked.
+    expect(_server.paths, contains('/api/events/ev9'));
+    expect(_server.paths, isNot(contains('/api/events/browse')));
+    // After the third piece.
+    final third = tester.getTopLeft(find.byWidgetPredicate((w) => w is FeedPieceCard && w.item.id == 'a3'));
+    final fourth = tester.getTopLeft(find.byWidgetPredicate((w) => w is FeedPieceCard && w.item.id == 'a4'));
+    final event = tester.getTopLeft(find.byType(FeedEventCard));
+    expect(event.dy, greaterThan(third.dy));
+    expect(event.dy, lessThan(fourth.dy));
+    store.dispose();
+    await tester.pump(const Duration(seconds: 11));
+  });
+
+  testWidgets('Home opened after the feed has loaded shows its event card at once', (tester) async {
+    setBoardViewport(tester, height: 4000);
+    _server.pages[''] = {
+      'items': [
+        for (var i = 1; i <= 3; i++) _piece('a$i'),
+        {'type': 'event', 'event': _event('ev9', 'Open Studio Night')},
+      ],
+      'nextCursor': null,
+    };
+    final store = HomeFeedStore()..ensureInitialized();
+    await tester.pumpWidget(const SizedBox());
+    await _settle(tester);
+    expect(store.loading, isFalse);
+    await tester.pumpWidget(_home(store));
+    expect(tester.takeException(), isNull);
+    await _settle(tester);
+    expect(tester.widget<FeedEventCard>(find.byType(FeedEventCard)).event.id, 'ev9');
+    expect(_server.paths, isNot(contains('/api/events/browse')));
+    store.dispose();
+    await tester.pump(const Duration(seconds: 11));
+  });
+
+  testWidgets('no event card in the feed (an older server): Home picks one from the Events tab', (tester) async {
+    setBoardViewport(tester, height: 4000);
+    _server.pages[''] = {
+      'items': [for (var i = 1; i <= 6; i++) _piece('a$i')],
+      'nextCursor': null,
+    };
+    _server.browse = {
+      'today': [],
+      'following': [],
+      'upcoming': [_event('ev7', 'Gallery Walk')],
+      'categories': [],
+    };
+    final store = HomeFeedStore();
+    await tester.pumpWidget(_home(store));
+    await _settle(tester);
+
+    expect(store.feedEvent, isNull);
+    expect(_server.paths, contains('/api/events/browse'));
+    expect(tester.widget<FeedEventCard>(find.byType(FeedEventCard)).event.id, 'ev7');
+    store.dispose();
+    await tester.pump(const Duration(seconds: 11));
   });
 
   testWidgets('golden: Main', (tester) async {

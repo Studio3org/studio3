@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../../models/studio_event.dart';
 import '../../../theme/studio_colors.dart';
 import '../../../theme/studio_metrics.dart';
 import '../../../theme/studio_type.dart';
 import '../../../widgets/follow_button.dart';
 import '../../../widgets/studio/studio_icon.dart';
 import '../profile_constants.dart';
+import 'profile_upcoming_show.dart';
 
 class ProfileHeader extends StatelessWidget {
   const ProfileHeader({
@@ -30,6 +32,9 @@ class ProfileHeader extends StatelessWidget {
     this.onShare,
     this.onTapFollowing,
     this.onTapFollowers,
+    this.upcomingEvent,
+    this.onOpenEvent,
+    this.onEventTickets,
   });
 
   final String name;
@@ -59,6 +64,11 @@ class ProfileHeader extends StatelessWidget {
   final VoidCallback? onShare;
   final VoidCallback? onTapFollowing;
   final VoidCallback? onTapFollowers;
+
+  /// The Upcoming show card between the bio and the stats (BACKEND_CHANGES B27).
+  final StudioEvent? upcomingEvent;
+  final VoidCallback? onOpenEvent;
+  final VoidCallback? onEventTickets;
 
   String _formatCount(int? value) {
     if (value == null) return '—';
@@ -163,6 +173,14 @@ class ProfileHeader extends StatelessWidget {
                 bio,
                 textAlign: TextAlign.center,
                 style: StudioType.body14(height: 1.5, color: c.textBody),
+              ),
+            ],
+            if (upcomingEvent != null) ...[
+              const SizedBox(height: 14),
+              ProfileUpcomingShow(
+                event: upcomingEvent!,
+                onOpen: onOpenEvent ?? () {},
+                onTickets: onEventTickets ?? onOpenEvent ?? () {},
               ),
             ],
             const SizedBox(height: 14),

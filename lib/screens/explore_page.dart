@@ -6,6 +6,7 @@ import '../models/chat_message.dart';
 import '../models/explore_feed_block.dart';
 import '../models/feed_item.dart';
 import '../models/feed_page.dart';
+import '../models/studio_event.dart';
 import '../services/chat_service.dart';
 import '../services/connectivity_service.dart';
 import '../services/blocked_authors_store.dart';
@@ -13,6 +14,7 @@ import '../services/feed_service.dart';
 import '../theme/studio_colors.dart';
 import '../theme/studio_metrics.dart';
 import '../theme/studio_type.dart';
+import '../utils/app_destination.dart';
 import '../utils/explore_category_filter.dart';
 import '../utils/explore_detail_route.dart';
 import '../utils/profile_navigation.dart';
@@ -24,6 +26,7 @@ import '../widgets/feed_skeleton.dart';
 import '../widgets/studio/studio_avatar.dart';
 import '../utils/scrolls_to_top_on_double_tap.dart';
 import 'behind_the_work_page.dart';
+import 'event_detail_page.dart';
 
 class ExplorePage extends StatefulWidget {
   const ExplorePage({super.key});
@@ -42,6 +45,9 @@ class _ExplorePageState extends State<ExplorePage>
   ExploreCategory _category = ExploreCategory.all;
   String? _medium;
   List<FeedItem> _allItems = [];
+
+  /// Explore's Upcoming shows from the first page (BACKEND_CHANGES B27).
+  List<StudioEvent> _shows = const [];
   bool _loading = true;
   bool _loadingMore = false;
   String? _nextCursor;
@@ -115,6 +121,7 @@ class _ExplorePageState extends State<ExplorePage>
         } else {
           // A copy: the service's list is fixed-length, and later pages are added to this one.
           _allItems = List<FeedItem>.of(page.items);
+          _shows = page.upcomingShows;
         }
         _nextCursor = page.nextCursor;
         _loading = false;
@@ -128,6 +135,7 @@ class _ExplorePageState extends State<ExplorePage>
       setState(() {
         if (!append) {
           _allItems = [];
+          _shows = const [];
           _nextCursor = null;
         }
         _loading = false;
@@ -144,6 +152,7 @@ class _ExplorePageState extends State<ExplorePage>
     if (!mounted) return;
     setState(() {
       _allItems = List<FeedItem>.of(page.items);
+      _shows = page.upcomingShows;
       _nextCursor = page.nextCursor;
       if (_medium != null && !exploreMediumNames(_allItems).contains(_medium)) {
         _medium = null;
@@ -354,6 +363,23 @@ class _ExplorePageState extends State<ExplorePage>
             }
           },
           onSeeAll: _scrollToBrowse,
+        ),
+      );
+    }
+    // Upcoming shows: a shelf of pieces, so not under Scenes or a medium.
+    final blocked = BlockedAuthorsStore.instance;
+    bool hidden(String? username) => username != null && blocked.isBlocked(username);
+    final show = _medium == null && _category != ExploreCategory.scenes
+        ? exploreShowFor(_shows, hidden: hidden)
+        : null;
+    if (show != null) {
+      addShelf(
+        ExploreShowShelf(
+          show: show,
+          hidden: hidden,
+          onOpenShow: () => openEventDetail(context, show),
+          onOpenPiece: (piece) =>
+              openDestination(context, AppDestination(AppDestinationType.piece, piece.pieceId)),
         ),
       );
     }

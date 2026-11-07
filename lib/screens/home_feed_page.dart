@@ -41,6 +41,9 @@ class HomeFeedStore extends ChangeNotifier {
 
   bool _initialized = false;
 
+  /// The event card the server put on the first page (BACKEND_CHANGES B27), if any.
+  StudioEvent? feedEvent;
+
   /// What can be collected now: available, or in a live auction. Not `isForSale`, which the
   /// server leaves on after a piece is collected.
   List<FeedItem> get availableItems =>
@@ -61,6 +64,7 @@ class HomeFeedStore extends ChangeNotifier {
     if (cached != null && cached.items.isNotEmpty) {
       apiItems.addAll(cached.items);
       nextCursor = cached.nextCursor;
+      feedEvent = cached.event;
       loading = false;
     }
     ConnectivityService.instance.addReconnectHook(_onReconnected);
@@ -120,6 +124,7 @@ class HomeFeedStore extends ChangeNotifier {
         apiItems
           ..clear()
           ..addAll(page.items);
+        feedEvent = page.event;
       }
       nextCursor = page.nextCursor;
       loading = false;
@@ -150,6 +155,7 @@ class HomeFeedStore extends ChangeNotifier {
     apiItems
       ..clear()
       ..addAll(page.items);
+    feedEvent = page.event;
     nextCursor = page.nextCursor;
     showOfflineState = apiItems.isEmpty && !ConnectivityService.instance.isOnline;
     notifyListeners();
@@ -180,9 +186,14 @@ class _HomePageState extends State<HomePage> with RouteAware, ScrollsToTopOnDoub
   final ScrollController _scrollController = ScrollController();
   bool _showAvailable = false;
 
-  /// The one event card for this feed load (`NoteMain`): picked when the feed loads and again
-  /// on pull to refresh.
+  /// The one event card for this feed load (`NoteMain`): the server's pick on the first page
+  /// (B27), or, when the feed has none (an older server), one picked from the Events tab data;
+  /// again on pull to refresh.
   StudioEvent? _feedEvent;
+
+  /// The id of the server's pick now shown, so a store update with the same pick doesn't
+  /// fetch it again.
+  String? _fromFeedId;
 
   @override
   void initState() {
@@ -190,7 +201,41 @@ class _HomePageState extends State<HomePage> with RouteAware, ScrollsToTopOnDoub
     widget.store.ensureInitialized();
     widget.store.addListener(_onStoreChanged);
     _scrollController.addListener(_onScroll);
+    // The feed may bring its own event card, so the Events tab is asked only once it has
+    // answered (or there is something cached to go on).
+    if (widget.debugFeedEvent != null || !widget.store.loading) _startFeedEvent();
+    _initDone = true;
+  }
+
+  bool _initDone = false;
+
+  bool _feedEventStarted = false;
+
+  void _startFeedEvent() {
+    _feedEventStarted = true;
     _loadFeedEvent();
+  }
+
+  /// Takes the server's event card when the feed has one; true if it did.
+  bool _adoptFeedEvent({bool again = false}) {
+    if (widget.debugFeedEvent != null) return false;
+    final given = widget.store.feedEvent;
+    if (given == null) return false;
+    if (!again && given.id == _fromFeedId) return true;
+    _fromFeedId = given.id;
+    _feedEvent = given;
+    _loadEventLineup(given.id);
+    return true;
+  }
+
+  /// The card has no lineup; the detail says whether to show "Showing work".
+  Future<void> _loadEventLineup(String id) async {
+    try {
+      final full = await EventService.instance.getById(id);
+      if (mounted && _feedEvent?.id == full.id) setState(() => _feedEvent = full);
+    } catch (_) {
+      // The card shows without the artists.
+    }
   }
 
   Future<void> _loadFeedEvent() async {
@@ -199,17 +244,22 @@ class _HomePageState extends State<HomePage> with RouteAware, ScrollsToTopOnDoub
       _feedEvent = given;
       return;
     }
+    if (_adoptFeedEvent(again: true)) {
+      // From initState the first build shows it; setState isn't allowed there.
+      if (mounted && _initDone) setState(() {});
+      return;
+    }
     try {
       final browse = await EventService.instance.browseCached();
+      // The feed brought its own pick meanwhile.
+      if (_fromFeedId != null) return;
       final picked = pickFeedEvent(browse, DateTime.now());
       if (picked == null) {
         if (mounted) setState(() => _feedEvent = null);
         return;
       }
       if (mounted) setState(() => _feedEvent = picked);
-      // The browse card has no lineup; the detail says whether to show "Showing work".
-      final full = await EventService.instance.getById(picked.id);
-      if (mounted && _feedEvent?.id == full.id) setState(() => _feedEvent = full);
+      await _loadEventLineup(picked.id);
     } catch (_) {
       // No card this time; the feed itself is unaffected.
     }
@@ -217,6 +267,7 @@ class _HomePageState extends State<HomePage> with RouteAware, ScrollsToTopOnDoub
 
   Future<void> _refresh() async {
     await widget.store.refresh();
+    _fromFeedId = null;
     await _loadFeedEvent();
   }
 
@@ -244,6 +295,11 @@ class _HomePageState extends State<HomePage> with RouteAware, ScrollsToTopOnDoub
   }
 
   void _onStoreChanged() {
+    if (!_feedEventStarted && !widget.store.loading) {
+      _startFeedEvent();
+    } else {
+      _adoptFeedEvent();
+    }
     if (mounted) setState(() {});
   }
 
