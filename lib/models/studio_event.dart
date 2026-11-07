@@ -38,6 +38,8 @@ class StudioEvent {
     this.spotsLeft,
     this.isFull = false,
     this.viewerIsGoing = false,
+    this.hostIsFollowing,
+    this.hostFollowRequested,
     this.description,
     this.cancellationReason,
     this.cohosts = const [],
@@ -99,14 +101,20 @@ class StudioEvent {
   final bool viewerIsGoing;
 
   // --- detail only -------------------------------------------------------------------------
+
+  /// Whether the signed-in viewer follows the host, or has asked to (BACKEND_CHANGES B24).
+  /// Null when the payload doesn't say: a card, a guest, or a server without B24.
+  final bool? hostIsFollowing;
+  final bool? hostFollowRequested;
+
   final String? description;
   final String? cancellationReason;
   final List<EventPerson> cohosts;
   final List<EventPerson> artists;
   final List<EventLineupItem> lineup;
 
-  /// The host's questions and answers (`EvDetail` FAQs). The server does not send them yet
-  /// (BACKEND_CHANGES B24), so this is empty until it does.
+  /// The host's questions and answers (`EvDetail` FAQs), in the host's order (BACKEND_CHANGES
+  /// B24); empty when there are none.
   final List<EventFaq> faqs;
 
   /// The host's ticket types (`EvChooseTickets`). Not sent by the server yet (BACKEND_CHANGES
@@ -311,6 +319,8 @@ class StudioEvent {
         spotsLeft: spotsLeft ?? this.spotsLeft,
         isFull: isFull ?? this.isFull,
         viewerIsGoing: viewerIsGoing ?? this.viewerIsGoing,
+        hostIsFollowing: hostIsFollowing,
+        hostFollowRequested: hostFollowRequested,
         description: description,
         cancellationReason: cancellationReason,
         cohosts: cohosts,
@@ -378,6 +388,8 @@ class StudioEvent {
       spotsLeft: (json['spotsLeft'] as num?)?.toInt(),
       isFull: json['isFull'] as bool? ?? false,
       viewerIsGoing: json['viewerIsGoing'] as bool? ?? false,
+      hostIsFollowing: json['hostIsFollowing'] as bool?,
+      hostFollowRequested: json['hostFollowRequested'] as bool?,
       description: json['description'] as String?,
       cancellationReason: json['cancellationReason'] as String?,
       cohosts: _people(json['cohosts']),

@@ -42,7 +42,8 @@ Future<void> openEventDetail(BuildContext context, StudioEvent event, {bool open
 /// Get tickets opens Choose tickets (`EvChooseTickets`). Every event is free on the server and
 /// an RSVP is a headcount (BACKEND_CHANGES B22), so the sheet offers one free place and Reserve
 /// saves the RSVP; paid tickets go through checkout (`EvCheckout`) once the server sells them.
-/// FAQs and the host's follow state are BACKEND_CHANGES B24.
+/// The host's FAQs and whether the viewer follows the host come with the detail
+/// (BACKEND_CHANGES B24); without the follow flags the page asks the host's profile.
 class EventDetailPage extends StatefulWidget {
   const EventDetailPage({super.key, required this.event, this.debugDetail, this.openTickets = false});
 
@@ -84,6 +85,10 @@ class _EventDetailPageState extends State<EventDetailPage> with DetailFollowStat
 
   bool get _debug => widget.debugDetail != null;
 
+  /// Follow has its answer (from the detail, the host's profile, or a tap), so a later
+  /// refresh doesn't overwrite it.
+  bool _followKnown = false;
+
   @override
   String get followUsername => _event.hostUsername ?? '';
 
@@ -93,10 +98,10 @@ class _EventDetailPageState extends State<EventDetailPage> with DetailFollowStat
     _store.addListener(_onStore);
     if (_debug) {
       _detail = widget.debugDetail;
+      _applyHostFollow(widget.debugDetail!);
       return;
     }
     _loadDetail();
-    _loadFollow();
   }
 
   @override
@@ -130,6 +135,7 @@ class _EventDetailPageState extends State<EventDetailPage> with DetailFollowStat
       final full = await EventService.instance.getById(widget.event.id);
       if (!mounted) return;
       setState(() => _detail = full);
+      if (!_followKnown && !_applyHostFollow(full)) _loadFollow();
       _syncPolling();
       if (!_heldShown && full.waitlist?.isHeld(DateTime.now()) == true) {
         _heldShown = true;
@@ -138,7 +144,25 @@ class _EventDetailPageState extends State<EventDetailPage> with DetailFollowStat
     } catch (_) {
       // The card's own fields still render. A failed refresh is not worth an error screen
       // over content that is already on the page.
+      if (!_followKnown) _loadFollow();
     }
+  }
+
+  /// Follow from the detail's flags (B24); false when the detail doesn't carry them.
+  bool _applyHostFollow(StudioEvent e) {
+    final following = e.hostIsFollowing;
+    if (following == null) return false;
+    _followKnown = true;
+    followState = following
+        ? FollowState.following
+        : (e.hostFollowRequested == true ? FollowState.pending : FollowState.none);
+    return true;
+  }
+
+  @override
+  Future<void> toggleFollow() {
+    _followKnown = true;
+    return super.toggleFollow();
   }
 
   void _syncPolling() {
@@ -151,8 +175,8 @@ class _EventDetailPageState extends State<EventDetailPage> with DetailFollowStat
     }
   }
 
-  /// The event payload does not say whether the viewer follows the host (B24), so it comes
-  /// from the host's profile.
+  /// When the detail doesn't say whether the viewer follows the host (a server without B24, or
+  /// the detail failed), it comes from the host's profile.
   Future<void> _loadFollow() async {
     final host = widget.event.hostUsername;
     if (host == null || host.isEmpty || widget.event.isHost || !AuthSession.instance.isLoggedIn) {
@@ -160,7 +184,8 @@ class _EventDetailPageState extends State<EventDetailPage> with DetailFollowStat
     }
     try {
       final profile = await UserService.instance.getPublicProfile(host);
-      if (!mounted) return;
+      if (!mounted || _followKnown) return;
+      _followKnown = true;
       setState(() {
         followState = profile.isFollowing
             ? FollowState.following

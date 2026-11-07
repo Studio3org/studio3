@@ -68,6 +68,9 @@ class _FakeServer implements HttpClientAdapter {
   var going = false;
   var count = 4;
 
+  /// Added to the guest event's detail (the host's FAQs and follow flags, B24).
+  Map<String, dynamic> detailExtra = {};
+
   // The host's side.
   Map<String, dynamic>? hosted;
   final lineup = <Map<String, dynamic>>[];
@@ -113,7 +116,9 @@ class _FakeServer implements HttpClientAdapter {
           'categories': [],
         };
       case 'GET /api/events/ev1':
-        data = _guestEvent(going: going, count: count);
+        data = {..._guestEvent(going: going, count: count), ...detailExtra};
+      case 'GET /api/user/amara':
+        data = {'username': 'amara', 'name': 'Amara Osei', 'isFollowing': true};
       case 'POST /api/events/ev1/rsvp':
         final wants = body!['going'] as bool;
         if (wants != going) count += wants ? 1 : -1;
@@ -156,6 +161,8 @@ class _FakeServer implements HttpClientAdapter {
       case 'POST /api/events/new1/cancel':
         hosted = {...hosted!, 'status': 'cancelled', 'cancellationReason': body?['reason']};
         data = _hostedNow();
+      case 'DELETE /api/users/amara/follow':
+        data = {'following': false, 'requested': false};
       case 'GET /api/users/sarah/following':
         data = {
           'items': [
@@ -294,6 +301,64 @@ void main() {
       greaterThanOrEqualTo(3), // going, saved, hosting
     );
     await tester.pump(const Duration(seconds: 11)); // let toasts and the image cache's cleanup timer finish
+  });
+
+  Future<void> openGuestEvent(WidgetTester tester, {double height = 900}) async {
+    setBoardViewport(tester, height: height);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => openEventDetail(context, StudioEvent.fromJson(_guestEvent(going: false, count: 4))),
+            child: const Text('open'),
+          ),
+        ),
+      ),
+    );
+    await _tap(tester, find.text('open'));
+  }
+
+  testWidgets("event page: the host's FAQs and whether you follow them come with the event (B24)", (tester) async {
+    _server.detailExtra = {
+      'faqs': [
+        {'question': 'Is it free?', 'answer': 'Yes, walk in.'},
+        {'question': 'Parking?', 'answer': 'On the street after 6.'},
+      ],
+      'hostIsFollowing': false,
+      'hostFollowRequested': true,
+    };
+    // Tall enough that the FAQs at the end are built.
+    await openGuestEvent(tester, height: 2400);
+
+    expect(_server.count0('GET', '/api/user/amara'), 0, reason: "the host's profile isn't fetched");
+    expect(find.text('Requested'), findsOneWidget);
+    // The FAQs in the host's order; an answer shows when its question is opened.
+    expect(find.text('FAQs'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('Is it free?')).dy,
+      lessThan(tester.getTopLeft(find.text('Parking?')).dy),
+    );
+    expect(find.text('On the street after 6.'), findsNothing);
+    await _tap(tester, find.text('Parking?'));
+    expect(find.text('On the street after 6.'), findsOneWidget);
+
+    // Tapping Requested withdraws it.
+    await _tap(tester, find.text('Requested'));
+    expect(_server.count0('DELETE', '/api/users/amara/follow'), 1);
+    expect(find.text('Follow'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 11));
+  });
+
+  testWidgets("event page: without the flags, Follow comes from the host's profile; no FAQs, no section", (
+    tester,
+  ) async {
+    await openGuestEvent(tester);
+
+    expect(_server.count0('GET', '/api/user/amara'), 1);
+    expect(find.text('Following'), findsOneWidget);
+    expect(find.text('FAQs'), findsNothing);
+    await tester.pump(const Duration(seconds: 11));
   });
 
   testWidgets("guest: Can't make it gives the place back", (tester) async {
