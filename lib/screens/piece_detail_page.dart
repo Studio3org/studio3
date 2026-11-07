@@ -27,6 +27,7 @@ import '../widgets/piece_detail/piece_action_bar.dart';
 import '../widgets/piece_detail/piece_artist_row.dart';
 import '../widgets/piece_detail/materials_sheet.dart';
 import '../widgets/piece_detail/piece_comment_sheet.dart';
+import '../widgets/piece_detail/piece_double_tap_like.dart';
 import '../widgets/piece_detail/piece_location_row.dart';
 import '../widgets/piece_detail/piece_related_scenes_row.dart';
 import '../widgets/piece_detail/piece_share_sheet.dart';
@@ -252,9 +253,14 @@ class _PieceDetailPageState extends State<PieceDetailPage>
                     children: [
                       AspectRatio(
                         aspectRatio: item.aspectRatioValue,
-                        child: DetailHeroImage(
-                          item: item,
-                          initialImageIndex: widget.initialImageIndex,
+                        // No Like button on a piece: double tap the image (hint on each visit).
+                        child: PieceDoubleTapLike(
+                          liked: liked,
+                          onToggle: toggleLike,
+                          child: DetailHeroImage(
+                            item: item,
+                            initialImageIndex: widget.initialImageIndex,
+                          ),
                         ),
                       ),
                       Positioned(
@@ -289,21 +295,8 @@ class _PieceDetailPageState extends State<PieceDetailPage>
                         onFollowToggle: toggleFollow,
                         isOwner: _isOwner,
                       ),
-                      // Like and comment stay on the page (plan rule 4); Save and Share are in
-                      // the top icons.
-                      PieceActionBar(
-                        liked: liked,
-                        saved: saved,
-                        onLike: toggleLike,
-                        onComment: () => PieceCommentSheet.show(
-                          context,
-                          contentId: item.id,
-                          isScene: item.isScene,
-                        ),
-                        onShare: () {},
-                        onSave: toggleSave,
-                        showSave: false,
-                      ),
+                      // No Like or Comment row on a piece: pieces have no comments, and a
+                      // double tap on the image likes it. Save and Share are in the top icons.
                       const SizedBox(height: 8),
                       for (var i = 0; i < sections.length; i++) ...[
                         if (i > 0) const SizedBox(height: 26),

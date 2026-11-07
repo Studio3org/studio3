@@ -84,7 +84,8 @@ class _Fake implements HttpClientAdapter {
           json = {'success': true, 'data': _pieceJson('p1', forSale: true, author: 'amara')};
         case 'GET /api/pieces/p2':
           json = {'success': true, 'data': _pieceJson('p2', forSale: false, author: 'esi')};
-        case 'GET /api/pieces/p1/comments':
+        // Comments are on Scenes only (pieces have none in the app).
+        case 'GET /api/posts/s1/comments':
           json = {
             'success': true,
             'data': {
@@ -322,8 +323,22 @@ void main() {
       tester,
     ) async {
       setBoardViewport(tester, height: 1400);
-      await _open(tester, AvailablePieceDetailPage(item: _item('p1', forSale: true, author: 'amara')), dark: dark);
-      await _tap(tester, _control('Comment'));
+      // A Scene's comments (pieces have none).
+      await _open(
+        tester,
+        Scaffold(
+          body: Builder(
+            builder: (context) => Center(
+              child: TextButton(
+                onPressed: () => PieceCommentSheet.show(context, contentId: 's1', isScene: true, artistUsername: 'amara'),
+                child: const Text('comments'),
+              ),
+            ),
+          ),
+        ),
+        dark: dark,
+      );
+      await _tap(tester, find.text('comments'));
       expect(find.byType(PieceCommentSheet), findsOneWidget);
 
       // Your own comment has nothing to report; it can be deleted (BACKEND_CHANGES B33).
