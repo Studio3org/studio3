@@ -623,10 +623,13 @@ class FeedCardBottomScrim extends StatelessWidget {
   }
 }
 
-/// Full-bleed feed piece (`Main`): width × 4/3, square corners, artist row
-/// underneath. Dots and a sideways swipe only when the payload has 2+ photos. A photo
-/// Scene keeps its own shape (3:4, 1:1 or landscape, as in Explore) rather than being
-/// cropped to a piece's.
+/// A feed piece (`Main`, `NoteMain`): inset with the 16 screen margins, 3:4, square corners,
+/// never cropped. Dots and a sideways swipe only when the payload has 2+ photos. Under a
+/// piece, 12 below, its label: the artist's name (14/500, opens their profile) and the title
+/// with the year in grey (15) on the left; on the right the medium in Mono 11 grey and under
+/// it the Available or Collected chip (nothing for Not for sale). No photo, no price. A photo
+/// Scene keeps its own shape (3:4, 1:1 or landscape, as in Explore) and its artist row (32
+/// photo and name), 10 below.
 class FeedPieceCard extends StatefulWidget {
   const FeedPieceCard({super.key, required this.item, required this.onTap});
 
@@ -666,7 +669,9 @@ class _FeedPieceCardState extends State<FeedPieceCard> {
     final username = item.authorUsername;
     final canOpenAuthor = username != null && username.trim().isNotEmpty;
 
-    return Column(
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: StudioSpace.marginFeed),
+      child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         AspectRatio(
@@ -716,8 +721,17 @@ class _FeedPieceCardState extends State<FeedPieceCard> {
             ),
           ),
         ),
+        if (item.piece != null)
+          _PieceLabel(
+            piece: item.piece!,
+            name: name,
+            status: _status,
+            onAuthor: canOpenAuthor ? () => openUserProfile(context, username) : null,
+            onPiece: widget.onTap,
+          )
+        else
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          padding: const EdgeInsets.only(top: 10),
           child: Row(
             children: [
               StudioTapArea(child: GestureDetector(
@@ -759,6 +773,105 @@ class _FeedPieceCardState extends State<FeedPieceCard> {
           ),
         ),
       ],
+      ),
+    );
+  }
+}
+
+/// The label under a feed piece (`Main`): name and title with the year on the left; medium and
+/// the status chip on the right, top-aligned, 16 apart.
+class _PieceLabel extends StatelessWidget {
+  const _PieceLabel({
+    required this.piece,
+    required this.name,
+    required this.status,
+    required this.onAuthor,
+    required this.onPiece,
+  });
+
+  final PieceSummary piece;
+  final String name;
+  final StudioStatus? status;
+  final VoidCallback? onAuthor;
+  final VoidCallback onPiece;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.studio;
+    final title = piece.title.trim();
+    final year = piece.yearCreated;
+    final medium = piece.medium?.trim() ?? '';
+    final hasRight = medium.isNotEmpty || status != null;
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Semantics(
+                  link: true,
+                  child: GestureDetector(
+                    onTap: onAuthor,
+                    child: Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: StudioType.body14(weight: StudioType.medium, color: c.textPrimary),
+                    ),
+                  ),
+                ),
+                if (title.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Semantics(
+                    link: true,
+                    child: GestureDetector(
+                      onTap: onPiece,
+                      child: Text.rich(
+                        TextSpan(
+                          text: title,
+                          children: [
+                            if (year != null) TextSpan(text: ', $year', style: TextStyle(color: c.textSecondary)),
+                          ],
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: StudioType.sans(15, color: c.textPrimary),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (hasRight) ...[
+            const SizedBox(width: 16),
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  if (medium.isNotEmpty)
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 150),
+                      child: Text(
+                        medium,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.end,
+                        style: StudioType.mono11(color: c.textSecondary),
+                      ),
+                    ),
+                  if (medium.isNotEmpty && status != null) const SizedBox(height: 6),
+                  if (status != null) StudioStatusChip(status!, compact: true),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }
@@ -849,8 +962,9 @@ class _FeedSeriesRowState extends State<FeedSeriesRow> {
   Widget build(BuildContext context) {
     final c = context.studio;
     final previews = widget.series.previewPieces;
+    // No space of its own: the feed puts 52 between posts, a series row too (`NoteMain`).
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 28),
+      padding: EdgeInsets.zero,
       child: LayoutBuilder(
         builder: (context, constraints) {
           final width = constraints.maxWidth;

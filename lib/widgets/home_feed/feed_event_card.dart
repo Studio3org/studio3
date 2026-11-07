@@ -65,8 +65,9 @@ class FeedEventCard extends StatelessWidget {
     const white = StudioColors.galleryWhite;
     final dark = Theme.of(context).brightness == Brightness.dark;
     final line = event.details.trim().split('\n').first.trim();
+    // The feed puts 52 between posts, the event card too (`NoteMain`).
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Semantics(
         container: true,
         label: 'Event at ${event.venue.isEmpty ? event.title : event.venue}',

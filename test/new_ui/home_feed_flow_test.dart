@@ -433,6 +433,11 @@ void main() {
     final event = tester.getTopLeft(find.byType(FeedEventCard));
     expect(event.dy, greaterThan(third.dy));
     expect(event.dy, lessThan(fourth.dy));
+    // 52 between posts, the event card too (`NoteMain`).
+    Rect box(String id) => tester.getRect(find.byWidgetPredicate((w) => w is FeedPieceCard && w.item.id == id));
+    expect(box('a2').top - box('a1').bottom, 52);
+    expect(tester.getRect(find.byType(FeedEventCard)).top - box('a3').bottom, 52);
+    expect(box('a4').top - tester.getRect(find.byType(FeedEventCard)).bottom, 52);
     store.dispose();
     await tester.pump(const Duration(seconds: 11));
   });

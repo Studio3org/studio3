@@ -19,6 +19,8 @@ PieceSummary _piece({
   String? listingState = 'available',
   List<String> images = const [],
   PieceSeriesInfo? series,
+  String? medium = 'Oil on canvas',
+  int? year = 2025,
 }) {
   return PieceSummary(
     id: 'piece-1',
@@ -30,6 +32,8 @@ PieceSummary _piece({
     authorName: 'Amara Osei',
     authorUsername: 'amara',
     series: series,
+    medium: medium,
+    yearCreated: year,
   );
 }
 
@@ -118,7 +122,7 @@ void main() {
     expect(find.descendant(of: find.byType(FeedUnreadDot), matching: find.byType(Text)), findsNothing);
   });
 
-  testWidgets('piece is full width 3:4 with the artist row and an Available chip', (tester) async {
+  testWidgets('piece is inset 3:4 with its label: name, title and year, medium and Available', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     var opened = 0;
@@ -134,20 +138,61 @@ void main() {
 
     final image = tester.widget<AspectRatio>(find.byType(AspectRatio));
     expect(image.aspectRatio, 3 / 4);
-    expect(tester.getSize(find.byType(AspectRatio)).width, 390);
+    // Inset with the 16 margins (`Main`, `NoteMain`): 358 wide, 477 tall.
+    expect(tester.getRect(find.byType(AspectRatio)), const Rect.fromLTWH(16, 0, 358, 358 * 4 / 3));
     expect(find.byType(ClipRRect), findsNothing);
     expect(find.byType(PageView), findsNothing);
 
     final name = tester.widget<Text>(find.text('Amara Osei'));
     expect(name.style!.fontSize, 14);
     expect(name.style!.fontWeight, FontWeight.w500);
-    final title = tester.widget<Text>(find.text('Bodies in Color'));
-    expect(title.style!.fontSize, 13);
+    expect(tester.getTopLeft(find.text('Amara Osei')).dx, 16);
+    expect(tester.getTopLeft(find.text('Amara Osei')).dy, 358 * 4 / 3 + 12);
+    final title = find.text('Bodies in Color, 2025', findRichText: true);
+    expect(tester.widget<RichText>(title).text.style!.fontSize, 15);
+    final medium = tester.widget<Text>(find.text('Oil on canvas'));
+    expect(medium.style!.fontFamily, 'GeistMono');
+    expect(medium.style!.fontSize, 11);
+    expect(tester.getTopRight(find.text('Oil on canvas')).dx, 374);
     expect(find.text('Available'), findsOneWidget);
-    expect(tester.getSize(find.byType(StudioAvatar)), const Size(32, 32));
+    expect(tester.widget<StudioStatusChip>(find.byType(StudioStatusChip)).compact, isTrue);
+    expect(find.byType(StudioAvatar), findsNothing, reason: 'no photo in the label');
+    expect(find.textContaining(r'$'), findsNothing, reason: 'no price in the feed');
 
-    await tester.tap(find.text('Bodies in Color'));
+    await tester.tap(title);
     expect(opened, 1);
+  });
+
+  for (final dark in [false, true]) {
+    testWidgets('label (${dark ? 'dark' : 'light'}): Collected pill, nothing for Not for sale, no year or medium',
+        (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final c = dark ? StudioColors.dark : StudioColors.light;
+      await tester.pumpWidget(
+        _app(dark: dark, home: FeedPieceCard(item: FeedItem.piece(_piece(listingState: 'collected')), onTap: () {})),
+      );
+      expect(find.text('Collected'), findsOneWidget);
+      expect(tester.widget<Text>(find.text('Amara Osei')).style!.color, c.textPrimary);
+      expect(tester.widget<Text>(find.text('Oil on canvas')).style!.color, c.textSecondary);
+
+      await tester.pumpWidget(
+        _app(
+          dark: dark,
+          home: FeedPieceCard(
+            item: FeedItem.piece(_piece(forSale: false, listingState: null, medium: null, year: null)),
+            onTap: () {},
+          ),
+        ),
+      );
+      expect(find.byType(StudioStatusChip), findsNothing);
+      expect(find.text('Not for sale'), findsNothing);
+      expect(find.text('Bodies in Color', findRichText: true), findsOneWidget);
+    });
+  }
+
+  testWidgets('home feed spacing: 52 between posts', (tester) async {
+    expect(StudioSpace.homePostGap, 52);
   });
 
   testWidgets('two photos show dots and a swipe moves to the next', (tester) async {

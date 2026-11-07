@@ -562,7 +562,7 @@ class _HomePageState extends State<HomePage> with RouteAware, ScrollsToTopOnDoub
         physics: const AlwaysScrollableScrollPhysics(),
         padding: EdgeInsets.only(bottom: bottomInset),
         itemCount: rows.length + (fetching ? 1 : 0),
-        separatorBuilder: (_, _) => const SizedBox(height: StudioSpace.feedGap),
+        separatorBuilder: (_, _) => const SizedBox(height: StudioSpace.homePostGap),
         itemBuilder: (context, index) {
           if (index >= rows.length) {
             return Padding(

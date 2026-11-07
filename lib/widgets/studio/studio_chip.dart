@@ -80,8 +80,12 @@ enum StudioStatus { available, collected, notForSale }
 /// * Available: 7 px green dot, 1 px Line outline, 5 10 padding (`Main`).
 /// * Collected: iridescent fill, Ink text, 5 10 padding — the only iridescent chip.
 /// * Not for sale: 1 px #D4D4D0 outline, 4 10 padding (`PieceNotForSale`).
+/// * [compact] (the home feed's label under a piece, `Main`): Available 4 9, Collected 4 10.
 class StudioStatusChip extends StatelessWidget {
-  const StudioStatusChip(this.status, {super.key, this.label, this.onImage = false});
+  const StudioStatusChip(this.status, {super.key, this.label, this.onImage = false, this.compact = false});
+
+  /// The home feed's label: 4 px top and bottom.
+  final bool compact;
 
   final StudioStatus status;
 
@@ -123,7 +127,9 @@ class StudioStatusChip extends StatelessWidget {
       case StudioStatus.available:
         return _pill(
           border: c.line,
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          padding: compact
+              ? const EdgeInsets.symmetric(horizontal: 9, vertical: 4)
+              : const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
           children: [
             Container(
               width: 7,
@@ -139,7 +145,7 @@ class StudioStatusChip extends StatelessWidget {
         return StudioIridescent(
           borderRadius: BorderRadius.circular(StudioRadius.round),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            padding: EdgeInsets.symmetric(horizontal: 10, vertical: compact ? 4 : 5),
             child: Text(label ?? 'Collected', style: StudioType.mono11(color: StudioColors.ink)),
           ),
         );
