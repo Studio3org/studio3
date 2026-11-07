@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:studio3/models/auth_user.dart';
 import 'package:studio3/screens/forgot_password_page.dart';
@@ -133,6 +134,7 @@ void main() {
   testWidgets('Continue with an email opens Welcome back: the email, Password with the eye, Forgot password?, Log in', (tester) async {
     await _surface(tester, const Size(390, 844));
     // A server that can't say whether the email is known (no email check, BACKEND_CHANGES B30).
+    dotenv.loadFromString(envString: '', isOptional: true);
     ApiClient.instance.debugUseAdapter(_NoEmailCheck());
     await tester.pumpWidget(_routed(home: const LoginPage()));
     await tester.pump();
@@ -140,11 +142,13 @@ void main() {
     await tester.pump();
     expect(tester.widget<StudioButton>(find.widgetWithText(StudioButton, 'Continue')).onPressed, isNotNull);
     await tester.tap(find.widgetWithText(StudioButton, 'Continue'));
-    for (var i = 0; i < 4; i++) {
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 30)));
+    for (var i = 0; i < 6; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 60)));
       await tester.pump();
     }
-    await tester.pump(const Duration(milliseconds: 400));
+    for (var i = 0; i < 3; i++) {
+      await tester.pump(const Duration(milliseconds: 350));
+    }
 
     // `LoginPassword`: 28/500 title, the email 15 Graphite, Password 13 Tertiary over 18.
     final title = tester.widget<Text>(find.text('Welcome back'));
