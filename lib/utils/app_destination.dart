@@ -5,12 +5,15 @@ import '../screens/inbox_page.dart' show InboxTab;
 import '../screens/event_detail_page.dart';
 import '../screens/order_detail_page.dart';
 import '../screens/seller/seller_setup_flow.dart';
+import '../models/feed_item.dart';
 import '../screens/series_view_page.dart';
 import '../services/auth_session.dart';
 import '../services/event_service.dart';
 import '../services/piece_service.dart';
+import '../services/post_service.dart';
 import 'explore_detail_route.dart';
 import 'profile_navigation.dart';
+import 'reels_route.dart';
 
 /// Where a tap should land, whatever produced it.
 ///
@@ -24,7 +27,7 @@ import 'profile_navigation.dart';
 /// They share a resolver so a destination added for one is reachable from all three. The QR
 /// codes in the event flow arrive as deep links and land here too, which is the reason this
 /// is keyed on a type and an id rather than on a URL: a notification has no URL to give.
-enum AppDestinationType { piece, series, order, event, profile, payoutSetup, activity, unknown }
+enum AppDestinationType { piece, scene, series, order, event, profile, payoutSetup, activity, unknown }
 
 class AppDestination {
   const AppDestination(this.type, [this.id]);
@@ -61,6 +64,11 @@ class AppDestination {
     switch (targetType) {
       case 'piece':
         return AppDestination(AppDestinationType.piece, targetId);
+      // A Scene: its share link is /share/post/<id> (BACKEND_CHANGES B33), and a
+      // notification about one names it `post`.
+      case 'post':
+      case 'scene':
+        return AppDestination(AppDestinationType.scene, targetId);
       case 'series':
         return AppDestination(AppDestinationType.series, targetId);
       case 'order':
@@ -105,6 +113,8 @@ Future<void> openDestination(BuildContext context, AppDestination destination) a
   switch (destination.type) {
     case AppDestinationType.piece:
       await _openPiece(context, destination.id!);
+    case AppDestinationType.scene:
+      await _openScene(context, destination.id!);
     case AppDestinationType.series:
       Navigator.push<void>(context, MaterialPageRoute<void>(builder: (_) => SeriesViewPage(seriesId: destination.id!)));
     case AppDestinationType.order:
@@ -134,6 +144,16 @@ Future<void> _openPiece(BuildContext context, String id) async {
   } catch (_) {
     // Deleted, delisted, or unreachable. Ignore rather than crash navigation from a stale
     // link or a notification about a piece that has since gone.
+  }
+}
+
+Future<void> _openScene(BuildContext context, String id) async {
+  try {
+    final post = await PostService.instance.getById(id);
+    if (!context.mounted) return;
+    await openScenes(context, FeedItem.post(post));
+  } catch (_) {
+    // Deleted or unreachable: stay put, as for a piece.
   }
 }
 

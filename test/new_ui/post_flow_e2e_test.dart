@@ -60,6 +60,9 @@ class _FakeServer implements HttpClientAdapter {
         data = {...created, 'id': 'p1', 'status': body!['status']};
       case 'POST /api/posts':
         data = {...body!, 'id': 's1'};
+      case 'PATCH /api/posts/s1':
+        // A Scene is saved as a draft, then taken live (BACKEND_CHANGES B33).
+        data = {...bodies('POST', '/api/posts').first!, 'id': 's1', ...body!};
       case 'GET /api/users/sarah/posts':
         data = [
           {
@@ -423,7 +426,12 @@ void _postFlows() {
     await _tapAndRun(tester, 'Try again');
     expect(find.text('Night Study is live'), findsOneWidget);
     expect(_server.bodies('POST', '/api/pieces'), hasLength(1)); // not created twice
-    expect(_server.bodies('PATCH', '/api/pieces/p1'), hasLength(2));
+    // Live (failed), the failure told to the server (B33, failed too: offline), then live.
+    expect(_server.bodies('PATCH', '/api/pieces/p1'), [
+      {'status': 'live'},
+      {'publishFailed': true},
+      {'status': 'live'},
+    ]);
   });
 
   testWidgets('Scene photo: the edited photo is posted with every linked piece', (tester) async {
@@ -457,7 +465,11 @@ void _postFlows() {
     expect(post['linkedPieceId'], 'p1');
     expect(post['linkedPieceIds'], ['p1']);
     expect(post['location'], 'Dallas, TX, United States');
-    expect(post['status'], 'live');
+    // Saved as a draft, then taken live (B33).
+    expect(post['status'], 'draft');
+    expect(post['draftStep'], 'details');
+    expect(post.containsKey('mediaUrls'), isFalse, reason: 'one photo');
+    expect(_server.bodies('PATCH', '/api/posts/s1').single, {'status': 'live'});
   });
 
   testWidgets('Scene video: the clip and its cover are uploaded, length shown', (tester) async {
@@ -488,6 +500,8 @@ void _postFlows() {
     expect(post['mediaUrl'], 'https://cdn.test/sarah/post/1');
     expect(post['thumbnailUrl'], 'https://cdn.test/sarah/post/2');
     expect(post.containsKey('linkedPieceIds'), isFalse);
+    expect(post['status'], 'draft');
+    expect(_server.bodies('PATCH', '/api/posts/s1').single, {'status': 'live'});
     expect(find.byType(SceneLiveView), findsOneWidget);
   });
 

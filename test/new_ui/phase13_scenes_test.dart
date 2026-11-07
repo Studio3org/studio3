@@ -287,7 +287,7 @@ void main() {
       expect(rows, ['Copy link', 'Block @amara', 'Report Scene']);
     });
 
-    testWidgets('More on your own Scene: Copy link and Edit Scene, no Follow', (tester) async {
+    testWidgets('More on your own Scene: Copy link, Edit Scene and comments off, no Follow', (tester) async {
       AuthSession.instance.user = AuthUser.fromJson({..._user, 'username': 'amara'});
       setBoardViewport(tester);
       await tester.pumpWidget(_app(_videoStill(_videoScene())));
@@ -296,7 +296,7 @@ void main() {
       await tester.tap(find.bySemanticsLabel('More'));
       await tester.pumpAndSettle();
       final rows = tester.widgetList<StudioActionRow>(find.byType(StudioActionRow)).map((r) => r.title);
-      expect(rows, ['Copy link', 'Edit Scene']);
+      expect(rows, ['Copy link', 'Edit Scene', 'Turn off comments']);
     });
   });
 

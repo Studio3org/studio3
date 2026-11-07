@@ -326,10 +326,13 @@ void main() {
       await _tap(tester, _control('Comment'));
       expect(find.byType(PieceCommentSheet), findsOneWidget);
 
-      // Your own comment has nothing to report.
+      // Your own comment has nothing to report; it can be deleted (BACKEND_CHANGES B33).
       await tester.longPress(find.text('My own comment'));
       await _settle(tester);
       expect(find.text('Report comment'), findsNothing);
+      expect(find.text('Delete comment'), findsOneWidget);
+      Navigator.of(tester.element(find.text('Delete comment'))).pop();
+      await _settle(tester);
 
       await tester.longPress(find.text('Buy followers at spam.example'));
       await _settle(tester);

@@ -409,10 +409,10 @@ void main() {
       Navigator.of(tester.element(find.byType(PieceCommentSheet))).pop();
       await _settle(tester);
 
-      // Share sends the Scene with its piece's link; More → Copy link copies that link.
+      // Share sends the Scene with its own link (BACKEND_CHANGES B33); More → Copy link copies it.
       await _tap(tester, _control('Share'));
       expect(_shared.single, startsWith('A Scene by Kofi Mensah on Studio 3\n\nScene v3\n\n'));
-      expect(_shared.single, endsWith('/piece/p1'));
+      expect(_shared.single, endsWith('/share/post/v3'));
       await _tap(tester, _control('More'));
       expect(find.text('Copy link'), findsOneWidget);
       expect(find.text('Block @kofi'), findsOneWidget);

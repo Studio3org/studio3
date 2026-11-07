@@ -34,7 +34,8 @@ import '../studio/studio.dart';
 
 /// The Scene viewer's controls (`SceneViewer`, `SceneViewerPhoto`), over the playing Scene.
 ///
-/// Top: back, sound (videos only) and more (copy link, block, report; Edit for your own),
+/// Top: back, sound (videos only) and more (copy link, block, report; Edit and comments on or
+/// off for your own),
 /// 44 targets 12 below the safe area, white with a soft shadow over a 130 dark fade.
 /// Right, 10 in: Save and Comments (26 icons, Mono 11 counts) and Share, 18 apart. Bottom
 /// left, 16 in and clear of the rail: the artist (32 photo with a white ring, 15/500 name,
@@ -81,6 +82,10 @@ class ReelOverlayState extends State<ReelOverlay> with DetailFollowState<ReelOve
   bool _captionOpen = false;
   List<PieceSummary> _linked = const [];
 
+  /// The artist turned comments off (BACKEND_CHANGES B33).
+  bool _commentsOff = false;
+  bool _commentsBusy = false;
+
   EngagementStore get _engagement => EngagementStore.instance;
 
   @override
@@ -119,6 +124,7 @@ class ReelOverlayState extends State<ReelOverlay> with DetailFollowState<ReelOve
     _saveCount = post?.saveCount;
     // The count the server sent (it used to start at 0).
     _commentCount = post?.commentCount ?? 0;
+    _commentsOff = post?.commentsOff ?? false;
     followState = widget.item.authorIsFollowing ? FollowState.following : FollowState.none;
     _loadLinked();
   }
@@ -131,10 +137,16 @@ class ReelOverlayState extends State<ReelOverlay> with DetailFollowState<ReelOve
     return single == null || single.isEmpty ? const [] : [single];
   }
 
-  /// The feed sends the linked piece ids only; the pieces themselves come from the cache.
+  /// The linked pieces come with the Scene (B33: `linkedPieces`); from a server that sends
+  /// the ids only, they come from the cache one by one.
   Future<void> _loadLinked() async {
     final ids = _linkedIds;
     final known = widget.item.post?.linkedPiece;
+    final sent = widget.item.post?.linkedPieces;
+    if (sent != null) {
+      _linked = sent;
+      return;
+    }
     if (ids.isEmpty) {
       _linked = const [];
       return;
@@ -186,6 +198,7 @@ class ReelOverlayState extends State<ReelOverlay> with DetailFollowState<ReelOve
       isScene: true,
       commentCount: _commentCount,
       artistUsername: widget.item.authorUsername,
+      commentsOff: _commentsOff,
       overMedia: true,
       onCountChanged: (count) {
         if (mounted) setState(() => _commentCount = count);
@@ -193,9 +206,10 @@ class ReelOverlayState extends State<ReelOverlay> with DetailFollowState<ReelOve
     );
   }
 
-  /// The link a Scene shares: its linked piece, or the artist's profile. Scenes have no
-  /// share page of their own yet (BACKEND_CHANGES B33).
+  /// The link a Scene shares: its own page (B33: `/share/post/<id>`).
   String? get _shareLink {
+    final postId = widget.item.post?.id;
+    if (postId != null && postId.isNotEmpty) return AppLinkConfig.postUrl(postId);
     final ids = _linkedIds;
     if (ids.isNotEmpty) return AppLinkConfig.pieceUrl(ids.first);
     final username = widget.item.authorUsername;
@@ -250,7 +264,28 @@ class ReelOverlayState extends State<ReelOverlay> with DetailFollowState<ReelOve
     }
   }
 
-  /// More: copy link, then Edit for your own Scene, or Block and Report for someone else's.
+  /// Comments off or back on, for your own Scene (`NoteSceneComments`, B33).
+  Future<void> _setCommentsOff(bool off) async {
+    final postId = widget.item.post?.id;
+    if (postId == null || _commentsBusy) return;
+    setState(() {
+      _commentsBusy = true;
+      _commentsOff = off;
+    });
+    try {
+      await PostService.instance.setCommentsOff(postId, off);
+      if (mounted) showStudioToast(context, off ? 'Comments turned off' : 'Comments turned on');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _commentsOff = !off);
+      showStudioToast(context, e is ApiException ? e.message : 'Could not change comments', icon: null);
+    } finally {
+      if (mounted) setState(() => _commentsBusy = false);
+    }
+  }
+
+  /// More: copy link, then Edit and comments off or on for your own Scene, or Block and Report
+  /// for someone else's.
   void _openMore() {
     final postId = widget.item.post?.id;
     final username = widget.item.authorUsername;
@@ -270,7 +305,7 @@ class ReelOverlayState extends State<ReelOverlay> with DetailFollowState<ReelOve
               _copyLink();
             },
           ),
-          if (_isOwn)
+          if (_isOwn) ...[
             StudioActionRow(
               icon: StudioIcons.edit,
               title: 'Edit Scene',
@@ -278,8 +313,16 @@ class ReelOverlayState extends State<ReelOverlay> with DetailFollowState<ReelOve
                 Navigator.pop(sheetContext);
                 _editScene();
               },
-            )
-          else ...[
+            ),
+            StudioActionRow(
+              icon: StudioIcons.chat,
+              title: _commentsOff ? 'Turn on comments' : 'Turn off comments',
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _setCommentsOff(!_commentsOff);
+              },
+            ),
+          ] else ...[
             if (username != null && username.isNotEmpty)
               StudioActionRow(
                 icon: StudioIcons.block,

@@ -49,7 +49,8 @@ class _PostShareTypeSheetState extends State<PostShareTypeSheet> {
 
   Future<void> _countDrafts() async {
     try {
-      final drafts = await DraftsService.instance.pieces();
+      // Pieces and Scenes (BACKEND_CHANGES B33).
+      final drafts = await DraftsService.instance.all();
       if (mounted) setState(() => _drafts = drafts.length);
     } catch (_) {
       // No row: Drafts only shows when we know there is one.

@@ -13,6 +13,7 @@ import '../../theme/studio_type.dart';
 import '../../utils/profile_navigation.dart';
 import '../../utils/require_login.dart';
 import '../content_actions_sheet.dart';
+import '../studio/studio_action_row.dart';
 import '../studio/studio_avatar.dart';
 import '../studio/studio_icon.dart';
 import '../studio/studio_sheet.dart';
@@ -24,8 +25,10 @@ import '../studio/studio_toast.dart';
 /// Grabber (10 above, 6 below), "Comments" 15/500 with the Mono 12 count, a Line, then
 /// rows: 32 photo, 12 gap, name 13/500 (an "Artist" pill on the artist's own comments), Mono
 /// 11 time, the text 14/1.45 and Reply 12 in Graphite, 10 above and below. Reply starts a new
-/// comment with "@name" (no likes, no threads). Press and hold someone else's comment to
-/// report it or block them. At the bottom: your photo and the 42 pill field, with the
+/// comment with "@name" (no likes, no threads). Press and hold your own comment to delete it,
+/// or someone else's to report it or block them; the artist can delete any comment there too
+/// (BACKEND_CHANGES B33). With comments off ([commentsOff]) the field gives way to "Comments
+/// are off". At the bottom: your photo and the 42 pill field, with the
 /// `Conversation` send button (grey until there is text). Over a Scene ([overMedia]) the
 /// sheet takes the lower 60 % and the Scene keeps playing behind a 35 % shade.
 class PieceCommentSheet extends StatefulWidget {
@@ -37,6 +40,7 @@ class PieceCommentSheet extends StatefulWidget {
     this.commentCount,
     this.artistUsername,
     this.onCountChanged,
+    this.commentsOff = false,
   });
 
   final String contentId;
@@ -49,8 +53,11 @@ class PieceCommentSheet extends StatefulWidget {
   /// Their comments carry the Artist label.
   final String? artistUsername;
 
-  /// Called with the new count after a comment is posted.
+  /// Called with the new count after a comment is posted or deleted.
   final ValueChanged<int>? onCountChanged;
+
+  /// The artist turned comments off: the list stays, the field doesn't.
+  final bool commentsOff;
 
   static Future<void> show(
     BuildContext context, {
@@ -59,6 +66,7 @@ class PieceCommentSheet extends StatefulWidget {
     int? commentCount,
     String? artistUsername,
     bool overMedia = false,
+    bool commentsOff = false,
     ValueChanged<int>? onCountChanged,
   }) {
     final c = context.studio;
@@ -82,6 +90,7 @@ class PieceCommentSheet extends StatefulWidget {
           commentCount: commentCount,
           artistUsername: artistUsername,
           onCountChanged: onCountChanged,
+          commentsOff: commentsOff,
         ),
       ),
     );
@@ -256,6 +265,71 @@ class _PieceCommentSheetState extends State<PieceCommentSheet> {
     }
   }
 
+  bool _isMine(CommentSummary comment) {
+    final me = AuthSession.instance.user?.username.toLowerCase();
+    return me != null && me.isNotEmpty && comment.authorUsername?.toLowerCase() == me;
+  }
+
+  /// The viewer is the artist: they can delete any comment here (B33).
+  bool get _viewerIsArtist {
+    final me = AuthSession.instance.user?.username.toLowerCase();
+    final artist = widget.artistUsername?.toLowerCase();
+    return me != null && me.isNotEmpty && me == artist;
+  }
+
+  /// Press and hold: your own comment → Delete; someone else's → Block and Report, and
+  /// Delete too when it is on your piece or Scene.
+  void _commentActions(CommentSummary comment) {
+    if (comment.id.isEmpty || comment.id.startsWith('local-')) return;
+    if (_isMine(comment)) {
+      showStudioSheet<void>(
+        context: context,
+        useRootNavigator: true,
+        builder: (sheetContext) => StudioSheet(
+          horizontalPadding: 24,
+          gap: 6,
+          children: [
+            const SizedBox(height: 2),
+            StudioActionRow(
+              icon: StudioIcons.deleteFolder,
+              title: 'Delete comment',
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _delete(comment);
+              },
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+    showContentActionsSheet(
+      context,
+      target: ReportTarget.comment(comment.id),
+      authorUsername: comment.authorUsername,
+      onDelete: _viewerIsArtist ? () => _delete(comment) : null,
+    );
+  }
+
+  Future<void> _delete(CommentSummary comment) async {
+    final index = _comments.indexWhere((c) => c.id == comment.id);
+    if (index == -1) return;
+    setState(() => _comments.removeAt(index));
+    try {
+      final count = await SocialService.instance.deleteComment(comment.id);
+      final next = count ?? (_count == null ? null : (_count! - 1).clamp(0, 1 << 30));
+      if (next != null) {
+        _count = next;
+        widget.onCountChanged?.call(next);
+      }
+      if (mounted) setState(() {});
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _comments.insert(index.clamp(0, _comments.length), comment));
+      showStudioToast(context, 'Could not delete the comment', icon: null);
+    }
+  }
+
   /// Reply: a new comment that starts with "@name".
   void _reply(CommentSummary comment) {
     if (!AuthSession.instance.isLoggedIn) {
@@ -350,6 +424,7 @@ class _PieceCommentSheetState extends State<PieceCommentSheet> {
               artist.isNotEmpty &&
               comment.authorUsername?.toLowerCase() == artist,
           onReply: () => _reply(comment),
+          onLongPress: () => _commentActions(comment),
         );
       },
     );
@@ -361,6 +436,21 @@ class _PieceCommentSheetState extends State<PieceCommentSheet> {
   Widget _buildInputBar(StudioColors c) {
     final loggedIn = AuthSession.instance.isLoggedIn;
     final safe = MediaQuery.viewPaddingOf(context).bottom;
+    if (widget.commentsOff) {
+      return Container(
+        width: double.infinity,
+        padding: EdgeInsets.fromLTRB(16, 16, 16, safe > 0 ? safe : StudioSize.noInsetBottomPadding),
+        decoration: BoxDecoration(
+          color: c.background,
+          border: Border(top: BorderSide(color: c.line)),
+        ),
+        child: Text(
+          'Comments are off',
+          textAlign: TextAlign.center,
+          style: StudioType.body14(color: c.textSecondary),
+        ),
+      );
+    }
     final keyboard = MediaQuery.viewInsetsOf(context).bottom;
     final canSend = loggedIn && !_sending && _textController.text.trim().isNotEmpty;
     final style = StudioType.sans(15, color: c.textPrimary);
@@ -465,34 +555,30 @@ class _PieceCommentSheetState extends State<PieceCommentSheet> {
 }
 
 class _CommentTile extends StatelessWidget {
-  const _CommentTile({required this.comment, required this.isArtist, required this.onReply});
+  const _CommentTile({
+    required this.comment,
+    required this.isArtist,
+    required this.onReply,
+    required this.onLongPress,
+  });
 
   final CommentSummary comment;
   final bool isArtist;
   final VoidCallback onReply;
+  final VoidCallback onLongPress;
 
   @override
   Widget build(BuildContext context) {
     final c = context.studio;
     final canNavigate = comment.authorUsername != null && comment.authorUsername!.trim().isNotEmpty;
     void onTapAuthor() => openUserProfile(context, comment.authorUsername);
-    final me = AuthSession.instance.user?.username.toLowerCase();
-    // Only real (server-saved) comments by someone else can be reported. Deleting your own
-    // (or, for the artist, anyone's) needs the server (BACKEND_CHANGES B33).
-    final canReport =
-        comment.id.isNotEmpty &&
-        !comment.id.startsWith('local-') &&
-        (me == null || comment.authorUsername?.toLowerCase() != me);
+    // Only real (server-saved) comments have actions: delete your own; report or block
+    // someone else's (and, for the artist, delete it).
+    final saved = comment.id.isNotEmpty && !comment.id.startsWith('local-');
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onLongPress: canReport
-          ? () => showContentActionsSheet(
-                context,
-                target: ReportTarget.comment(comment.id),
-                authorUsername: comment.authorUsername,
-              )
-          : null,
+      onLongPress: saved ? onLongPress : null,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 10),
         child: Row(

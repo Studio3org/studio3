@@ -181,7 +181,8 @@ class PostPublishService {
   /// straight to live; a piece is saved as a draft and taken live.
   Future<void> publish(PostDraft draft) async {
     if (draft.postType == 'scene') {
-      await postScene(draft);
+      final scene = await saveSceneDraft(draft);
+      await sceneGoLive(scene.id);
       return;
     }
     final piece = await saveDraft(draft);
@@ -191,8 +192,19 @@ class PostPublishService {
   /// Draft → live.
   Future<PieceSummary> goLive(String pieceId) => _pieces.update(pieceId, {'status': 'live'});
 
-  /// Posts a Scene (photo or video) straight to live — Scenes have no draft or review.
+  /// Posts a Scene (photo or video): saved as a draft once its media is up, then taken live,
+  /// so a Scene that fails to go live waits in Drafts (BACKEND_CHANGES B33).
   Future<PostSummary> postScene(PostDraft draft) async {
+    final scene = await saveSceneDraft(draft);
+    return sceneGoLive(scene.id);
+  }
+
+  /// Draft → live, for a Scene.
+  Future<PostSummary> sceneGoLive(String postId) => _posts.update(postId, {'status': 'live'});
+
+  /// Uploads the Scene's media and saves it as a draft (`Drafts`), at the details step. A
+  /// Scene posts one photo (the one on screen) or one video.
+  Future<PostSummary> saveSceneDraft(PostDraft draft) async {
     final linked = {
       if (draft._linkedIds.isNotEmpty) ...{
         'linkedPieceId': draft._linkedIds.first,
@@ -221,7 +233,8 @@ class PostPublishService {
         if (location != null && location.isNotEmpty) 'location': location,
         'thumbnailUrl': ?thumbnailUrl,
         'isProcess': draft.isProcess,
-        'status': 'live',
+        'status': 'draft',
+        'draftStep': 'details',
       });
     }
 
@@ -239,7 +252,8 @@ class PostPublishService {
       if (location != null && location.isNotEmpty) 'location': location,
       'mediaAspectRatio': _aspect(transform),
       'isProcess': draft.isProcess,
-      'status': 'live',
+      'status': 'draft',
+      'draftStep': 'details',
     });
   }
 

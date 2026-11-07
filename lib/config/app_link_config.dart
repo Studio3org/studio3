@@ -56,6 +56,9 @@ abstract final class AppLinkConfig {
   // replaced: the API origin is in the associated domains, and it answers for itself.
   static String pieceUrl(String id) => '$shareBaseUrl/share/piece/$id';
 
+  /// A Scene's share page (BACKEND_CHANGES B33).
+  static String postUrl(String id) => '$shareBaseUrl/share/post/$id';
+
   static String seriesUrl(String id) => '$shareBaseUrl/share/series/$id';
 
   static String eventUrl(String id) => '$shareBaseUrl/share/event/$id';

@@ -19,6 +19,7 @@ Future<void> showContentActionsSheet(
   required ReportTarget target,
   String? authorUsername,
   VoidCallback? onBlocked,
+  VoidCallback? onDelete,
 }) {
   final me = AuthSession.instance.user?.username;
   final canBlock = authorUsername != null &&
@@ -33,6 +34,16 @@ Future<void> showContentActionsSheet(
       gap: 6,
       children: [
         const SizedBox(height: 2),
+        // The artist deleting a comment on their own piece or Scene (BACKEND_CHANGES B33).
+        if (onDelete != null)
+          StudioActionRow(
+            icon: StudioIcons.deleteFolder,
+            title: 'Delete ${target.noun}',
+            onTap: () {
+              Navigator.pop(sheetContext);
+              onDelete();
+            },
+          ),
         if (canBlock)
           StudioActionRow(
             icon: StudioIcons.block,

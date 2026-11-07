@@ -31,6 +31,9 @@ class PostService {
     return PostSummary.fromJson(data);
   }
 
+  /// The artist turns comments off or on for their Scene (BACKEND_CHANGES B33).
+  Future<PostSummary> setCommentsOff(String id, bool off) => update(id, {'commentsOff': off});
+
   Future<List<PostSummary>> getUserPosts(String username) async {
     final json = await _api.get('/api/users/$username/posts');
     return _api.extractList(json).map(PostSummary.fromJson).toList();
