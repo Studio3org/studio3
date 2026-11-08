@@ -77,7 +77,8 @@ void main() {
     expect(find.text('Living room'), findsOneWidget);
     expect(find.text('8'), findsOneWidget);
     expect(find.text('Available'), findsNothing);
-    expect(find.text('New folder'), findsOneWidget);
+    // "Save to collection" after a save ends with New collection (the user's word, 2026-11-08).
+    expect(find.text('New collection'), findsOneWidget);
     expect(find.text('Done'), findsOneWidget);
 
     final title = tester.widget<Text>(find.text('All saved'));

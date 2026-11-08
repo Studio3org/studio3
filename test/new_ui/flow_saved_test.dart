@@ -318,7 +318,7 @@ void main() {
     });
   }
 
-  testWidgets('saving from a piece page once a folder exists asks which folders, then saves to both', (
+  testWidgets('saving from a piece page saves at once; "Save to collection" puts it in a folder too', (
     tester,
   ) async {
     _server.folders['col1'] = (name: 'Living room', items: <String>[]);
@@ -352,12 +352,18 @@ void main() {
       tester,
       find.byWidgetPredicate((w) => (w is Semantics && w.properties.label == 'Save') || (w is StudioIcon && w.semanticLabel == 'Save')),
     );
+    // Saved straight away (All saved), and the bar offers the folders.
+    expect(_server.to('POST', '/api/pieces/p3/save'), hasLength(1));
+    expect(SavedContentStore.instance.isSaved('p3'), isTrue);
+    expect(find.text('Added to Collection'), findsOneWidget);
+    expect(find.text('Living room'), findsNothing, reason: 'no sheet before the save');
+    await _tap(tester, find.text('Save to collection'));
     expect(find.text('Living room'), findsOneWidget);
+    expect(find.text('New collection'), findsOneWidget);
     await _tap(tester, find.text('Living room'));
     await _tap(tester, _button('Done'));
-    expect(_server.to('POST', '/api/pieces/p3/save'), hasLength(1));
     expect(_server.to('POST', '/api/collections/col1/items').single.body, {'targetType': 'piece', 'targetId': 'p3'});
-    expect(SavedContentStore.instance.isSaved('p3'), isTrue);
+    expect(find.text('Saved to Living room'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pump(const Duration(seconds: 11));
   });

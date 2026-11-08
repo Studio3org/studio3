@@ -1,6 +1,8 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+import '../services/saved_content_store.dart';
+import '../widgets/save_flow.dart';
 import '../models/auction.dart';
 import '../models/feed_preview_item.dart';
 import '../models/piece_summary.dart';
@@ -355,7 +357,17 @@ class AuctionResultPage extends StatelessWidget {
   Future<void> _save(BuildContext context) async {
     try {
       await SocialService.instance.savePiece(piece.id);
-      if (context.mounted) showStudioToast(context, "Saved. You'll hear if it comes back.");
+      SavedContentStore.instance.savePreview(FeedPreviewItem.fromPieceSummary(piece));
+      if (context.mounted) {
+        showSavedBar(
+          context,
+          entryId: piece.id,
+          targetType: 'piece',
+          title: piece.title,
+          thumbnailUrl: piece.mediaUrl,
+          message: "Saved. You'll hear if it comes back.",
+        );
+      }
     } catch (_) {
       if (context.mounted) showStudioToast(context, 'Could not save it. Try again.', icon: null);
     }

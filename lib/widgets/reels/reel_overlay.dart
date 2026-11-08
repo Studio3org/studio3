@@ -25,11 +25,11 @@ import '../../utils/money_format.dart';
 import '../../utils/profile_navigation.dart';
 import '../../utils/require_login.dart';
 import '../collection_saved_toast.dart';
+import '../save_flow.dart';
 import '../content_actions_sheet.dart';
 import '../follow_button.dart';
 import '../piece_detail/detail_follow_state.dart';
 import '../piece_detail/piece_comment_sheet.dart';
-import '../save_to_collection_sheet.dart';
 import '../studio/studio.dart';
 
 /// The Scene viewer's controls (`SceneViewer`, `SceneViewerPhoto`), over the playing Scene.
@@ -37,7 +37,8 @@ import '../studio/studio.dart';
 /// Top: back, sound (videos only) and more (copy link, block, report; Edit and comments on or
 /// off for your own),
 /// 44 targets 12 below the safe area, white with a soft shadow over a 130 dark fade.
-/// Right, 10 in: Save and Comments (26 icons, Mono 11 counts) and Share, 18 apart. Bottom
+/// Right, 10 in: Like, Comments and Save (26 icons, Mono 11 counts) and Share, 18 apart (the
+/// user's order, 2026-11-08; the board had no Like). Bottom
 /// left, 16 in and clear of the rail: the artist (32 photo with a white ring, 15/500 name,
 /// a white Follow), the caption (14/1.45, two lines, tap for all of it) and the linked piece
 /// as one plain line (26 × 35 thumbnail, title, softer price, arrow), or "2 linked pieces"
@@ -76,6 +77,10 @@ class ReelOverlay extends StatefulWidget {
 class ReelOverlayState extends State<ReelOverlay> with DetailFollowState<ReelOverlay> {
   late bool _saved;
   int? _saveCount;
+  bool _liked = false;
+  int _likeCount = 0;
+  bool _likeBusy = false;
+  int _likeGeneration = 0;
   int _commentCount = 0;
   bool _saveBusy = false;
   int _saveGeneration = 0;
@@ -122,6 +127,8 @@ class ReelOverlayState extends State<ReelOverlay> with DetailFollowState<ReelOve
           )
         : false;
     _saveCount = post?.saveCount;
+    _liked = postId != null ? _engagement.resolveLiked(postId, post?.isLiked ?? false) : false;
+    _likeCount = postId != null ? _engagement.resolveLikeCount(postId, post?.likeCount ?? 0) : 0;
     // The count the server sent (it used to start at 0).
     _commentCount = post?.commentCount ?? 0;
     _commentsOff = post?.commentsOff ?? false;
@@ -356,6 +363,48 @@ class ReelOverlayState extends State<ReelOverlay> with DetailFollowState<ReelOve
     }
   }
 
+  /// Like or take it back; shown at once, rolled back if the server refuses.
+  Future<void> _toggleLike() async {
+    final postId = widget.item.post?.id;
+    if (postId == null || _likeBusy) return;
+    if (!await requireLogin(
+      context,
+      title: 'Sign in to like',
+      message: 'Log in or create a free account to like pieces and scenes.',
+    )) {
+      return;
+    }
+    if (!mounted) return;
+    final next = !_liked;
+    final count = math.max(0, _likeCount + (next ? 1 : -1));
+    final generation = ++_likeGeneration;
+    setState(() {
+      _liked = next;
+      _likeCount = count;
+    });
+    _engagement.setLiked(postId, next, likeCount: count);
+    _likeBusy = true;
+    try {
+      final result = next
+          ? await SocialService.instance.likePost(postId)
+          : await SocialService.instance.unlikePost(postId);
+      final serverCount = result.likeCount;
+      if (mounted && generation == _likeGeneration && serverCount != null) {
+        setState(() => _likeCount = serverCount);
+        _engagement.setLiked(postId, next, likeCount: serverCount);
+      }
+    } catch (_) {
+      if (!mounted || generation != _likeGeneration) return;
+      setState(() {
+        _liked = !next;
+        _likeCount = math.max(0, count + (next ? -1 : 1));
+      });
+      _engagement.setLiked(postId, !next, likeCount: _likeCount);
+    } finally {
+      if (generation == _likeGeneration) _likeBusy = false;
+    }
+  }
+
   Future<void> _toggleSave() async {
     final postId = widget.item.post?.id;
     if (postId == null || _saveBusy) return;
@@ -369,19 +418,6 @@ class ReelOverlayState extends State<ReelOverlay> with DetailFollowState<ReelOve
     if (!mounted) return;
     final nextSaved = !_saved;
 
-    List<String> collectionIds = const [];
-    final hadCollections = SavedContentStore.instance.hasCollections;
-    if (nextSaved) {
-      final resolution = await resolveSaveCollection(
-        context,
-        pieceTitle: widget.item.title,
-        thumbnailUrl: widget.item.thumbnailUrl ?? widget.item.mediaUrl,
-        forSale: widget.item.isForSale,
-      );
-      if (resolution.cancelled) return;
-      collectionIds = resolution.collectionIds;
-    }
-
     final generation = ++_saveGeneration;
     setState(() {
       _saved = nextSaved;
@@ -390,9 +426,6 @@ class ReelOverlayState extends State<ReelOverlay> with DetailFollowState<ReelOve
     _engagement.setSaved(postId, nextSaved);
     if (nextSaved) {
       SavedContentStore.instance.saveFeedItem(widget.item);
-      for (final collectionId in collectionIds) {
-        SavedContentStore.instance.addEntryToCollection(collectionId, postId, targetType: 'post');
-      }
     } else {
       SavedContentStore.instance.unsave(postId);
     }
@@ -404,12 +437,19 @@ class ReelOverlayState extends State<ReelOverlay> with DetailFollowState<ReelOve
       } else {
         await SocialService.instance.unsavePost(postId);
       }
-      if (mounted && nextSaved && hadCollections && generation == _saveGeneration) {
-        showCollectionSavedToast(
-          context,
-          saved: true,
-          thumbnailUrl: widget.item.thumbnailUrl ?? widget.item.mediaUrl,
-        );
+      if (mounted && generation == _saveGeneration) {
+        final thumb = widget.item.thumbnailUrl ?? widget.item.mediaUrl;
+        if (nextSaved) {
+          showSavedBar(
+            context,
+            entryId: postId,
+            targetType: 'post',
+            title: widget.item.post?.caption,
+            thumbnailUrl: thumb,
+          );
+        } else {
+          showCollectionSavedToast(context, saved: false, thumbnailUrl: thumb);
+        }
       }
     } catch (_) {
       // Roll back local state so client/server stay aligned.
@@ -456,6 +496,9 @@ class ReelOverlayState extends State<ReelOverlay> with DetailFollowState<ReelOve
           right: 10,
           bottom: contentBottom + 156,
           child: _Rail(
+            liked: _liked,
+            likeCount: _likeCount,
+            onLike: _toggleLike,
             saved: _saved,
             saveCount: _saveCount,
             commentCount: _commentCount,
@@ -632,6 +675,9 @@ class _TopBar extends StatelessWidget {
 
 class _Rail extends StatelessWidget {
   const _Rail({
+    required this.liked,
+    required this.likeCount,
+    required this.onLike,
     required this.saved,
     required this.saveCount,
     required this.commentCount,
@@ -640,6 +686,9 @@ class _Rail extends StatelessWidget {
     required this.onShare,
   });
 
+  final bool liked;
+  final int likeCount;
+  final VoidCallback onLike;
   final bool saved;
   final int? saveCount;
   final int commentCount;
@@ -653,10 +702,10 @@ class _Rail extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         _RailButton(
-          label: saved ? 'Saved' : 'Save',
-          icon: saved ? StudioIcons.saved : StudioIcons.save,
-          count: saveCount,
-          onTap: onSave,
+          label: liked ? 'Liked' : 'Like',
+          icon: liked ? StudioIcons.liked : StudioIcons.like,
+          count: likeCount > 0 ? likeCount : null,
+          onTap: onLike,
         ),
         const SizedBox(height: 18),
         _RailButton(
@@ -664,6 +713,13 @@ class _Rail extends StatelessWidget {
           icon: StudioIcons.chat,
           count: commentCount > 0 ? commentCount : null,
           onTap: onComments,
+        ),
+        const SizedBox(height: 18),
+        _RailButton(
+          label: saved ? 'Saved' : 'Save',
+          icon: saved ? StudioIcons.saved : StudioIcons.save,
+          count: saveCount,
+          onTap: onSave,
         ),
         const SizedBox(height: 18),
         Builder(

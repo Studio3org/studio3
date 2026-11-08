@@ -330,6 +330,7 @@ class SavedContentStore extends ChangeNotifier {
             (json) => switch (json['targetType']) {
               'piece' => PieceSummary.fromJson(json).id,
               'post' => PostSummary.fromJson(json).id,
+              'event' => json['id'] as String?,
               _ => null,
             },
           )
@@ -347,6 +348,8 @@ class SavedContentStore extends ChangeNotifier {
             );
           case 'post':
             saveFeedItem(FeedItem.post(PostSummary.fromJson(json)));
+          case 'event':
+            saveEvent(StudioEvent.fromJson(json));
         }
       }
 

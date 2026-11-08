@@ -13,6 +13,7 @@ import '../services/user_service.dart';
 import '../utils/app_destination.dart';
 import '../utils/profile_navigation.dart';
 import '../utils/require_login.dart';
+import '../widgets/save_flow.dart';
 import '../widgets/events/event_detail_widgets.dart';
 import '../widgets/events/event_tickets_sheet.dart';
 import '../widgets/events/event_waitlist_sheets.dart';
@@ -210,6 +211,7 @@ class _EventDetailPageState extends State<EventDetailPage> with DetailFollowStat
       await EventService.instance.setSaved(_event.id, saved: !wasSaved);
       if (!mounted) return;
       _store.toggleEvent(_event);
+      announceEventSave(context, _event, saved: !wasSaved);
     } on ApiException catch (e) {
       if (mounted) showStudioToast(context, e.message, icon: null);
     } catch (_) {

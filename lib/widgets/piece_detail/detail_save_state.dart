@@ -6,7 +6,7 @@ import '../../services/saved_content_store.dart';
 import '../../services/social_service.dart';
 import '../../utils/require_login.dart';
 import '../collection_saved_toast.dart';
-import '../save_to_collection_sheet.dart';
+import '../save_flow.dart';
 
 /// Shared save-state wiring for piece detail pages.
 mixin DetailSaveState<T extends StatefulWidget> on State<T> {
@@ -74,18 +74,7 @@ mixin DetailSaveState<T extends StatefulWidget> on State<T> {
     if (!mounted) return;
     final item = saveItem;
     final nextSaved = !saved;
-
-    List<String> collectionIds = const [];
-    if (nextSaved) {
-      final resolution = await resolveSaveCollection(
-        context,
-        pieceTitle: item.title,
-        thumbnailUrl: item.heroImageUrl,
-        forSale: item.isAvailable,
-      );
-      if (resolution.cancelled) return;
-      collectionIds = resolution.collectionIds;
-    }
+    // Saved at once, into All saved; the bar offers "Save to collection" (as on Instagram).
 
     final generation = ++_saveGeneration;
     setState(() => saved = nextSaved);
@@ -94,13 +83,6 @@ mixin DetailSaveState<T extends StatefulWidget> on State<T> {
     if (!item.isApiBacked) {
       if (nextSaved) {
         savedStore.savePreview(item);
-        for (final collectionId in collectionIds) {
-          savedStore.addEntryToCollection(
-            collectionId,
-            item.id,
-            targetType: item.isScene ? 'post' : 'piece',
-          );
-        }
       } else {
         savedStore.unsave(item.id);
       }
@@ -117,13 +99,6 @@ mixin DetailSaveState<T extends StatefulWidget> on State<T> {
         }
         _ownStoreWrite = true;
         savedStore.savePreview(item);
-        for (final collectionId in collectionIds) {
-          savedStore.addEntryToCollection(
-            collectionId,
-            item.id,
-            targetType: item.isScene ? 'post' : 'piece',
-          );
-        }
         _ownStoreWrite = false;
       } else {
         if (item.isScene) {
@@ -136,12 +111,24 @@ mixin DetailSaveState<T extends StatefulWidget> on State<T> {
         _ownStoreWrite = false;
       }
       if (mounted && generation == _saveGeneration) {
-        showCollectionSavedToast(
-          context,
-          saved: nextSaved,
-          thumbnailUrl: item.heroImageUrl,
-          bottomMargin: saveToastBottomMargin,
-        );
+        if (nextSaved) {
+          showSavedBar(
+            context,
+            entryId: item.id,
+            targetType: item.isScene ? 'post' : 'piece',
+            title: item.title,
+            thumbnailUrl: item.heroImageUrl,
+            forSale: item.isAvailable,
+            bottomMargin: saveToastBottomMargin,
+          );
+        } else {
+          showCollectionSavedToast(
+            context,
+            saved: false,
+            thumbnailUrl: item.heroImageUrl,
+            bottomMargin: saveToastBottomMargin,
+          );
+        }
       }
     } catch (_) {
       if (mounted && generation == _saveGeneration) {

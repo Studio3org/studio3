@@ -456,6 +456,8 @@ class _PieceDetailPageState extends State<PieceDetailPage>
                     imageIndex: widget.initialImageIndex,
                   ),
                   onSave: toggleSave,
+                  // Like, Comment, Save, Share (this page has no top Share).
+                  showShare: true,
                 ),
                 const Divider(height: 1, color: Color(0xFFE8E5DF)),
                 PieceArtistRow(

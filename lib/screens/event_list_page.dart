@@ -4,6 +4,7 @@ import '../models/studio_event.dart';
 import '../services/event_service.dart';
 import '../services/saved_content_store.dart';
 import '../utils/require_login.dart';
+import '../widgets/save_flow.dart';
 import '../widgets/events/event_tab_widgets.dart';
 import '../widgets/studio/studio.dart';
 import 'event_detail_page.dart';
@@ -73,7 +74,9 @@ class _EventListPageState extends State<EventListPage> {
     final wasSaved = _store.isSaved(event.id);
     try {
       await EventService.instance.setSaved(event.id, saved: !wasSaved);
-      if (mounted) _store.toggleEvent(event);
+      if (!mounted) return;
+      _store.toggleEvent(event);
+      announceEventSave(context, event, saved: !wasSaved);
     } catch (_) {
       if (mounted) showStudioToast(context, 'Could not save that event.', icon: null);
     }

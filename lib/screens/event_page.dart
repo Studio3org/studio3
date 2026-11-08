@@ -8,6 +8,7 @@ import '../services/event_service.dart';
 import '../services/saved_content_store.dart';
 import '../utils/require_login.dart';
 import '../utils/scrolls_to_top_on_double_tap.dart';
+import '../widgets/save_flow.dart';
 import '../widgets/events/event_tab_widgets.dart';
 import '../widgets/post_picker_search_field.dart';
 import '../widgets/studio/studio.dart';
@@ -176,6 +177,7 @@ class _EventPageState extends State<EventPage> with ScrollsToTopOnDoubleTap<Even
       await EventService.instance.setSaved(event.id, saved: !wasSaved);
       if (!mounted) return;
       _store.toggleEvent(event);
+      announceEventSave(context, event, saved: !wasSaved);
     } on ApiException catch (e) {
       if (mounted) showStudioToast(context, e.message, icon: null);
     } catch (_) {
