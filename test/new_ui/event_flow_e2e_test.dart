@@ -584,8 +584,10 @@ void main() {
     );
     await _tap(tester, find.text('open'));
 
-    // Nothing typed: back just leaves.
+    // Nothing typed: back still asks before leaving posting (the user's call, 2026-11-08).
     await _tap(tester, find.byTooltip('Back'));
+    expect(find.text('Leave this event?'), findsOneWidget);
+    await _tap(tester, find.text('Leave'));
     expect(find.byType(HostEventPage), findsNothing);
 
     await _tap(tester, find.text('open'));

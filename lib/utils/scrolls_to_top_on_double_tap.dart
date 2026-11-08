@@ -5,4 +5,8 @@ import 'package:flutter/widgets.dart';
 /// (Instagram convention).
 mixin ScrollsToTopOnDoubleTap<T extends StatefulWidget> on State<T> {
   void scrollToTopAndRefresh();
+
+  /// Whether the page is scrolled to the very top (the phone's back on Home closes the app
+  /// only from there; `ShellBack`).
+  bool get isScrolledToTop => true;
 }

@@ -79,10 +79,18 @@ class _PostPageState extends State<PostPage> {
 
   void _exitFlow() => Navigator.pop(context);
 
-  /// Close on the picker asks first when something is picked (`PostPicker`).
+  /// Close (or the phone's back) on the picker always asks before leaving posting (the user's
+  /// call, 2026-11-08); with photos picked it says they won't be kept (`PostPicker`).
   Future<void> _closePicker() async {
     if (_pickedAssets.isEmpty && _pickedVideoPath == null) {
-      _exitFlow();
+      final leave = await showStudioConfirm(
+        context,
+        title: 'Leave posting?',
+        message: "You haven't added anything yet.",
+        confirmLabel: 'Leave',
+        cancelLabel: 'Keep going',
+      );
+      if (leave && mounted) _exitFlow();
       return;
     }
     final discard = await showStudioConfirm(
@@ -216,9 +224,9 @@ class _PostPageState extends State<PostPage> {
 
   @override
   Widget build(BuildContext context) {
-    final nothingPicked = _pickedAssets.isEmpty && _pickedVideoPath == null;
+    // Back never leaves posting without asking (`_closePicker`).
     return PopScope(
-      canPop: _step == _PostFlowStep.gallery && nothingPicked,
+      canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
         _handleBack();

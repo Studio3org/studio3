@@ -15,6 +15,7 @@ import 'package:studio3/screens/reels_page.dart' show routeObserver;
 import 'package:studio3/screens/series_view_page.dart';
 import 'package:studio3/services/api_client.dart';
 import 'package:studio3/theme/app_theme.dart';
+import 'package:studio3/utils/scrolls_to_top_on_double_tap.dart';
 import 'package:studio3/widgets/home_feed/feed_event_card.dart';
 import 'package:studio3/widgets/home_feed/home_feed_widgets.dart';
 import 'package:studio3/widgets/studio/studio.dart';
@@ -204,6 +205,49 @@ void main() {
     expect(tester.getSize(header).height, inExclusiveRange(0, shown), reason: 'it slides down');
     await tester.pump(const Duration(milliseconds: 400));
     expect(tester.getSize(header).height, shown);
+    store.dispose();
+  });
+
+  testWidgets("the phone's back on Home: knows when it's at the top; going there refreshes the feed", (tester) async {
+    setBoardViewport(tester);
+    _server.pages[''] = {
+      'items': [for (var i = 1; i <= 6; i++) _piece('a$i')],
+      'nextCursor': null,
+    };
+    final store = HomeFeedStore();
+    await tester.pumpWidget(_home(store));
+    await _settle(tester);
+    final home = tester.state(find.byType(HomePage)) as ScrollsToTopOnDoubleTap;
+    expect(home.isScrolledToTop, isTrue);
+
+    await tester.drag(find.byType(ListView), const Offset(0, -900));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(home.isScrolledToTop, isFalse);
+
+    // What the first back does (`ShellBack`): the very top, the bar back, a fresh first page.
+    final asked = _server.feedRequests.length;
+    final header = find.byKey(const ValueKey('home-header'));
+    home.scrollToTopAndRefresh();
+    await tester.pump();
+    // The bar slides down and never folds again on the way up.
+    var last = tester.getSize(header).height;
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 60));
+      final now = tester.getSize(header).height;
+      expect(now, greaterThanOrEqualTo(last), reason: 'the bar only comes down');
+      last = now;
+    }
+    // At the top, the pull-to-refresh circle shows while the feed reloads, as a pull would.
+    var spun = false;
+    for (var i = 0; i < 10 && !spun; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+      spun = find.byType(RefreshProgressIndicator).evaluate().isNotEmpty;
+    }
+    expect(spun, isTrue, reason: 'the refresh circle appears');
+    await _settle(tester);
+    expect(home.isScrolledToTop, isTrue);
+    expect(_server.feedRequests.length, greaterThan(asked));
+    expect(tester.getSize(header).height, greaterThan(40));
     store.dispose();
   });
 

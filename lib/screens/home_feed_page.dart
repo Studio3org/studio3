@@ -260,6 +260,14 @@ class _HomePageState extends State<HomePage>
   );
   double _lastOffset = 0;
   double _headerTravel = 0;
+
+  /// While the app itself takes the feed to the top (Home tapped again, the phone's back), the
+  /// bar stays shown whatever the list does on the way.
+  bool _scrollingToTop = false;
+
+  /// The feed's pull-to-refresh, so the phone's back and a second tap on Home show the same
+  /// spinner a pull does (only one of the feed's states is on screen at a time).
+  final _refreshKey = GlobalKey<RefreshIndicatorState>();
   bool _showAvailable = false;
 
   /// The one event card for this feed load (`NoteMain`): the server's pick on the first page
@@ -433,6 +441,10 @@ class _HomePageState extends State<HomePage>
     final offset = pos.pixels.clamp(pos.minScrollExtent, pos.maxScrollExtent);
     final delta = offset - _lastOffset;
     _lastOffset = offset;
+    if (_scrollingToTop) {
+      _headerTravel = 0;
+      return;
+    }
     if (offset <= pos.minScrollExtent || MediaQuery.accessibleNavigationOf(context)) {
       _headerTravel = 0;
       _showHeader();
@@ -451,13 +463,14 @@ class _HomePageState extends State<HomePage>
   }
 
   void _showHeader() {
-    if (_header.value == 1 || _header.status == AnimationStatus.forward) return;
+    // By direction, not value: a fold that has only just started still reads 1.
+    if (_header.status == AnimationStatus.completed || _header.status == AnimationStatus.forward) return;
     _header.duration = MediaQuery.disableAnimationsOf(context) ? Duration.zero : const Duration(milliseconds: 220);
     _header.forward();
   }
 
   void _hideHeader() {
-    if (_header.value == 0 || _header.status == AnimationStatus.reverse) return;
+    if (_header.status == AnimationStatus.dismissed || _header.status == AnimationStatus.reverse) return;
     _header.reverseDuration =
         MediaQuery.disableAnimationsOf(context) ? Duration.zero : const Duration(milliseconds: 200);
     _header.reverse();
@@ -483,12 +496,35 @@ class _HomePageState extends State<HomePage>
   }
 
   @override
+  bool get isScrolledToTop => !_scrollController.hasClients || _scrollController.offset <= 1;
+
+  /// The phone's back on Home and a second tap on Home: to the very top, then the
+  /// pull-to-refresh spinner while the feed reloads, as a pull would (as on Instagram).
+  @override
   void scrollToTopAndRefresh() {
     _showHeader();
-    if (_scrollController.hasClients) {
-      _scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+    if (_scrollController.hasClients && _scrollController.offset > 0) {
+      _scrollingToTop = true;
+      _scrollController
+          .animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut)
+          .whenComplete(() {
+            _scrollingToTop = false;
+            _showRefresh();
+          });
+    } else {
+      _showRefresh();
     }
-    _refreshShown();
+  }
+
+  void _showRefresh() {
+    if (!mounted) return;
+    final indicator = _refreshKey.currentState;
+    if (indicator == null) {
+      // Offline or still loading: nothing to pull, refresh quietly.
+      _refreshShown();
+      return;
+    }
+    indicator.show();
   }
 
   /// Refreshes the tab on screen without a spinner.
@@ -552,6 +588,7 @@ class _HomePageState extends State<HomePage>
     }
     if (store.failed || (_showAvailable && store.availableFailed)) {
       return RefreshIndicator(
+        key: _refreshKey,
         color: context.studio.textPrimary,
         onRefresh: _refresh,
         child: ListView(
@@ -581,6 +618,7 @@ class _HomePageState extends State<HomePage>
 
     if (items.isEmpty) {
       return RefreshIndicator(
+        key: _refreshKey,
         onRefresh: _refresh,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -627,6 +665,7 @@ class _HomePageState extends State<HomePage>
     }
 
     return RefreshIndicator(
+      key: _refreshKey,
       color: context.studio.textPrimary,
       onRefresh: _refresh,
       child: ListView.separated(
