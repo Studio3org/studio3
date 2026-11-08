@@ -54,16 +54,31 @@ class ScenePostArgs {
 
 /// The calls the posting flow makes to save and publish.
 class PostPublisher {
-  const PostPublisher({required this.saveDraft, required this.goLive, required this.postScene});
+  const PostPublisher({
+    required this.saveDraft,
+    required this.goLive,
+    required this.postScene,
+    this.sceneGoLive,
+  });
 
+  /// A Scene is saved as a draft by [postScene], then [sceneGoLive] takes it live, so one
+  /// that fails to go live waits in Drafts (BACKEND_CHANGES B33).
   factory PostPublisher.api() {
     final s = PostPublishService.instance;
-    return PostPublisher(saveDraft: s.saveDraft, goLive: s.goLive, postScene: s.postScene);
+    return PostPublisher(
+      saveDraft: s.saveDraft,
+      goLive: s.goLive,
+      postScene: s.saveSceneDraft,
+      sceneGoLive: s.sceneGoLive,
+    );
   }
 
   final Future<PieceSummary> Function(PostDraft draft) saveDraft;
   final Future<PieceSummary> Function(String pieceId) goLive;
+
+  /// Saves the Scene; with no [sceneGoLive] what it returns is taken as posted.
   final Future<PostSummary> Function(PostDraft draft) postScene;
+  final Future<PostSummary> Function(String postId)? sceneGoLive;
 }
 
 /// Details, review and result steps of posting (D11: the board's steps).
@@ -156,6 +171,9 @@ class _PostCreatePageState extends State<PostCreatePage> {
 
   /// The piece once saved as a draft; publishing again only takes it live.
   PieceSummary? _draftPiece;
+
+  /// The Scene once saved as a draft; posting again only takes it live (B33).
+  PostSummary? _draftScene;
   DateTime? _savedAt;
   PieceSummary? _publishedPiece;
   PostSummary? _postedScene;
@@ -460,9 +478,10 @@ class _PostCreatePageState extends State<PostCreatePage> {
         _step = _CreateStep.done;
       });
     } catch (_) {
-      // Saved but not live: Drafts says "Didn't publish. Tap to try again."
+      // Saved but not live: Drafts says "Didn't publish. Tap to try again." (here, and on
+      // their other devices when the server hears it, B33).
       final saved = _draftPiece;
-      if (saved != null) DraftsService.instance.markFailed(saved.id);
+      if (saved != null) DraftsService.instance.publishFailed(saved.id);
       if (mounted) setState(() => _step = _CreateStep.failed);
     } finally {
       if (mounted) setState(() => _publishing = false);
@@ -472,13 +491,24 @@ class _PostCreatePageState extends State<PostCreatePage> {
   Future<void> _postScene() async {
     setState(() => _publishing = true);
     try {
-      final post = await _publisher.postScene(_buildDraft());
+      var scene = _draftScene;
+      if (scene == null) {
+        scene = await _publisher.postScene(_buildDraft());
+        _draftScene = scene;
+        if (_publisher.sceneGoLive != null) _savedAt = DateTime.now();
+      }
+      final goLive = _publisher.sceneGoLive;
+      final post = goLive != null && scene.status == 'draft' ? await goLive(scene.id) : scene;
+      DraftsService.instance.clearFailed(scene.id);
       if (!mounted) return;
       setState(() {
         _postedScene = post;
         _step = _CreateStep.done;
       });
     } catch (_) {
+      // Saved but not live: it waits in Drafts with "Didn't publish. Tap to try again."
+      final saved = _draftScene;
+      if (saved != null) DraftsService.instance.publishFailed(saved.id, scene: true);
       if (mounted) setState(() => _step = _CreateStep.failed);
     } finally {
       if (mounted) setState(() => _publishing = false);
@@ -651,7 +681,8 @@ class _PostCreatePageState extends State<PostCreatePage> {
     if (_step == _CreateStep.failed) {
       return PostErrorView(
         isScene: !_isPiece,
-        savedAt: _isPiece ? _savedAt : null,
+        // A Scene saved as a draft before it failed says so too (B33).
+        savedAt: _isPiece || _draftScene != null ? _savedAt : null,
         retrying: _publishing,
         onClose: widget.onClose,
         onRetry: _isPiece ? _publishPiece : _postScene,

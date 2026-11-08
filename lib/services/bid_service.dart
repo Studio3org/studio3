@@ -163,9 +163,9 @@ class BidService {
   }
 }
 
-/// What this phone remembers about the viewer's own bids. The server only says whether
-/// they are the highest bidder (`isHighestBidder`), so "Outbid" and "Your top bid" come from
-/// here (BACKEND_CHANGES B18).
+/// What this phone remembers about the viewer's own bids. The server now sends the viewer's
+/// own bid (`myTopBidCents`, `myBidStatus`; BACKEND_CHANGES B18), which comes first; this is the
+/// fallback when it doesn't (signed out, offline from the cache, an older server).
 class BidStore {
   BidStore._();
   static final BidStore instance = BidStore._();

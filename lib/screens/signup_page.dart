@@ -169,9 +169,6 @@ class _SignUpPageState extends State<SignUpPage> {
     });
   }
 
-  String _formatCooldown(int seconds) =>
-      '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
-
   Future<void> _resendOtp() async {
     setState(() => _loading = true);
     try {
@@ -421,75 +418,15 @@ class _SignUpPageState extends State<SignUpPage> {
   }
 
   Widget _buildOtpStep({required Key key}) {
-    final c = context.studio;
-    final email = _emailController.text.trim();
-    return Column(
+    return AuthCodeStepBody(
       key: key,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text('Enter your code', style: StudioType.title32(color: c.textPrimary)),
-        const SizedBox(height: 10),
-        Text.rich(
-          TextSpan(
-            style: StudioType.body16(color: c.textSecondary),
-            children: [
-              TextSpan(text: 'We sent it to $email. '),
-              WidgetSpan(
-                alignment: PlaceholderAlignment.baseline,
-                baseline: TextBaseline.alphabetic,
-                child: GestureDetector(
-                  onTap: _goBack,
-                  child: Text(
-                    'Wrong email?',
-                    style: StudioType.body16(color: c.textPrimary).copyWith(fontWeight: StudioType.medium),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 48),
-        AuthOtpInput(
-          errorText: _otpError,
-          onChanged: (v) => setState(() => _otp = v),
-          onCompleted: _continueOtp,
-        ),
-        const SizedBox(height: 48),
-        if (_resendCooldown > 0)
-          Text.rich(
-            TextSpan(
-              style: StudioType.body14(color: c.textSecondary),
-              children: [
-                const TextSpan(text: "Didn't get it? You can resend in "),
-                TextSpan(
-                  text: _formatCooldown(_resendCooldown),
-                  style: StudioType.mono13(color: c.textPrimary),
-                ),
-              ],
-            ),
-          )
-        else
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton(
-              onPressed: _loading ? null : _resendOtp,
-              style: TextButton.styleFrom(
-                padding: EdgeInsets.zero,
-                minimumSize: const Size(44, 44),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: Text(
-                'Resend code',
-                style: StudioType.body14(weight: StudioType.medium, color: c.textPrimary),
-              ),
-            ),
-          ),
-        const SizedBox(height: 6),
-        Text(
-          "Check your inbox and spam folder. On iPhone the code can fill in straight from Mail, and we'll keep going as soon as it's in.",
-          style: StudioType.label13(color: c.textPlaceholder).copyWith(height: 1.5),
-        ),
-      ],
+      email: _emailController.text.trim(),
+      errorText: _otpError,
+      onChanged: (v) => setState(() => _otp = v),
+      onCompleted: _continueOtp,
+      onWrongEmail: _goBack,
+      resendCooldown: _resendCooldown,
+      onResend: _loading ? null : _resendOtp,
     );
   }
 

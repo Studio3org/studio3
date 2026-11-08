@@ -170,6 +170,70 @@ void main() {
     expect(find.text('View piece'), findsOneWidget);
   });
 
+  test('the listed line: who was told, else what collectors can do (B17)', () {
+    PieceSummary listed({int? saved, String type = 'fixed'}) =>
+        PieceSummary(id: 'p1', title: 'Bodies in Color', listingType: type, savesCount: saved);
+    expect(listedSubheading(listed(saved: 12)), 'We let the 12 people who saved it know.');
+    expect(listedSubheading(listed(saved: 1)), 'We let the person who saved it know.');
+    expect(listedSubheading(listed(saved: 0)), 'Collectors can collect it now.');
+    expect(listedSubheading(listed()), 'Collectors can collect it now.');
+    expect(listedSubheading(listed(type: 'auction')), 'Collectors can bid on it now.');
+    expect(savedPeople(1), '1 person');
+    expect(PieceSummary.fromJson({'id': 'p1', 'title': 'T', 'savesCount': 3}).savesCount, 3);
+    expect(PieceSummary.fromJson({'id': 'p1', 'title': 'T'}).savesCount, isNull);
+  });
+
+  // BACKEND_CHANGES B16: the server opens the auction on PATCH, so List later offers Auction.
+  testWidgets('pricing: Auction sends the starting bid, length and reserve', (tester) async {
+    setBoardViewport(tester, height: 1000);
+    final patches = <Map<String, dynamic>>[];
+    await tester.pumpWidget(
+      _app(
+        ListPricingPage(
+          piece: _piece,
+          details: _details,
+          quote: _founding,
+          update: (id, body) async {
+            patches.add(body);
+            return PieceSummary(
+              id: id,
+              title: _piece.title,
+              isForSale: true,
+              listingType: 'auction',
+              priceCents: body['priceCents'] as int?,
+              status: 'live',
+            );
+          },
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    final rows = tester.widgetList<StudioSelectRow>(find.byType(StudioSelectRow)).map((r) => r.title);
+    expect(rows, ['Fixed price', 'Auction']);
+    await tester.tap(find.text('Auction'));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.enterText(find.byType(TextField).first, '360');
+    await tester.enterText(find.byType(TextField).last, '1200');
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.text('List it'));
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 300));
+    }
+    final sent = patches.single;
+    expect(
+      {for (final k in ['isForSale', 'listingType', 'priceCents', 'auctionDurationDays', 'reserveCents']) k: sent[k]},
+      {
+        'isForSale': true,
+        'listingType': 'auction',
+        'priceCents': 36000,
+        'auctionDurationDays': 7,
+        'reserveCents': 120000,
+      },
+    );
+    expect(find.text('Bodies in Color is listed'), findsOneWidget);
+    expect(find.text('Collectors can bid on it now.'), findsOneWidget);
+  });
+
   group("owner's not-for-sale piece", () {
     late AuthUser? wasUser;
     setUp(() {
@@ -178,7 +242,7 @@ void main() {
     });
     tearDown(() => AuthSession.instance.user = wasUser);
 
-    FeedPreviewItem item({String? status}) => FeedPreviewItem(
+    FeedPreviewItem item({String? status, int? savesCount}) => FeedPreviewItem(
       id: 'p1',
       imageSeeds: const [1],
       title: 'Bodies in Color',
@@ -190,6 +254,7 @@ void main() {
       isAvailable: false,
       aspectRatio: FeedAspectRatio.portrait3x4,
       status: status,
+      savesCount: savesCount,
     );
 
     testWidgets('bar: List for sale and the edit button', (tester) async {
@@ -200,6 +265,29 @@ void main() {
       expect(find.text('List for sale'), findsOneWidget);
       final edit = tester.widget<StudioMessageButton>(find.byType(StudioMessageButton));
       expect((edit.icon, edit.semanticLabel), (StudioIcons.edit, 'Edit piece'));
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(minutes: 1));
+    });
+
+    // BACKEND_CHANGES B17: "Saved by [N] people" and "[N] people saved this. They'll hear if you
+    // list it." (`ListOwnerPiece`); with nobody, the bar has no info row and the line is "Not for
+    // sale".
+    testWidgets('saved by: the bar and the line count the people who saved it', (tester) async {
+      setBoardViewport(tester);
+      await tester.pumpWidget(_app(PieceDetailPage(item: item(savesCount: 12))));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+      await tester.pump();
+      final bar = tester.widget<StudioBottomBar>(find.byType(StudioBottomBar));
+      expect((bar.left?.label, bar.left?.value), ('Saved by', '12 people'));
+      expect(find.text("12 people saved this. They'll hear if you list it.", findRichText: true), findsOneWidget);
+      expect(find.text('Not for sale'), findsNothing);
+
+      await tester.pumpWidget(_app(PieceDetailPage(item: item(savesCount: 0))));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+      await tester.pump();
+      expect(tester.widget<StudioBottomBar>(find.byType(StudioBottomBar)).left, isNull);
+      expect(find.text('Not for sale'), findsOneWidget);
+      expect(find.textContaining('saved this'), findsNothing);
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(minutes: 1));
     });
@@ -318,7 +406,8 @@ void main() {
           PostPublishedView(
             title: 'Bodies in Color',
             heading: 'Bodies in Color is listed',
-            subheading: 'Collectors can collect it now.',
+            // As the board: the 12 people who saved it were told (B12, B17).
+            subheading: 'We let the 12 people who saved it know.',
             cover: const ColoredBox(color: Color(0xFF6FA3B0)),
             photoCount: 4,
             authorName: 'Amara Osei',

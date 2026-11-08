@@ -213,7 +213,7 @@ void main() {
   });
 
   group('Scene viewer: video', () {
-    testWidgets('Save and Comments with Mono counts and Share; no likes; the linked piece line', (tester) async {
+    testWidgets('Like, Comments, Save with Mono counts, then Share; the linked piece line', (tester) async {
       setBoardViewport(tester);
       await tester.pumpWidget(_app(_videoStill(_videoScene())));
       await _settle(tester);
@@ -225,8 +225,12 @@ void main() {
       expect(find.text('214'), findsOneWidget);
       expect(tester.widget<Text>(find.text('18')).style?.fontFamily, 'GeistMono');
       expect(find.bySemanticsLabel('Share'), findsOneWidget);
-      expect(find.text('Like'), findsNothing);
-      expect(find.byWidgetPredicate((w) => w is StudioIcon && w.asset == StudioIcons.like), findsNothing);
+      // Like, Comments, Save, Share, top to bottom (the user's order, 2026-11-08).
+      final order = ['Like', 'Comments, 18', 'Save, 214', 'Share']
+          .map((label) => tester.getTopLeft(find.bySemanticsLabel(label)).dy)
+          .toList();
+      expect(order, [...order]..sort());
+      expect(find.byWidgetPredicate((w) => w is StudioIcon && w.asset == StudioIcons.like), findsWidgets);
       expect(find.text('Bodies in Color'), findsOneWidget);
       expect(find.text(r'$3,500'), findsOneWidget);
       // The caption is two lines until tapped.
@@ -287,7 +291,7 @@ void main() {
       expect(rows, ['Copy link', 'Block @amara', 'Report Scene']);
     });
 
-    testWidgets('More on your own Scene: Copy link and Edit Scene, no Follow', (tester) async {
+    testWidgets('More on your own Scene: Copy link, Edit Scene and comments off, no Follow', (tester) async {
       AuthSession.instance.user = AuthUser.fromJson({..._user, 'username': 'amara'});
       setBoardViewport(tester);
       await tester.pumpWidget(_app(_videoStill(_videoScene())));
@@ -296,7 +300,7 @@ void main() {
       await tester.tap(find.bySemanticsLabel('More'));
       await tester.pumpAndSettle();
       final rows = tester.widgetList<StudioActionRow>(find.byType(StudioActionRow)).map((r) => r.title);
-      expect(rows, ['Copy link', 'Edit Scene']);
+      expect(rows, ['Copy link', 'Edit Scene', 'Turn off comments']);
     });
   });
 

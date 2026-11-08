@@ -35,11 +35,13 @@ enum AuctionBarState {
   ended,
 }
 
-/// The bar's state from the auction and what this phone knows about the viewer's bids.
+/// The bar's state from the auction and the viewer's own bid: the server's [myBidStatus]
+/// (BACKEND_CHANGES B18) when it sends one, else what this phone remembers ([myTopBidCents]).
 AuctionBarState auctionBarState({
   required AuctionSummary? auction,
   required bool isOwner,
   required int? myTopBidCents,
+  String? myBidStatus,
 }) {
   if (auction == null) return AuctionBarState.ended;
   if (auction.isWinner && auction.awaitingPayment) return AuctionBarState.paymentFailed;
@@ -47,7 +49,8 @@ AuctionBarState auctionBarState({
   if (!auction.isOpen) return AuctionBarState.ended;
   if (isOwner) return AuctionBarState.owner;
   if (auction.isHighestBidder) return AuctionBarState.leading;
-  if (myTopBidCents != null) return AuctionBarState.outbid;
+  final outbid = myBidStatus != null ? myBidStatus == 'outbid' : myTopBidCents != null;
+  if (outbid) return AuctionBarState.outbid;
   return AuctionBarState.open;
 }
 

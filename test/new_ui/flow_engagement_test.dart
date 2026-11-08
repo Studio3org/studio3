@@ -16,6 +16,7 @@ import 'package:studio3/services/engagement_store.dart';
 import 'package:studio3/services/saved_content_store.dart';
 import 'package:studio3/theme/app_theme.dart';
 import 'package:studio3/widgets/piece_detail/piece_comment_sheet.dart';
+import 'package:studio3/widgets/piece_detail/piece_double_tap_like.dart';
 import 'package:studio3/widgets/studio/studio.dart';
 
 import 'golden_harness.dart';
@@ -169,6 +170,20 @@ Finder _control(String label) => find.byWidgetPredicate(
   (w) => (w is Semantics && w.properties.label == label) || (w is StudioIcon && w.semanticLabel == label),
 );
 
+/// The piece image: a double tap likes, another takes it back (no Like button on a piece).
+final _image = find.byType(PieceDoubleTapLike);
+
+bool _liked(WidgetTester tester) => tester.widget<PieceDoubleTapLike>(_image).liked;
+
+Future<void> _doubleTap(WidgetTester tester) async {
+  await tester.ensureVisible(_image);
+  await tester.pump();
+  await tester.tap(_image, warnIfMissed: false);
+  await tester.pump(const Duration(milliseconds: 60));
+  await tester.tap(_image, warnIfMissed: false);
+  await _settle(tester);
+}
+
 Finder _follow(String label) => find.byWidgetPredicate((w) => w is StudioButton && w.label == label);
 
 Widget _app(Widget page, {required bool dark}) => MaterialApp(
@@ -213,29 +228,32 @@ void main() {
   for (final dark in [false, true]) {
     final theme = dark ? 'dark' : 'light';
 
-    testWidgets('piece for sale ($theme): like, save, comment and follow round-trip; failures roll back', (
+    testWidgets('piece for sale ($theme): double-tap like, save and follow round-trip; failures roll back; no comments', (
       tester,
     ) async {
       setBoardViewport(tester, height: 1400);
       await tester.pumpWidget(_app(AvailablePieceDetailPage(item: _item('p1', forSale: true, author: 'amara')), dark: dark));
       await _settle(tester);
 
-      // Like, then unlike.
-      await _tap(tester, _control('Like'));
+      // No Like or Comment buttons on a piece.
+      expect(_control('Like'), findsNothing);
+      expect(_control('Comment'), findsNothing);
+
+      // Double tap likes, double tap again takes it back.
+      await _doubleTap(tester);
       expect(_server.to('POST', '/api/pieces/p1/like').single.auth, 'Bearer token');
-      expect(_control('Liked'), findsOneWidget);
+      expect(_liked(tester), isTrue);
       expect(EngagementStore.instance.resolveLikeCount('p1', 0), 13);
-      await _tap(tester, _control('Liked'));
+      await _doubleTap(tester);
       expect(_server.to('DELETE', '/api/pieces/p1/like'), hasLength(1));
-      expect(_control('Like'), findsOneWidget);
+      expect(_liked(tester), isFalse);
       expect(EngagementStore.instance.resolveLikeCount('p1', 0), 12);
 
       // A like the server refuses goes back.
       _server.failLike = 1;
-      await _tap(tester, _control('Like'));
+      await _doubleTap(tester);
       expect(_server.to('POST', '/api/pieces/p1/like'), hasLength(2));
-      expect(_control('Like'), findsOneWidget);
-      expect(_control('Liked'), findsNothing);
+      expect(_liked(tester), isFalse);
 
       // Save (no folders yet, so straight to All saved), then unsave.
       await _tap(tester, _control('Save'));
@@ -265,28 +283,9 @@ void main() {
       expect(_server.to('DELETE', '/api/users/amara/follow'), hasLength(1));
       expect(_follow('Follow'), findsOneWidget);
 
-      // Comment: a failed post keeps the text; then it posts and shows.
-      await _tap(tester, _control('Comment'));
-      expect(find.byType(PieceCommentSheet), findsOneWidget);
-      expect(_server.to('GET', '/api/pieces/p1/comments'), hasLength(1));
-      expect(find.text('No comments yet'), findsOneWidget);
-      final field = find.descendant(of: find.byType(PieceCommentSheet), matching: find.byType(TextField));
-      _server.failComment = 1;
-      await tester.enterText(field, 'Love the teal');
-      await tester.pump();
-      await _tap(tester, _control('Send'));
-      expect(find.text('Could not post comment'), findsOneWidget);
-      expect(tester.widget<TextField>(field).controller!.text, 'Love the teal');
-      expect(find.text('Love the teal'), findsOneWidget, reason: 'only in the field, not the list');
-      await tester.pump(const Duration(seconds: 3));
-      await _tap(tester, _control('Send'));
-      final posts = _server.to('POST', '/api/pieces/p1/comments').toList();
-      expect(posts, hasLength(2));
-      expect(posts.last.body, {'body': 'Love the teal'});
-      expect(posts.last.auth, 'Bearer token');
-      expect(tester.widget<TextField>(field).controller!.text, isEmpty);
-      expect(find.descendant(of: find.byType(PieceCommentSheet), matching: find.text('Love the teal')), findsOneWidget);
-      expect(find.text('No comments yet'), findsNothing);
+      // Pieces have no comments.
+      expect(find.byType(PieceCommentSheet), findsNothing);
+      expect(_server.to('GET', '/api/pieces/p1/comments'), isEmpty);
       expect(tester.takeException(), isNull);
       await tester.pump(const Duration(seconds: 11));
     });
@@ -296,28 +295,30 @@ void main() {
     setBoardViewport(tester, height: 1400);
     await tester.pumpWidget(_app(AvailablePieceDetailPage(item: _item('p1', forSale: true, author: 'amara')), dark: false));
     await _settle(tester);
-    await _tap(tester, _control('Like'));
+    await _doubleTap(tester);
     await _tap(tester, _control('Save'));
     await tester.pump(const Duration(seconds: 4));
 
     await tester.pumpWidget(const SizedBox());
     await tester.pumpWidget(_app(AvailablePieceDetailPage(item: _item('p1', forSale: true, author: 'amara')), dark: false));
     await _settle(tester);
-    expect(_control('Liked'), findsOneWidget);
+    expect(_liked(tester), isTrue);
     expect(_control('Saved'), findsOneWidget);
     await tester.pump(const Duration(seconds: 11));
   });
 
-  testWidgets('piece not for sale: Like and Save in the action row; a private artist shows Requested', (
+  testWidgets('piece not for sale: double-tap like, Save; no Like or Comment row; a private artist shows Requested', (
     tester,
   ) async {
     setBoardViewport(tester, height: 1400);
     await tester.pumpWidget(_app(PieceDetailPage(item: _item('p2', forSale: false, author: 'esi')), dark: true));
     await _settle(tester);
 
-    await _tap(tester, _control('Like'));
+    expect(_control('Like'), findsNothing);
+    expect(_control('Comment'), findsNothing);
+    await _doubleTap(tester);
     expect(_server.to('POST', '/api/pieces/p2/like'), hasLength(1));
-    expect(_control('Liked'), findsOneWidget);
+    expect(_liked(tester), isTrue);
     await _tap(tester, _control('Save'));
     expect(_server.to('POST', '/api/pieces/p2/save'), hasLength(1));
     expect(_control('Saved'), findsWidgets);

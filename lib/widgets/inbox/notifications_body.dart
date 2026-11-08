@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../models/feed_item.dart';
 import '../../models/feed_preview_item.dart';
+import '../../models/follow_request.dart';
 import '../../models/notification_item.dart';
 import '../../screens/auction_flow.dart';
+import '../../screens/follow_requests_page.dart';
 import '../../services/chat_socket_service.dart';
 import '../../services/connectivity_service.dart';
 import '../../services/main_nav_service.dart';
@@ -11,10 +13,12 @@ import '../../services/notification_service.dart';
 import '../../services/order_service.dart';
 import '../../services/piece_service.dart';
 import '../../services/post_service.dart';
+import '../../services/social_service.dart';
 import '../../theme/studio_colors.dart';
 import '../../theme/studio_type.dart';
 import '../../utils/app_destination.dart';
 import '../../utils/explore_detail_route.dart';
+import '../../utils/money_format.dart';
 import '../../utils/profile_navigation.dart';
 import '../feed_skeleton.dart';
 import '../home_feed/home_feed_widgets.dart';
@@ -22,6 +26,7 @@ import '../offline_state.dart';
 import '../studio/studio_avatar.dart';
 import '../studio/studio_empty_state.dart';
 import '../../utils/app_clock.dart';
+import 'follow_requests_row.dart';
 
 /// The Inbox's Activity tab (`NotifActivity`, with the in-app looks of `NotifCatalog`).
 ///
@@ -30,8 +35,12 @@ import '../../utils/app_clock.dart';
 /// Ink), a status word where the catalog gives one (Outbid / Ending soon red, Now listed
 /// green), the time in Mono, and for a like, save or comment the piece on the right.
 /// Tapping a row marks it read and opens the piece, Scene, profile or order.
+///
+/// Above everything, when people are waiting to follow a private account, the Follow requests
+/// row (as on Instagram; the user's call, 2026-11-08): the newest requester's photo with a count
+/// bubble, opening the list. There is no Requests tab.
 class NotificationsBody extends StatefulWidget {
-  const NotificationsBody({super.key, this.onLiveNotification, this.debugItems});
+  const NotificationsBody({super.key, this.onLiveNotification, this.debugItems, this.debugRequests});
 
   /// Fired when a live `notification:new` arrives (so parent can bump badge).
   final VoidCallback? onLiveNotification;
@@ -39,6 +48,10 @@ class NotificationsBody extends StatefulWidget {
   /// Rows to show instead of loading them, for tests.
   @visibleForTesting
   final List<NotificationItem>? debugItems;
+
+  /// Follow requests to show instead of loading them, for tests.
+  @visibleForTesting
+  final List<FollowRequest>? debugRequests;
 
   @override
   State<NotificationsBody> createState() => NotificationsBodyState();
@@ -51,6 +64,9 @@ class NotificationsBodyState extends State<NotificationsBody> {
   String? _nextCursor;
   final _scrollController = ScrollController();
 
+  /// People waiting to follow, newest first (the row at the top).
+  List<FollowRequest> _requests = const [];
+
   bool _showOfflineState = false;
 
   @override
@@ -60,13 +76,39 @@ class NotificationsBodyState extends State<NotificationsBody> {
     final debug = widget.debugItems;
     if (debug != null) {
       _items.addAll(debug);
+      _requests = _newestFirst(widget.debugRequests ?? const []);
       _loading = false;
       return;
     }
     ConnectivityService.instance.addReconnectHook(_onReconnected);
     ChatSocketService.instance.onNotificationNew(_onSocketNotification);
     _load();
+    _loadRequests();
   }
+
+  static List<FollowRequest> _newestFirst(List<FollowRequest> requests) =>
+      List.of(requests)..sort((a, b) => b.requestedAt.compareTo(a.requestedAt));
+
+  /// The Follow requests row. Quiet: a failure keeps what was there.
+  Future<void> _loadRequests() async {
+    if (widget.debugItems != null) return;
+    try {
+      final requests = await SocialService.instance.listFollowRequests();
+      if (mounted) setState(() => _requests = _newestFirst(requests));
+    } catch (_) {}
+  }
+
+  /// The row opens the list; what was approved or declined there is gone on the way back.
+  Future<void> _openRequests() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => FollowRequestsPage(debugRequests: widget.debugItems != null ? _requests : null),
+      ),
+    );
+    await _loadRequests();
+  }
+
+  Future<void> _refresh() => Future.wait([_load(refresh: true), _loadRequests()]);
 
   @override
   void dispose() {
@@ -167,15 +209,23 @@ class NotificationsBodyState extends State<NotificationsBody> {
     if (_loading && _items.isEmpty) {
       return const FlatListRowSkeleton();
     }
+    final requestsRow = _requests.isEmpty
+        ? null
+        : FollowRequestsRow(requests: _requests, onTap: _openRequests);
     if (_items.isEmpty) {
-      // `NotifEmptyActivity`: usually a brand-new account. Explore art opens Explore.
+      // `NotifEmptyActivity`: usually a brand-new account. Explore art opens Explore. Follow
+      // requests still sit at the top.
       return RefreshIndicator(
         color: c.textPrimary,
-        onRefresh: () => _load(refresh: true),
+        onRefresh: _refresh,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.only(top: 200, bottom: 40),
+          padding: EdgeInsets.only(top: requestsRow == null ? 200 : 0, bottom: 40),
           children: [
+            if (requestsRow != null) ...[
+              Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: requestsRow),
+              const SizedBox(height: 160),
+            ],
             StudioEmptyState(
               title: 'Nothing here yet',
               message: 'Follow artists and save pieces. News about them shows up here.',
@@ -199,12 +249,13 @@ class NotificationsBodyState extends State<NotificationsBody> {
 
     return RefreshIndicator(
       color: c.textPrimary,
-      onRefresh: () => _load(refresh: true),
+      onRefresh: _refresh,
       child: ListView(
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
         children: [
+          ?requestsRow,
           for (final entry in groups.entries)
             if (entry.value.isNotEmpty) ...[
               Padding(
@@ -297,7 +348,15 @@ _Look _lookFor(NotificationItem n) {
     case 'ending_soon':
       return const _Look(lead: _Lead.piece, status: 'Ending soon');
     case 'now_listed':
+    case 'saved_piece_listed':
       return const _Look(lead: _Lead.piece, status: 'Now listed');
+    // A piece you saved: a new price, or going to auction (BACKEND_CHANGES B12).
+    case 'saved_piece_price':
+    case 'saved_piece_auction':
+      return const _Look(lead: _Lead.piece);
+    // An artist you follow posted (B12): their face, the newest work on the right.
+    case 'followed_artist_post':
+      return _Look(lead: _Lead.person, trailingPiece: n.targetId != null);
     default:
       // Purchases, orders and auctions are about a piece; anything else about a person.
       final pieceLed = n.targetType == 'piece' || n.targetType == 'order';
@@ -336,6 +395,23 @@ List<(String, bool)> activityLine(NotificationItem n) {
       return preview == null || preview.isEmpty
           ? [(name, true), (' commented on your $what.', false)]
           : [(name, true), (' commented: “$preview”', false)];
+    case 'saved_piece_listed':
+    case 'saved_piece_price':
+    case 'saved_piece_auction':
+      return savedPieceLine(n) ?? _messageLine(n);
+    case 'followed_artist_post':
+      // "Amara Osei posted 3 new pieces." (`NotifActivity`)
+      final pieces = (n.payload['pieces'] as num?)?.toInt() ?? 0;
+      final scenes = (n.payload['scenes'] as num?)?.toInt() ?? 0;
+      if (pieces + scenes == 0) return _messageLine(n);
+      String count(int c, String noun) => c == 1 ? 'a new $noun' : '$c new ${noun}s';
+      final what = [if (pieces > 0) count(pieces, 'piece'), if (scenes > 0) count(scenes, 'Scene')];
+      return [(name, true), (' posted ${what.join(' and ')}.', false)];
+    // The seller's copy is `sale` (BACKEND_CHANGES B14); older ones were `purchase` with a total.
+    case 'sale':
+      return title == null
+          ? [(name, true), (' collected a piece of yours.', false)]
+          : [(name, true), (' collected ', false), (title, true), ('.', false)];
     case 'purchase':
       if (n.payload.containsKey('totalCents')) {
         return title == null
@@ -346,9 +422,36 @@ List<(String, bool)> activityLine(NotificationItem n) {
           ? [('Your order is confirmed.', false)]
           : [('Your order ', false), (title, true), (' is confirmed.', false)];
     default:
-      final text = n.message?.trim();
-      return [(text == null || text.isEmpty ? 'You have a new update.' : text, false)];
+      return _messageLine(n);
   }
+}
+
+List<(String, bool)> _messageLine(NotificationItem n) {
+  final text = n.message?.trim();
+  return [(text == null || text.isEmpty ? 'You have a new update.' : text, false)];
+}
+
+/// A piece you saved (BACKEND_CHANGES B12), its title bold: "Paper Planes III, which you saved,
+/// is now available for $950." Null without a title or price, to fall back on the message.
+List<(String, bool)>? savedPieceLine(NotificationItem n) {
+  final title = (n.payload['pieceTitle'] as String?)?.trim();
+  final price = (n.payload['priceCents'] as num?)?.toInt();
+  if (title == null || title.isEmpty || price == null) return null;
+  final String rest;
+  switch (n.type) {
+    case 'saved_piece_listed':
+      rest = 'is now available for ${formatMoney(price)}.';
+    case 'saved_piece_price':
+      final was = (n.payload['wasPriceCents'] as num?)?.toInt();
+      rest = was == null || was == price
+          ? 'is now ${formatMoney(price)}.'
+          : 'is now ${formatMoney(price)} (was ${formatMoney(was)}).';
+    default:
+      rest = n.payload['biddingOpen'] == true
+          ? 'is up for auction. Bidding starts at ${formatMoney(price)}.'
+          : 'is going to auction. Bidding starts at ${formatMoney(price)}.';
+  }
+  return [(title, true), (', which you saved, $rest', false)];
 }
 
 /// Opens what a notification is about: the piece or Scene, the person, or the order list
@@ -361,6 +464,16 @@ const kAuctionOutcomeTypes = {
   'auction_no_sale',
   'auction_payment_failed',
 };
+
+/// Whether an order notification is the seller's, to open My sales rather than My orders: a
+/// `sale`, or a shipping update with `side` seller (BACKEND_CHANGES B14); older ones by their
+/// total or wording.
+bool isSellerOrderNotice(NotificationItem n) =>
+    n.type == 'sale' ||
+    n.payload['side'] == 'seller' ||
+    n.payload.containsKey('totalCents') ||
+    (n.message ?? '').contains('your sale') ||
+    n.payload.containsKey('reason');
 
 Future<void> openNotificationTarget(BuildContext context, NotificationItem n) async {
   final id = n.targetId;
@@ -379,10 +492,7 @@ Future<void> openNotificationTarget(BuildContext context, NotificationItem n) as
         if (!context.mounted) return;
         await openExploreDetail(context, FeedItem.post(post));
       case 'order':
-        final seller = n.payload.containsKey('totalCents') ||
-            (n.message ?? '').contains('your sale') ||
-            n.payload.containsKey('reason');
-        await Navigator.of(context).pushNamed(seller ? '/sales' : '/orders');
+        await Navigator.of(context).pushNamed(isSellerOrderNotice(n) ? '/sales' : '/orders');
       case 'user':
         openUserProfile(context, n.actorUsername);
       // Events and series open through the shared destination router (restored from

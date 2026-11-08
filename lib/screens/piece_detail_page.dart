@@ -27,6 +27,7 @@ import '../widgets/piece_detail/piece_action_bar.dart';
 import '../widgets/piece_detail/piece_artist_row.dart';
 import '../widgets/piece_detail/materials_sheet.dart';
 import '../widgets/piece_detail/piece_comment_sheet.dart';
+import '../widgets/piece_detail/piece_double_tap_like.dart';
 import '../widgets/piece_detail/piece_location_row.dart';
 import '../widgets/piece_detail/piece_related_scenes_row.dart';
 import '../widgets/piece_detail/piece_share_sheet.dart';
@@ -181,8 +182,8 @@ class _PieceDetailPageState extends State<PieceDetailPage>
 
   /// `PieceNotForSale`: same image, top icons, artist row and body as the fixed-price page,
   /// with no bottom bar and the not-for-sale line under the dimensions. Your own piece
-  /// (`ListOwnerPiece`) gets the bar with List for sale and the edit button; the board's
-  /// "Saved by [N] people" needs a save count (BACKEND_CHANGES B17).
+  /// (`ListOwnerPiece`) gets the bar: "Saved by [N] people" when anyone has (BACKEND_CHANGES
+  /// B17), then List for sale and the edit button.
   Widget _buildPiece(BuildContext context) {
     final c = context.studio;
     final canList = _canList;
@@ -252,9 +253,14 @@ class _PieceDetailPageState extends State<PieceDetailPage>
                     children: [
                       AspectRatio(
                         aspectRatio: item.aspectRatioValue,
-                        child: DetailHeroImage(
-                          item: item,
-                          initialImageIndex: widget.initialImageIndex,
+                        // No Like button on a piece: double tap the image (hint on each visit).
+                        child: PieceDoubleTapLike(
+                          liked: liked,
+                          onToggle: toggleLike,
+                          child: DetailHeroImage(
+                            item: item,
+                            initialImageIndex: widget.initialImageIndex,
+                          ),
                         ),
                       ),
                       Positioned(
@@ -289,21 +295,8 @@ class _PieceDetailPageState extends State<PieceDetailPage>
                         onFollowToggle: toggleFollow,
                         isOwner: _isOwner,
                       ),
-                      // Like and comment stay on the page (plan rule 4); Save and Share are in
-                      // the top icons.
-                      PieceActionBar(
-                        liked: liked,
-                        saved: saved,
-                        onLike: toggleLike,
-                        onComment: () => PieceCommentSheet.show(
-                          context,
-                          contentId: item.id,
-                          isScene: item.isScene,
-                        ),
-                        onShare: () {},
-                        onSave: toggleSave,
-                        showSave: false,
-                      ),
+                      // No Like or Comment row on a piece: pieces have no comments, and a
+                      // double tap on the image likes it. Save and Share are in the top icons.
                       const SizedBox(height: 8),
                       for (var i = 0; i < sections.length; i++) ...[
                         if (i > 0) const SizedBox(height: 26),
@@ -320,6 +313,9 @@ class _PieceDetailPageState extends State<PieceDetailPage>
                 right: 0,
                 bottom: 0,
                 child: StudioBottomBar(
+                  left: (item.savesCount ?? 0) > 0
+                      ? StudioBottomBarInfo(label: 'Saved by', value: savedPeople(item.savesCount!))
+                      : null,
                   button: StudioButton(
                     label: 'List for sale',
                     fontSize: 16,
@@ -340,11 +336,27 @@ class _PieceDetailPageState extends State<PieceDetailPage>
 
   /// "Not for sale" as plain 13/500 Ink text, never a chip (`PieceNotForSale`, `HandoffRules`)
   /// and, for visitors, "Save it to hear if it's ever listed." (13 Graphite), 10 apart. Saving is what subscribes them to the listing notice. On your
-  /// own piece the line is the pill alone: the board's "[N] people saved this" needs a save
-  /// count the piece payload does not have. A sold piece shows the Collected chip instead.
+  /// own piece (`ListOwnerPiece`) it is "[N] people saved this. They'll hear if you list it."
+  /// (13 Graphite, the number in Mono; BACKEND_CHANGES B17), or "Not for sale" alone when
+  /// nobody has. A sold piece shows the Collected chip instead.
   Widget _statusLine(StudioColors c) {
     if (item.status == 'sold')
       return const StudioStatusChip(StudioStatus.collected);
+    final saved = item.savesCount ?? 0;
+    if (_isOwner && saved > 0) {
+      final style = StudioType.label13(color: c.textSecondary);
+      return Text.rich(
+        TextSpan(
+          style: style,
+          children: [
+            TextSpan(text: '$saved', style: StudioType.mono13(color: c.textSecondary)),
+            TextSpan(
+              text: " ${saved == 1 ? 'person' : 'people'} saved this. They'll hear if you list it.",
+            ),
+          ],
+        ),
+      );
+    }
     return Row(
       children: [
         Text('Not for sale', style: StudioType.label13(weight: StudioType.medium, color: c.textPrimary)),
@@ -444,6 +456,8 @@ class _PieceDetailPageState extends State<PieceDetailPage>
                     imageIndex: widget.initialImageIndex,
                   ),
                   onSave: toggleSave,
+                  // Like, Comment, Save, Share (this page has no top Share).
+                  showShare: true,
                 ),
                 const Divider(height: 1, color: Color(0xFFE8E5DF)),
                 PieceArtistRow(

@@ -80,22 +80,56 @@ enum StudioStatus { available, collected, notForSale }
 /// * Available: 7 px green dot, 1 px Line outline, 5 10 padding (`Main`).
 /// * Collected: iridescent fill, Ink text, 5 10 padding — the only iridescent chip.
 /// * Not for sale: 1 px #D4D4D0 outline, 4 10 padding (`PieceNotForSale`).
+/// * [compact] (the home feed's label under a piece, `Main`): Available 4 9, Collected 4 10.
 class StudioStatusChip extends StatelessWidget {
-  const StudioStatusChip(this.status, {super.key, this.label});
+  const StudioStatusChip(this.status, {super.key, this.label, this.onImage = false, this.compact = false});
+
+  /// The home feed's label: 4 px top and bottom.
+  final bool compact;
 
   final StudioStatus status;
 
   /// Overrides the default word ("Available", "Collected", "Not for sale").
   final String? label;
 
+  /// On a photo (`Main` series card): Available is a dark 60 % pill with white text and no
+  /// outline, so it reads on any picture. Collected is the same iridescent pill either way.
+  final bool onImage;
+
+  /// rgba(20, 20, 20, 0.6).
+  static const _onImageFill = Color(0x99141414);
+
   @override
   Widget build(BuildContext context) {
     final c = context.studio;
+    if (onImage && status == StudioStatus.available) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: _onImageFill,
+          borderRadius: BorderRadius.circular(StudioRadius.round),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 7,
+              height: 7,
+              decoration: BoxDecoration(color: c.available, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 6),
+            Text(label ?? 'Available', style: StudioType.mono11(color: StudioColors.galleryWhite)),
+          ],
+        ),
+      );
+    }
     switch (status) {
       case StudioStatus.available:
         return _pill(
           border: c.line,
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          padding: compact
+              ? const EdgeInsets.symmetric(horizontal: 9, vertical: 4)
+              : const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
           children: [
             Container(
               width: 7,
@@ -111,7 +145,7 @@ class StudioStatusChip extends StatelessWidget {
         return StudioIridescent(
           borderRadius: BorderRadius.circular(StudioRadius.round),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            padding: EdgeInsets.symmetric(horizontal: 10, vertical: compact ? 4 : 5),
             child: Text(label ?? 'Collected', style: StudioType.mono11(color: StudioColors.ink)),
           ),
         );

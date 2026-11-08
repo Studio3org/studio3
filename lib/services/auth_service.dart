@@ -12,12 +12,48 @@ class AuthService {
   final _api = ApiClient.instance;
   final _session = AuthSession.instance;
 
-  Future<void> generateOtp(String email) async {
-    await _api.post('/api/auth/otp/generate', body: {'email': email.trim()});
+  /// Sends a 6-digit code. [purpose] is `login` or `reset` for an existing account
+  /// (BACKEND_CHANGES B30); none is the sign-up code.
+  Future<void> generateOtp(String email, {String? purpose}) async {
+    await _api.post('/api/auth/otp/generate', body: {'email': email.trim(), 'purpose': ?purpose});
   }
 
-  Future<void> resendOtp(String email) async {
-    await _api.post('/api/auth/otp/resend', body: {'email': email.trim()});
+  Future<void> resendOtp(String email, {String? purpose}) async {
+    await _api.post('/api/auth/otp/resend', body: {'email': email.trim(), 'purpose': ?purpose});
+  }
+
+  /// Whether [email] has an account (B30), so the first screen can send a new email to the
+  /// code and profile steps and a known one to Welcome back. Null when the server can't say
+  /// (one without the check, or it couldn't be reached): Welcome back then offers both.
+  Future<bool?> emailExists(String email) async {
+    try {
+      final json = await _api.post('/api/auth/email/check', body: {'email': email.trim()});
+      final data = json['data'];
+      return data is Map<String, dynamic> ? data['exists'] as bool? : null;
+    } on ApiException {
+      return null;
+    }
+  }
+
+  /// Signs in with an emailed login code (B30), as [login] does with a password.
+  Future<AuthUser> loginWithCode(String email, String code) async {
+    final json = await _api.post(
+      '/api/auth/otp/verify',
+      body: {'email': email.trim(), 'otp': code, 'purpose': 'login'},
+    );
+    return _persistAuthResponse(json);
+  }
+
+  /// Spends an emailed reset code (B30) for the short-lived token [resetPassword] takes.
+  Future<String> resetTokenFromCode(String email, String code) async {
+    final json = await _api.post(
+      '/api/auth/otp/verify',
+      body: {'email': email.trim(), 'otp': code, 'purpose': 'reset'},
+    );
+    final data = json['data'];
+    final token = data is Map<String, dynamic> ? data['resetToken'] as String? : null;
+    if (token == null || token.isEmpty) throw ApiException('Could not verify the code');
+    return token;
   }
 
   /// Check-only verification — does not create an account. The real,

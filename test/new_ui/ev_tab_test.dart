@@ -6,6 +6,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:studio3/models/studio_event.dart';
 import 'package:studio3/screens/event_page.dart';
+import 'package:studio3/services/event_service.dart';
 import 'package:studio3/theme/app_theme.dart';
 import 'package:studio3/widgets/events/event_tab_widgets.dart';
 import 'package:studio3/widgets/studio/studio.dart';
@@ -219,6 +220,84 @@ void main() {
     expect(find.text('Fort Worth'), findsOneWidget);
     expect(find.text('Color Lab'), findsWidgets);
     expect(find.text('Intro to Encaustic'), findsNothing);
+  });
+
+  // BACKEND_CHANGES B23: the range, place and search go to the server; its Featured pick and
+  // cities are used.
+  group('from the server', () {
+    Widget app({
+      required Future<EventBrowse> Function(DateTime from, DateTime to, String? city, String? q) refine,
+      Future<List<String>> Function()? cities,
+    }) => MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.light,
+      home: EventPage(debugBrowse: _browse, debugNow: _now, debugRefine: refine, debugCities: cities),
+    );
+
+    testWidgets('the range, place and search are asked for; the team pick is Featured', (tester) async {
+      setBoardViewport(tester, height: 2560);
+      final asked = <(DateTime, DateTime, String?, String?)>[];
+      final pick = _e('pick', 'Team Pick', start: _at(3, 18));
+      await tester.pumpWidget(app(
+        refine: (from, to, city, q) async {
+          asked.add((from, to, city, q));
+          return EventBrowse(featured: pick, upcoming: [pick, ..._browse.upcoming]);
+        },
+        cities: () async => ['Austin', 'Dallas', 'Fort Worth'],
+      ));
+      await tester.pump();
+      // Today first: from now to tomorrow.
+      expect(asked.single, (_now, DateTime(2026, 11, 22), null, null));
+
+      await tester.tap(_tab('This week'));
+      await tester.pump();
+      expect(asked.last, (_now, DateTime(2026, 11, 28), null, null));
+      // The team's pick, though others start sooner.
+      final featured = tester.widget<FeaturedEventCard>(find.byType(FeaturedEventCard));
+      expect(featured.event.id, 'pick');
+
+      await tester.tap(find.text('Near me'));
+      await tester.pumpAndSettle();
+      expect(find.text('Austin'), findsOneWidget);
+      await tester.tap(find.text('Austin'));
+      await tester.pumpAndSettle();
+      expect(asked.last.$3, 'Austin');
+
+      await tester.enterText(find.byType(TextField), 'tide');
+      await tester.pump(const Duration(milliseconds: 100));
+      final before = asked.length;
+      await tester.pump(const Duration(milliseconds: 300));
+      // Once, after the typing stops.
+      expect(asked.length, before + 1);
+      expect(asked.last.$4, 'tide');
+    });
+
+    testWidgets("no match on the server says so, not 'No events yet'", (tester) async {
+      setBoardViewport(tester, height: 2560);
+      await tester.pumpWidget(app(refine: (from, to, city, q) async => const EventBrowse()));
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('No events yet'), findsNothing);
+      expect(find.textContaining('Nothing on today'), findsOneWidget);
+    });
+
+    test('city from the server first, else from the address; filter query in UTC', () {
+      final known = StudioEvent.fromJson({
+        'id': 'e', 'title': 'T', 'startsAt': '2026-11-21T18:00:00Z', 'endsAt': '2026-11-21T20:00:00Z',
+        'address': '1 Main St, Dallas, TX 75201', 'city': 'Highland Park', 'featured': true,
+      });
+      expect((eventCity(known), known.featured), ('Highland Park', true));
+      expect(eventCity(_today), 'Dallas');
+      final browse = EventBrowse.fromJson({
+        'featured': {'id': 'f', 'title': 'F', 'startsAt': '2026-11-21T18:00:00Z', 'endsAt': '2026-11-21T20:00:00Z'},
+      });
+      expect(browse.featured?.id, 'f');
+      expect(EventBrowse.fromJson({'featured': null}).featured, isNull);
+      expect(
+        eventFilterQuery(from: DateTime.utc(2026, 11, 21, 16), to: DateTime.utc(2026, 11, 22), city: ' ', q: ' tide '),
+        {'from': '2026-11-21T16:00:00.000Z', 'to': '2026-11-22T00:00:00.000Z', 'q': 'tide'},
+      );
+    });
   });
 
   testWidgets('no events: the empty state offers hosting', (tester) async {

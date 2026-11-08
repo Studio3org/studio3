@@ -1,26 +1,24 @@
 import 'package:flutter/material.dart';
 
 import '../services/chat_service.dart';
-import '../services/social_service.dart';
 import '../theme/studio_colors.dart';
 import '../theme/studio_type.dart';
 import '../widgets/create_flow/post_flow_widgets.dart' show PostIconButton;
 import '../widgets/inbox/chats_body.dart';
 import 'new_message_page.dart';
-import '../widgets/inbox/follow_requests_body.dart';
 import '../widgets/inbox/notifications_body.dart';
 import '../widgets/studio/studio_icon.dart';
 import '../widgets/studio/studio_tab_bar.dart';
 
-enum InboxTab { notifications, chats, requests }
+enum InboxTab { notifications, chats }
 
 /// Inbox (`NotifActivity`): opened from the home top bar's inbox icon (and from Profile
 /// Settings' Notifications / Follow requests links).
 ///
-/// Back and "Inbox" 16/500; Activity, Messages and Requests as the boards' tabs, Messages
-/// and Requests with a Mono count when there is one. Requests is the app's follow requests
-/// (kept; the board draws two tabs). No settings icon: notification settings live in
-/// Profile settings.
+/// Back and "Inbox" 16/500; Activity and Messages, the boards' two tabs, Messages with a Mono
+/// count when there is one. Follow requests are the first row of Activity, as on Instagram
+/// (the user's call, 2026-11-08). No settings icon: notification settings live in Profile
+/// settings.
 class InboxPage extends StatefulWidget {
   const InboxPage({super.key, this.initialTab = InboxTab.notifications});
 
@@ -38,7 +36,6 @@ class _InboxPageState extends State<InboxPage> with SingleTickerProviderStateMix
   );
 
   int _chatsCount = 0;
-  int _requestsCount = 0;
   final _chatsKey = GlobalKey<ChatsBodyState>();
 
   @override
@@ -79,18 +76,9 @@ class _InboxPageState extends State<InboxPage> with SingleTickerProviderStateMix
   }
 
   Future<void> _refreshCounts() async {
-    final results = await Future.wait<int>([
-      SocialService.instance
-          .listFollowRequests()
-          .then((requests) => requests.length)
-          .catchError((_) => _requestsCount),
-      ChatService.instance.unreadCount().catchError((_) => _chatsCount),
-    ]);
+    final chats = await ChatService.instance.unreadCount().catchError((_) => _chatsCount);
     if (!mounted) return;
-    setState(() {
-      _requestsCount = results[0];
-      _chatsCount = results[1];
-    });
+    setState(() => _chatsCount = chats);
   }
 
   @override
@@ -132,8 +120,8 @@ class _InboxPageState extends State<InboxPage> with SingleTickerProviderStateMix
             ),
             StudioTabBar(
               controller: _tabs,
-              labels: const ['Activity', 'Messages', 'Requests'],
-              counts: [null, _chatsCount, _requestsCount],
+              labels: const ['Activity', 'Messages'],
+              counts: [null, _chatsCount],
               ruleFullWidth: true,
             ),
             Expanded(
@@ -146,7 +134,6 @@ class _InboxPageState extends State<InboxPage> with SingleTickerProviderStateMix
                     onCountsChanged: _refreshCounts,
                     onNewMessage: _newMessage,
                   ),
-                  const FollowRequestsBody(),
                 ],
               ),
             ),

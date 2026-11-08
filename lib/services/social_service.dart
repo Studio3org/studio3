@@ -312,6 +312,14 @@ class SocialService {
     return _withCurrentAuthor(CommentSummary.fromJson(data));
   }
 
+  /// Deletes a comment: your own, or anyone's on your piece or Scene (BACKEND_CHANGES B33).
+  /// Returns the new comment count when the server sends it.
+  Future<int?> deleteComment(String id) async {
+    final json = await _api.delete('/api/comments/$id');
+    final data = _api.extractData(json);
+    return data is Map ? (data['commentCount'] as num?)?.toInt() : null;
+  }
+
   /// The create-comment endpoints don't return an enriched `author`/`user`
   /// object the way the comment-list endpoint does — the author is always
   /// the caller, so fill it in from the session instead of showing a blank

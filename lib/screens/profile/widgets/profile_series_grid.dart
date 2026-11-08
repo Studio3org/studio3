@@ -251,17 +251,20 @@ class _SeriesPaletteCard extends StatelessWidget {
   }
 }
 
-/// Horizontal series row on a seller's Pieces tab. Hidden by the caller when
-/// this profile has no series loaded yet.
+/// The Series shelf at the top of the Pieces tab (`ProfileSeller`, `ProfileOwn`; there is no
+/// Series tab). Hidden by the caller when the profile has no series. A card opens its series;
+/// See all opens every series.
 class ProfileSeriesShelf extends StatelessWidget {
   const ProfileSeriesShelf({
     super.key,
     required this.items,
     this.onSeeAll,
+    this.onSeriesTap,
   });
 
   final List<ProfileSeriesData> items;
   final VoidCallback? onSeeAll;
+  final void Function(ProfileSeriesData series)? onSeriesTap;
 
   @override
   Widget build(BuildContext context) {
@@ -305,7 +308,10 @@ class ProfileSeriesShelf extends StatelessWidget {
               scrollDirection: Axis.horizontal,
               itemCount: items.length,
               separatorBuilder: (_, _) => const SizedBox(width: 12),
-              itemBuilder: (context, index) => _ShelfCard(data: items[index]),
+              itemBuilder: (context, index) => ProfileSeriesCard(
+                data: items[index],
+                onTap: onSeriesTap == null ? null : () => onSeriesTap!(items[index]),
+              ),
             ),
           ),
         ],
@@ -314,26 +320,37 @@ class ProfileSeriesShelf extends StatelessWidget {
   }
 }
 
-class _ShelfCard extends StatelessWidget {
-  const _ShelfCard({required this.data});
+/// A series card as on the shelf: a square cover (12 corners), then the name (14/500) and the
+/// piece count in Mono 12, 8 under it. [size] is the cover's side (160 on the shelf).
+class ProfileSeriesCard extends StatelessWidget {
+  const ProfileSeriesCard({super.key, required this.data, this.onTap, this.size = 160});
 
   final ProfileSeriesData data;
+  final VoidCallback? onTap;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
     final c = context.studio;
     final url = data.previewUrls.isEmpty ? null : data.previewUrls.first;
     final count = data.pieceCount == 1 ? '1 piece' : '${data.pieceCount} pieces';
-    return SizedBox(
-      width: 160,
+    return Semantics(
+      button: onTap != null,
+      label: '${data.name}, $count',
+      excludeSemantics: true,
+      child: GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: SizedBox(
+      width: size,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           ClipRRect(
-            borderRadius: BorderRadius.circular(StudioRadius.card),
+            borderRadius: BorderRadius.circular(StudioRadius.button),
             child: SizedBox(
-              width: 160,
-              height: 160,
+              width: size,
+              height: size,
               child: url == null
                   ? ColoredBox(color: c.surface)
                   : CachedNetworkImage(imageUrl: url, fit: BoxFit.cover, errorWidget: (_, _, _) => ColoredBox(color: c.surface)),
@@ -355,6 +372,8 @@ class _ShelfCard extends StatelessWidget {
             ],
           ),
         ],
+      ),
+      ),
       ),
     );
   }

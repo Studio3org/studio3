@@ -4,9 +4,10 @@ import '../../theme/studio_colors.dart';
 import '../../theme/studio_type.dart';
 import '../studio/studio_icon.dart';
 
-/// Like / comment (and, where the page has no top icons for them, save / share) under the
-/// piece image. No board draws this row; it stays where it was (plan rule 4) in the
-/// boards' style: 22 px outline icons, 13 labels, Ink (liked is filled Ink, never red).
+/// A Scene's Like, Comment (and, where the page has no top icons for them, Save, Share), in
+/// that order (the user's, 2026-11-08), under the image. Pieces have no row (a double tap
+/// likes them). The boards' style: 22 px outline icons, 13 labels, Ink (liked is filled Ink,
+/// never red).
 class PieceActionBar extends StatelessWidget {
   const PieceActionBar({
     super.key,
@@ -46,13 +47,13 @@ class PieceActionBar extends StatelessWidget {
           ),
           _ActionButton(icon: StudioIcons.chat, label: 'Comment', onTap: onComment),
           const Spacer(),
-          if (showShare) _ActionButton(icon: StudioIcons.share, label: 'Share', onTap: onShare),
           if (showSave)
             _ActionButton(
               icon: saved ? StudioIcons.saved : StudioIcons.save,
               label: saved ? 'Saved' : 'Save',
               onTap: onSave,
             ),
+          if (showShare) _ActionButton(icon: StudioIcons.share, label: 'Share', onTap: onShare),
         ],
       ),
     );

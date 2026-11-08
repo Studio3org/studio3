@@ -71,8 +71,8 @@ class _SheetFolder {
   final List<String> imageUrls;
 }
 
-/// Folder picker from `SavedSheet`. All saved stays checked. Available is
-/// omitted. New folder is the last tile.
+/// Folder picker from `SavedSheet`, opened by "Save to collection" after a save. All saved
+/// stays checked. Available is omitted. New collection is the last tile.
 class SaveToCollectionSheet extends StatelessWidget {
   const SaveToCollectionSheet({super.key});
 
@@ -117,6 +117,8 @@ class SaveToCollectionSheet extends StatelessWidget {
           final name = await CollectionNameSheet.show(
             sheetContext,
             pieceTitle: pieceTitle,
+            title: 'New collection',
+            actionLabel: 'Create collection',
           );
           if (name == null || name.isEmpty || !sheetContext.mounted) return;
           final collection = await SavedContentStore.instance.createCollection(name);
@@ -404,7 +406,7 @@ class _NewFolderTile extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'New folder',
+            'New collection',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: StudioType.label13(color: c.textPrimary),

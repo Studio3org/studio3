@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../models/auction.dart';
 import '../../models/feed_preview_item.dart';
 import '../../services/saved_content_store.dart';
 import '../../theme/studio_colors.dart';
 import '../../theme/studio_metrics.dart';
 import '../../theme/studio_type.dart';
+import '../../utils/app_clock.dart';
 import '../home_feed/home_feed_widgets.dart';
 import '../studio/studio_chip.dart';
 import '../studio/studio_icon.dart';
@@ -21,12 +23,40 @@ List<String> savedCoverUrls(List<SavedEntry> entries) {
   return urls;
 }
 
-/// A change line only when the saved item already carries that fact.
-/// Price drops and auction deadlines are not on the payload, so they stay off.
+/// The saved piece's auction while bidding is open, from the list payload (BACKEND_CHANGES
+/// B21); null for anything else.
+AuctionSummary? savedLiveAuction(SavedEntry entry) {
+  final preview = entry.preview;
+  final auction = preview?.auction;
+  if (preview == null || !preview.isAuction || auction == null) return null;
+  final ends = auction.endsAt;
+  if (!auction.isOpen || ends == null || !ends.isAfter(appNow())) return null;
+  return auction;
+}
+
+/// "6h", "45m", "3d": how long until [ends].
+String savedTimeLeft(DateTime ends) {
+  final left = ends.difference(appNow());
+  if (left.inMinutes < 60) return '${left.inMinutes < 1 ? 1 : left.inMinutes}m';
+  if (left.inHours < 24) return '${left.inHours}h';
+  return '${left.inDays}d';
+}
+
+/// Red under 24 hours (`NoteSavedFolder`, `NoteSavedAvailable`).
+bool savedAuctionEndsSoon(SavedEntry entry) {
+  final ends = savedLiveAuction(entry)?.endsAt;
+  return ends != null && ends.difference(appNow()) < const Duration(hours: 24);
+}
+
+/// A change line only when the saved item already carries that fact: "Auction ends in 6h" for
+/// a live auction (B21), "Now listed · $950" for a fixed price. Price drops are not on the
+/// payload, so they stay off.
 String? savedChangeLine(SavedEntry entry) {
   final preview = entry.preview;
   if (preview == null) return null;
   if (_isCollected(preview)) return null;
+  final auction = savedLiveAuction(entry);
+  if (auction != null) return 'Auction ends in ${savedTimeLeft(auction.endsAt!)}';
   if (preview.isAvailable && preview.priceDisplay != null) {
     return 'Now listed · ${preview.priceDisplay}';
   }
@@ -36,19 +66,32 @@ String? savedChangeLine(SavedEntry entry) {
 bool savedIsCollected(SavedEntry entry) =>
     entry.preview != null && _isCollected(entry.preview!);
 
-/// Saved pieces that can be bought right now, newest saved first.
-/// Auction end times are not on the payload, so nothing sorts ahead of these.
+/// Saved pieces that can be bought right now: live auctions ending soonest first, then the
+/// rest newest saved first (`NoteSavedAvailable`; auction ends from B21).
 List<SavedEntry> savedAvailableEntries(Iterable<SavedEntry> entries) {
   final list = entries.where((entry) => entry.preview?.isAvailable == true).toList();
-  list.sort((a, b) => b.savedAt.compareTo(a.savedAt));
+  list.sort((a, b) {
+    final aEnds = savedLiveAuction(a)?.endsAt;
+    final bEnds = savedLiveAuction(b)?.endsAt;
+    if (aEnds != null && bEnds != null) return aEnds.compareTo(bEnds);
+    if (aEnds != null) return -1;
+    if (bEnds != null) return 1;
+    return b.savedAt.compareTo(a.savedAt);
+  });
   return list;
 }
 
-/// Fixed price for the Available folder. Whole dollars, with thousands separators.
+/// The Available folder's line: the fixed price, or for a live auction the current bid and
+/// time left, "Bid $1,300 · 6h left" (B21). Whole dollars, with thousands separators.
 String? savedAvailablePrice(SavedEntry entry) {
   final preview = entry.preview;
-  final cents = preview?.priceCents;
-  if (preview == null || !preview.isAvailable || cents == null) return null;
+  if (preview == null || !preview.isAvailable) return null;
+  final auction = savedLiveAuction(entry);
+  if (auction != null) {
+    return 'Bid ${formatSavedDollars(auction.currentCents)} · ${savedTimeLeft(auction.endsAt!)} left';
+  }
+  final cents = preview.priceCents;
+  if (cents == null) return null;
   return formatSavedDollars(cents);
 }
 
@@ -195,6 +238,9 @@ class SavedPieceTile extends StatelessWidget {
     final change = savedChangeLine(entry);
     final collected = savedIsCollected(entry);
     final price = availablePrice ? savedAvailablePrice(entry) : null;
+    // An auction's line: red under 24 hours, else Ink; 500 (B21).
+    final auction = savedLiveAuction(entry) != null;
+    final auctionColor = savedAuctionEndsSoon(entry) ? c.alert : c.textPrimary;
     return GestureDetector(
       onTap: onTap,
       onLongPress: onLongPress,
@@ -246,7 +292,9 @@ class SavedPieceTile extends StatelessWidget {
               price,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: StudioType.sans(13, color: c.textPrimary),
+              style: auction
+                  ? StudioType.sans(13, weight: StudioType.medium, color: auctionColor)
+                  : StudioType.sans(13, color: c.textPrimary),
             )
           else if (collected)
             const Padding(
@@ -258,7 +306,7 @@ class SavedPieceTile extends StatelessWidget {
               change,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: StudioType.caption12(color: c.positive).copyWith(
+              style: StudioType.caption12(color: auction ? auctionColor : c.positive).copyWith(
                 fontWeight: StudioType.medium,
               ),
             ),

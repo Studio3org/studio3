@@ -82,6 +82,9 @@ class FeedPreviewItem {
     this.isSaved = false,
     this.likeCount = 0,
     this.commentCount = 0,
+    this.savesCount,
+    this.myTopBidCents,
+    this.myBidStatus,
     this.authorName,
     this.authorUsername,
     this.authorAvatarUrl,
@@ -143,6 +146,13 @@ class FeedPreviewItem {
   final bool isSaved;
   final int likeCount;
   final int commentCount;
+
+  /// How many people saved it, on your own piece only (BACKEND_CHANGES B17); else null.
+  final int? savesCount;
+
+  /// The viewer's own bid from the server (BACKEND_CHANGES B18); see [PieceSummary.myBidStatus].
+  final int? myTopBidCents;
+  final String? myBidStatus;
   final String? authorName;
 
   /// The artist's handle without the '@'. [handle] is the display form; this is
@@ -230,6 +240,9 @@ class FeedPreviewItem {
     bool? isSaved,
     int? likeCount,
     int? commentCount,
+    int? savesCount,
+    int? myTopBidCents,
+    String? myBidStatus,
     String? authorName,
     String? authorUsername,
     String? authorAvatarUrl,
@@ -277,6 +290,9 @@ class FeedPreviewItem {
       isSaved: isSaved ?? this.isSaved,
       likeCount: likeCount ?? this.likeCount,
       commentCount: commentCount ?? this.commentCount,
+      savesCount: savesCount ?? this.savesCount,
+      myTopBidCents: myTopBidCents ?? this.myTopBidCents,
+      myBidStatus: myBidStatus ?? this.myBidStatus,
       authorName: authorName ?? this.authorName,
       authorUsername: authorUsername ?? this.authorUsername,
       authorAvatarUrl: authorAvatarUrl ?? this.authorAvatarUrl,
@@ -343,6 +359,9 @@ class FeedPreviewItem {
       isSaved: piece.isSaved,
       likeCount: piece.likeCount,
       commentCount: piece.commentCount,
+      savesCount: piece.savesCount,
+      myTopBidCents: piece.myTopBidCents,
+      myBidStatus: piece.myBidStatus,
       authorName: piece.authorName,
       authorAvatarUrl: piece.authorAvatarUrl,
       authorIsFollowing: piece.authorIsFollowing,
@@ -444,6 +463,9 @@ class FeedPreviewItem {
         'isSaved': isSaved,
         'likeCount': likeCount,
         'commentCount': commentCount,
+        if (savesCount != null) 'savesCount': savesCount,
+        if (myTopBidCents != null) 'myTopBidCents': myTopBidCents,
+        if (myBidStatus != null) 'myBidStatus': myBidStatus,
         if (authorName != null) 'authorName': authorName,
         if (authorUsername != null) 'authorUsername': authorUsername,
         if (authorAvatarUrl != null) 'authorAvatarUrl': authorAvatarUrl,
@@ -502,6 +524,9 @@ class FeedPreviewItem {
       isSaved: json['isSaved'] as bool? ?? false,
       likeCount: json['likeCount'] as int? ?? 0,
       commentCount: json['commentCount'] as int? ?? 0,
+      savesCount: json['savesCount'] as int?,
+      myTopBidCents: json['myTopBidCents'] as int?,
+      myBidStatus: json['myBidStatus'] as String?,
       authorName: json['authorName'] as String?,
       authorUsername: json['authorUsername'] as String?,
       authorAvatarUrl: json['authorAvatarUrl'] as String?,

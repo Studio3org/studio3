@@ -623,9 +623,8 @@ class _Stack extends StatelessWidget {
 }
 
 /// "Couldn't publish" (`PostError`): the "!" ring and the title in red (#B3261E), the reason in
-/// Graphite, and when the
-/// piece was saved first, "Saved as draft · [time]" in Mono with Go to drafts. Try again
-/// retries.
+/// Graphite, and when the piece (or, BACKEND_CHANGES B33, the Scene) was saved first, "Saved as
+/// draft · [time]" in Mono with Go to drafts. Try again retries.
 class PostErrorView extends StatelessWidget {
   const PostErrorView({
     super.key,
@@ -656,8 +655,8 @@ class PostErrorView extends StatelessWidget {
     final c = context.studio;
     final saved = savedAt;
     final message = saved != null
-        ? 'The connection dropped before it went live. Your piece is saved as a draft, '
-              'so nothing is lost.'
+        ? 'The connection dropped before it went live. Your ${isScene ? 'Scene' : 'piece'} is '
+              'saved as a draft, so nothing is lost.'
         : isScene
         ? "The connection dropped before your Scene went up. Check your connection and "
               'try again.'

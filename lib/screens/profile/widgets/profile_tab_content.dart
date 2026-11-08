@@ -4,10 +4,9 @@ import '../../../models/piece_summary.dart';
 import '../../../models/post_summary.dart';
 import '../../../widgets/feed_skeleton.dart';
 import '../../../widgets/pill_chip.dart';
-import '../profile_constants.dart';
+import 'profile_collection_grid.dart';
 import 'profile_masonry_grid.dart';
 import 'profile_seller_pieces.dart';
-import 'profile_series_grid.dart';
 import '../models/profile_series_data.dart';
 
 bool _isVideoPost(PostSummary p) {
@@ -15,6 +14,9 @@ bool _isVideoPost(PostSummary p) {
   return m == 'video' || m == 'reel' || m == 'reels';
 }
 
+/// What sits under the profile's tabs (`HandoffProfiles`): Pieces (the Series shelf, All with
+/// a count, the Available filter when something is for sale, the 3:4 grid), Scenes, or
+/// Collection (what they've bought). The same for everyone; an empty tab shows nothing.
 class ProfileTabContent extends StatelessWidget {
   const ProfileTabContent({
     super.key,
@@ -22,9 +24,7 @@ class ProfileTabContent extends StatelessWidget {
     required this.seriesItems,
     this.pieces = const [],
     this.scenes = const [],
-    this.listedPieces = const [],
-    this.collectSegment = 'all',
-    this.sellerMode = false,
+    this.collection = const [],
     this.loading = false,
     this.isOwnProfile = false,
     this.onDeletePiece,
@@ -37,13 +37,14 @@ class ProfileTabContent extends StatelessWidget {
     this.onSeriesTap,
   });
 
+  /// `pieces`, `scenes` or `collection`.
   final String currentTab;
   final List<ProfileSeriesData> seriesItems;
   final List<PieceSummary> pieces;
   final List<PostSummary> scenes;
-  final List<PieceSummary> listedPieces;
-  final String collectSegment;
-  final bool sellerMode;
+
+  /// The pieces they've bought (BACKEND_CHANGES B37).
+  final List<PieceSummary> collection;
   final bool loading;
   final bool isOwnProfile;
   final void Function(PieceSummary piece)? onDeletePiece;
@@ -56,23 +57,15 @@ class ProfileTabContent extends StatelessWidget {
   final void Function(ProfileSeriesData series)? onSeriesTap;
 
   /// A sliver — must be placed directly in a `CustomScrollView.slivers` list
-  /// (or a `SliverPadding`'s `sliver:`), not wrapped in `SliverToBoxAdapter`,
-  /// since [ProfileContentGrid]'s masonry grid is itself a lazily-built
-  /// sliver now (see `profile_masonry_grid.dart`). Every branch below wraps
-  /// its box content (skeleton/empty-state/series grid) in
-  /// `SliverToBoxAdapter` so the whole widget always returns a valid sliver.
+  /// (or a `SliverPadding`'s `sliver:`), not wrapped in `SliverToBoxAdapter`.
   @override
   Widget build(BuildContext context) {
-    if (loading &&
-        (currentTab == 'pieces'
-            ? pieces.isEmpty
-            : currentTab == 'scenes'
-            ? scenes.isEmpty
-            : currentTab == 'collect'
-            ? listedPieces.isEmpty
-            : currentTab == 'series'
-            ? seriesItems.isEmpty
-            : true)) {
+    final empty = switch (currentTab) {
+      'pieces' => pieces.isEmpty,
+      'scenes' => scenes.isEmpty,
+      _ => collection.isEmpty,
+    };
+    if (loading && empty) {
       return const SliverToBoxAdapter(
         child: Padding(
           padding: EdgeInsets.symmetric(vertical: 8),
@@ -81,48 +74,24 @@ class ProfileTabContent extends StatelessWidget {
       );
     }
 
-    if (currentTab == 'series') {
-      if (sellerMode && seriesItems.isEmpty && !loading) {
-        return const SliverToBoxAdapter(child: SizedBox.shrink());
-      }
-      return SliverToBoxAdapter(
-        child: ProfileSeriesGrid(items: seriesItems, loading: loading, onSeriesTap: onSeriesTap),
-      );
-    }
-
     if (currentTab == 'pieces') {
-      if (sellerMode) {
-        return ProfileSellerPieces(
-          pieces: pieces,
-          series: seriesItems,
-          showOwnerActions: isOwnProfile,
-          onPieceTap: (piece) => openProfilePiece(context, piece),
-          onDeletePiece: onDeletePiece,
-          onPublishPiece: onPublishPiece,
-          onSeeAllSeries: onSeeAllSeries,
-        );
-      }
-      if (pieces.isNotEmpty) {
-        return ProfileContentGrid.fromPieces(
-          pieces,
-          onPieceTap: (piece) => openProfilePiece(context, piece),
-          onDeletePiece: onDeletePiece,
-          onPublishPiece: onPublishPiece,
-          showOwnerActions: isOwnProfile,
-        );
-      }
-      return const SliverToBoxAdapter(
-        child: _EmptyState(label: 'No pieces yet'),
+      return ProfileSellerPieces(
+        pieces: pieces,
+        series: seriesItems,
+        showOwnerActions: isOwnProfile,
+        onPieceTap: (piece) => openProfilePiece(context, piece),
+        onDeletePiece: onDeletePiece,
+        onPublishPiece: onPublishPiece,
+        onSeeAllSeries: onSeeAllSeries,
+        onSeriesTap: onSeriesTap,
       );
     }
 
     if (currentTab == 'scenes') {
+      if (scenes.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
       final visibleScenes = sceneFilter == 'videos'
           ? scenes.where(_isVideoPost).toList()
           : scenes;
-      if (sellerMode && scenes.isEmpty) {
-        return const SliverToBoxAdapter(child: SizedBox.shrink());
-      }
       final Widget gridSliver = visibleScenes.isNotEmpty
           ? ProfileContentGrid.fromPosts(
               visibleScenes,
@@ -132,14 +101,7 @@ class ProfileTabContent extends StatelessWidget {
               onPublishPost: onPublishScene,
               showOwnerActions: isOwnProfile,
             )
-          : SliverToBoxAdapter(
-              child: _EmptyState(
-                label: sceneFilter == 'videos'
-                    ? 'No videos yet'
-                    : 'No scenes yet',
-              ),
-            );
-      if (scenes.isEmpty) return gridSliver;
+          : const SliverToBoxAdapter(child: SizedBox.shrink());
       return SliverMainAxisGroup(
         slivers: [
           SliverToBoxAdapter(
@@ -167,51 +129,9 @@ class ProfileTabContent extends StatelessWidget {
       );
     }
 
-    if (currentTab == 'collect') {
-      if (!sellerMode) {
-        return const SliverToBoxAdapter(
-          child: _EmptyState(label: 'Switch to Seller to list pieces for sale'),
-        );
-      }
-
-      final visible = switch (collectSegment) {
-        'sold' => listedPieces.where((p) => p.status == 'sold').toList(),
-        'available' =>
-          listedPieces.where((p) => p.isForSale && p.status != 'sold').toList(),
-        _ => listedPieces,
-      };
-
-      if (visible.isEmpty) {
-        return const SliverToBoxAdapter(child: SizedBox.shrink());
-      }
-
-      return ProfileContentGrid.fromPieces(
-        visible,
-        forSaleListing: collectSegment != 'sold',
-        onPieceTap: (piece) => openProfilePiece(context, piece),
-      );
-    }
-
-    return const SliverToBoxAdapter(child: _EmptyState(label: 'Coming soon'));
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 32),
-      child: Center(
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: kProfileGeist(fontSize: 13, color: kProfileTextMuted),
-        ),
-      ),
+    return ProfileCollectionGrid(
+      pieces: collection,
+      onPieceTap: (piece) => openProfilePiece(context, piece),
     );
   }
 }

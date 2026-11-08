@@ -61,6 +61,7 @@ import 'models/auth_user.dart';
 import 'models/feed_item.dart';
 import 'theme/home_feed_tokens.dart';
 import 'utils/scrolls_to_top_on_double_tap.dart';
+import 'utils/shell_back.dart';
 import 'utils/snappy_page_physics.dart';
 import 'utils/require_login.dart';
 import 'widgets/terms_acceptance_dialog.dart';
@@ -365,6 +366,10 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   int? _lastNavTapIndex;
   DateTime? _lastNavTapAt;
 
+  /// The phone's back on the tabs (as on Instagram): other tabs go Home; on Home the first
+  /// back goes to the top and refreshes, the next closes the app.
+  final ShellBack _back = ShellBack();
+
   // GlobalKeys so a double-tap on a bottom-nav icon can reach into the
   // already-built page and ask it to scroll to top + refresh
   // (`ScrollsToTopOnDoubleTap`), without rebuilding the page itself.
@@ -520,9 +525,24 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     }
   }
 
+  /// The phone's back with only the tabs showing (`ShellBack`).
+  void _onSystemBack() {
+    final onHome = !_showProfile.value && _currentPage == _kHomePage;
+    final home = _homeKey.currentState as ScrollsToTopOnDoubleTap?;
+    switch (_back.onBack(onHome: onHome, homeAtTop: home?.isScrolledToTop ?? true)) {
+      case ShellBackAction.goHome:
+        _onNavTap(BottomNavIndex.home);
+      case ShellBackAction.refreshHome:
+        home?.scrollToTopAndRefresh();
+      case ShellBackAction.exit:
+        SystemNavigator.pop();
+    }
+  }
+
   void _onPageChanged(int page) {
     // Covers swipe-to-switch too, not just bottom-nav taps (see _onNavTap).
     FocusManager.instance.primaryFocus?.unfocus();
+    if (page != _kHomePage) _back.reset();
     if (page == _kReelsPage && _currentPage != _kReelsPage) _pageBeforeReels = _currentPage;
     _currentPage = page;
     _reelsActive.value = page == _kReelsPage;
@@ -560,6 +580,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
         now.difference(_lastNavTapAt!) <= _kDoubleTapWindow;
     _lastNavTapIndex = navIndex;
     _lastNavTapAt = now;
+    if (navIndex != BottomNavIndex.home) _back.reset();
 
     if (isDoubleTap) {
       _lastNavTapAt = null; // avoid a third tap re-triggering immediately
@@ -618,6 +639,17 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    // The phone's back never closes the app from another tab or mid-feed (`ShellBack`).
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _onSystemBack();
+      },
+      child: _buildShell(context),
+    );
+  }
+
+  Widget _buildShell(BuildContext context) {
     return Scaffold(
       backgroundColor: HomeFeedTokens.background,
       extendBody: true,

@@ -84,7 +84,9 @@ class NotificationItem {
   /// Chat DMs — phone push + Chats badge only; not shown in Notifications tab.
   bool get isChatMessage => type == 'message';
 
-  bool get isSale => type == 'purchase';
+  /// The seller's copy of a paid order: `sale` (BACKEND_CHANGES B14), or, before that, a
+  /// `purchase` carrying the order total.
+  bool get isSale => type == 'sale' || (type == 'purchase' && payload.containsKey('totalCents'));
 
   /// The action text — shown after the actor's name when [hasActor], on its own otherwise.
   /// Built from the real notification type and payload where a type is worth its own
@@ -110,6 +112,7 @@ class NotificationItem {
             ? "sent an inquiry about '$pieceTitle'"
             : 'sent you an inquiry';
       case 'purchase':
+      case 'sale':
         final pieceTitle = payload['pieceTitle'] as String?;
         return pieceTitle != null
             ? "purchased '$pieceTitle'"

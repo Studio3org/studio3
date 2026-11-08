@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:studio3/widgets/piece_detail/piece_action_bar.dart';
+import 'package:studio3/widgets/piece_detail/piece_double_tap_like.dart';
 import 'package:studio3/models/feed_preview_item.dart';
 import 'package:studio3/screens/available_piece_detail_page.dart';
 import 'package:studio3/theme/app_theme.dart';
@@ -180,14 +182,12 @@ void main() {
     expect(button.onPressed, isNull);
   });
 
-  testWidgets('like and comment stay, in Ink with board-style icons', (tester) async {
+  testWidgets('no Like or Comment row: a double tap on the image likes the piece', (tester) async {
     await _pumpPage(tester, _piece());
-    expect(find.text('Like'), findsOneWidget);
-    expect(find.text('Comment'), findsOneWidget);
-    final like = tester.widget<StudioIcon>(
-      find.byWidgetPredicate((w) => w is StudioIcon && w.asset == StudioIcons.like),
-    );
-    expect(like.color, StudioColors.light.textPrimary);
+    expect(find.text('Like'), findsNothing);
+    expect(find.text('Comment'), findsNothing);
+    expect(find.byType(PieceActionBar), findsNothing);
+    expect(find.byType(PieceDoubleTapLike), findsOneWidget);
     // Save lives in the top icons only.
     expect(find.text('Save'), findsNothing);
   });

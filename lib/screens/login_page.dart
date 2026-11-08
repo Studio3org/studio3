@@ -1,19 +1,21 @@
 import 'package:flutter/material.dart';
 
+import '../services/auth_service.dart';
 import '../services/auth_session.dart';
 import '../utils/auth_validators.dart';
 import '../widgets/auth_ui.dart';
 import '../widgets/studio/studio.dart';
 import 'login_password_page.dart';
+import 'signup_page.dart';
 
 /// The first screen (`SignInFirst` / `SignInFirstDark`): the haze, the large logo, and at the
 /// bottom an Email field (placeholder you@email.com) and Continue, grey until the email is
 /// valid. An account is required, so there is no "Look around first" and no legal line; the
 /// Terms agreement happens in profile setup.
 ///
-/// Continue should check the email: a new one goes to the code and profile steps, a known one
-/// to Welcome back. The server can't say which yet (BACKEND_CHANGES B30), so Continue opens
-/// Welcome back, which links to creating an account.
+/// Continue checks the email (BACKEND_CHANGES B30): a new one goes to the code and profile steps,
+/// a known one to Welcome back. When the server can't say (one without the check, or it
+/// couldn't be reached), Welcome back opens and links to creating an account.
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -41,10 +43,23 @@ class _LoginPageState extends State<LoginPage> {
 
   bool get _valid => AuthValidators.email(_emailController.text) == null;
 
-  void _continue() {
-    if (!_valid) return;
+  bool _checking = false;
+
+  Future<void> _continue() async {
+    if (!_valid || _checking) return;
     FocusManager.instance.primaryFocus?.unfocus();
-    LoginPasswordPage.open(context, _emailController.text.trim());
+    final email = _emailController.text.trim();
+    setState(() => _checking = true);
+    final exists = await AuthService.instance.emailExists(email);
+    if (!mounted) return;
+    setState(() => _checking = false);
+    if (exists == false) {
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute(builder: (_) => SignUpPage(initialEmail: email, startAtCode: true)),
+      );
+    } else {
+      await LoginPasswordPage.open(context, email, accountKnown: exists == true);
+    }
   }
 
   @override
@@ -68,7 +83,7 @@ class _LoginPageState extends State<LoginPage> {
             onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: 14),
-          AuthPrimaryButton(label: 'Continue', enabled: _valid, onPressed: _continue),
+          AuthPrimaryButton(label: 'Continue', enabled: _valid, loading: _checking, onPressed: _continue),
         ],
       ),
     );

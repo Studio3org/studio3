@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../../models/feed_item.dart';
 import '../../models/series_summary.dart';
+import '../../models/studio_event.dart';
 import '../../theme/studio_colors.dart';
 import '../../theme/studio_metrics.dart';
 import '../../theme/studio_type.dart';
 import '../follow_button.dart';
 import '../studio/studio_avatar.dart';
+import '../events/event_detail_widgets.dart' show eventDayLabel;
 import '../studio/studio_icon.dart';
 import 'explore_feed_image.dart';
 
@@ -163,30 +165,50 @@ class ExploreShelfHeader extends StatelessWidget {
   const ExploreShelfHeader({
     super.key,
     required this.title,
+    this.subtitle,
     this.onSeeAll,
   });
 
   final String title;
+
+  /// A 13 Graphite line under the title, 2 below it (Upcoming shows: the show).
+  final String? subtitle;
   final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
     final c = context.studio;
+    final heading = Text(
+      title,
+      style: StudioType.sans(
+        20,
+        weight: StudioType.medium,
+        height: 1.2,
+        color: c.textPrimary,
+      ),
+    );
+    final sub = subtitle;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: StudioSpace.marginFeed),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+        crossAxisAlignment: sub == null ? CrossAxisAlignment.center : CrossAxisAlignment.end,
         children: [
           Expanded(
-            child: Text(
-              title,
-              style: StudioType.sans(
-                20,
-                weight: StudioType.medium,
-                height: 1.2,
-                color: c.textPrimary,
-              ),
-            ),
+            child: sub == null
+                ? heading
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      heading,
+                      const SizedBox(height: 2),
+                      Text(
+                        sub,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: StudioType.label13(color: c.textSecondary),
+                      ),
+                    ],
+                  ),
           ),
           if (onSeeAll != null)
             Semantics(
@@ -314,6 +336,116 @@ class _PieceShelfCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// The show for Explore's Upcoming shows (`NoteExplore`): the soonest one with enough work on
+/// its bill to fill a shelf, by people the viewer hasn't blocked. Null when none has.
+StudioEvent? exploreShowFor(List<StudioEvent> shows, {bool Function(String? username)? hidden}) {
+  for (final show in shows) {
+    if (show.isCancelled || hidden?.call(show.hostUsername) == true) continue;
+    final pieces = show.lineup.where((p) => hidden?.call(p.artistUsername) != true).length;
+    if (pieces >= exploreShelfMinCount) return show;
+  }
+  return null;
+}
+
+/// The Upcoming shows subtitle (`NoteExplore`): event name, venue, date.
+String exploreShowSubtitle(StudioEvent show) {
+  final venue = (show.venueName ?? '').trim();
+  return [show.title, if (venue.isNotEmpty) venue, eventDayLabel(show)].join(' · ');
+}
+
+/// Upcoming shows (`Explore`, `NoteExplore`): one show, its work as 160-wide 3:4 cards (the
+/// size rule over the board's 200) with the title 14/500 and the artist 13. See all opens the
+/// event page; a card opens the piece. Hidden under [exploreShelfMinCount].
+class ExploreShowShelf extends StatelessWidget {
+  const ExploreShowShelf({
+    super.key,
+    required this.show,
+    required this.onOpenShow,
+    required this.onOpenPiece,
+    this.hidden,
+  });
+
+  final StudioEvent show;
+  final VoidCallback onOpenShow;
+  final ValueChanged<EventLineupItem> onOpenPiece;
+
+  /// Artists whose work is left out (blocked this session).
+  final bool Function(String? username)? hidden;
+
+  @override
+  Widget build(BuildContext context) {
+    final pieces = show.lineup.where((p) => hidden?.call(p.artistUsername) != true).toList();
+    if (pieces.length < exploreShelfMinCount) return const SizedBox.shrink();
+    final c = context.studio;
+    final scale = _textScale(context);
+    final height = explorePieceShelfImageHeight + StudioSpace.s8 + (_line(14) + 2 + _line(13)) * scale;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ExploreShelfHeader(
+          title: 'Upcoming shows',
+          subtitle: exploreShowSubtitle(show),
+          onSeeAll: onOpenShow,
+        ),
+        const SizedBox(height: exploreShelfInnerGap),
+        SizedBox(
+          height: height,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: StudioSpace.marginFeed),
+            itemCount: pieces.length,
+            separatorBuilder: (context, index) => const SizedBox(width: StudioSpace.s12),
+            itemBuilder: (context, index) {
+              final piece = pieces[index];
+              final artist = piece.artistName ?? piece.artistUsername;
+              return Semantics(
+                button: true,
+                label: [piece.title ?? 'Piece', ?artist].join(', '),
+                excludeSemantics: true,
+                child: GestureDetector(
+                  onTap: () => onOpenPiece(piece),
+                  child: SizedBox(
+                    width: explorePieceShelfWidth,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(StudioRadius.card),
+                          child: SizedBox(
+                            width: explorePieceShelfWidth,
+                            height: explorePieceShelfImageHeight,
+                            child: ExploreFeedImage(url: piece.mediaUrl),
+                          ),
+                        ),
+                        const SizedBox(height: StudioSpace.s8),
+                        Text(
+                          piece.title ?? '',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: StudioType.body14(weight: StudioType.medium, color: c.textPrimary),
+                        ),
+                        if (artist != null && artist.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            artist,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: StudioType.label13(color: c.textSecondary),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }

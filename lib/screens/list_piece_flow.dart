@@ -20,9 +20,21 @@ import '../widgets/studio/studio.dart';
 import 'post_create_page.dart' show ScenePostArgs;
 import 'seller/seller_setup_flow.dart';
 
-/// Listing an auction from a posted piece needs the server to open its auction on PATCH
-/// (BACKEND_CHANGES B16). Until then List later offers Fixed price only.
-const kListLaterAuction = false;
+/// "12 people", "1 person": how many saved a piece (BACKEND_CHANGES B17).
+String savedPeople(int count) => count == 1 ? '1 person' : '$count people';
+
+/// `ListDone`'s line: "We let the 12 people who saved it know." when anyone saved it (B12 told
+/// them, B17 counts them); otherwise what collectors can do now.
+String listedSubheading(PieceSummary piece) {
+  final saved = piece.savesCount ?? 0;
+  if (saved == 1) return 'We let the person who saved it know.';
+  if (saved > 1) return 'We let the $saved people who saved it know.';
+  return piece.isAuction ? 'Collectors can bid on it now.' : 'Collectors can collect it now.';
+}
+
+/// Listing an auction from a posted piece: the server opens its auction on PATCH
+/// (BACKEND_CHANGES B16, 2026-11-05), so List later offers Fixed price or Auction.
+const kListLaterAuction = true;
 
 /// "List it later" (`ListOwnerPiece` → `PostListLater` → `ListPricing` → `ListDone`): turns
 /// the owner's not-for-sale piece into a sale. Seller mode first; then the details only a
@@ -305,8 +317,8 @@ class _ListPricingPageState extends State<ListPricingPage> {
 }
 
 /// "[Title] is listed" (`ListDone`): the published screen with its feed preview, "Add a
-/// Scene from the studio", Share and View piece. The board's "We let the [N] people who saved
-/// it know" needs the save count and the listing notice (BACKEND_CHANGES B12, B17).
+/// Scene from the studio", Share and View piece, under "We let the [N] people who saved it
+/// know" ([listedSubheading]; BACKEND_CHANGES B12, B17).
 class ListDonePage extends StatelessWidget {
   const ListDonePage({super.key, required this.piece});
 
@@ -323,7 +335,7 @@ class ListDonePage extends StatelessWidget {
     return PostPublishedView(
       title: piece.title,
       heading: '${piece.title} is listed',
-      subheading: 'Collectors can collect it now.',
+      subheading: listedSubheading(piece),
       cover: cover == null || cover.isEmpty
           ? ColoredBox(color: context.studio.surface)
           : CachedNetworkImage(imageUrl: cover, fit: BoxFit.cover),

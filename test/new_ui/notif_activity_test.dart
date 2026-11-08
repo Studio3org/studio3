@@ -3,7 +3,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:studio3/models/follow_request.dart';
 import 'package:studio3/models/notification_item.dart';
+import 'package:studio3/screens/follow_requests_page.dart';
 import 'package:studio3/theme/app_theme.dart';
 import 'package:studio3/theme/studio_colors.dart';
 import 'package:studio3/widgets/inbox/notifications_body.dart';
@@ -44,14 +46,31 @@ final _board = [
     targetType: 'piece',
     message: 'Someone bid \$3,700 on Bodies in Color. Bid \$3,800 to take it back.',
   ),
+  // The seller's copy of an order (BACKEND_CHANGES B14).
   _n(
-    'purchase',
+    'sale',
     actor: 'Jordan Lee',
     targetType: 'order',
     payload: {'pieceTitle': 'Companion Bloom', 'totalCents': 120000},
     ago: const Duration(minutes: 48),
   ),
-  _n('follow', actor: 'Amara Osei', targetType: 'user', ago: const Duration(hours: 4), read: true),
+  // A piece you saved, and an artist you follow, as on the board (BACKEND_CHANGES B12).
+  _n(
+    'saved_piece_listed',
+    actor: 'Amara Osei',
+    targetType: 'piece',
+    payload: {'pieceTitle': 'Paper Planes III', 'priceCents': 95000},
+    ago: const Duration(hours: 2),
+  ),
+  _n(
+    'followed_artist_post',
+    actor: 'Amara Osei',
+    targetType: 'piece',
+    targetId: 'p3',
+    payload: {'pieces': 3, 'scenes': 0},
+    ago: const Duration(hours: 4),
+    read: true,
+  ),
   // Bundled, as on the board (BACKEND_CHANGES B7).
   _n(
     'save',
@@ -123,9 +142,11 @@ void main() {
   test('lines name people and pieces, never "your item"', () {
     String line(NotificationItem n) => activityLine(n).map((s) => s.$1).join();
     expect(line(_board[1]), 'Jordan Lee collected Companion Bloom.');
-    expect(line(_board[2]), 'Amara Osei followed you.');
-    expect(line(_board[3]), '12 people saved your piece Portrait Dream.');
-    expect(line(_board[5]), 'Sarah Osmei commented: “The underpainting is so warm”');
+    expect(line(_n('follow', actor: 'Amara Osei', targetType: 'user')), 'Amara Osei followed you.');
+    expect(line(_board[2]), 'Paper Planes III, which you saved, is now available for \$950.');
+    expect(line(_board[3]), 'Amara Osei posted 3 new pieces.');
+    expect(line(_board[4]), '12 people saved your piece Portrait Dream.');
+    expect(line(_board[6]), 'Sarah Osmei commented: “The underpainting is so warm”');
     expect(
       line(_n('purchase', payload: {'pieceTitle': 'Night Study'})),
       'Your order Night Study is confirmed.',
@@ -137,7 +158,85 @@ void main() {
     ]);
   });
 
+  // BACKEND_CHANGES B14.
+  test('a sale and a purchase, shipping and an event reminder; which side an order opens', () {
+    String line(NotificationItem n) => activityLine(n).map((s) => s.$1).join();
+    expect(line(_n('sale', actor: 'Jordan Lee', payload: {'totalCents': 1})), 'Jordan Lee collected a piece of yours.');
+    // Before B14 the seller's copy was a `purchase` with the total: still read as a sale.
+    final before = _n('purchase', actor: 'Jordan Lee', payload: {'pieceTitle': 'Tide', 'totalCents': 1});
+    expect(line(before), 'Jordan Lee collected Tide.');
+    expect(
+      line(_n('order_shipped', targetType: 'order', message: 'Your order is on its way via UPS')),
+      'Your order is on its way via UPS',
+    );
+    expect(
+      line(_n('event_reminder', actor: 'Amara Osei', targetType: 'event',
+          message: 'Night Market is tomorrow at 7 PM at Cedars Union.')),
+      'Night Market is tomorrow at 7 PM at Cedars Union.',
+    );
+
+    NotificationItem order(String type, [Map<String, dynamic> payload = const {}]) =>
+        _n(type, targetType: 'order', targetId: 'o1', payload: payload);
+    expect(isSellerOrderNotice(order('sale')), isTrue);
+    expect(isSellerOrderNotice(order('order_shipped', {'side': 'seller'})), isTrue);
+    expect(isSellerOrderNotice(before), isTrue);
+    expect(isSellerOrderNotice(order('purchase', {'pieceTitle': 'Tide'})), isFalse);
+    expect(isSellerOrderNotice(order('order_shipped', {'side': 'buyer'})), isFalse);
+    expect(isSellerOrderNotice(order('order_delivered', {'side': 'buyer'})), isFalse);
+    expect(order('sale').isSale && before.isSale, isTrue);
+    expect(order('purchase').isSale, isFalse);
+  });
+
   // BACKEND_CHANGES B7: saves and follows come bundled, one row per piece (or for follows) per day.
+  // BACKEND_CHANGES B12.
+  test('a piece you saved: listed, a new price, going to auction; the title bold', () {
+    String line(NotificationItem n) => activityLine(n).map((s) => s.$1).join();
+    NotificationItem saved(String type, Map<String, dynamic> payload) => _n(
+      type,
+      targetType: 'piece',
+      payload: {'pieceTitle': 'Paper Planes III', ...payload},
+      message: 'From the server.',
+    );
+    expect(
+      line(saved('saved_piece_price', {'priceCents': 85000, 'wasPriceCents': 95000})),
+      'Paper Planes III, which you saved, is now \$850 (was \$950).',
+    );
+    expect(
+      line(saved('saved_piece_price', {'priceCents': 95000, 'wasPriceCents': 95000})),
+      'Paper Planes III, which you saved, is now \$950.',
+    );
+    expect(
+      line(saved('saved_piece_auction', {'priceCents': 80000, 'biddingOpen': true})),
+      'Paper Planes III, which you saved, is up for auction. Bidding starts at \$800.',
+    );
+    expect(
+      line(saved('saved_piece_auction', {'priceCents': 80000, 'biddingOpen': false})),
+      'Paper Planes III, which you saved, is going to auction. Bidding starts at \$800.',
+    );
+    expect(activityLine(_board[2]).where((s) => s.$2).map((s) => s.$1), ['Paper Planes III']);
+    // Without the title or price, the server's own line.
+    expect(line(_n('saved_piece_listed', message: 'From the server.')), 'From the server.');
+  });
+
+  test('an artist you follow: how many pieces and Scenes', () {
+    String line(Map<String, dynamic> payload) =>
+        activityLine(_n('followed_artist_post', actor: 'Amara Osei', payload: payload)).map((s) => s.$1).join();
+    expect(line({'pieces': 1, 'scenes': 0}), 'Amara Osei posted a new piece.');
+    expect(line({'pieces': 0, 'scenes': 2}), 'Amara Osei posted 2 new Scenes.');
+    expect(line({'pieces': 2, 'scenes': 1}), 'Amara Osei posted 2 new pieces and a new Scene.');
+    expect(activityLine(_board[3]).first, ('Amara Osei', true));
+  });
+
+  testWidgets('Now listed in green over the piece; a new post leads with the artist', (tester) async {
+    await tester.pumpWidget(_host([_board[2], _board[3]]));
+    await tester.pump();
+    final c = StudioColors.light;
+    expect(tester.widget<Text>(find.text('Now listed')).style!.color, c.positive);
+    final rows = find.byType(ActivityRow);
+    expect(find.descendant(of: rows.at(1), matching: find.byType(StudioAvatar)), findsOneWidget);
+    expect(find.descendant(of: rows.at(0), matching: find.byType(StudioAvatar)), findsNothing);
+  });
+
   test('bundled saves and follows: how many, and the newest name', () {
     String line(NotificationItem n) => activityLine(n).map((s) => s.$1).join();
     List<String> bold(NotificationItem n) => activityLine(n).where((s) => s.$2).map((s) => s.$1).toList();
@@ -258,16 +357,84 @@ void main() {
     expect(find.text('Nothing here yet'), findsOneWidget);
   });
 
+  for (final dark in [false, true]) {
+    testWidgets('Follow requests row (${dark ? 'dark' : 'light'}): at the top, the newest photo, a count, '
+        'opens the list', (tester) async {
+      final now = DateTime.now();
+      final requests = [
+        FollowRequest(username: 'mariabruno', name: 'Maria Bruno', requestedAt: now.subtract(const Duration(days: 3))),
+        FollowRequest(
+          username: 'daisysmith',
+          name: 'Daisy Smith',
+          profilePhotoUrl: 'https://cdn.test/daisy.jpg',
+          requestedAt: now.subtract(const Duration(hours: 2)),
+        ),
+        FollowRequest(username: 'cedric', name: 'Cedric Okafor', requestedAt: now.subtract(const Duration(days: 1))),
+      ];
+      setBoardViewport(tester);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: dark ? AppTheme.dark : AppTheme.light,
+          home: Scaffold(body: NotificationsBody(debugItems: _board, debugRequests: requests)),
+        ),
+      );
+      await tester.pump();
+
+      final row = find.byKey(const Key('inbox-follow-requests'));
+      expect(find.text('Follow requests'), findsOneWidget);
+      expect(find.text('@daisysmith + 2 others'), findsOneWidget, reason: 'the newest first');
+      final avatar = tester.widget<StudioAvatar>(find.descendant(of: row, matching: find.byType(StudioAvatar)));
+      expect(avatar.url, 'https://cdn.test/daisy.jpg');
+      expect(avatar.size, 40);
+      final bubble = find.byKey(const Key('inbox-follow-requests-count'));
+      expect(find.descendant(of: bubble, matching: find.text('3')), findsOneWidget);
+      final c = dark ? StudioColors.dark : StudioColors.light;
+      expect((tester.widget<Container>(bubble).decoration! as BoxDecoration).color, c.textPrimary);
+      // Above every Activity row.
+      final firstRow = tester.getTopLeft(find.byType(ActivityRow).first).dy;
+      expect(tester.getTopLeft(row).dy, lessThan(firstRow));
+
+      await tester.tap(row);
+      await tester.pumpAndSettle();
+      expect(find.byType(FollowRequestsPage), findsOneWidget);
+      expect(find.text('Daisy Smith'), findsOneWidget);
+      expect(find.text('Maria Bruno'), findsOneWidget);
+    });
+  }
+
+  testWidgets('Follow requests row: one person has no "+ others"; nobody waiting, no row', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: NotificationsBody(
+            debugItems: const [],
+            debugRequests: [FollowRequest(username: 'daisy', name: 'Daisy', requestedAt: DateTime.now())],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('@daisy'), findsOneWidget);
+    expect(find.text('Nothing here yet'), findsOneWidget, reason: 'the empty state stays under it');
+
+    await tester.pumpWidget(
+      MaterialApp(theme: AppTheme.light, home: Scaffold(body: NotificationsBody(key: UniqueKey(), debugItems: const []))),
+    );
+    await tester.pump();
+    expect(find.byKey(const Key('inbox-follow-requests')), findsNothing);
+  });
+
   testWidgets('tabs: equal 44 tabs with a Mono count, full-width rule', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light,
         home: DefaultTabController(
-          length: 3,
+          length: 2,
           child: Scaffold(
             appBar: const StudioTabBar(
-              labels: ['Activity', 'Messages', 'Requests'],
-              counts: [null, 2, 0],
+              labels: ['Activity', 'Messages'],
+              counts: [null, 2],
               ruleFullWidth: true,
             ),
           ),
@@ -287,15 +454,15 @@ void main() {
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light,
         home: DefaultTabController(
-          length: 3,
+          length: 2,
           child: Scaffold(
             body: SafeArea(
               child: Column(
                 children: [
                   const SizedBox(height: 56),
                   const StudioTabBar(
-                    labels: ['Activity', 'Messages', 'Requests'],
-                    counts: [null, 2, null],
+                    labels: ['Activity', 'Messages'],
+                    counts: [null, 2],
                     ruleFullWidth: true,
                   ),
                   Expanded(child: NotificationsBody(debugItems: _board)),

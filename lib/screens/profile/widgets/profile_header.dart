@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../../models/studio_event.dart';
 import '../../../theme/studio_colors.dart';
 import '../../../theme/studio_metrics.dart';
 import '../../../theme/studio_type.dart';
 import '../../../widgets/follow_button.dart';
 import '../../../widgets/studio/studio_icon.dart';
 import '../profile_constants.dart';
+import 'profile_upcoming_show.dart';
 
 class ProfileHeader extends StatelessWidget {
   const ProfileHeader({
@@ -30,6 +32,15 @@ class ProfileHeader extends StatelessWidget {
     this.onShare,
     this.onTapFollowing,
     this.onTapFollowers,
+    this.upcomingEvent,
+    this.onOpenEvent,
+    this.onEventTickets,
+    this.locked = false,
+    this.mediums = const [],
+    this.artistsCount,
+    this.showFollowing = true,
+    this.showStats = true,
+    this.showMessage = true,
   });
 
   final String name;
@@ -60,6 +71,28 @@ class ProfileHeader extends StatelessWidget {
   final VoidCallback? onTapFollowing;
   final VoidCallback? onTapFollowers;
 
+  /// The Upcoming show card between the bio and the stats (BACKEND_CHANGES B27).
+  final StudioEvent? upcomingEvent;
+  final VoidCallback? onOpenEvent;
+  final VoidCallback? onEventTickets;
+
+  /// `ProfilePrivate` / `ProfileRequested`: a private account the viewer doesn't follow. The
+  /// line under the username is "N following" alone, not tappable, and only when
+  /// [showFollowing]; the stats only when [showStats]; Follow (or Requested) fills the row,
+  /// with Message beside it only when [showMessage] (the owner takes messages from everyone).
+  final bool locked;
+
+  /// Under the username (`ProfileSeller`, `ProfileOwn`): up to three mediums, "Painting · Mixed
+  /// media", 13 in the body grey. Empty hides the line (the caller passes them only for a
+  /// seller who has posted).
+  final List<String> mediums;
+
+  /// The collector's "artists" stat; null leaves it off (an older server).
+  final int? artistsCount;
+  final bool showFollowing;
+  final bool showStats;
+  final bool showMessage;
+
   String _formatCount(int? value) {
     if (value == null) return '—';
     if (value >= 1000) {
@@ -79,6 +112,7 @@ class ProfileHeader extends StatelessWidget {
       : collectorMode
       ? [
           (value: _formatCount(collectedCount), label: 'collected'),
+          if (artistsCount != null) (value: _formatCount(artistsCount), label: 'artists'),
           (value: _formatCount(savesCount), label: 'saves'),
         ]
       : [
@@ -116,6 +150,25 @@ class ProfileHeader extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: StudioType.label13(color: c.textSecondary),
             ),
+            if (mediums.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                mediums.take(3).join(' · '),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: StudioType.label13(color: c.textBody),
+              ),
+            ],
+            if (locked && showFollowing) ...[
+              const SizedBox(height: 4),
+              Text(
+                '$followingCount following',
+                textAlign: TextAlign.center,
+                style: StudioType.label13(color: c.textSecondary),
+              ),
+            ],
+            if (!locked) ...[
             const SizedBox(height: 4),
             ConstrainedBox(
               constraints: const BoxConstraints(minHeight: StudioSize.tapTarget),
@@ -157,6 +210,7 @@ class ProfileHeader extends StatelessWidget {
                 ),
               ),
             ),
+            ],
             if (bio.isNotEmpty) ...[
               const SizedBox(height: 14),
               Text(
@@ -165,11 +219,21 @@ class ProfileHeader extends StatelessWidget {
                 style: StudioType.body14(height: 1.5, color: c.textBody),
               ),
             ],
-            const SizedBox(height: 14),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              child: _StatsRow(stats: _stats),
-            ),
+            if (upcomingEvent != null) ...[
+              const SizedBox(height: 14),
+              ProfileUpcomingShow(
+                event: upcomingEvent!,
+                onOpen: onOpenEvent ?? () {},
+                onTickets: onEventTickets ?? onOpenEvent ?? () {},
+              ),
+            ],
+            if (showStats) ...[
+              const SizedBox(height: 14),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: _StatsRow(stats: _stats),
+              ),
+            ],
             if (isOwnProfile && (onEditProfile != null || onShare != null)) ...[
               const SizedBox(height: 14),
               Row(
@@ -197,14 +261,16 @@ class ProfileHeader extends StatelessWidget {
               const SizedBox(height: 14),
               Row(
                 children: [
-                  Expanded(
-                    child: _ProfileActionButton(
-                      label: 'Message',
-                      filled: false,
-                      onPressed: onMessage,
+                  if (showMessage) ...[
+                    Expanded(
+                      child: _ProfileActionButton(
+                        label: 'Message',
+                        filled: false,
+                        onPressed: onMessage,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
+                    const SizedBox(width: 10),
+                  ],
                   Expanded(
                     child: _ProfileActionButton(
                       label: followState.actionLabel,

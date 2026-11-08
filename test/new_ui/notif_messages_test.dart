@@ -18,7 +18,8 @@ import 'package:studio3/theme/studio_colors.dart';
 import 'package:studio3/widgets/inbox/chats_body.dart';
 import 'package:studio3/widgets/studio/studio_avatar.dart';
 import 'package:studio3/widgets/studio/studio_icon.dart';
-import 'package:studio3/widgets/studio/studio_tab_bar.dart';
+import 'package:studio3/widgets/studio/studio_tab_bar.dart';
+
 import 'package:studio3/utils/app_clock.dart';
 
 import 'golden_harness.dart';
@@ -395,7 +396,7 @@ void main() {
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light,
           home: DefaultTabController(
-            length: 3,
+            length: 2,
             initialIndex: 1,
             child: Scaffold(
               body: SafeArea(
@@ -403,8 +404,8 @@ void main() {
                   children: [
                     const SizedBox(height: 56),
                     const StudioTabBar(
-                      labels: ['Activity', 'Messages', 'Requests'],
-                      counts: [null, 2, null],
+                      labels: ['Activity', 'Messages'],
+                      counts: [null, 2],
                       ruleFullWidth: true,
                     ),
                     Expanded(child: ChatsBody(debugConversations: _chats)),

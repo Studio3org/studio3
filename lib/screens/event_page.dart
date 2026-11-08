@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../models/studio_event.dart';
@@ -6,6 +8,7 @@ import '../services/event_service.dart';
 import '../services/saved_content_store.dart';
 import '../utils/require_login.dart';
 import '../utils/scrolls_to_top_on_double_tap.dart';
+import '../widgets/save_flow.dart';
 import '../widgets/events/event_tab_widgets.dart';
 import '../widgets/post_picker_search_field.dart';
 import '../widgets/studio/studio.dart';
@@ -19,17 +22,25 @@ import 'my_events_page.dart';
 /// Featured; the range's list; From artists you follow, Workshops and classes, Exhibitions
 /// as sideways rows; Browse by category.
 ///
-/// The server has no featured pick, place filter or event search yet (BACKEND_CHANGES B23):
-/// Featured is the soonest event in range that starts today or later, and the place, search and filters narrow what
-/// `GET /api/events/browse` returned.
+/// The range, place and search go to the server (BACKEND_CHANGES B23): browse comes back
+/// narrowed, with the team's Featured pick, and Near me lists the server's cities. The same
+/// rules also run here over what came back, so the cached tab paints right before the
+/// narrowed one arrives; with no Featured pick in range, the soonest event that starts today
+/// or later stands in.
 class EventPage extends StatefulWidget {
-  const EventPage({super.key, this.debugBrowse, this.debugNow});
+  const EventPage({super.key, this.debugBrowse, this.debugNow, this.debugRefine, this.debugCities});
 
   /// For tests: the browse response and the clock.
   @visibleForTesting
   final EventBrowse? debugBrowse;
   @visibleForTesting
   final DateTime? debugNow;
+
+  /// For tests: the narrowed browse for a range, place and search, and the cities.
+  @visibleForTesting
+  final Future<EventBrowse> Function(DateTime from, DateTime to, String? city, String? q)? debugRefine;
+  @visibleForTesting
+  final Future<List<String>> Function()? debugCities;
 
   @override
   State<EventPage> createState() => _EventPageState();
@@ -41,6 +52,11 @@ class _EventPageState extends State<EventPage> with ScrollsToTopOnDoubleTap<Even
   final _store = SavedContentStore.instance;
 
   EventBrowse? _browse;
+
+  /// Browse narrowed on the server to the range, place and search shown (B23).
+  EventBrowse? _refined;
+  Timer? _searchDebounce;
+  int _refineCalls = 0;
   bool _loading = true;
   String? _error;
   EventRange _range = EventRange.today;
@@ -57,15 +73,48 @@ class _EventPageState extends State<EventPage> with ScrollsToTopOnDoubleTap<Even
     if (given != null) {
       _browse = given;
       _loading = false;
+      _refine();
       return;
     }
     _browse = EventService.instance.peekBrowseCached();
     _load();
+    _refine();
+  }
+
+  /// Ask the server for the range, place and search shown (B23). A later call wins; a
+  /// failure keeps what is on screen, which the same rules already narrow here.
+  Future<void> _refine() async {
+    final refine = widget.debugRefine ??
+        (widget.debugBrowse != null
+            ? null
+            : (DateTime from, DateTime to, String? city, String? q) =>
+                EventService.instance.browse(from: from, to: to, city: city, q: q, limit: 50));
+    if (refine == null) return;
+    final call = ++_refineCalls;
+    final q = _search.text.trim();
+    try {
+      final next = await refine(
+        _now,
+        _range.endFrom(_now),
+        _place == 'Near me' ? null : _place,
+        q.isEmpty ? null : q,
+      );
+      if (mounted && call == _refineCalls) setState(() => _refined = next);
+    } catch (_) {
+      // Keep the cached tab.
+    }
+  }
+
+  void _onSearch(String _) {
+    setState(() {});
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), _refine);
   }
 
   @override
   void dispose() {
     _store.removeListener(_onStore);
+    _searchDebounce?.cancel();
     _scroll.dispose();
     _search.dispose();
     super.dispose();
@@ -91,6 +140,7 @@ class _EventPageState extends State<EventPage> with ScrollsToTopOnDoubleTap<Even
         _loading = false;
         _error = null;
       });
+      if (fresh) _refine();
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -127,6 +177,7 @@ class _EventPageState extends State<EventPage> with ScrollsToTopOnDoubleTap<Even
       await EventService.instance.setSaved(event.id, saved: !wasSaved);
       if (!mounted) return;
       _store.toggleEvent(event);
+      announceEventSave(context, event, saved: !wasSaved);
     } on ApiException catch (e) {
       if (mounted) showStudioToast(context, e.message, icon: null);
     } catch (_) {
@@ -160,7 +211,7 @@ class _EventPageState extends State<EventPage> with ScrollsToTopOnDoubleTap<Even
   }
 
   List<StudioEvent> get _all {
-    final browse = _browse;
+    final browse = _refined ?? _browse;
     if (browse == null) return const [];
     final seen = <String>{};
     return [
@@ -189,9 +240,23 @@ class _EventPageState extends State<EventPage> with ScrollsToTopOnDoubleTap<Even
         .any((field) => field.toLowerCase().contains(q));
   }
 
+  /// Near me: the server's cities with something coming up (B23), else the ones found here.
   Future<void> _pickPlace() async {
-    final next = await showEventPlaceSheet(context, current: _place, cities: _cities);
-    if (next != null && mounted) setState(() => _place = next);
+    var cities = _cities;
+    final load = widget.debugCities ??
+        (widget.debugBrowse != null ? null : EventService.instance.cities);
+    try {
+      final fromServer = load == null ? const <String>[] : await load();
+      if (fromServer.isNotEmpty) cities = fromServer;
+    } catch (_) {
+      // The cities found in what browse returned.
+    }
+    if (!mounted) return;
+    final next = await showEventPlaceSheet(context, current: _place, cities: cities);
+    if (next != null && next != _place && mounted) {
+      setState(() => _place = next);
+      _refine();
+    }
   }
 
   Future<void> _openFilters() async {
@@ -216,12 +281,15 @@ class _EventPageState extends State<EventPage> with ScrollsToTopOnDoubleTap<Even
   @override
   Widget build(BuildContext context) {
     final c = context.studio;
-    final browse = _browse;
+    final browse = _refined ?? _browse;
     final shown = _all.where(_shows).toList();
-    // The soonest event that starts from today on (a run that is already open is not
-    // "featured" news); any event in range otherwise.
+    // The team's pick in this range and place (B23); else the soonest event that starts from
+    // today on (a run that is already open is not "featured" news), or any event in range.
     final dayStart = DateTime(_now.year, _now.month, _now.day);
-    final featured = shown.isEmpty
+    final picked = _refined?.featured;
+    final featured = picked != null && _shows(picked)
+        ? picked
+        : shown.isEmpty
         ? null
         : shown.firstWhere((e) => !e.startsAt.isBefore(dayStart), orElse: () => shown.first);
     // Same rule for the range's list: what starts in range first, then runs already open.
@@ -260,7 +328,7 @@ class _EventPageState extends State<EventPage> with ScrollsToTopOnDoubleTap<Even
           ),
         ),
       );
-    } else if (_all.isEmpty) {
+    } else if ((_browse?.isEmpty ?? true) && _all.isEmpty) {
       body.add(
         Padding(
           padding: const EdgeInsets.only(top: 120),
@@ -304,9 +372,14 @@ class _EventPageState extends State<EventPage> with ScrollsToTopOnDoubleTap<Even
             title: _range.label,
             onSeeAll: () => _seeAll(
               _range.label,
-              () async => _range == EventRange.today
-                  ? await service.list(scope: 'today')
-                  : (await service.list()).where((e) => _range.includes(e, _now)).toList(),
+              () async => (await service.list(
+                scope: _range == EventRange.today ? 'today' : 'upcoming',
+                from: _now,
+                to: _range.endFrom(_now),
+                city: _place == 'Near me' ? null : _place,
+                q: _search.text,
+                limit: 50,
+              )).where((e) => _range.includes(e, _now)).toList(),
             ),
           ),
         );
@@ -377,12 +450,15 @@ class _EventPageState extends State<EventPage> with ScrollsToTopOnDoubleTap<Even
                   controller: _search,
                   hintText: 'Search events',
                   height: 44,
-                  onChanged: (_) => setState(() {}),
+                  onChanged: _onSearch,
                 ),
               ),
               EventRangeTabs(
                 range: _range,
-                onRange: (r) => setState(() => _range = r),
+                onRange: (r) {
+                  setState(() => _range = r);
+                  _refine();
+                },
                 onFilters: _openFilters,
                 filtersActive: _filters.isActive,
               ),

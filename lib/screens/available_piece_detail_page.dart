@@ -32,6 +32,7 @@ import '../widgets/piece_detail/detail_save_state.dart';
 import '../widgets/piece_detail/detail_scroll_handoff.dart';
 import '../widgets/piece_detail/piece_action_bar.dart';
 import '../widgets/piece_detail/piece_comment_sheet.dart';
+import '../widgets/piece_detail/piece_double_tap_like.dart';
 import '../widgets/piece_detail/piece_related_scenes_row.dart';
 import '../widgets/piece_detail/piece_share_sheet.dart';
 import '../widgets/piece_detail/piece_page_sections.dart';
@@ -86,7 +87,8 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
     return base + (item.isAuction && reserveNote ? 21 : 0);
   }
 
-  /// The viewer's own top bid here, from this phone (`BidStore`).
+  /// The viewer's own top bid here, from this phone (`BidStore`); the server's
+  /// `myTopBidCents` comes first (BACKEND_CHANGES B18).
   int? _myTopBid;
 
   bool get _sold => item.status == 'sold';
@@ -153,7 +155,8 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
   AuctionBarState get _auctionState => auctionBarState(
     auction: item.auction,
     isOwner: _isOwner,
-    myTopBidCents: _myTopBid,
+    myTopBidCents: item.myTopBidCents ?? _myTopBid,
+    myBidStatus: item.myBidStatus,
   );
 
   Future<void> _onAuctionAction() async {
@@ -353,10 +356,17 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
                     children: [
                       AspectRatio(
                         aspectRatio: item.aspectRatioValue,
-                        child: DetailHeroImage(
-                          item: item,
-                          initialImageIndex: widget.initialImageIndex,
-                        ),
+                        // A piece: no Like button; double tap the image (hint on each visit).
+                        child: item.isScene
+                            ? DetailHeroImage(item: item, initialImageIndex: widget.initialImageIndex)
+                            : PieceDoubleTapLike(
+                                liked: liked,
+                                onToggle: toggleLike,
+                                child: DetailHeroImage(
+                                  item: item,
+                                  initialImageIndex: widget.initialImageIndex,
+                                ),
+                              ),
                       ),
                       Positioned(
                         top: 0,
@@ -392,8 +402,10 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
                         isOwner: _isOwner,
                         ownerLabel: sold ? 'Your work' : 'Your piece',
                       ),
-                      // Like and comment stay on the page (plan rule 4); Save and Share
-                      // are in the top icons.
+                      // A piece has no Like or Comment row (no comments on pieces; a double
+                      // tap likes it). A Scene keeps its row as before. Save and Share are in
+                      // the top icons.
+                      if (item.isScene)
                       PieceActionBar(
                         liked: liked,
                         saved: saved,

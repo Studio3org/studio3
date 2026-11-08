@@ -1,5 +1,6 @@
 import '../models/feed_item.dart';
 import '../models/feed_page.dart';
+import '../models/studio_event.dart';
 import 'api_client.dart';
 import 'auth_session.dart';
 import 'cache_service.dart';
@@ -11,10 +12,14 @@ class FeedService {
 
   final _api = ApiClient.instance;
 
+  /// Asks the home feeds for their one event card (BACKEND_CHANGES B27). The server only
+  /// sends event items to an app that asks, since older apps would read one as a piece.
+  static const _withEvents = {'include': 'events'};
+
   Future<FeedPage> getFollowing({String? cursor, int? limit}) async {
     final json = await _api.get(
       '/api/feed/following',
-      query: _query(cursor: cursor, limit: limit),
+      query: {..._query(cursor: cursor, limit: limit), ..._withEvents},
       auth: true,
     );
     return _parseFeedPage(json);
@@ -44,10 +49,15 @@ class FeedService {
     );
   }
 
-  Future<FeedPage> getForYou({String? cursor, int? limit}) async {
+  /// For You. [available] asks the server for only pieces that can be collected now
+  /// (`?available=1`, BACKEND_CHANGES B29); its pages carry no event card.
+  Future<FeedPage> getForYou({String? cursor, int? limit, bool available = false}) async {
     final json = await _api.get(
       '/api/feed/for-you',
-      query: _query(cursor: cursor, limit: limit),
+      query: {
+        ..._query(cursor: cursor, limit: limit),
+        if (available) 'available': '1' else ..._withEvents,
+      },
       auth: AuthSession.instance.isLoggedIn,
     );
     return _parseFeedPage(json);
@@ -76,7 +86,7 @@ class FeedService {
         }
         return _api.get(
           '/api/feed/for-you',
-          query: _query(),
+          query: {..._query(), ..._withEvents},
           auth: AuthSession.instance.isLoggedIn,
         );
       },
@@ -159,10 +169,25 @@ class FeedService {
     final stub =
         data is Map<String, dynamic> ? data['stub'] as bool? ?? false : false;
 
-    var items = _api
-        .extractList(json)
+    // The feed's event card (B27) is not a piece or a scene: it comes out of the items.
+    StudioEvent? event;
+    final raw = _api.extractList(json);
+    for (final item in raw) {
+      if (item['type'] == 'event' && item['event'] is Map<String, dynamic>) {
+        event ??= StudioEvent.fromJson(item['event'] as Map<String, dynamic>);
+      }
+    }
+    var items = raw
+        .where((item) => item['type'] != 'event')
         .map(FeedItem.fromJson)
         .toList(growable: false);
+
+    final shows = data is Map<String, dynamic> && data['upcomingShows'] is List
+        ? [
+            for (final show in (data['upcomingShows'] as List).whereType<Map<String, dynamic>>())
+              StudioEvent.fromJson({...show, 'lineup': show['pieces'] ?? const []}),
+          ]
+        : const <StudioEvent>[];
 
     if (rawItems is! List && items.isEmpty) {
       items = const [];
@@ -174,6 +199,12 @@ class FeedService {
           .toList(growable: false);
     }
 
-    return FeedPage(items: items, nextCursor: nextCursor, stub: stub);
+    return FeedPage(
+      items: items,
+      nextCursor: nextCursor,
+      stub: stub,
+      event: event,
+      upcomingShows: shows,
+    );
   }
 }

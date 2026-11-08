@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:studio3/widgets/piece_detail/piece_double_tap_like.dart';
 import 'package:studio3/models/auth_user.dart';
 import 'package:studio3/models/feed_preview_item.dart';
 import 'package:studio3/screens/piece_detail_page.dart';
@@ -110,7 +111,8 @@ void main() {
     expect(find.text('Details'), findsOneWidget);
     expect(find.text('Ships from'), findsOneWidget);
     expect(find.text('Part of a series'), findsOneWidget);
-    expect(find.text('Like'), findsOneWidget);
+    expect(find.text('Like'), findsNothing); // a double tap on the image likes a piece
+    expect(find.byType(PieceDoubleTapLike), findsOneWidget);
     expect(find.text('Save'), findsNothing); // only in the top icons
   });
 

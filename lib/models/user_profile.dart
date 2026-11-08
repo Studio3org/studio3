@@ -1,4 +1,5 @@
 import 'piece_summary.dart';
+import 'studio_event.dart';
 
 class UserProfile {
   const UserProfile({
@@ -41,6 +42,12 @@ class UserProfile {
     this.profileVisibility = 'public',
     this.notificationPreferences,
     this.isLocked = false,
+    this.followingKnown = true,
+    this.statsKnown = true,
+    this.upcomingEvent,
+    this.profileMediums = const [],
+    this.artistsCount,
+    this.collectionPrivate,
   });
 
   final String username;
@@ -88,6 +95,28 @@ class UserProfile {
   /// for a private profile the viewer can't yet see (see `isLocked` check
   /// in `fromJson`) — pieces/posts/series tabs must not be fetched.
   final bool isLocked;
+
+  /// Whether the server sent the following count and the stats. A full profile always does;
+  /// a locked one (`ProfilePrivate`) only once the server adds them (BACKEND_CHANGES B36),
+  /// and until then the header leaves them off rather than showing zeros.
+  final bool followingKnown;
+  final bool statsKnown;
+
+  /// Up to three mediums under the username, in order (`ProfileSeller`, `EditProfile`;
+  /// BACKEND_CHANGES B31). Not the sign-up taste.
+  final List<String> profileMediums;
+
+  /// How many artists they've bought from: the collector's "artists" stat. Null from a server
+  /// that doesn't send it.
+  final int? artistsCount;
+
+  /// Private Collection (`SettingsPrivacy`, B34), on your own profile only. Null from a server
+  /// that doesn't have it, and then the switch isn't shown.
+  final bool? collectionPrivate;
+
+  /// The profile's Upcoming show (`ProfileSeller`, `ProfileOwn`): the soonest published event
+  /// they host that hasn't ended (BACKEND_CHANGES B27). Null when there is none.
+  final StudioEvent? upcomingEvent;
 
   bool get isPrivate => profileVisibility == 'private';
 
@@ -141,7 +170,9 @@ class UserProfile {
       bannerTargetType: json['bannerTargetType'] as String?,
       bannerTargetId: json['bannerTargetId'] as String?,
       bannerAutoRule: json['bannerAutoRule'] as String? ?? 'none',
-      messagePermission: json['messagePermission'] as String? ?? 'everyone',
+      // A locked profile shows Message only when the owner takes messages from everyone
+      // (`ProfilePrivate`); when the server doesn't say (before B36), it stays off.
+      messagePermission: json['messagePermission'] as String? ?? (isLocked ? 'no_one' : 'everyone'),
       profileVisibility: json['profileVisibility'] as String? ?? 'public',
       notificationPreferences:
           json['notificationPreferences'] is Map<String, dynamic>
@@ -150,6 +181,16 @@ class UserProfile {
             )
           : null,
       isLocked: isLocked,
+      followingKnown: !isLocked || json['followingCount'] != null || json['following'] != null,
+      statsKnown: !isLocked || json['collectedCount'] != null || json['savesCount'] != null,
+      upcomingEvent: json['upcomingEvent'] is Map<String, dynamic>
+          ? StudioEvent.fromJson(json['upcomingEvent'] as Map<String, dynamic>)
+          : null,
+      profileMediums:
+          (json['profileMediums'] as List?)?.whereType<String>().where((m) => m.trim().isNotEmpty).take(3).toList() ??
+          const [],
+      artistsCount: json['artistsCount'] is num ? (json['artistsCount'] as num).toInt() : null,
+      collectionPrivate: json['collectionPrivate'] as bool?,
     );
   }
 
@@ -198,6 +239,12 @@ class UserProfile {
       profileVisibility: profileVisibility,
       notificationPreferences: notificationPreferences,
       isLocked: isLocked,
+      followingKnown: followingKnown,
+      statsKnown: statsKnown,
+      upcomingEvent: upcomingEvent,
+      profileMediums: profileMediums,
+      artistsCount: artistsCount,
+      collectionPrivate: collectionPrivate,
     );
   }
 

@@ -21,8 +21,12 @@ abstract final class StudioSpace {
   /// Side margins: posting and sign-in (24 to 28; boards use 24 for forms, 28 on some).
   static const double marginForm = 24;
 
-  /// Between full-bleed feed pieces.
+  /// Between full-bleed feed pieces (Explore, Saved).
   static const double feedGap = 20;
+
+  /// Between posts in the home feed (`Main`, `NoteMain`): pieces, series rows and the event
+  /// card alike. The space separates posts; no lines or cards.
+  static const double homePostGap = 52;
 
   /// Around inset feed sections (series rows, event cards).
   static const double feedInset = 48;

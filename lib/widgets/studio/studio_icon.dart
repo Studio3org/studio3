@@ -55,6 +55,9 @@ abstract final class StudioIcons {
   static const String explore = '$_dir/explore.svg';
   static const String home = '$_dir/home.svg';
   static const String info = '$_dir/info.svg';
+
+  /// `ProfileOwn` cover, sellers only: the bar chart that opens Insights.
+  static const String insights = '$_dir/insights.svg';
   static const String more = '$_dir/more.svg';
   static const String post = '$_dir/post.svg';
   static const String profile = '$_dir/profile.svg';

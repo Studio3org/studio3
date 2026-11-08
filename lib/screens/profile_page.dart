@@ -25,6 +25,7 @@ import '../widgets/studio/studio_action_row.dart';
 import '../widgets/studio/studio_icon.dart';
 import '../widgets/studio/studio_sheet.dart';
 import 'profile/models/profile_series_data.dart';
+import 'profile/profile_all_series_page.dart';
 import 'series_view_page.dart';
 import 'profile/profile_constants.dart';
 import '../widgets/follow_button.dart';
@@ -34,7 +35,9 @@ import 'profile/widgets/profile_locked_placeholder.dart';
 import 'profile/widgets/profile_tab_content.dart';
 import 'profile/widgets/profile_tabs.dart';
 import 'profile/widgets/profile_viewer_mode_capsule.dart';
+import 'event_detail_page.dart' show openEventDetail;
 import 'reels_page.dart' show routeObserver;
+import 'seller_analytics_page.dart';
 import '../utils/require_login.dart';
 import '../utils/scrolls_to_top_on_double_tap.dart';
 
@@ -59,15 +62,19 @@ class _ProfilePageState extends State<ProfilePage>
   UserProfile? _profile;
   List<PieceSummary> _pieces = [];
   List<PostSummary> _scenes = [];
-  List<PieceSummary> _listedPieces = [];
+  /// The Collection tab: what they've bought (BACKEND_CHANGES B37).
+  List<PieceSummary> _collection = [];
   List<ProfileSeriesData> _series = [];
   bool _tabContentLoading = false;
   bool? _lastKnownSeller;
   bool _piecesLoaded = false;
   bool _scenesLoaded = false;
-  bool _listedPiecesLoaded = false;
+  bool _collectionLoaded = false;
   bool _seriesLoaded = false;
-  String _collectSegment = 'all';
+
+  /// Set once someone picks a tab, so a reload never moves them (a collector with no pieces
+  /// opens on Collection, `ProfileCollector`).
+  bool _tabPicked = false;
   String _sceneFilter = 'all';
   bool _followBusy = false;
   int _profileLoadAttempts = 0;
@@ -106,8 +113,6 @@ class _ProfilePageState extends State<ProfilePage>
     if (pieces != null) _pieces = pieces;
     final scenes = PostService.instance.peekUserPostsCached(username);
     if (scenes != null) _scenes = scenes;
-    final forSale = PieceService.instance.peekUserPiecesForSaleCached(username);
-    if (forSale != null) _listedPieces = forSale;
     final series = SeriesService.instance.peekUserSeriesCached(username);
     if (series != null) {
       _series = series.map(ProfileSeriesData.fromSeries).toList();
@@ -157,16 +162,7 @@ class _ProfilePageState extends State<ProfilePage>
     if (seller == _lastKnownSeller) return;
     _lastKnownSeller = seller;
     if (!mounted) return;
-    setState(() {
-      if (seller) {
-        _tab = 'collect';
-        _listedPiecesLoaded = false;
-      } else if (_tab == 'collect') {
-        _tab = 'pieces';
-        _listedPieces = [];
-        _listedPiecesLoaded = false;
-      }
-    });
+    _resetTabCache();
     _loadProfileShell(silent: true);
     _loadActiveTab(force: true);
   }
@@ -174,7 +170,7 @@ class _ProfilePageState extends State<ProfilePage>
   void _resetTabCache() {
     _piecesLoaded = false;
     _scenesLoaded = false;
-    _listedPiecesLoaded = false;
+    _collectionLoaded = false;
     _seriesLoaded = false;
   }
 
@@ -188,7 +184,6 @@ class _ProfilePageState extends State<ProfilePage>
             setState(() {
               _profile = fresh;
               _lastKnownSeller = fresh.sellerEnabled;
-              if (!fresh.sellerEnabled && _tab == 'collect') _tab = 'pieces';
             });
           },
         );
@@ -200,11 +195,15 @@ class _ProfilePageState extends State<ProfilePage>
       setState(() {
         _profile = profile;
         _lastKnownSeller = profile.sellerEnabled;
-        if (!profile.sellerEnabled && _tab == 'collect') _tab = 'pieces';
+        // `ProfileCollector`: "No pieces or Scenes, so it opens on Collection."
+        if (!_tabPicked &&
+            !profile.isLocked &&
+            !profile.sellerEnabled &&
+            profile.role == 'collector' &&
+            profile.piecesCount == 0) {
+          _tab = 'collection';
+        }
       });
-      if (profile.sellerEnabled && !profile.isLocked) {
-        _prefetchListedPieces(profile);
-      }
       // Locked (private, not-yet-approved) profiles never fetch tab content
       // — the backend gates those endpoints the same way, so there's
       // nothing to show and no point firing the requests.
@@ -239,8 +238,7 @@ class _ProfilePageState extends State<ProfilePage>
     final tab = _tab;
     if (tab == 'pieces' && (_piecesLoaded && !force)) return;
     if (tab == 'scenes' && (_scenesLoaded && !force)) return;
-    if (tab == 'collect' && (_listedPiecesLoaded && !force)) return;
-    if (tab == 'series' && (_seriesLoaded && !force)) return;
+    if (tab == 'collection' && (_collectionLoaded && !force)) return;
 
     // Only show the loading flag when this tab is truly empty — if a cache
     // peek (or a prior load) already put content on screen, the cached
@@ -249,11 +247,13 @@ class _ProfilePageState extends State<ProfilePage>
     final hasVisibleData = switch (tab) {
       'pieces' => _pieces.isNotEmpty,
       'scenes' => _scenes.isNotEmpty,
-      'collect' => _listedPieces.isNotEmpty,
-      'series' => _series.isNotEmpty,
+      'collection' => _collection.isNotEmpty,
       _ => false,
     };
     if (!hasVisibleData) setState(() => _tabContentLoading = true);
+
+    // The Series shelf sits at the top of Pieces (no Series tab), so its series come with it.
+    if (tab == 'pieces') _loadSeries(profile, force: force);
 
     try {
       if (tab == 'pieces') {
@@ -286,29 +286,12 @@ class _ProfilePageState extends State<ProfilePage>
           _scenesLoaded = true;
           _tabContentLoading = false;
         });
-      } else if (tab == 'collect' && profile.sellerEnabled) {
-        final listedPieces = await _loadListedPieces(profile, force: force);
+      } else if (tab == 'collection') {
+        final collection = await PieceService.instance.getUserCollection(profile.username);
         if (!mounted) return;
         setState(() {
-          _listedPieces = listedPieces;
-          _listedPiecesLoaded = true;
-          _tabContentLoading = false;
-        });
-      } else if (tab == 'series') {
-        final series = await SeriesService.instance.getUserSeriesCached(
-          profile.username,
-          forceRefresh: force,
-          onBackgroundUpdate: (fresh) {
-            if (!mounted) return;
-            setState(() {
-              _series = fresh.map(ProfileSeriesData.fromSeries).toList();
-            });
-          },
-        );
-        if (!mounted) return;
-        setState(() {
-          _series = series.map(ProfileSeriesData.fromSeries).toList();
-          _seriesLoaded = true;
+          _collection = collection;
+          _collectionLoaded = true;
           _tabContentLoading = false;
         });
       } else {
@@ -319,40 +302,44 @@ class _ProfilePageState extends State<ProfilePage>
     }
   }
 
-  Future<List<PieceSummary>> _loadListedPieces(
-    UserProfile profile, {
-    bool force = false,
-  }) async {
-    return PieceService.instance.getUserPiecesForSaleCached(
-      profile.username,
-      forceRefresh: force,
-      onBackgroundUpdate: (fresh) {
-        if (!mounted) return;
-        setState(() => _listedPieces = fresh);
-      },
-    );
-  }
-
-  Future<void> _prefetchListedPieces(UserProfile profile) async {
+  /// The profile's series for the shelf on Pieces. Quiet: a failure leaves the shelf off.
+  Future<void> _loadSeries(UserProfile profile, {bool force = false}) async {
+    if (_seriesLoaded && !force) return;
     try {
-      final listed = await _loadListedPieces(profile);
+      final series = await SeriesService.instance.getUserSeriesCached(
+        profile.username,
+        forceRefresh: force,
+        onBackgroundUpdate: (fresh) {
+          if (!mounted) return;
+          setState(() => _series = fresh.map(ProfileSeriesData.fromSeries).toList());
+        },
+      );
       if (!mounted) return;
       setState(() {
-        _listedPieces = listed;
-        _listedPiecesLoaded = true;
+        _series = series.map(ProfileSeriesData.fromSeries).toList();
+        _seriesLoaded = true;
       });
     } catch (_) {}
+  }
+
+  /// See all on the Series shelf: every series on this profile.
+  void _openAllSeries(UserProfile? profile) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ProfileAllSeriesPage(
+          series: _series,
+          onSeriesTap: (series) => _openSeries(series, profile),
+        ),
+      ),
+    );
   }
 
   void _onTabChanged(String tab) {
     setState(() {
       _tab = tab;
+      _tabPicked = true;
     });
     _loadActiveTab();
-  }
-
-  void _onCollectSegmentChanged(String segment) {
-    setState(() => _collectSegment = segment);
   }
 
   void _onSceneFilterChanged(String filter) {
@@ -470,6 +457,39 @@ class _ProfilePageState extends State<ProfilePage>
     await _loadProfileShell(silent: true);
   }
 
+  /// The gear on your own profile (`ProfileOwn`): Settings, then reload as before.
+  Future<void> _openSettings() async {
+    await Navigator.pushNamed(context, '/profile-settings');
+    if (mounted) {
+      _resetTabCache();
+      await _loadProfileShell(silent: true);
+      await _loadActiveTab(force: true);
+    }
+  }
+
+  /// The chart on your own seller profile: the Insights page Settings › Insights opens, with
+  /// the all-time counts (the `Insights` board itself waits on BACKEND_CHANGES; plan 0.3).
+  Future<void> _openInsights() async {
+    SellerAnalytics? analytics;
+    try {
+      analytics = await UserService.instance.getSellerAnalytics();
+    } catch (_) {
+      // Opened anyway; the counts show as dashes.
+    }
+    if (!mounted) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => SellerAnalyticsPage(
+          savesCount: analytics?.savesCount,
+          likesCount: analytics?.likesCount,
+          inquiriesCount: analytics?.inquiriesCount,
+          salesCount: analytics?.salesCount,
+        ),
+      ),
+    );
+  }
+
   Future<void> _onShareProfileTap(BuildContext buttonContext) async {
     final profile = _profile;
     final username = profile?.username ?? AuthSession.instance.user?.username;
@@ -514,12 +534,8 @@ class _ProfilePageState extends State<ProfilePage>
     // detail_save_state.dart's like/save toggles), roll back on failure
     // instead of waiting on the network before the UI reflects the delete.
     final pieceIndex = _pieces.indexWhere((p) => p.id == piece.id);
-    final listedIndex = _listedPieces.indexWhere((p) => p.id == piece.id);
     setState(() {
       if (pieceIndex != -1) _pieces = List.of(_pieces)..removeAt(pieceIndex);
-      if (listedIndex != -1) {
-        _listedPieces = List.of(_listedPieces)..removeAt(listedIndex);
-      }
     });
     try {
       await PieceService.instance.delete(piece.id);
@@ -529,10 +545,6 @@ class _ProfilePageState extends State<ProfilePage>
         if (pieceIndex != -1) {
           _pieces = List.of(_pieces)
             ..insert(pieceIndex.clamp(0, _pieces.length), piece);
-        }
-        if (listedIndex != -1) {
-          _listedPieces = List.of(_listedPieces)
-            ..insert(listedIndex.clamp(0, _listedPieces.length), piece);
         }
       });
       ScaffoldMessenger.of(
@@ -659,8 +671,8 @@ class _ProfilePageState extends State<ProfilePage>
     final id = series.id;
     if (id == null || id.isEmpty) return;
     final own = AuthSession.instance.user?.username == profile?.username && !widget.viewerMode;
-    Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
+    Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
         builder: (_) => SeriesViewPage(
           seriesId: id,
           initialName: series.name,
@@ -671,7 +683,10 @@ class _ProfilePageState extends State<ProfilePage>
           isOwner: own,
         ),
       ),
-    );
+    ).then((deleted) {
+      // The series was deleted from its page (BACKEND_CHANGES B15): its pieces are ungrouped.
+      if (deleted == true && mounted) _loadProfile();
+    });
   }
 
   void _onBackToHome() {
@@ -709,6 +724,9 @@ class _ProfilePageState extends State<ProfilePage>
     // seller mode.
     final collectorMode = !sellerEnabled && profile?.role == 'collector';
 
+    // `ProfilePrivate` / `ProfileRequested`: someone private the viewer doesn't follow.
+    final locked = profile != null && profile.isLocked && !isOwnProfile;
+
     final name =
         profile?.name ?? (isOwnProfile ? sessionUser?.name : null) ?? '';
     final handle =
@@ -740,21 +758,13 @@ class _ProfilePageState extends State<ProfilePage>
                       avatarUrl: avatarUrl,
                       showDefaultCover: profile != null,
                       onBack: _onBackToHome,
-                      onMore: isOwnProfile && _isTabContext
-                          ? () async {
-                              await Navigator.pushNamed(
-                                context,
-                                '/profile-settings',
-                              );
-                              if (mounted) {
-                                _resetTabCache();
-                                await _loadProfileShell(silent: true);
-                                await _loadActiveTab(force: true);
-                              }
-                            }
-                          : (!isOwnProfile &&
-                                !widget.viewerMode &&
-                                _isPushedRoute)
+                      // `ProfileOwn`: the gear (Settings) in place of More, and the chart
+                      // (Insights) beside it for a seller.
+                      onSettings: isOwnProfile && _isTabContext ? _openSettings : null,
+                      onInsights: isOwnProfile && _isTabContext && !widget.viewerMode && sellerEnabled
+                          ? _openInsights
+                          : null,
+                      onMore: !isOwnProfile && !widget.viewerMode && _isPushedRoute
                           ? () => _showProfileActionsSheet(profile)
                           : null,
                       onAvatarTap: () => _onAvatarTap(avatarUrl),
@@ -771,8 +781,16 @@ class _ProfilePageState extends State<ProfilePage>
                       scenesCount: _scenes.length,
                       savesCount: profile?.savesCount,
                       collectedCount: profile?.collectedCount,
+                      upcomingEvent: profile?.upcomingEvent,
+                      onOpenEvent: profile?.upcomingEvent == null
+                          ? null
+                          : () => openEventDetail(context, profile!.upcomingEvent!),
+                      onEventTickets: profile?.upcomingEvent == null
+                          ? null
+                          : () => openEventDetail(context, profile!.upcomingEvent!, openTickets: true),
                       sellerMode: sellerEnabled,
-                      collectorMode: collectorMode,
+                      // A private account is never a seller: its stats are a collector's.
+                      collectorMode: collectorMode || locked,
                       isOwnProfile: !showPublicActions,
                       followState: _followState,
                       followBusy: _followBusy,
@@ -788,9 +806,18 @@ class _ProfilePageState extends State<ProfilePage>
                           _onTapFollowStat(FollowListTab.following),
                       onTapFollowers: () =>
                           _onTapFollowStat(FollowListTab.followers),
+                      locked: locked,
+                      // Under the username for a seller who has posted (`NoteProfileSeller`).
+                      mediums: sellerEnabled && (profile?.piecesCount ?? 0) > 0
+                          ? profile!.profileMediums
+                          : const [],
+                      artistsCount: profile?.artistsCount,
+                      showFollowing: profile?.followingKnown ?? true,
+                      showStats: profile?.statsKnown ?? true,
+                      showMessage: !locked || profile.messagePermission == 'everyone',
                     ),
                   ),
-                  if (profile != null && profile.isLocked && !isOwnProfile)
+                  if (locked)
                     SliverPadding(
                       padding: EdgeInsets.fromLTRB(
                         kProfileHorizontalPad,
@@ -798,24 +825,25 @@ class _ProfilePageState extends State<ProfilePage>
                         kProfileHorizontalPad,
                         bottomPad,
                       ),
-                      sliver: const SliverToBoxAdapter(
-                        child: ProfileLockedPlaceholder(),
+                      sliver: SliverToBoxAdapter(
+                        child: ProfileLockedPlaceholder(
+                          requested: profile.followRequestPending,
+                          firstName: name.trim().split(RegExp(r'\s+')).first,
+                        ),
                       ),
                     )
                   else ...[
                     SliverToBoxAdapter(
                       child: ProfileTabs(
                         currentTab: _tab,
-                        showCollect: sellerEnabled,
-                        collectSegment: _collectSegment,
-                        onCollectSegmentChanged: _onCollectSegmentChanged,
                         onTabChanged: _onTabChanged,
                       ),
                     ),
                     SliverPadding(
                       padding: EdgeInsets.fromLTRB(
                         kProfileHorizontalPad,
-                        sellerEnabled && _tab == 'pieces' ? 0 : kProfileGridTopGap,
+                        // Pieces and Collection set their own gaps under the tabs.
+                        _tab == 'scenes' ? kProfileGridTopGap : 0,
                         kProfileHorizontalPad,
                         bottomPad,
                       ),
@@ -824,9 +852,7 @@ class _ProfilePageState extends State<ProfilePage>
                         seriesItems: _series,
                         pieces: _pieces,
                         scenes: _scenes,
-                        listedPieces: _listedPieces,
-                        collectSegment: _collectSegment,
-                        sellerMode: sellerEnabled,
+                        collection: _collection,
                         loading: _tabContentLoading,
                         isOwnProfile: isOwnProfile && !widget.viewerMode,
                         onDeletePiece: _deletePiece,
@@ -835,7 +861,7 @@ class _ProfilePageState extends State<ProfilePage>
                         onPublishScene: _publishScene,
                         sceneFilter: _sceneFilter,
                         onSceneFilterChanged: _onSceneFilterChanged,
-                        onSeeAllSeries: () => _onTabChanged('series'),
+                        onSeeAllSeries: () => _openAllSeries(profile),
                         onSeriesTap: (series) => _openSeries(series, profile),
                       ),
                     ),

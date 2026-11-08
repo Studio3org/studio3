@@ -15,7 +15,10 @@ import 'package:studio3/screens/reels_page.dart' show routeObserver;
 import 'package:studio3/screens/series_view_page.dart';
 import 'package:studio3/services/api_client.dart';
 import 'package:studio3/theme/app_theme.dart';
+import 'package:studio3/utils/scrolls_to_top_on_double_tap.dart';
+import 'package:studio3/widgets/home_feed/feed_event_card.dart';
 import 'package:studio3/widgets/home_feed/home_feed_widgets.dart';
+import 'package:studio3/widgets/studio/studio.dart';
 
 import 'golden_harness.dart';
 
@@ -40,11 +43,39 @@ class _Fake implements HttpClientAdapter {
   final feedRequests = <String>[];
   var failFirst = 0;
 
+  /// Every request's path, and the feed's `include` asks.
+  final paths = <String>[];
+  final includes = <String?>[];
+
+  /// `?available=1` pages by cursor (BACKEND_CHANGES B29). Null plays a server without the
+  /// filter: it answers with [pages].
+  Map<String, Map<String, dynamic>>? availablePages;
+
+  /// The cursors Available asked with ('' for the first).
+  final availableRequests = <String>[];
+
+  /// What the Events tab returns (Home's own pick when the feed has no event card).
+  Map<String, dynamic>? browse;
+
   @override
   Future<ResponseBody> fetch(RequestOptions options, Stream<List<int>>? requestStream, Future<void>? cancelFuture) async {
+    paths.add(options.uri.path);
+    if (options.uri.path == '/api/events/browse' && browse != null) {
+      return _json({'success': true, 'data': browse}, 200);
+    }
+    if (options.uri.path.startsWith('/api/events/ev')) {
+      return _json({'success': true, 'data': _event(options.uri.pathSegments.last, 'From the detail')}, 200);
+    }
+    if (options.uri.path == '/api/feed/for-you' && options.uri.queryParameters['available'] == '1') {
+      final cursor = options.uri.queryParameters['cursor'] ?? '';
+      availableRequests.add(cursor);
+      final page = (availablePages ?? pages)[cursor] ?? {'items': [], 'nextCursor': null};
+      return _json({'success': true, 'data': page}, 200);
+    }
     if (options.uri.path == '/api/feed/for-you') {
       final cursor = options.uri.queryParameters['cursor'] ?? '';
       feedRequests.add(cursor);
+      includes.add(options.uri.queryParameters['include']);
       if (cursor.isEmpty && failFirst > 0) {
         failFirst--;
         return _json({'success': false, 'message': 'down'}, 500);
@@ -67,6 +98,20 @@ class _Fake implements HttpClientAdapter {
 }
 
 late _Fake _server;
+
+/// An event card in two days at Dec on Dragon.
+Map<String, dynamic> _event(String id, String title) {
+  final starts = DateTime.now().toUtc().add(const Duration(days: 2));
+  return {
+    'id': id,
+    'title': title,
+    'status': 'published',
+    'startsAt': starts.toIso8601String(),
+    'endsAt': starts.add(const Duration(hours: 3)).toIso8601String(),
+    'venueName': 'Dec on Dragon',
+    'hostUsername': 'amara',
+  };
+}
 
 Widget _home(HomeFeedStore store) => MaterialApp(
   theme: AppTheme.light,
@@ -127,7 +172,87 @@ void main() {
     store.dispose();
   });
 
-  testWidgets('Available shows what can be collected now, and loads pages until there is some', (tester) async {
+  testWidgets("the top bar slides away scrolling down and back scrolling up (the user's call)", (tester) async {
+    setBoardViewport(tester);
+    _server.pages[''] = {
+      'items': [for (var i = 1; i <= 6; i++) _piece('a$i')],
+      'nextCursor': null,
+    };
+    final store = HomeFeedStore();
+    await tester.pumpWidget(_home(store));
+    await _settle(tester);
+    final header = find.byKey(const ValueKey('home-header'));
+    final shown = tester.getSize(header).height;
+    expect(shown, greaterThan(40));
+
+    // Down: it folds away and the feed takes its room.
+    await tester.drag(find.byType(ListView), const Offset(0, -300));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    final midway = tester.getSize(header).height;
+    expect(midway, inExclusiveRange(0, shown), reason: 'it animates');
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(tester.getSize(header).height, 0);
+    expect(tester.getTopLeft(find.byType(ListView)).dy, tester.getTopLeft(header).dy);
+
+    // A thumb wobble up doesn't bring it back; a real scroll up does.
+    await tester.drag(find.byType(ListView), const Offset(0, 28));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(tester.getSize(header).height, 0);
+    await tester.drag(find.byType(ListView), const Offset(0, 60));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(tester.getSize(header).height, inExclusiveRange(0, shown), reason: 'it slides down');
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(tester.getSize(header).height, shown);
+    store.dispose();
+  });
+
+  testWidgets("the phone's back on Home: knows when it's at the top; going there refreshes the feed", (tester) async {
+    setBoardViewport(tester);
+    _server.pages[''] = {
+      'items': [for (var i = 1; i <= 6; i++) _piece('a$i')],
+      'nextCursor': null,
+    };
+    final store = HomeFeedStore();
+    await tester.pumpWidget(_home(store));
+    await _settle(tester);
+    final home = tester.state(find.byType(HomePage)) as ScrollsToTopOnDoubleTap;
+    expect(home.isScrolledToTop, isTrue);
+
+    await tester.drag(find.byType(ListView), const Offset(0, -900));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(home.isScrolledToTop, isFalse);
+
+    // What the first back does (`ShellBack`): the very top, the bar back, a fresh first page.
+    final asked = _server.feedRequests.length;
+    final header = find.byKey(const ValueKey('home-header'));
+    home.scrollToTopAndRefresh();
+    await tester.pump();
+    // The bar slides down and never folds again on the way up.
+    var last = tester.getSize(header).height;
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 60));
+      final now = tester.getSize(header).height;
+      expect(now, greaterThanOrEqualTo(last), reason: 'the bar only comes down');
+      last = now;
+    }
+    // At the top, the pull-to-refresh circle shows while the feed reloads, as a pull would.
+    var spun = false;
+    for (var i = 0; i < 10 && !spun; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+      spun = find.byType(RefreshProgressIndicator).evaluate().isNotEmpty;
+    }
+    expect(spun, isTrue, reason: 'the refresh circle appears');
+    await _settle(tester);
+    expect(home.isScrolledToTop, isTrue);
+    expect(_server.feedRequests.length, greaterThan(asked));
+    expect(tester.getSize(header).height, greaterThan(40));
+    store.dispose();
+  });
+
+  testWidgets('Available on a server without the filter: what can be collected now, loading pages until '
+      'there is some', (tester) async {
     setBoardViewport(tester);
     _server.pages[''] = {
       'items': [
@@ -155,9 +280,96 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     await tester.tap(find.text('Available').last);
+    // Its first page, then the next one it asks for itself: two round trips.
     await _settle(tester);
-    expect(_server.feedRequests, ['', 'c2']);
+    await _settle(tester);
+    expect(_server.feedRequests, ['']);
+    expect(_server.availableRequests, ['', 'c2']);
     expect(_shownTitles(tester).toList(), ['Piece open', 'Piece bid']);
+    store.dispose();
+  });
+
+  testWidgets("Available (B29) asks the server's filter for its own pages and pages on with its cursor",
+      (tester) async {
+    setBoardViewport(tester);
+    _server.pages[''] = {
+      'items': [_piece('open'), _piece('sold', state: 'collected'), _piece('other')],
+      'nextCursor': 'c2',
+    };
+    _server.availablePages = {
+      '': {
+        'items': [for (var i = 1; i <= 6; i++) _piece('v$i')],
+        'nextCursor': 'v2',
+      },
+      'v2': {
+        'items': [{..._piece('bid', state: 'auction_live'), 'listingType': 'auction'}],
+        'nextCursor': null,
+      },
+    };
+    final store = HomeFeedStore();
+    await tester.pumpWidget(_home(store));
+    await _settle(tester);
+    expect(_server.availableRequests, isEmpty, reason: 'only once Available is opened');
+
+    await tester.tap(find.text('All'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.text('Available').last);
+    await _settle(tester);
+    expect(_server.availableRequests, ['']);
+    expect(_shownTitles(tester).first, 'Piece v1');
+    expect(store.availableItems.map((i) => i.id), [for (var i = 1; i <= 6; i++) 'v$i']);
+
+    await tester.fling(find.byType(ListView), const Offset(0, -6000), 3000);
+    await _settle(tester);
+    expect(_server.availableRequests, ['', 'v2']);
+    expect(store.availableItems.last.id, 'bid');
+    // All's own pages are untouched.
+    expect(_server.feedRequests, ['']);
+    expect(store.apiItems.map((i) => i.id), ['open', 'sold', 'other']);
+    store.dispose();
+  });
+
+  testWidgets('a series row from the feed (B29): each card shows its chip, and the photo count when '
+      'there is more than one', (tester) async {
+    setBoardViewport(tester, height: 2400);
+    _server.pages[''] = {
+      'items': [
+        {
+          ..._piece('p1'),
+          'images': [
+            {'mediaUrl': 'https://example.test/1.jpg'},
+            {'mediaUrl': 'https://example.test/2.jpg'},
+          ],
+          'series': {
+            'id': 'series-1',
+            'name': 'Paper Planes',
+            'pieceIds': ['p1', 'p2'],
+            'previewPieces': [
+              {'id': 'p1', 'title': 'Paper Planes I', 'listingState': 'available', 'imageCount': 3},
+              {'id': 'p2', 'title': 'Paper Planes II', 'listingState': 'collected', 'imageCount': 1},
+            ],
+          },
+        },
+      ],
+      'nextCursor': null,
+    };
+    final store = HomeFeedStore();
+    await tester.pumpWidget(_home(store));
+    await _settle(tester);
+
+    final row = find.byType(FeedSeriesRow);
+    expect(row, findsOneWidget);
+    expect(find.descendant(of: row, matching: find.text('Paper Planes I')), findsOneWidget);
+    expect(find.descendant(of: row, matching: find.text('3')), findsOneWidget, reason: 'three photos');
+    final chips = tester.widgetList<StudioStatusChip>(find.descendant(of: row, matching: find.byType(StudioStatusChip)));
+    expect([for (final c in chips) (c.status, c.onImage)], [
+      (StudioStatus.available, true),
+      (StudioStatus.collected, true),
+    ]);
+    expect(find.bySemanticsLabel('Paper Planes I, Available, 3 photos'), findsOneWidget);
+    // The piece itself swipes between its two photos: dots under it.
+    expect(store.apiItems.single.imageUrls, hasLength(2));
     store.dispose();
   });
 
@@ -270,6 +482,89 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     final page = tester.widget<SeriesViewPage>(find.byType(SeriesViewPage));
     expect((page.seriesId, page.initialName, page.initialPieceCount), ('series-1', 'Paper Planes', 3));
+  });
+
+  testWidgets("the feed's own event card (B27): asked for, after the third row, not a piece; "
+      'the Events tab is not asked', (tester) async {
+    setBoardViewport(tester, height: 4000);
+    _server.pages[''] = {
+      'items': [
+        for (var i = 1; i <= 3; i++) _piece('a$i'),
+        {'type': 'event', 'event': _event('ev9', 'Open Studio Night')},
+        for (var i = 4; i <= 6; i++) _piece('a$i'),
+      ],
+      'nextCursor': null,
+    };
+    final store = HomeFeedStore();
+    await tester.pumpWidget(_home(store));
+    await _settle(tester);
+
+    expect(_server.includes.first, 'events');
+    expect(store.apiItems.map((i) => i.id), [for (var i = 1; i <= 6; i++) 'a$i'], reason: 'the event is not a piece');
+    expect(store.feedEvent?.id, 'ev9');
+    final card = tester.widget<FeedEventCard>(find.byType(FeedEventCard));
+    expect(card.event.id, 'ev9');
+    // The detail fills in the lineup; the Events tab is never asked.
+    expect(_server.paths, contains('/api/events/ev9'));
+    expect(_server.paths, isNot(contains('/api/events/browse')));
+    // After the third piece.
+    final third = tester.getTopLeft(find.byWidgetPredicate((w) => w is FeedPieceCard && w.item.id == 'a3'));
+    final fourth = tester.getTopLeft(find.byWidgetPredicate((w) => w is FeedPieceCard && w.item.id == 'a4'));
+    final event = tester.getTopLeft(find.byType(FeedEventCard));
+    expect(event.dy, greaterThan(third.dy));
+    expect(event.dy, lessThan(fourth.dy));
+    // 52 between posts, the event card too (`NoteMain`).
+    Rect box(String id) => tester.getRect(find.byWidgetPredicate((w) => w is FeedPieceCard && w.item.id == id));
+    expect(box('a2').top - box('a1').bottom, 52);
+    expect(tester.getRect(find.byType(FeedEventCard)).top - box('a3').bottom, 52);
+    expect(box('a4').top - tester.getRect(find.byType(FeedEventCard)).bottom, 52);
+    store.dispose();
+    await tester.pump(const Duration(seconds: 11));
+  });
+
+  testWidgets('Home opened after the feed has loaded shows its event card at once', (tester) async {
+    setBoardViewport(tester, height: 4000);
+    _server.pages[''] = {
+      'items': [
+        for (var i = 1; i <= 3; i++) _piece('a$i'),
+        {'type': 'event', 'event': _event('ev9', 'Open Studio Night')},
+      ],
+      'nextCursor': null,
+    };
+    final store = HomeFeedStore()..ensureInitialized();
+    await tester.pumpWidget(const SizedBox());
+    await _settle(tester);
+    expect(store.loading, isFalse);
+    await tester.pumpWidget(_home(store));
+    expect(tester.takeException(), isNull);
+    await _settle(tester);
+    expect(tester.widget<FeedEventCard>(find.byType(FeedEventCard)).event.id, 'ev9');
+    expect(_server.paths, isNot(contains('/api/events/browse')));
+    store.dispose();
+    await tester.pump(const Duration(seconds: 11));
+  });
+
+  testWidgets('no event card in the feed (an older server): Home picks one from the Events tab', (tester) async {
+    setBoardViewport(tester, height: 4000);
+    _server.pages[''] = {
+      'items': [for (var i = 1; i <= 6; i++) _piece('a$i')],
+      'nextCursor': null,
+    };
+    _server.browse = {
+      'today': [],
+      'following': [],
+      'upcoming': [_event('ev7', 'Gallery Walk')],
+      'categories': [],
+    };
+    final store = HomeFeedStore();
+    await tester.pumpWidget(_home(store));
+    await _settle(tester);
+
+    expect(store.feedEvent, isNull);
+    expect(_server.paths, contains('/api/events/browse'));
+    expect(tester.widget<FeedEventCard>(find.byType(FeedEventCard)).event.id, 'ev7');
+    store.dispose();
+    await tester.pump(const Duration(seconds: 11));
   });
 
   testWidgets('golden: Main', (tester) async {

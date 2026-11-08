@@ -12,12 +12,14 @@ enum _Filter { all, pieces, scenes }
 
 /// Drafts (`Drafts`): opened from + → Drafts and from Could not publish → Go to drafts.
 ///
-/// All / Pieces / Scenes; each row is the picture (3:4), the title (or Untitled piece), what is
-/// left in plain words, and Mono "PIECE · Today, 2:14 PM". A piece that failed to go live
-/// shows the red ! circle and "Didn't publish. Tap to try again.", and tapping it tries again;
-/// any other draft opens its edit page (the posting flow can't reopen a piece whose photos are
-/// already uploaded). Swipe left or press and hold to delete, after asking. Empty: the grey
-/// mark and No drafts. Scenes aren't kept as drafts until the server does (B33).
+/// All / Pieces / Scenes, newest edit first; each row is the picture (3:4 for a piece, 9:16 for
+/// a Scene), the title (Untitled piece; a Scene's caption, or Untitled Scene), what is left in
+/// plain words, and Mono "PIECE · Today, 2:14 PM" (the last edit, BACKEND_CHANGES B33). A
+/// draft that failed to go live shows the red ! circle and "Didn't publish. Tap to try again.",
+/// and tapping it tries again. Any other piece opens its edit page and a Scene asks to post
+/// (the posting flow can't reopen work whose photos are already uploaded). Swipe left or press
+/// and hold to delete, after asking. Empty: the grey mark and No drafts. A server without
+/// the drafts list gives piece drafts only.
 class DraftsPage extends StatefulWidget {
   const DraftsPage({super.key});
 
@@ -27,8 +29,7 @@ class DraftsPage extends StatefulWidget {
 
 class _DraftsPageState extends State<DraftsPage> {
   _Filter _filter = _Filter.all;
-  List<PieceSummary>? _pieces;
-  Set<String> _failed = const {};
+  List<DraftEntry>? _drafts;
   bool _loadFailed = false;
   final Set<String> _retrying = {};
 
@@ -40,11 +41,10 @@ class _DraftsPageState extends State<DraftsPage> {
 
   Future<void> _load() async {
     try {
-      final results = await Future.wait([DraftsService.instance.pieces(), DraftsService.instance.failedIds()]);
+      final drafts = await DraftsService.instance.all();
       if (!mounted) return;
       setState(() {
-        _pieces = results[0] as List<PieceSummary>;
-        _failed = results[1] as Set<String>;
+        _drafts = drafts;
         _loadFailed = false;
       });
     } catch (_) {
@@ -52,31 +52,44 @@ class _DraftsPageState extends State<DraftsPage> {
     }
   }
 
-  Future<void> _open(PieceSummary piece) async {
-    if (_failed.contains(piece.id)) return _retry(piece);
+  Future<void> _open(DraftEntry draft) async {
+    if (draft.failed) return _post(draft);
+    final scene = draft.scene;
+    if (scene != null) {
+      final post = await showStudioConfirm(
+        context,
+        title: 'Post this Scene?',
+        message: 'It goes on your profile and to your followers.',
+        confirmLabel: 'Post',
+      );
+      if (post) await _post(draft);
+      return;
+    }
     final changed = await Navigator.of(context).push<Object?>(
-      MaterialPageRoute(builder: (_) => EditPiecePage(piece: piece)),
+      MaterialPageRoute(builder: (_) => EditPiecePage(piece: draft.piece!)),
     );
     if (changed != null && mounted) _load();
   }
 
-  Future<void> _retry(PieceSummary piece) async {
-    if (_retrying.contains(piece.id)) return;
-    setState(() => _retrying.add(piece.id));
+  /// Takes the draft live: "Tap to try again", or posting a Scene.
+  Future<void> _post(DraftEntry draft) async {
+    if (_retrying.contains(draft.id)) return;
+    setState(() => _retrying.add(draft.id));
     try {
-      await DraftsService.instance.publish(piece.id);
+      if (draft.isScene) {
+        await DraftsService.instance.publishScene(draft.id);
+      } else {
+        await DraftsService.instance.publish(draft.id);
+      }
       if (!mounted) return;
-      setState(() {
-        _pieces = [...?_pieces]..removeWhere((p) => p.id == piece.id);
-        _failed = {..._failed}..remove(piece.id);
-      });
+      setState(() => _drafts = [...?_drafts]..removeWhere((d) => d.id == draft.id));
       showStudioToast(context, 'Posted', icon: null);
     } on ApiException catch (e) {
       if (mounted) showStudioToast(context, e.message, icon: null);
     } catch (_) {
       if (mounted) showStudioToast(context, "Couldn't publish. Try again.", icon: null);
     } finally {
-      if (mounted) setState(() => _retrying.remove(piece.id));
+      if (mounted) setState(() => _retrying.remove(draft.id));
     }
   }
 
@@ -87,11 +100,11 @@ class _DraftsPageState extends State<DraftsPage> {
     confirmLabel: 'Delete',
   );
 
-  Future<void> _delete(PieceSummary piece) async {
+  Future<void> _delete(DraftEntry draft) async {
     try {
-      await DraftsService.instance.delete(piece.id);
+      await DraftsService.instance.delete(draft);
       if (!mounted) return;
-      setState(() => _pieces = [...?_pieces]..removeWhere((p) => p.id == piece.id));
+      setState(() => _drafts = [...?_drafts]..removeWhere((d) => d.id == draft.id));
     } catch (_) {
       if (mounted) {
         showStudioToast(context, "Couldn't delete the draft.", icon: null);
@@ -100,8 +113,8 @@ class _DraftsPageState extends State<DraftsPage> {
     }
   }
 
-  Future<void> _holdToDelete(PieceSummary piece) async {
-    if (await _confirmDelete()) await _delete(piece);
+  Future<void> _holdToDelete(DraftEntry draft) async {
+    if (await _confirmDelete()) await _delete(draft);
   }
 
   @override
@@ -151,11 +164,15 @@ class _DraftsPageState extends State<DraftsPage> {
         ),
       );
     }
-    final pieces = _pieces;
-    if (pieces == null) {
+    final drafts = _drafts;
+    if (drafts == null) {
       return Center(child: SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2, color: c.textSecondary)));
     }
-    final shown = _filter == _Filter.scenes ? const <PieceSummary>[] : pieces;
+    final shown = switch (_filter) {
+      _Filter.all => drafts,
+      _Filter.pieces => [for (final d in drafts) if (!d.isScene) d],
+      _Filter.scenes => [for (final d in drafts) if (d.isScene) d],
+    };
     if (shown.isEmpty) return const Center(child: StudioEmptyState(title: 'No drafts'));
     return RefreshIndicator(
       onRefresh: _load,
@@ -163,12 +180,12 @@ class _DraftsPageState extends State<DraftsPage> {
         padding: const EdgeInsets.symmetric(horizontal: 20),
         itemCount: shown.length,
         itemBuilder: (context, i) {
-          final piece = shown[i];
+          final draft = shown[i];
           return Dismissible(
-            key: ValueKey(piece.id),
+            key: ValueKey(draft.id),
             direction: DismissDirection.endToStart,
             confirmDismiss: (_) => _confirmDelete(),
-            onDismissed: (_) => _delete(piece),
+            onDismissed: (_) => _delete(draft),
             background: Container(
               alignment: Alignment.centerRight,
               padding: const EdgeInsets.only(right: 16),
@@ -176,11 +193,10 @@ class _DraftsPageState extends State<DraftsPage> {
               child: Text('Delete', style: StudioType.label13(weight: StudioType.medium, color: Colors.white)),
             ),
             child: DraftRow(
-              piece: piece,
-              failed: _failed.contains(piece.id),
-              busy: _retrying.contains(piece.id),
-              onTap: () => _open(piece),
-              onLongPress: () => _holdToDelete(piece),
+              draft: draft,
+              busy: _retrying.contains(draft.id),
+              onTap: () => _open(draft),
+              onLongPress: () => _holdToDelete(draft),
             ),
           );
         },
@@ -189,21 +205,20 @@ class _DraftsPageState extends State<DraftsPage> {
   }
 }
 
-/// One `Drafts` row: picture 54 × 72 (radius 6), title 15/500, the state line 13, and Mono 11
-/// "PIECE · Today, 2:14 PM" in Tertiary, gap 3; a Line under it; chevron 18.
+/// One `Drafts` row: the picture (a piece 54 × 72, a Scene 40 × 71; radius 6), title 15/500,
+/// the state line 13, and Mono 11 "PIECE · Today, 2:14 PM" in Tertiary, gap 3; a Line under
+/// it; chevron 18.
 class DraftRow extends StatelessWidget {
   const DraftRow({
     super.key,
-    required this.piece,
-    required this.failed,
+    required this.draft,
     required this.onTap,
     this.onLongPress,
     this.busy = false,
     this.now,
   });
 
-  final PieceSummary piece;
-  final bool failed;
+  final DraftEntry draft;
   final bool busy;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
@@ -214,9 +229,20 @@ class DraftRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.studio;
-    final title = piece.title.trim().isEmpty || piece.title.trim() == 'Untitled' ? 'Untitled piece' : piece.title;
-    final image = piece.imageUrls.isNotEmpty ? piece.imageUrls.first : piece.mediaUrl;
-    final when = draftTimeLabel(piece.createdAt, now: now);
+    final piece = draft.piece;
+    final scene = draft.scene;
+    final String title;
+    final String? image;
+    if (piece != null) {
+      title = piece.title.trim().isEmpty || piece.title.trim() == 'Untitled' ? 'Untitled piece' : piece.title;
+      image = piece.imageUrls.isNotEmpty ? piece.imageUrls.first : piece.mediaUrl;
+    } else {
+      final caption = scene!.caption?.trim() ?? '';
+      title = caption.isEmpty ? 'Untitled Scene' : caption;
+      image = scene.isVideo ? scene.thumbnailUrl : (scene.mediaUrls.isNotEmpty ? scene.mediaUrls.first : scene.mediaUrl);
+    }
+    final kind = draft.isScene ? 'SCENE' : 'PIECE';
+    final when = draftTimeLabel(draft.editedAt, now: now);
     return Semantics(
       button: true,
       child: InkWell(
@@ -230,8 +256,8 @@ class DraftRow extends StatelessWidget {
               ClipRRect(
                 borderRadius: BorderRadius.circular(6),
                 child: SizedBox(
-                  width: 54,
-                  height: 72,
+                  width: draft.isScene ? 40 : 54,
+                  height: draft.isScene ? 71 : 72,
                   child: image == null || image.isEmpty
                       ? ColoredBox(color: c.surface)
                       : CachedNetworkImage(
@@ -254,7 +280,7 @@ class DraftRow extends StatelessWidget {
                       style: StudioType.sans(15, weight: StudioType.medium, color: c.textPrimary),
                     ),
                     const SizedBox(height: 3),
-                    if (failed)
+                    if (draft.failed)
                       Row(
                         children: [
                           Container(
@@ -280,10 +306,14 @@ class DraftRow extends StatelessWidget {
                         ],
                       )
                     else
-                      Text(draftLeftLine(piece), style: StudioType.sans(13, color: c.textSecondary)),
+                      Text(
+                        // A Scene draft is saved at Post, so it is always ready.
+                        piece != null ? draftLeftLine(piece) : 'Ready to post',
+                        style: StudioType.sans(13, color: c.textSecondary),
+                      ),
                     const SizedBox(height: 3),
                     Text(
-                      when == null ? 'PIECE' : 'PIECE · $when',
+                      when == null ? kind : '$kind · $when',
                       style: StudioType.mono(11, color: c.textTertiary),
                     ),
                   ],

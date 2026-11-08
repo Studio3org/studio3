@@ -145,8 +145,21 @@ class _HostEventPageState extends State<HostEventPage> {
 
   bool get _dirty => _signature() != _initial;
 
-  /// Back from Details: asks before dropping a new event or unsaved edits.
+  /// Back from Details: asks before leaving a new event (always, the user's call 2026-11-08)
+  /// or dropping unsaved edits to an existing one.
   Future<void> _leave() async {
+    if (_editing == null && !_dirty) {
+      final leave = await showStudioConfirm(
+        context,
+        title: 'Leave this event?',
+        message: "You haven't added anything yet.",
+        confirmLabel: 'Leave',
+        cancelLabel: 'Keep editing',
+      );
+      if (!leave || !mounted) return;
+      Navigator.of(context).pop();
+      return;
+    }
     if (_dirty) {
       final discard = await showStudioConfirm(
         context,
@@ -938,7 +951,8 @@ class _HostEventPageState extends State<HostEventPage> {
     final last = _step == kHostSteps.length - 1;
     final safe = MediaQuery.viewPaddingOf(context).bottom;
     return PopScope(
-      canPop: _step == 0 && !_saving && !_dirty,
+      // A new event always asks before back leaves it; an untouched edit just closes.
+      canPop: _step == 0 && !_saving && !_dirty && _editing != null,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop && !_saving) _back();
       },

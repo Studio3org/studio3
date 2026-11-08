@@ -70,15 +70,6 @@ void main() {
     final c = dark ? StudioColors.dark : StudioColors.light;
     final theme = dark ? 'dark' : 'light';
 
-    testWidgets('order row: Order #id in Mono, items and total, status ($theme)', (tester) async {
-      await tester.pumpWidget(
-        _app(Scaffold(body: OrderRow(order: _order('completed'), onTap: () {})), dark: dark),
-      );
-      expect(find.text('1 item · \$3833.75'), findsOneWidget);
-      expect(tester.widget<Text>(find.text('Completed')).style!.color, c.positive);
-      expect(find.byType(Icon), findsNothing);
-    });
-
     testWidgets('order detail: status, address, summary, seller actions ($theme)', (tester) async {
       setBoardViewport(tester);
       await tester.pumpWidget(
@@ -143,18 +134,18 @@ void main() {
     expect(find.byType(StudioButton), findsNothing);
   });
 
-  testWidgets('My orders and My sales: empty states after the request fails', (tester) async {
+  testWidgets('Purchases and Sales: empty states after the request fails', (tester) async {
     setBoardViewport(tester);
     await tester.pumpWidget(_app(const MySalesPage()));
     await tester.runAsync(() => Future<void>.delayed(const Duration(seconds: 2)));
     await tester.pump();
-    expect(find.text('My sales'), findsOneWidget);
+    expect(find.text('Sales'), findsOneWidget);
     expect(find.text('No sales yet'), findsOneWidget);
 
     await tester.pumpWidget(_app(const MyOrdersPage()));
     await tester.runAsync(() => Future<void>.delayed(const Duration(seconds: 2)));
     await tester.pump();
-    expect(find.text('My orders'), findsOneWidget);
+    expect(find.text('Purchases'), findsOneWidget);
     expect(find.byType(StudioEmptyState), findsOneWidget);
   });
 

@@ -68,6 +68,9 @@ class PieceSummary {
     this.handlingNotes,
     this.likeCount = 0,
     this.commentCount = 0,
+    this.savesCount,
+    this.myTopBidCents,
+    this.myBidStatus,
     this.isLiked = false,
     this.isSaved = false,
     this.authorUsername,
@@ -84,6 +87,9 @@ class PieceSummary {
     this.altText,
     this.relatedPosts,
     this.createdAt,
+    this.updatedAt,
+    this.draftStep,
+    this.publishFailed = false,
   });
 
   final String id;
@@ -136,6 +142,15 @@ class PieceSummary {
   final String? handlingNotes;
   final int likeCount;
   final int commentCount;
+
+  /// How many people saved it: sent to its owner only, else null (BACKEND_CHANGES B17).
+  final int? savesCount;
+
+  /// The viewer's own bid, from the server (BACKEND_CHANGES B18): the most they bid in this
+  /// run, and `leading`, `outbid`, `won`, `lost` or `none`. Null signed out (or from an older
+  /// server), when the app falls back on what this phone remembers (`BidStore`).
+  final int? myTopBidCents;
+  final String? myBidStatus;
   final bool isLiked;
   final bool isSaved;
   final String? authorUsername;
@@ -156,8 +171,17 @@ class PieceSummary {
   final String? altText;
   final List<PostSummary>? relatedPosts;
 
-  /// When it was first saved (Drafts' time line).
+  /// When it was first saved (Drafts' time line on a server without [updatedAt]).
   final DateTime? createdAt;
+
+  /// When it was last edited (BACKEND_CHANGES B33): Drafts' time line.
+  final DateTime? updatedAt;
+
+  /// A draft: the posting step it stopped on, as the app named it (B33).
+  final String? draftStep;
+
+  /// A draft that saved but failed to go live, on any device (B33).
+  final bool publishFailed;
 
   bool get isLive => status == null || status == 'live';
 
@@ -241,6 +265,9 @@ class PieceSummary {
       handlingNotes: json['handlingNotes'] as String?,
       likeCount: _intFrom(json['likeCount'] ?? json['likes']) ?? 0,
       commentCount: _intFrom(json['commentCount'] ?? json['comments']) ?? 0,
+      savesCount: _intFrom(json['savesCount']),
+      myTopBidCents: _intFrom(json['myTopBidCents']),
+      myBidStatus: json['myBidStatus'] as String?,
       isLiked: json['isLiked'] as bool? ?? false,
       isSaved: json['isSaved'] as bool? ?? false,
       authorUsername: author?['username'] as String? ??
@@ -268,6 +295,9 @@ class PieceSummary {
       aiDisclosed: json['aiDisclosed'] as bool? ?? false,
       altText: json['altText'] as String?,
       createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '')?.toLocal(),
+      updatedAt: DateTime.tryParse(json['updatedAt'] as String? ?? '')?.toLocal(),
+      draftStep: json['draftStep'] as String?,
+      publishFailed: json['publishFailed'] as bool? ?? false,
       relatedPosts: relatedPostsJson is List
           ? relatedPostsJson
               .whereType<Map<String, dynamic>>()
@@ -347,6 +377,9 @@ class PieceSummary {
         if (handlingNotes != null) 'handlingNotes': handlingNotes,
         'likeCount': likeCount,
         'commentCount': commentCount,
+        if (savesCount != null) 'savesCount': savesCount,
+        if (myTopBidCents != null) 'myTopBidCents': myTopBidCents,
+        if (myBidStatus != null) 'myBidStatus': myBidStatus,
         'isLiked': isLiked,
         'isSaved': isSaved,
         if (authorUsername != null) 'authorUsername': authorUsername,
@@ -361,6 +394,9 @@ class PieceSummary {
         'aiDisclosed': aiDisclosed,
         if (altText != null) 'altText': altText,
         if (createdAt != null) 'createdAt': createdAt!.toUtc().toIso8601String(),
+        if (updatedAt != null) 'updatedAt': updatedAt!.toUtc().toIso8601String(),
+        if (draftStep != null) 'draftStep': draftStep,
+        if (publishFailed) 'publishFailed': true,
         if (relatedPosts != null)
           'relatedPosts': relatedPosts!.map((p) => p.toJson()).toList(),
       };

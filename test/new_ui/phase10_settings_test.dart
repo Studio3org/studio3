@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:studio3/screens/delete_account_page.dart';
 import 'package:studio3/screens/profile_settings_page.dart';
 import 'package:studio3/theme/app_theme.dart';
 import 'package:studio3/widgets/delete_confirmation_dialog.dart';
@@ -66,30 +67,16 @@ void main() {
     await loadStudioFonts();
   });
 
-  for (final dark in [false, true]) {
-    final c = dark ? StudioColors.dark : StudioColors.light;
-    testWidgets('Settings: Mono labels, plain rows, no icons (${dark ? 'dark' : 'light'})', (tester) async {
-      setBoardViewport(tester, height: 2400);
-      await tester.pumpWidget(_app(const ProfileSettingsPage(), dark: dark));
-      expect(find.byType(SettingsListSkeleton), findsOneWidget);
-      // The seller status request fails in tests; the page falls back to the session.
-      await _loaded(tester);
-
-      expect(find.text('Settings'), findsOneWidget);
-      final label = tester.widget<Text>(find.text('ACCOUNT'));
-      expect(label.style!.fontFamily, contains('Mono'));
-      expect(label.style!.color, c.textTertiary);
-      final row = tester.widget<Text>(find.text('Edit profile'));
-      expect((row.style!.fontSize, row.style!.color), (15, c.textPrimary));
-      expect(find.byType(Icon), findsNothing);
-      expect(find.byType(SettingsToggleTile), findsOneWidget);
-      expect(find.byType(StudioSwitch), findsOneWidget);
-      // Log out and Delete account in Ink like every other action.
-      expect(tester.widget<Text>(find.text('Delete account')).style!.color, c.textPrimary);
-      final scaffold = tester.widget<Scaffold>(find.byType(Scaffold).first);
-      expect(scaffold.backgroundColor, c.background);
-    });
-  }
+  // Settings itself follows its board now (`Settings`, Flow 12): test/new_ui/settings_test.dart.
+  testWidgets('Settings loads behind a skeleton, then the rows', (tester) async {
+    setBoardViewport(tester, height: 2400);
+    await tester.pumpWidget(_app(const ProfileSettingsPage()));
+    expect(find.byType(SettingsListSkeleton), findsOneWidget);
+    // The seller status request fails in tests; the page falls back to the session.
+    await _loaded(tester);
+    expect(find.text('Settings'), findsOneWidget);
+    expect(find.byType(SettingsRow), findsWidgets);
+  });
 
   testWidgets('Log out asks in a sheet', (tester) async {
     setBoardViewport(tester, height: 2400);
@@ -104,17 +91,14 @@ void main() {
     expect(find.text('Log out?'), findsNothing);
   });
 
-  testWidgets('Delete account: the password turns the button on', (tester) async {
+  testWidgets('Delete account opens its page (SettingsDelete)', (tester) async {
     setBoardViewport(tester, height: 2400);
     await tester.pumpWidget(_app(const ProfileSettingsPage()));
     await _loaded(tester);
     await tester.tap(find.text('Delete account'));
-    await tester.pumpAndSettle();
-    expect(find.text('Delete your account?'), findsOneWidget);
-    expect(tester.widget<StudioButton>(_button('Delete account')).onPressed, isNull);
-    await tester.enterText(find.byType(TextField), 'secret');
     await tester.pump();
-    expect(tester.widget<StudioButton>(_button('Delete account')).onPressed, isNotNull);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byType(DeleteAccountPage), findsOneWidget);
   });
 
   group('confirm sheets', () {
