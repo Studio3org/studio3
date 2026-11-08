@@ -28,8 +28,8 @@ String privacyMessageLabel(String value) =>
 ///
 /// A seller profile can't go private (listings are public): the switch says so instead. Going
 /// public with requests waiting asks first and approves them; the server doing that itself is
-/// BACKEND_CHANGES B34. Private Collection (B34) and Hidden pieces (B32) aren't shown until the
-/// server has them. My reports and the privacy policy, moved here from the old Settings, sit
+/// BACKEND_CHANGES B34. Private Collection (B34) shows once the server sends it; Hidden pieces
+/// (B32) isn't shown until the server has it. My reports and the privacy policy, moved here from the old Settings, sit
 /// under the board's rows.
 class PrivacySettingsPage extends StatefulWidget {
   const PrivacySettingsPage({
@@ -62,6 +62,9 @@ class PrivacySettingsPage extends StatefulWidget {
 
 class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
   bool _private = false;
+
+  /// Private Collection; null when the server doesn't have it (the row isn't shown).
+  bool? _collectionPrivate;
   String _messages = 'everyone';
   bool _seller = AuthSession.instance.sellerEnabled;
   List<String> _requests = const [];
@@ -77,6 +80,7 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
     final profile = widget.debugProfile;
     if (profile != null) {
       _private = profile.isPrivate;
+      _collectionPrivate = profile.collectionPrivate;
       _messages = profile.messagePermission;
       _seller = widget.debugSeller ?? false;
       _requests = widget.debugRequests ?? const [];
@@ -93,6 +97,7 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
       if (!mounted) return;
       setState(() {
         _private = profile.isPrivate;
+        _collectionPrivate = profile.collectionPrivate;
         _messages = profile.messagePermission;
         _loading = false;
       });
@@ -149,6 +154,25 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _private = !value);
+      _showError(e);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  /// Private Collection (`SettingsPrivacy`): hides the Collection tab from everyone but them,
+  /// followers too. Shown at once; put back if the server refuses.
+  Future<void> _setCollectionPrivate(bool value) async {
+    if (_saving || value == _collectionPrivate) return;
+    setState(() {
+      _collectionPrivate = value;
+      _saving = true;
+    });
+    try {
+      if (!_debug) await UserService.instance.updateMe(collectionPrivate: value);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _collectionPrivate = !value);
       _showError(e);
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -268,6 +292,18 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
                   value: privacyMessageLabel(_messages),
                   onTap: _pickMessages,
                 ),
+                if (_collectionPrivate != null)
+                  SettingsRow(
+                    label: 'Private Collection',
+                    subtitle: 'Only you see the pieces you own',
+                    chevron: false,
+                    valueWidget: StudioSwitch(
+                      value: _collectionPrivate!,
+                      onChanged: _saving ? null : _setCollectionPrivate,
+                      semanticLabel: 'Private Collection',
+                    ),
+                    onTap: _saving ? null : () => _setCollectionPrivate(!_collectionPrivate!),
+                  ),
                 SettingsRow(
                   label: 'Blocked accounts',
                   value: blocked == null || blocked == 0 ? null : '$blocked',

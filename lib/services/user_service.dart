@@ -103,6 +103,8 @@ class UserService {
     bool updateBannerTarget = false,
     String? bannerTargetType,
     String? bannerTargetId,
+    List<String>? profileMediums,
+    bool? collectionPrivate,
   }) async {
     if ((latitude == null) != (longitude == null)) {
       throw ApiException('latitude and longitude must be sent together');
@@ -127,6 +129,10 @@ class UserService {
     if (themePreference != null) body['themePreference'] = themePreference;
     // An empty phone clears it (`SettingsAccount`).
     if (phone != null) body['phone'] = phone;
+    // Under the username, up to 3 in order (B31); an empty list clears them.
+    if (profileMediums != null) body['profileMediums'] = profileMediums;
+    // Private Collection (B34).
+    if (collectionPrivate != null) body['collectionPrivate'] = collectionPrivate;
     // Backend requires bannerTargetType/Id sent together (both null clears
     // the manual pin) — only include them when the caller explicitly wants
     // to change the pin, since plain nullable params can't tell "unset" from

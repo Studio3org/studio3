@@ -36,6 +36,8 @@ class ProfileHeader extends StatelessWidget {
     this.onOpenEvent,
     this.onEventTickets,
     this.locked = false,
+    this.mediums = const [],
+    this.artistsCount,
     this.showFollowing = true,
     this.showStats = true,
     this.showMessage = true,
@@ -79,6 +81,14 @@ class ProfileHeader extends StatelessWidget {
   /// [showFollowing]; the stats only when [showStats]; Follow (or Requested) fills the row,
   /// with Message beside it only when [showMessage] (the owner takes messages from everyone).
   final bool locked;
+
+  /// Under the username (`ProfileSeller`, `ProfileOwn`): up to three mediums, "Painting · Mixed
+  /// media", 13 in the body grey. Empty hides the line (the caller passes them only for a
+  /// seller who has posted).
+  final List<String> mediums;
+
+  /// The collector's "artists" stat; null leaves it off (an older server).
+  final int? artistsCount;
   final bool showFollowing;
   final bool showStats;
   final bool showMessage;
@@ -102,6 +112,7 @@ class ProfileHeader extends StatelessWidget {
       : collectorMode
       ? [
           (value: _formatCount(collectedCount), label: 'collected'),
+          if (artistsCount != null) (value: _formatCount(artistsCount), label: 'artists'),
           (value: _formatCount(savesCount), label: 'saves'),
         ]
       : [
@@ -139,6 +150,16 @@ class ProfileHeader extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: StudioType.label13(color: c.textSecondary),
             ),
+            if (mediums.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                mediums.take(3).join(' · '),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: StudioType.label13(color: c.textBody),
+              ),
+            ],
             if (locked && showFollowing) ...[
               const SizedBox(height: 4),
               Text(

@@ -9,7 +9,9 @@ import '../services/auth_session.dart';
 import '../services/user_service.dart';
 import '../widgets/studio/studio.dart';
 import '../utils/profile_photo_upload.dart';
+import '../data/post_picker_options.dart';
 import '../widgets/choose_location_sheet.dart';
+import '../widgets/post_create_option_sheet.dart';
 import '../widgets/labeled_dropdown.dart';
 import '../widgets/profile_edit_header.dart';
 import '../widgets/settings_tile.dart' show SettingsSectionLabel;
@@ -27,9 +29,10 @@ const _bannerRuleOptions = [
 /// every 30 days." (or the date it can next change); Bio up to 150 with a Mono count; then
 /// Location and Website rows. Cancel asks first when anything changed.
 ///
-/// Mediums (sellers only) needs a field on the account (BACKEND_CHANGES B31). Pronouns and the
-/// pinned banner aren't on the board; they stay below until that is decided
-/// (REMAINING_UI_CHECKLIST section 1).
+/// Mediums (sellers only, between Bio and Location): the same medium list as posting, up to 3,
+/// in the order picked (the first is their main one); shown under the username on the profile
+/// (BACKEND_CHANGES B31). Pronouns and the pinned banner aren't on the board; they stay below
+/// until that is decided (REMAINING_UI_CHECKLIST section 1).
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
 
@@ -67,6 +70,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
   String? _bannerTargetId;
   String? _bannerMediaUrl;
   bool _bannerPinChanged = false;
+
+  /// Mediums by name, in order (sellers only).
+  List<String> _mediums = const [];
+  bool _seller = false;
 
   @override
   void initState() {
@@ -108,6 +115,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
         _bannerTargetType = profile.bannerTargetType;
         _bannerTargetId = profile.bannerTargetId;
         _bannerMediaUrl = profile.banner?.mediaUrl;
+        _mediums = List.of(profile.profileMediums);
+        _seller = profile.sellerEnabled;
         _loading = false;
       });
       _initial = _signature();
@@ -128,7 +137,37 @@ class _EditProfilePageState extends State<EditProfilePage> {
     _coverPhotoUrl,
     _bannerAutoRule,
     _bannerPinChanged,
+    _mediums.join(','),
   ].join('|');
+
+  /// `EditProfile` Mediums: the posting medium list, up to 3, kept in the order picked.
+  void _pickMediums() {
+    String? idOf(String name) {
+      for (final option in PostMediumOptions.all) {
+        if (option.name.toLowerCase() == name.toLowerCase()) return option.id;
+      }
+      return null;
+    }
+
+    PostCreateOptionSheet.show(
+      context,
+      title: 'Mediums',
+      subtitle: 'Up to 3. The first is your main one.',
+      searchHint: 'Search mediums',
+      options: PostMediumOptions.all,
+      selectedIds: {for (final name in _mediums) ?idOf(name)},
+      mode: PostPickerSelectionMode.multiCheckbox,
+      maxSelections: 3,
+      onSelectionChanged: (ids) => setState(() {
+        final kept = [for (final name in _mediums) if (ids.contains(idOf(name))) name];
+        final added = [
+          for (final id in ids)
+            if (!kept.any((name) => idOf(name) == id)) PostMediumOptions.byId(id)?.name ?? id,
+        ];
+        _mediums = [...kept, ...added].take(3).toList();
+      }),
+    );
+  }
 
   bool get _dirty => !_loading && _signature() != _initial;
 
@@ -258,6 +297,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         updateBannerTarget: _bannerPinChanged,
         bannerTargetType: _bannerTargetType,
         bannerTargetId: _bannerTargetId,
+        profileMediums: _seller ? _mediums : null,
       );
       if (!mounted) return;
       showStudioToast(context, 'Profile updated');
@@ -377,6 +417,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       ),
                     ),
                     const SizedBox(height: 8),
+                    if (_seller)
+                      _EditRow(
+                        label: 'Mediums',
+                        value: _mediums.join(', '),
+                        onTap: _pickMediums,
+                      ),
                     // Location: the city search (`ChooseLocationSheet`), never free text.
                     _EditRow(
                       label: 'Location',

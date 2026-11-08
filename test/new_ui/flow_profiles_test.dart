@@ -92,6 +92,7 @@ class _Fake implements HttpClientAdapter {
             'followingCount': 30,
             'piecesCount': 1,
             'sellerEnabled': meSeller,
+            'profileMediums': ['Painting', 'Mixed media'],
           },
         };
       case 'GET /api/user/me/seller/analytics':
@@ -129,6 +130,7 @@ class _Fake implements HttpClientAdapter {
             'followingCount': 40,
             'piecesCount': 0,
             'collectedCount': 2,
+            'artistsCount': 2,
             'savesCount': 18,
           },
         };
@@ -203,6 +205,7 @@ class _Fake implements HttpClientAdapter {
             'bio': 'Collecting work from Dallas artists.',
             'followingCount': 14,
             'collectedCount': 6,
+            'artistsCount': 4,
             'savesCount': 32,
             'role': 'collector',
             'messagePermission': 'everyone',
@@ -352,6 +355,13 @@ void main() {
       setBoardViewport(tester, height: 1200);
       await _open(tester, const ProfilePage(), dark: dark);
 
+      // `ProfileSeller`: the mediums line under the username (B31).
+      expect(find.text('Painting · Mixed media'), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.text('Painting · Mixed media')).dy,
+        greaterThan(tester.getTopLeft(find.text('@jordanlee')).dy),
+      );
+
       final gear = tester.getRect(find.bySemanticsLabel('Settings'));
       final chart = tester.getRect(find.bySemanticsLabel('Insights'));
       expect(gear.size, const Size(44, 44));
@@ -485,8 +495,11 @@ void main() {
       expect(find.text('14 following'), findsOneWidget);
       expect(find.textContaining('followers'), findsNothing);
       expect(find.text('Collecting work from Dallas artists.'), findsOneWidget);
+      // A private account's stats are a collector's: collected · artists · saves.
       expect(find.text('6'), findsOneWidget);
       expect(find.text('collected'), findsOneWidget);
+      expect(find.text('4'), findsOneWidget);
+      expect(find.text('artists'), findsOneWidget);
       expect(find.text('32'), findsOneWidget);
       expect(_button('Message'), findsOneWidget);
       expect(_button('Follow'), findsOneWidget);
@@ -533,6 +546,10 @@ void main() {
     ) async {
       setBoardViewport(tester, height: 1400);
       await _open(tester, const ProfilePage(username: 'tomi'), dark: dark);
+
+      // `ProfileCollector` stats: collected · artists · saves.
+      final stats = ['collected', 'artists', 'saves'].map((l) => tester.getTopLeft(find.text(l)).dx).toList();
+      expect(stats, [...stats]..sort());
 
       // `ProfileCollector`: Pieces, Scenes, Collection, and it opens on Collection.
       final tabs = find.byType(ProfileTabs);

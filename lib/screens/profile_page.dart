@@ -789,7 +789,8 @@ class _ProfilePageState extends State<ProfilePage>
                           ? null
                           : () => openEventDetail(context, profile!.upcomingEvent!, openTickets: true),
                       sellerMode: sellerEnabled,
-                      collectorMode: collectorMode,
+                      // A private account is never a seller: its stats are a collector's.
+                      collectorMode: collectorMode || locked,
                       isOwnProfile: !showPublicActions,
                       followState: _followState,
                       followBusy: _followBusy,
@@ -806,6 +807,11 @@ class _ProfilePageState extends State<ProfilePage>
                       onTapFollowers: () =>
                           _onTapFollowStat(FollowListTab.followers),
                       locked: locked,
+                      // Under the username for a seller who has posted (`NoteProfileSeller`).
+                      mediums: sellerEnabled && (profile?.piecesCount ?? 0) > 0
+                          ? profile!.profileMediums
+                          : const [],
+                      artistsCount: profile?.artistsCount,
                       showFollowing: profile?.followingKnown ?? true,
                       showStats: profile?.statsKnown ?? true,
                       showMessage: !locked || profile.messagePermission == 'everyone',

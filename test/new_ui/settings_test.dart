@@ -126,12 +126,18 @@ const _studio = Address(
   zip: '78701',
 );
 
-Widget _privacy({bool private = false, bool seller = false, List<String> requests = const ['a', 'b', 'c']}) =>
+Widget _privacy({
+  bool private = false,
+  bool seller = false,
+  List<String> requests = const ['a', 'b', 'c'],
+  bool? collectionPrivate,
+}) =>
     PrivacySettingsPage(
       debugProfile: UserProfile(
         username: 'jordan',
         name: 'Jordan Lee',
         profileVisibility: private ? 'private' : 'public',
+        collectionPrivate: collectionPrivate,
       ),
       debugSeller: seller,
       debugRequests: requests,
@@ -805,6 +811,26 @@ void main() {
       await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
     });
+  });
+
+  testWidgets('Private Collection (B34): between Who can message you and Blocked accounts, a switch', (tester) async {
+    setBoardViewport(tester);
+    await tester.pumpWidget(_app(_privacy()));
+    await tester.pump();
+    expect(find.text('Private Collection'), findsNothing, reason: 'not shown until the server has it');
+
+    await tester.pumpWidget(_app(_privacy(collectionPrivate: false)));
+    await tester.pump();
+    expect(find.text('Only you see the pieces you own'), findsOneWidget);
+    final ys = ['Who can message you', 'Private Collection', 'Blocked accounts']
+        .map((l) => tester.getTopLeft(find.text(l)).dy)
+        .toList();
+    expect(ys, [...ys]..sort());
+    final toggle = find.byWidgetPredicate((w) => w is StudioSwitch && w.semanticLabel == 'Private Collection');
+    expect(tester.widget<StudioSwitch>(toggle).value, isFalse);
+    await tester.tap(find.text('Private Collection'));
+    await tester.pump();
+    expect(tester.widget<StudioSwitch>(toggle).value, isTrue);
   });
 
   group('goldens', () {

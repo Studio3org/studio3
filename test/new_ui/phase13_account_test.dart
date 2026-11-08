@@ -36,6 +36,9 @@ class _Fake implements HttpClientAdapter {
   final requests = <({String path, Map<String, dynamic>? body})>[];
   String? password = 'Correct-pass';
 
+  /// Whether the account sells (Edit profile shows Mediums, B31).
+  var seller = false;
+
   Iterable<Map<String, dynamic>?> bodies(String path) => requests.where((r) => r.path == path).map((r) => r.body);
 
   @override
@@ -71,6 +74,8 @@ class _Fake implements HttpClientAdapter {
             'location': 'Dallas, TX',
             'canChangeUsername': false,
             'lastUsernameChangeAt': '2037-11-01T12:00:00Z',
+            'sellerEnabled': seller,
+            'profileMediums': seller ? ['Oil'] : <String>[],
           },
         };
       case 'PATCH /api/user/me':
@@ -305,6 +310,56 @@ void main() {
       await tester.tap(find.text('Save'));
       await _settle(tester);
       expect(_server.bodies('/api/user/me').last!['website'], 'jordanlee.studio');
+      await tester.pump(const Duration(seconds: 3));
+    });
+
+    testWidgets('Mediums (sellers only, B31): the posting list, up to 3 in the order picked', (tester) async {
+      setBoardViewport(tester, height: 1400);
+      Future<void> open() async {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light,
+            home: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const EditProfilePage())),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.text('open'));
+        await _settle(tester);
+      }
+
+      // Not a seller: no Mediums row, and Save doesn't send them.
+      await open();
+      expect(find.text('Mediums'), findsNothing);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+
+      _server.seller = true;
+      await open();
+      final rows = ['Bio', 'Mediums', 'Location', 'Website'].map((l) => tester.getTopLeft(find.text(l).first).dy).toList();
+      expect(rows, [...rows]..sort(), reason: 'between Bio and Location');
+      expect(find.text('Oil'), findsOneWidget);
+
+      await tester.tap(find.text('Mediums'));
+      await tester.pumpAndSettle();
+      expect(find.text('Up to 3. The first is your main one.'), findsOneWidget);
+      await tester.tap(find.text('Mixed media'));
+      await tester.pump();
+      await tester.tap(find.text('Ink'));
+      await tester.pump();
+      await tester.tap(find.text('Charcoal'));
+      await tester.pump();
+      expect(find.text('You can pick up to 3'), findsOneWidget, reason: 'a fourth is refused');
+      await tester.tap(_button('Done'));
+      await tester.pumpAndSettle();
+      expect(find.text('Oil, Mixed media, Ink'), findsOneWidget);
+
+      await tester.tap(find.text('Save'));
+      await _settle(tester);
+      expect(_server.bodies('/api/user/me').last!['profileMediums'], ['Oil', 'Mixed media', 'Ink']);
       await tester.pump(const Duration(seconds: 3));
     });
 
