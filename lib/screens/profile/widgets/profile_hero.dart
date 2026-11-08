@@ -6,7 +6,9 @@ import '../../../widgets/profile_cover_image.dart';
 import '../../../widgets/studio/studio_icon.dart';
 import '../profile_constants.dart';
 
-/// Cover, overlapping avatar, and Figma chrome (back / more).
+/// Cover, overlapping avatar, and the cover icons: Back on the left; on the right More on
+/// someone else's profile, or on your own Settings (the gear, `ProfileOwn`) with Insights (the
+/// chart, sellers only) 44 to its left.
 class ProfileHero extends StatelessWidget {
   const ProfileHero({
     super.key,
@@ -16,6 +18,8 @@ class ProfileHero extends StatelessWidget {
     this.showDefaultCover = true,
     this.onBack,
     this.onMore,
+    this.onSettings,
+    this.onInsights,
     this.onAvatarTap,
   });
 
@@ -25,6 +29,12 @@ class ProfileHero extends StatelessWidget {
   final bool showDefaultCover;
   final VoidCallback? onBack;
   final VoidCallback? onMore;
+
+  /// Your own profile: the gear, in place of More.
+  final VoidCallback? onSettings;
+
+  /// Your own seller profile: the chart, left of the gear.
+  final VoidCallback? onInsights;
   final VoidCallback? onAvatarTap;
 
   @override
@@ -78,7 +88,17 @@ class ProfileHero extends StatelessWidget {
                 icon: StudioIcons.backBold,
               ),
             ),
-          if (onMore != null)
+          if (onSettings != null)
+            Positioned(
+              top: topInset + 12,
+              right: 8,
+              child: _CoverButton(
+                onPressed: onSettings!,
+                semanticLabel: 'Settings',
+                icon: StudioIcons.settings,
+              ),
+            )
+          else if (onMore != null)
             Positioned(
               top: topInset + 12,
               right: 8,
@@ -86,6 +106,16 @@ class ProfileHero extends StatelessWidget {
                 onPressed: onMore!,
                 semanticLabel: 'More options',
                 icon: StudioIcons.more,
+              ),
+            ),
+          if (onInsights != null)
+            Positioned(
+              top: topInset + 12,
+              right: 52,
+              child: _CoverButton(
+                onPressed: onInsights!,
+                semanticLabel: 'Insights',
+                icon: StudioIcons.insights,
               ),
             ),
           Positioned(

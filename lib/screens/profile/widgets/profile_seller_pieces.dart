@@ -19,8 +19,9 @@ bool profilePieceIsCollected(PieceSummary piece) {
 bool profilePieceIsForSale(PieceSummary piece) =>
     piece.isForSale && !profilePieceIsCollected(piece);
 
-/// Pieces tab for a seller: series already loaded, an All count, the Available
-/// chip when something is for sale, and a 3:4 grid.
+/// The Pieces tab, for everyone (`HandoffProfiles`): the Series shelf, All with a count, the
+/// Available chip when something is for sale, and a 3:4 grid. Nothing when there are no
+/// pieces and no series (empty tabs show nothing).
 class ProfileSellerPieces extends StatefulWidget {
   const ProfileSellerPieces({
     super.key,
@@ -31,6 +32,7 @@ class ProfileSellerPieces extends StatefulWidget {
     this.onDeletePiece,
     this.onPublishPiece,
     this.onSeeAllSeries,
+    this.onSeriesTap,
   });
 
   final List<PieceSummary> pieces;
@@ -40,6 +42,7 @@ class ProfileSellerPieces extends StatefulWidget {
   final void Function(PieceSummary piece)? onDeletePiece;
   final void Function(PieceSummary piece)? onPublishPiece;
   final VoidCallback? onSeeAllSeries;
+  final void Function(ProfileSeriesData series)? onSeriesTap;
 
   @override
   State<ProfileSellerPieces> createState() => _ProfileSellerPiecesState();
@@ -55,6 +58,9 @@ class _ProfileSellerPiecesState extends State<ProfileSellerPieces> {
     final visible = availableOnly
         ? widget.pieces.where(profilePieceIsForSale).toList(growable: false)
         : widget.pieces;
+    if (widget.pieces.isEmpty && widget.series.isEmpty) {
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
+    }
 
     return SliverMainAxisGroup(
       slivers: [
@@ -63,8 +69,10 @@ class _ProfileSellerPiecesState extends State<ProfileSellerPieces> {
             child: ProfileSeriesShelf(
               items: widget.series,
               onSeeAll: widget.onSeeAllSeries,
+              onSeriesTap: widget.onSeriesTap,
             ),
           ),
+        if (widget.pieces.isNotEmpty)
         SliverToBoxAdapter(
           child: _AllHeader(
             count: visible.length,

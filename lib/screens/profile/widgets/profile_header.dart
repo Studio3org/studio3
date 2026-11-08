@@ -35,6 +35,10 @@ class ProfileHeader extends StatelessWidget {
     this.upcomingEvent,
     this.onOpenEvent,
     this.onEventTickets,
+    this.locked = false,
+    this.showFollowing = true,
+    this.showStats = true,
+    this.showMessage = true,
   });
 
   final String name;
@@ -69,6 +73,15 @@ class ProfileHeader extends StatelessWidget {
   final StudioEvent? upcomingEvent;
   final VoidCallback? onOpenEvent;
   final VoidCallback? onEventTickets;
+
+  /// `ProfilePrivate` / `ProfileRequested`: a private account the viewer doesn't follow. The
+  /// line under the username is "N following" alone, not tappable, and only when
+  /// [showFollowing]; the stats only when [showStats]; Follow (or Requested) fills the row,
+  /// with Message beside it only when [showMessage] (the owner takes messages from everyone).
+  final bool locked;
+  final bool showFollowing;
+  final bool showStats;
+  final bool showMessage;
 
   String _formatCount(int? value) {
     if (value == null) return '—';
@@ -126,6 +139,15 @@ class ProfileHeader extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: StudioType.label13(color: c.textSecondary),
             ),
+            if (locked && showFollowing) ...[
+              const SizedBox(height: 4),
+              Text(
+                '$followingCount following',
+                textAlign: TextAlign.center,
+                style: StudioType.label13(color: c.textSecondary),
+              ),
+            ],
+            if (!locked) ...[
             const SizedBox(height: 4),
             ConstrainedBox(
               constraints: const BoxConstraints(minHeight: StudioSize.tapTarget),
@@ -167,6 +189,7 @@ class ProfileHeader extends StatelessWidget {
                 ),
               ),
             ),
+            ],
             if (bio.isNotEmpty) ...[
               const SizedBox(height: 14),
               Text(
@@ -183,11 +206,13 @@ class ProfileHeader extends StatelessWidget {
                 onTickets: onEventTickets ?? onOpenEvent ?? () {},
               ),
             ],
-            const SizedBox(height: 14),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              child: _StatsRow(stats: _stats),
-            ),
+            if (showStats) ...[
+              const SizedBox(height: 14),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: _StatsRow(stats: _stats),
+              ),
+            ],
             if (isOwnProfile && (onEditProfile != null || onShare != null)) ...[
               const SizedBox(height: 14),
               Row(
@@ -215,14 +240,16 @@ class ProfileHeader extends StatelessWidget {
               const SizedBox(height: 14),
               Row(
                 children: [
-                  Expanded(
-                    child: _ProfileActionButton(
-                      label: 'Message',
-                      filled: false,
-                      onPressed: onMessage,
+                  if (showMessage) ...[
+                    Expanded(
+                      child: _ProfileActionButton(
+                        label: 'Message',
+                        filled: false,
+                        onPressed: onMessage,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
+                    const SizedBox(width: 10),
+                  ],
                   Expanded(
                     child: _ProfileActionButton(
                       label: followState.actionLabel,

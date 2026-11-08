@@ -11,7 +11,6 @@ import 'package:studio3/widgets/profile_avatar_preview_sheet.dart';
 import 'package:studio3/widgets/studio/studio_action_row.dart';
 import 'package:studio3/widgets/studio/studio_avatar.dart';
 import 'package:studio3/widgets/studio/studio_button.dart';
-import 'package:studio3/widgets/studio/studio_empty_state.dart';
 import 'package:studio3/widgets/studio/studio_icon.dart';
 import 'package:studio3/widgets/studio/studio_tab_bar.dart';
 import 'package:studio3/widgets/studio/studio_toast.dart';
@@ -33,17 +32,28 @@ void main() {
     final c = dark ? StudioColors.dark : StudioColors.light;
     final theme = dark ? 'dark' : 'light';
 
-    testWidgets('locked profile is the board empty state, same copy ($theme)', (tester) async {
+    testWidgets('locked profile is `ProfilePrivate` / `ProfileRequested` ($theme)', (tester) async {
       await tester.pumpWidget(_app(const Scaffold(body: ProfileLockedPlaceholder()), dark: dark));
       await tester.pump();
-      expect(find.byType(StudioEmptyState), findsOneWidget);
       final title = tester.widget<Text>(find.text('This account is private'));
-      expect(title.style!.fontSize, 22);
+      expect(title.style!.fontSize, 17);
+      expect(title.style!.fontWeight, StudioType.medium);
       expect(title.style!.color, c.textPrimary);
-      final line = tester.widget<Text>(
-        find.text('Follow this account to see their pieces, scenes, and series.'),
-      );
+      final line = tester.widget<Text>(find.text('Follow to see their pieces, Scenes and Collection.'));
+      expect(line.style!.fontSize, 14);
       expect(line.style!.color, c.textSecondary);
+      // The lock: 28 in a 56 circle with a hairline.
+      final lock = find.byWidgetPredicate((w) => w is StudioIcon && w.asset == StudioIcons.lock);
+      expect(tester.getSize(lock), const Size(28, 28));
+      final circle = find.ancestor(of: lock, matching: find.byType(Container)).first;
+      expect((tester.widget<Container>(circle).decoration! as BoxDecoration).shape, BoxShape.circle);
+      expect(tester.getSize(circle), const Size(56, 56));
+
+      await tester.pumpWidget(
+        _app(const Scaffold(body: ProfileLockedPlaceholder(requested: true, firstName: 'Jordan')), dark: dark),
+      );
+      await tester.pump();
+      expect(find.text('Jordan will see your request. Tap Requested to cancel it.'), findsOneWidget);
     });
 
     testWidgets('viewer-mode notice is the toast box ($theme)', (tester) async {

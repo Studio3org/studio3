@@ -42,6 +42,8 @@ class UserProfile {
     this.profileVisibility = 'public',
     this.notificationPreferences,
     this.isLocked = false,
+    this.followingKnown = true,
+    this.statsKnown = true,
     this.upcomingEvent,
   });
 
@@ -90,6 +92,12 @@ class UserProfile {
   /// for a private profile the viewer can't yet see (see `isLocked` check
   /// in `fromJson`) — pieces/posts/series tabs must not be fetched.
   final bool isLocked;
+
+  /// Whether the server sent the following count and the stats. A full profile always does;
+  /// a locked one (`ProfilePrivate`) only once the server adds them (BACKEND_CHANGES B36),
+  /// and until then the header leaves them off rather than showing zeros.
+  final bool followingKnown;
+  final bool statsKnown;
 
   /// The profile's Upcoming show (`ProfileSeller`, `ProfileOwn`): the soonest published event
   /// they host that hasn't ended (BACKEND_CHANGES B27). Null when there is none.
@@ -147,7 +155,9 @@ class UserProfile {
       bannerTargetType: json['bannerTargetType'] as String?,
       bannerTargetId: json['bannerTargetId'] as String?,
       bannerAutoRule: json['bannerAutoRule'] as String? ?? 'none',
-      messagePermission: json['messagePermission'] as String? ?? 'everyone',
+      // A locked profile shows Message only when the owner takes messages from everyone
+      // (`ProfilePrivate`); when the server doesn't say (before B36), it stays off.
+      messagePermission: json['messagePermission'] as String? ?? (isLocked ? 'no_one' : 'everyone'),
       profileVisibility: json['profileVisibility'] as String? ?? 'public',
       notificationPreferences:
           json['notificationPreferences'] is Map<String, dynamic>
@@ -156,6 +166,8 @@ class UserProfile {
             )
           : null,
       isLocked: isLocked,
+      followingKnown: !isLocked || json['followingCount'] != null || json['following'] != null,
+      statsKnown: !isLocked || json['collectedCount'] != null || json['savesCount'] != null,
       upcomingEvent: json['upcomingEvent'] is Map<String, dynamic>
           ? StudioEvent.fromJson(json['upcomingEvent'] as Map<String, dynamic>)
           : null,
@@ -207,6 +219,8 @@ class UserProfile {
       profileVisibility: profileVisibility,
       notificationPreferences: notificationPreferences,
       isLocked: isLocked,
+      followingKnown: followingKnown,
+      statsKnown: statsKnown,
       upcomingEvent: upcomingEvent,
     );
   }

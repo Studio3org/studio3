@@ -1,6 +1,7 @@
 import '../models/piece_summary.dart';
 import '../models/post_summary.dart';
 import 'api_client.dart';
+import 'api_exception.dart';
 import 'auth_session.dart';
 import 'cache_service.dart';
 import 'connectivity_service.dart';
@@ -58,6 +59,18 @@ class PieceService {
   Future<List<PieceSummary>> getUserPieces(String username) async {
     final json = await _api.get('/api/users/$username/pieces');
     return _api.extractList(json).map(PieceSummary.fromJson).toList();
+  }
+
+  /// The pieces [username] bought on Studio 3, newest first: the profile's Collection tab
+  /// (BACKEND_CHANGES B37). Empty from a server that doesn't have the list yet (404).
+  Future<List<PieceSummary>> getUserCollection(String username) async {
+    try {
+      final json = await _api.get('/api/users/$username/collection');
+      return _api.extractList(json).map(PieceSummary.fromJson).toList();
+    } on ApiException catch (e) {
+      if (e.statusCode == 404) return const [];
+      rethrow;
+    }
   }
 
   /// Cache-first user pieces — lets a cold app start paint the Profile

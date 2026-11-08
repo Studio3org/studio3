@@ -13,7 +13,10 @@ import 'package:studio3/screens/conversation_thread_page.dart';
 import 'package:studio3/screens/event_detail_page.dart';
 import 'package:studio3/screens/piece_detail_page.dart';
 import 'package:studio3/screens/profile_page.dart';
+import 'package:studio3/screens/profile/profile_all_series_page.dart';
+import 'package:studio3/screens/profile/widgets/profile_tabs.dart';
 import 'package:studio3/screens/profile/widgets/profile_upcoming_show.dart';
+import 'package:studio3/screens/series_view_page.dart';
 import 'package:studio3/services/api_client.dart';
 import 'package:studio3/services/auth_session.dart';
 import 'package:studio3/services/cache_service.dart';
@@ -61,6 +64,9 @@ class _Fake implements HttpClientAdapter {
   /// Whether Amara's profile has an Upcoming show.
   var amaraShow = false;
 
+  /// Whether your own account sells (the Insights chart on the cover).
+  var meSeller = false;
+
   Iterable<({String method, String path})> to(String method, String path) =>
       requests.where((r) => r.method == method && r.path == path);
 
@@ -85,8 +91,11 @@ class _Fake implements HttpClientAdapter {
             'followersCount': 12,
             'followingCount': 30,
             'piecesCount': 1,
+            'sellerEnabled': meSeller,
           },
         };
+      case 'GET /api/user/me/seller/analytics':
+        json = {'success': true, 'data': {'savesCount': 412, 'likesCount': 90, 'inquiriesCount': 7, 'salesCount': 3}};
       case 'GET /api/users/jordanlee/pieces':
         json = {'success': true, 'data': [_piece('j1', 'Morning Light', 'jordanlee')]};
       // Someone public.
@@ -107,6 +116,64 @@ class _Fake implements HttpClientAdapter {
         };
       case 'GET /api/events/ev1':
         json = {'success': true, 'data': _show()};
+      // A collector with no pieces, and what they bought (BACKEND_CHANGES B37).
+      case 'GET /api/user/tomi':
+        json = {
+          'success': true,
+          'data': {
+            'username': 'tomi',
+            'name': 'Tomi Adeyemi',
+            'role': 'collector',
+            'profileVisibility': 'public',
+            'followersCount': 3,
+            'followingCount': 40,
+            'piecesCount': 0,
+            'collectedCount': 2,
+            'savesCount': 18,
+          },
+        };
+      case 'GET /api/users/tomi/collection':
+        json = {
+          'success': true,
+          'data': [
+            {
+              'id': 'c1',
+              'title': 'Night Walks',
+              'status': 'sold',
+              'isForSale': false,
+              'mediaUrl': '',
+              'author': {'username': 'amara', 'name': 'Amara Osei'},
+            },
+            {
+              'id': 'c2',
+              'title': 'Harbour',
+              'status': 'sold',
+              'isForSale': false,
+              'mediaUrl': '',
+              'author': {'username': 'cedric', 'name': 'Cedric Okafor'},
+            },
+          ],
+        };
+      case 'GET /api/pieces/c1':
+        json = {
+          'success': true,
+          'data': {
+            'id': 'c1',
+            'title': 'Night Walks',
+            'status': 'sold',
+            'isForSale': false,
+            'mediaUrl': '',
+            'author': {'username': 'amara', 'name': 'Amara Osei'},
+          },
+        };
+      case 'GET /api/users/amara/series':
+        json = {
+          'success': true,
+          'data': [
+            {'id': 's1', 'name': 'Night Walks', 'pieceCount': 8},
+            {'id': 's2', 'name': 'Harbour Days', 'pieceCount': 3},
+          ],
+        };
       case 'GET /api/users/amara/pieces':
         json = {'success': true, 'data': [_piece('a1', 'Bodies in Color', 'amara', forSale: true)]};
       case 'GET /api/pieces/a1':
@@ -125,6 +192,22 @@ class _Fake implements HttpClientAdapter {
         json = {'success': true, 'data': {'following': false, 'requested': true}};
       case 'DELETE /api/users/esi/follow':
         json = {'success': true, 'data': {'following': false, 'requested': false}};
+      // Someone private, once the server sends the rest of the header (BACKEND_CHANGES B36).
+      case 'GET /api/user/kofi':
+        json = {
+          'success': true,
+          'data': {
+            'username': 'kofi',
+            'name': 'Kofi Mensah',
+            'profileVisibility': 'private',
+            'bio': 'Collecting work from Dallas artists.',
+            'followingCount': 14,
+            'collectedCount': 6,
+            'savesCount': 32,
+            'role': 'collector',
+            'messagePermission': 'everyone',
+          },
+        };
       default:
         if (options.method == 'GET') {
           json = {
@@ -243,7 +326,8 @@ void main() {
       expect(_server.to('GET', '/api/user/me'), isNotEmpty);
       expect(find.text('Jordan Lee'), findsWidgets);
       expect(find.text('Painter in Dallas.'), findsOneWidget);
-      expect(find.text('Morning Light'), findsNothing, reason: 'the grid shows pictures, not titles');
+      // Pieces is the board's grid for everyone: the 3:4 picture with its title under it.
+      expect(find.text('Morning Light'), findsOneWidget);
       expect(_server.to('GET', '/api/users/jordanlee/pieces'), isNotEmpty);
       // Your own: Edit profile and Share, no Follow or Message.
       expect(_button('Edit profile'), findsOneWidget);
@@ -253,9 +337,33 @@ void main() {
       expect(find.text('Edit profile page'), findsOneWidget);
       Navigator.of(tester.element(find.text('Edit profile page'))).pop();
       await _settle(tester);
-      // The cover's More opens Settings.
-      await _tap(tester, find.bySemanticsLabel('More options'));
+      // The cover's gear (`ProfileOwn`, in place of More) opens Settings; no Insights chart
+      // for someone who doesn't sell.
+      expect(find.bySemanticsLabel('More options'), findsNothing);
+      expect(find.bySemanticsLabel('Insights'), findsNothing);
+      await _tap(tester, find.bySemanticsLabel('Settings'));
       expect(find.text('Settings page'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pump(const Duration(seconds: 11));
+    });
+
+    testWidgets('your own seller profile ($theme): the chart left of the gear opens Insights', (tester) async {
+      _server.meSeller = true;
+      setBoardViewport(tester, height: 1200);
+      await _open(tester, const ProfilePage(), dark: dark);
+
+      final gear = tester.getRect(find.bySemanticsLabel('Settings'));
+      final chart = tester.getRect(find.bySemanticsLabel('Insights'));
+      expect(gear.size, const Size(44, 44));
+      expect(chart.size, const Size(44, 44));
+      expect(gear.right, 390 - 8);
+      expect(chart.right, 390 - 52);
+      expect(chart.top, gear.top);
+
+      await _tap(tester, find.bySemanticsLabel('Insights'));
+      expect(_server.to('GET', '/api/user/me/seller/analytics'), hasLength(1));
+      expect(find.text('Your insights'), findsOneWidget);
+      expect(find.text('412'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pump(const Duration(seconds: 11));
     });
@@ -280,9 +388,8 @@ void main() {
       expect(_server.to('DELETE', '/api/users/amara/follow'), hasLength(1));
       expect(_button('Follow'), findsOneWidget);
 
-      // A piece in the grid opens its page.
-      // (Grid tiles are pictures; this one is Bodies in Color, for sale.)
-      await _tap(tester, find.byWidgetPredicate((w) => w.runtimeType.toString() == '_MasonryTile'));
+      // A piece in the grid opens its page (Bodies in Color, for sale).
+      await _tap(tester, find.text('Bodies in Color'));
       expect(find.byType(AvailablePieceDetailPage), findsOneWidget);
       expect(tester.widget<AvailablePieceDetailPage>(find.byType(AvailablePieceDetailPage)).item.id, 'a1');
       expect(find.byType(PieceDetailPage), findsNothing);
@@ -341,16 +448,135 @@ void main() {
 
       expect(find.text('Esi Owusu'), findsWidgets);
       expect(find.text('This account is private'), findsOneWidget);
-      expect(find.text('Follow this account to see their pieces, scenes, and series.'), findsOneWidget);
+      expect(find.text('Follow to see their pieces, Scenes and Collection.'), findsOneWidget);
       expect(_server.under('/api/users/esi/'), isEmpty, reason: 'no pieces, Scenes or series are asked for');
+      // `ProfilePrivate`: nothing the server didn't send (no zeros), and Follow alone fills the
+      // row (Message only when the owner takes messages from everyone).
+      expect(find.textContaining('followers'), findsNothing);
+      expect(find.textContaining(' following'), findsNothing);
+      expect(find.text('collected'), findsNothing);
+      expect(_button('Message'), findsNothing);
+      expect(
+        tester.getSize(find.ancestor(of: _button('Follow'), matching: find.byType(Expanded)).first).width,
+        390 - 40,
+      );
 
+      // `ProfileRequested`: the outlined Requested, and the line says how to take it back.
       await _tap(tester, _button('Follow'));
       expect(_server.to('POST', '/api/users/esi/follow'), hasLength(1));
       expect(_button('Requested'), findsOneWidget);
       expect(find.text('This account is private'), findsOneWidget);
+      expect(find.text('Esi will see your request. Tap Requested to cancel it.'), findsOneWidget);
       await _tap(tester, _button('Requested'));
       expect(_server.to('DELETE', '/api/users/esi/follow'), hasLength(1));
       expect(_button('Follow'), findsOneWidget);
+      expect(find.text('Follow to see their pieces, Scenes and Collection.'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pump(const Duration(seconds: 11));
+    });
+
+    testWidgets('a private profile with the full header ($theme, B36): following, bio, stats, Message', (
+      tester,
+    ) async {
+      setBoardViewport(tester, height: 1200);
+      await _open(tester, const ProfilePage(username: 'kofi'), dark: dark);
+
+      expect(find.text('This account is private'), findsOneWidget);
+      expect(find.text('14 following'), findsOneWidget);
+      expect(find.textContaining('followers'), findsNothing);
+      expect(find.text('Collecting work from Dallas artists.'), findsOneWidget);
+      expect(find.text('6'), findsOneWidget);
+      expect(find.text('collected'), findsOneWidget);
+      expect(find.text('32'), findsOneWidget);
+      expect(_button('Message'), findsOneWidget);
+      expect(_button('Follow'), findsOneWidget);
+      expect(_server.under('/api/users/kofi/'), isEmpty);
+      expect(tester.takeException(), isNull);
+      await tester.pump(const Duration(seconds: 11));
+    });
+
+    testWidgets('no Series tab ($theme): series are the shelf on Pieces; a card and See all open them', (
+      tester,
+    ) async {
+      setBoardViewport(tester, height: 1400);
+      await _open(tester, const ProfilePage(username: 'amara'), dark: dark);
+
+      // Tabs are Pieces and Scenes (Collect for a seller); no Series.
+      final tabs = find.byType(ProfileTabs);
+      expect(find.descendant(of: tabs, matching: find.text('Pieces')), findsOneWidget);
+      expect(find.descendant(of: tabs, matching: find.text('Scenes')), findsOneWidget);
+      expect(find.descendant(of: tabs, matching: find.text('Series')), findsNothing);
+
+      // The shelf comes with Pieces, without opening anything else.
+      expect(_server.to('GET', '/api/users/amara/series'), hasLength(1));
+      expect(find.text('Series'), findsOneWidget);
+      expect(find.text('Night Walks'), findsOneWidget);
+      expect(find.text('8 pieces'), findsOneWidget);
+
+      await _tap(tester, find.bySemanticsLabel('Night Walks, 8 pieces'));
+      expect(find.byType(SeriesViewPage), findsOneWidget);
+      Navigator.of(tester.element(find.byType(SeriesViewPage))).pop();
+      await _settle(tester);
+
+      await _tap(tester, find.byKey(const Key('profile-series-see-all')));
+      expect(find.byType(ProfileAllSeriesPage), findsOneWidget);
+      expect(find.text('Night Walks'), findsOneWidget);
+      expect(find.text('Harbour Days'), findsOneWidget);
+      await _tap(tester, find.text('Harbour Days'));
+      expect(find.byType(SeriesViewPage), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pump(const Duration(seconds: 11));
+    });
+
+    testWidgets('Collection ($theme): a collector with no pieces opens on it; title and artist, no price', (
+      tester,
+    ) async {
+      setBoardViewport(tester, height: 1400);
+      await _open(tester, const ProfilePage(username: 'tomi'), dark: dark);
+
+      // `ProfileCollector`: Pieces, Scenes, Collection, and it opens on Collection.
+      final tabs = find.byType(ProfileTabs);
+      expect(tester.widget<ProfileTabs>(tabs).currentTab, 'collection');
+      expect(_server.to('GET', '/api/users/tomi/collection'), hasLength(1));
+      expect(find.text('Night Walks'), findsOneWidget);
+      expect(find.text('Amara Osei'), findsOneWidget);
+      expect(find.text('Harbour'), findsOneWidget);
+      expect(find.text('Cedric Okafor'), findsOneWidget);
+      expect(find.textContaining(r'$'), findsNothing, reason: 'never prices');
+      expect(find.text('Collected'), findsNothing, reason: 'no chips');
+
+      // Two columns 16 apart, 20 under the tabs; 3:4 tiles.
+      final first = tester.getRect(find.bySemanticsLabel('Night Walks, by Amara Osei'));
+      final second = tester.getRect(find.bySemanticsLabel('Harbour, by Cedric Okafor'));
+      expect(first.top, second.top);
+      expect(second.left - first.right, 16);
+      expect(first.top - tester.getRect(tabs).bottom, 20);
+      final picture = tester.getSize(find.descendant(
+        of: find.bySemanticsLabel('Night Walks, by Amara Osei'),
+        matching: find.byType(AspectRatio),
+      ));
+      expect(picture.width / picture.height, closeTo(167 / 223, 0.001));
+
+      // Pieces is empty for them: nothing, not an empty message.
+      await _tap(tester, find.descendant(of: tabs, matching: find.text('Pieces')));
+      expect(find.text('No pieces yet'), findsNothing);
+      await _tap(tester, find.descendant(of: tabs, matching: find.text('Collection')));
+      await _tap(tester, find.bySemanticsLabel('Night Walks, by Amara Osei'));
+      expect(find.byType(PieceDetailPage), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pump(const Duration(seconds: 11));
+    });
+
+    testWidgets('Collection ($theme): everyone has the tab; nothing bought shows nothing', (tester) async {
+      setBoardViewport(tester, height: 1200);
+      await _open(tester, const ProfilePage(), dark: dark);
+
+      final tabs = find.byType(ProfileTabs);
+      expect(tester.widget<ProfileTabs>(tabs).currentTab, 'pieces');
+      await _tap(tester, find.descendant(of: tabs, matching: find.text('Collection')));
+      expect(_server.to('GET', '/api/users/jordanlee/collection'), hasLength(1));
+      expect(tester.widget<ProfileTabs>(tabs).currentTab, 'collection');
+      expect(find.byType(AspectRatio), findsNothing);
       expect(tester.takeException(), isNull);
       await tester.pump(const Duration(seconds: 11));
     });

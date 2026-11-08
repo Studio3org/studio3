@@ -223,7 +223,6 @@ void main() {
               ProfileTabContent(
                 currentTab: 'scenes',
                 seriesItems: const [],
-                sellerMode: true,
               ),
             ],
           ),
@@ -238,16 +237,24 @@ void main() {
         home: Scaffold(
           body: ProfileTabs(
             currentTab: 'pieces',
-            showCollect: true,
             onTabChanged: (_) {},
           ),
         ),
       ),
     );
     await tester.pump();
-    for (final label in ['Pieces', 'Scenes', 'Series', 'Collect']) {
+    // `HandoffProfiles`: Pieces, Scenes, Collection for everyone, evenly spaced; no Series tab
+    // (series are the shelf on Pieces) and no Collect.
+    for (final label in ['Pieces', 'Scenes', 'Collection']) {
       expect(find.text(label), findsOneWidget);
     }
+    expect(find.text('Series'), findsNothing);
+    expect(find.text('Collect'), findsNothing);
+    final widths = [
+      for (final label in ['Pieces', 'Scenes', 'Collection'])
+        tester.getSize(find.ancestor(of: find.text(label), matching: find.byType(Expanded)).first).width,
+    ];
+    expect(widths.toSet(), hasLength(1));
     final pieces = tester.getSize(
       find.ancestor(of: find.text('Pieces'), matching: find.byType(SizedBox)).first,
     );
