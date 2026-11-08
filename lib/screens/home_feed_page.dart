@@ -235,10 +235,31 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> with RouteAware, ScrollsToTopOnDoubleTap<HomePage> {
+class _HomePageState extends State<HomePage>
+    with RouteAware, ScrollsToTopOnDoubleTap<HomePage>, SingleTickerProviderStateMixin {
   static const double _loadMoreThreshold = 200;
 
+  /// How far the feed moves one way before the top bar hides or comes back, so a small
+  /// wobble of the thumb doesn't flick it.
+  static const double _headerScrollSlop = 12;
+
   final ScrollController _scrollController = ScrollController();
+
+  /// The top bar (the user's call, 2026-11-08): scrolling down slides it up and folds it
+  /// away; scrolling up slides it back down. 1 is shown, 0 hidden.
+  late final AnimationController _header = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 220),
+    reverseDuration: const Duration(milliseconds: 200),
+    value: 1,
+  );
+  late final Animation<double> _headerSize = CurvedAnimation(
+    parent: _header,
+    curve: Curves.easeOutCubic,
+    reverseCurve: Curves.easeInCubic,
+  );
+  double _lastOffset = 0;
+  double _headerTravel = 0;
   bool _showAvailable = false;
 
   /// The one event card for this feed load (`NoteMain`): the server's pick on the first page
@@ -256,6 +277,7 @@ class _HomePageState extends State<HomePage> with RouteAware, ScrollsToTopOnDoub
     widget.store.ensureInitialized();
     widget.store.addListener(_onStoreChanged);
     _scrollController.addListener(_onScroll);
+    _scrollController.addListener(_onScrollHeader);
     // The feed may bring its own event card, so the Events tab is asked only once it has
     // answered (or there is something cached to go on).
     if (widget.debugFeedEvent != null || !widget.store.loading) _startFeedEvent();
@@ -341,7 +363,9 @@ class _HomePageState extends State<HomePage> with RouteAware, ScrollsToTopOnDoub
     routeObserver.unsubscribe(this);
     widget.store.removeListener(_onStoreChanged);
     _scrollController.removeListener(_onScroll);
+    _scrollController.removeListener(_onScrollHeader);
     _scrollController.dispose();
+    _header.dispose();
     super.dispose();
   }
 
@@ -399,6 +423,46 @@ class _HomePageState extends State<HomePage> with RouteAware, ScrollsToTopOnDoub
     }
   }
 
+  /// Hides the top bar once the feed has gone [_headerScrollSlop] down, shows it once it has
+  /// gone that far up, and always at the top. Pull-to-refresh and the bounce past either end
+  /// don't count. A screen reader keeps it in place.
+  void _onScrollHeader() {
+    if (!_scrollController.hasClients) return;
+    final pos = _scrollController.position;
+    if (!pos.hasPixels || !pos.hasContentDimensions) return;
+    final offset = pos.pixels.clamp(pos.minScrollExtent, pos.maxScrollExtent);
+    final delta = offset - _lastOffset;
+    _lastOffset = offset;
+    if (offset <= pos.minScrollExtent || MediaQuery.accessibleNavigationOf(context)) {
+      _headerTravel = 0;
+      _showHeader();
+      return;
+    }
+    if (delta == 0) return;
+    // Start counting again when the direction changes.
+    if ((delta > 0) != (_headerTravel > 0)) _headerTravel = 0;
+    _headerTravel += delta;
+    // A feed barely taller than the screen would grow back under a hidden bar and bounce.
+    if (_headerTravel > _headerScrollSlop && pos.maxScrollExtent > _loadMoreThreshold) {
+      _hideHeader();
+    } else if (_headerTravel < -_headerScrollSlop) {
+      _showHeader();
+    }
+  }
+
+  void _showHeader() {
+    if (_header.value == 1 || _header.status == AnimationStatus.forward) return;
+    _header.duration = MediaQuery.disableAnimationsOf(context) ? Duration.zero : const Duration(milliseconds: 220);
+    _header.forward();
+  }
+
+  void _hideHeader() {
+    if (_header.value == 0 || _header.status == AnimationStatus.reverse) return;
+    _header.reverseDuration =
+        MediaQuery.disableAnimationsOf(context) ? Duration.zero : const Duration(milliseconds: 200);
+    _header.reverse();
+  }
+
   void _openApiItem(FeedItem item) {
     openExploreDetail(context, item);
   }
@@ -410,6 +474,7 @@ class _HomePageState extends State<HomePage> with RouteAware, ScrollsToTopOnDoub
     final showAvailable = filter == FeedAvailabilityFilter.available;
     if (showAvailable == _showAvailable) return;
     setState(() => _showAvailable = showAvailable);
+    _showHeader();
     // Available asks the server for its own pages the first time (B29).
     if (showAvailable) widget.store.loadAvailable();
     if (_scrollController.hasClients) {
@@ -419,6 +484,7 @@ class _HomePageState extends State<HomePage> with RouteAware, ScrollsToTopOnDoub
 
   @override
   void scrollToTopAndRefresh() {
+    _showHeader();
     if (_scrollController.hasClients) {
       _scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
     }
@@ -446,10 +512,16 @@ class _HomePageState extends State<HomePage> with RouteAware, ScrollsToTopOnDoub
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            FeedHomeHeader(
-              filter: filter,
-              onFilterChanged: _onFilterTap,
-              hasAvailableItems: store.availableItems.isNotEmpty,
+            // Folds from the top, so the bar slides up out of view and back down into it.
+            SizeTransition(
+              key: const ValueKey('home-header'),
+              sizeFactor: _headerSize,
+              alignment: Alignment.bottomCenter,
+              child: FeedHomeHeader(
+                filter: filter,
+                onFilterChanged: _onFilterTap,
+                hasAvailableItems: store.availableItems.isNotEmpty,
+              ),
             ),
             Expanded(
               child: _buildFeed(

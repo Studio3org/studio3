@@ -623,8 +623,8 @@ class FeedCardBottomScrim extends StatelessWidget {
   }
 }
 
-/// A feed piece (`Main`, `NoteMain`): inset with the 16 screen margins, 3:4, square corners,
-/// never cropped. Dots and a sideways swipe only when the payload has 2+ photos. Under a
+/// A feed piece (`Main`, `NoteMain`): inset with the 16 screen margins, 3:4, corners rounded 12
+/// like the series cards (the user's call, 2026-11-08; the board had them square), never cropped. Dots and a sideways swipe only when the payload has 2+ photos. Under a
 /// piece, 12 below, its label: the artist's name (14/500, opens their profile) and the title
 /// with the year in grey (15) on the left; on the right the medium in Mono 11 grey and under
 /// it the Available or Collected chip (nothing for Not for sale). No photo, no price. A photo
@@ -681,7 +681,9 @@ class _FeedPieceCardState extends State<FeedPieceCard> {
             label: urls.length > 1 ? 'Photo ${_page + 1} of ${urls.length}' : 'Open the piece',
             child: GestureDetector(
               onTap: widget.onTap,
-              child: Stack(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(StudioRadius.button),
+                child: Stack(
                 fit: StackFit.expand,
                 children: [
                   if (urls.length > 1)
@@ -717,6 +719,7 @@ class _FeedPieceCardState extends State<FeedPieceCard> {
                       ),
                     ),
                 ],
+              ),
               ),
             ),
           ),

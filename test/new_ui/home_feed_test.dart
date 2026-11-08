@@ -140,7 +140,8 @@ void main() {
     expect(image.aspectRatio, 3 / 4);
     // Inset with the 16 margins (`Main`, `NoteMain`): 358 wide, 477 tall.
     expect(tester.getRect(find.byType(AspectRatio)), const Rect.fromLTWH(16, 0, 358, 358 * 4 / 3));
-    expect(find.byType(ClipRRect), findsNothing);
+    // Rounded 12, like the series cards (the user's call, 2026-11-08).
+    expect(tester.widget<ClipRRect>(find.byType(ClipRRect)).borderRadius, BorderRadius.circular(StudioRadius.button));
     expect(find.byType(PageView), findsNothing);
 
     final name = tester.widget<Text>(find.text('Amara Osei'));

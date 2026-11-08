@@ -171,6 +171,42 @@ void main() {
     store.dispose();
   });
 
+  testWidgets("the top bar slides away scrolling down and back scrolling up (the user's call)", (tester) async {
+    setBoardViewport(tester);
+    _server.pages[''] = {
+      'items': [for (var i = 1; i <= 6; i++) _piece('a$i')],
+      'nextCursor': null,
+    };
+    final store = HomeFeedStore();
+    await tester.pumpWidget(_home(store));
+    await _settle(tester);
+    final header = find.byKey(const ValueKey('home-header'));
+    final shown = tester.getSize(header).height;
+    expect(shown, greaterThan(40));
+
+    // Down: it folds away and the feed takes its room.
+    await tester.drag(find.byType(ListView), const Offset(0, -300));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    final midway = tester.getSize(header).height;
+    expect(midway, inExclusiveRange(0, shown), reason: 'it animates');
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(tester.getSize(header).height, 0);
+    expect(tester.getTopLeft(find.byType(ListView)).dy, tester.getTopLeft(header).dy);
+
+    // A thumb wobble up doesn't bring it back; a real scroll up does.
+    await tester.drag(find.byType(ListView), const Offset(0, 28));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(tester.getSize(header).height, 0);
+    await tester.drag(find.byType(ListView), const Offset(0, 60));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(tester.getSize(header).height, inExclusiveRange(0, shown), reason: 'it slides down');
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(tester.getSize(header).height, shown);
+    store.dispose();
+  });
+
   testWidgets('Available on a server without the filter: what can be collected now, loading pages until '
       'there is some', (tester) async {
     setBoardViewport(tester);
