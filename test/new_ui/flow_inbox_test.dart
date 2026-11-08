@@ -235,8 +235,8 @@ void main() {
   for (final dark in [false, true]) {
     final theme = dark ? 'dark' : 'light';
 
-    testWidgets('Inbox ($theme): Activity opens what it is about, Requests approves, Messages opens the '
-        'chat, a reply is sent (a failure keeps the text)', (tester) async {
+    testWidgets('Inbox ($theme): Activity opens what it is about, Follow requests at its top approves, '
+        'Messages opens the chat, a reply is sent (a failure keeps the text)', (tester) async {
       setBoardViewport(tester, height: 1000);
       await tester.pumpWidget(_app(dark: dark));
       await _settle(tester);
@@ -255,15 +255,25 @@ void main() {
       Navigator.of(tester.element(find.byType(AvailablePieceDetailPage))).pop();
       await _settle(tester);
 
-      // Requests: Daisy asked; Accept lets her follow.
-      await _tap(tester, find.text('Requests'));
+      // No Requests tab: Follow requests is the first row of Activity (as on Instagram), with
+      // Daisy's photo and the count; it opens the list, where Approve lets her follow.
+      expect(find.text('Requests'), findsNothing);
+      expect(find.text('Follow requests'), findsOneWidget);
+      expect(find.text('@daisy'), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.text('Follow requests')).dy,
+        lessThan(tester.getTopLeft(_rich('Esi Owusu followed you.')).dy),
+      );
+      await _tap(tester, find.byKey(const Key('inbox-follow-requests')));
       expect(find.text('Daisy Smith'), findsOneWidget);
-      expect(find.text('@daisy · 2h'), findsOneWidget);
-      await _tap(tester, find.widgetWithText(StudioButton, 'Accept'));
+      await _tap(tester, find.widgetWithText(StudioButton, 'Approve'));
       expect(_server.to('POST', '/api/users/follow-requests/daisy/accept'), hasLength(1));
       expect(find.text('Daisy Smith can follow you now'), findsOneWidget);
       expect(find.text('Daisy Smith'), findsNothing);
       await tester.pump(const Duration(seconds: 4));
+      Navigator.of(tester.element(find.text('Follow requests').last)).pop();
+      await _settle(tester);
+      expect(find.byKey(const Key('inbox-follow-requests')), findsNothing, reason: 'nobody waiting now');
 
       // Messages: the chat with Esi, unread.
       await _tap(tester, find.text('Messages'));

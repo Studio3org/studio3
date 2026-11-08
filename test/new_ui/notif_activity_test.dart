@@ -3,7 +3,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:studio3/models/follow_request.dart';
 import 'package:studio3/models/notification_item.dart';
+import 'package:studio3/screens/follow_requests_page.dart';
 import 'package:studio3/theme/app_theme.dart';
 import 'package:studio3/theme/studio_colors.dart';
 import 'package:studio3/widgets/inbox/notifications_body.dart';
@@ -355,16 +357,84 @@ void main() {
     expect(find.text('Nothing here yet'), findsOneWidget);
   });
 
+  for (final dark in [false, true]) {
+    testWidgets('Follow requests row (${dark ? 'dark' : 'light'}): at the top, the newest photo, a count, '
+        'opens the list', (tester) async {
+      final now = DateTime.now();
+      final requests = [
+        FollowRequest(username: 'mariabruno', name: 'Maria Bruno', requestedAt: now.subtract(const Duration(days: 3))),
+        FollowRequest(
+          username: 'daisysmith',
+          name: 'Daisy Smith',
+          profilePhotoUrl: 'https://cdn.test/daisy.jpg',
+          requestedAt: now.subtract(const Duration(hours: 2)),
+        ),
+        FollowRequest(username: 'cedric', name: 'Cedric Okafor', requestedAt: now.subtract(const Duration(days: 1))),
+      ];
+      setBoardViewport(tester);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: dark ? AppTheme.dark : AppTheme.light,
+          home: Scaffold(body: NotificationsBody(debugItems: _board, debugRequests: requests)),
+        ),
+      );
+      await tester.pump();
+
+      final row = find.byKey(const Key('inbox-follow-requests'));
+      expect(find.text('Follow requests'), findsOneWidget);
+      expect(find.text('@daisysmith + 2 others'), findsOneWidget, reason: 'the newest first');
+      final avatar = tester.widget<StudioAvatar>(find.descendant(of: row, matching: find.byType(StudioAvatar)));
+      expect(avatar.url, 'https://cdn.test/daisy.jpg');
+      expect(avatar.size, 40);
+      final bubble = find.byKey(const Key('inbox-follow-requests-count'));
+      expect(find.descendant(of: bubble, matching: find.text('3')), findsOneWidget);
+      final c = dark ? StudioColors.dark : StudioColors.light;
+      expect((tester.widget<Container>(bubble).decoration! as BoxDecoration).color, c.textPrimary);
+      // Above every Activity row.
+      final firstRow = tester.getTopLeft(find.byType(ActivityRow).first).dy;
+      expect(tester.getTopLeft(row).dy, lessThan(firstRow));
+
+      await tester.tap(row);
+      await tester.pumpAndSettle();
+      expect(find.byType(FollowRequestsPage), findsOneWidget);
+      expect(find.text('Daisy Smith'), findsOneWidget);
+      expect(find.text('Maria Bruno'), findsOneWidget);
+    });
+  }
+
+  testWidgets('Follow requests row: one person has no "+ others"; nobody waiting, no row', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: NotificationsBody(
+            debugItems: const [],
+            debugRequests: [FollowRequest(username: 'daisy', name: 'Daisy', requestedAt: DateTime.now())],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('@daisy'), findsOneWidget);
+    expect(find.text('Nothing here yet'), findsOneWidget, reason: 'the empty state stays under it');
+
+    await tester.pumpWidget(
+      MaterialApp(theme: AppTheme.light, home: Scaffold(body: NotificationsBody(key: UniqueKey(), debugItems: const []))),
+    );
+    await tester.pump();
+    expect(find.byKey(const Key('inbox-follow-requests')), findsNothing);
+  });
+
   testWidgets('tabs: equal 44 tabs with a Mono count, full-width rule', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light,
         home: DefaultTabController(
-          length: 3,
+          length: 2,
           child: Scaffold(
             appBar: const StudioTabBar(
-              labels: ['Activity', 'Messages', 'Requests'],
-              counts: [null, 2, 0],
+              labels: ['Activity', 'Messages'],
+              counts: [null, 2],
               ruleFullWidth: true,
             ),
           ),
@@ -384,15 +454,15 @@ void main() {
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light,
         home: DefaultTabController(
-          length: 3,
+          length: 2,
           child: Scaffold(
             body: SafeArea(
               child: Column(
                 children: [
                   const SizedBox(height: 56),
                   const StudioTabBar(
-                    labels: ['Activity', 'Messages', 'Requests'],
-                    counts: [null, 2, null],
+                    labels: ['Activity', 'Messages'],
+                    counts: [null, 2],
                     ruleFullWidth: true,
                   ),
                   Expanded(child: NotificationsBody(debugItems: _board)),

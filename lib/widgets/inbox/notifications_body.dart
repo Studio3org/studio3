@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../models/feed_item.dart';
 import '../../models/feed_preview_item.dart';
+import '../../models/follow_request.dart';
 import '../../models/notification_item.dart';
 import '../../screens/auction_flow.dart';
+import '../../screens/follow_requests_page.dart';
 import '../../services/chat_socket_service.dart';
 import '../../services/connectivity_service.dart';
 import '../../services/main_nav_service.dart';
@@ -11,6 +13,7 @@ import '../../services/notification_service.dart';
 import '../../services/order_service.dart';
 import '../../services/piece_service.dart';
 import '../../services/post_service.dart';
+import '../../services/social_service.dart';
 import '../../theme/studio_colors.dart';
 import '../../theme/studio_type.dart';
 import '../../utils/app_destination.dart';
@@ -23,6 +26,7 @@ import '../offline_state.dart';
 import '../studio/studio_avatar.dart';
 import '../studio/studio_empty_state.dart';
 import '../../utils/app_clock.dart';
+import 'follow_requests_row.dart';
 
 /// The Inbox's Activity tab (`NotifActivity`, with the in-app looks of `NotifCatalog`).
 ///
@@ -31,8 +35,12 @@ import '../../utils/app_clock.dart';
 /// Ink), a status word where the catalog gives one (Outbid / Ending soon red, Now listed
 /// green), the time in Mono, and for a like, save or comment the piece on the right.
 /// Tapping a row marks it read and opens the piece, Scene, profile or order.
+///
+/// Above everything, when people are waiting to follow a private account, the Follow requests
+/// row (as on Instagram; the user's call, 2026-11-08): the newest requester's photo with a count
+/// bubble, opening the list. There is no Requests tab.
 class NotificationsBody extends StatefulWidget {
-  const NotificationsBody({super.key, this.onLiveNotification, this.debugItems});
+  const NotificationsBody({super.key, this.onLiveNotification, this.debugItems, this.debugRequests});
 
   /// Fired when a live `notification:new` arrives (so parent can bump badge).
   final VoidCallback? onLiveNotification;
@@ -40,6 +48,10 @@ class NotificationsBody extends StatefulWidget {
   /// Rows to show instead of loading them, for tests.
   @visibleForTesting
   final List<NotificationItem>? debugItems;
+
+  /// Follow requests to show instead of loading them, for tests.
+  @visibleForTesting
+  final List<FollowRequest>? debugRequests;
 
   @override
   State<NotificationsBody> createState() => NotificationsBodyState();
@@ -52,6 +64,9 @@ class NotificationsBodyState extends State<NotificationsBody> {
   String? _nextCursor;
   final _scrollController = ScrollController();
 
+  /// People waiting to follow, newest first (the row at the top).
+  List<FollowRequest> _requests = const [];
+
   bool _showOfflineState = false;
 
   @override
@@ -61,13 +76,39 @@ class NotificationsBodyState extends State<NotificationsBody> {
     final debug = widget.debugItems;
     if (debug != null) {
       _items.addAll(debug);
+      _requests = _newestFirst(widget.debugRequests ?? const []);
       _loading = false;
       return;
     }
     ConnectivityService.instance.addReconnectHook(_onReconnected);
     ChatSocketService.instance.onNotificationNew(_onSocketNotification);
     _load();
+    _loadRequests();
   }
+
+  static List<FollowRequest> _newestFirst(List<FollowRequest> requests) =>
+      List.of(requests)..sort((a, b) => b.requestedAt.compareTo(a.requestedAt));
+
+  /// The Follow requests row. Quiet: a failure keeps what was there.
+  Future<void> _loadRequests() async {
+    if (widget.debugItems != null) return;
+    try {
+      final requests = await SocialService.instance.listFollowRequests();
+      if (mounted) setState(() => _requests = _newestFirst(requests));
+    } catch (_) {}
+  }
+
+  /// The row opens the list; what was approved or declined there is gone on the way back.
+  Future<void> _openRequests() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => FollowRequestsPage(debugRequests: widget.debugItems != null ? _requests : null),
+      ),
+    );
+    await _loadRequests();
+  }
+
+  Future<void> _refresh() => Future.wait([_load(refresh: true), _loadRequests()]);
 
   @override
   void dispose() {
@@ -168,15 +209,23 @@ class NotificationsBodyState extends State<NotificationsBody> {
     if (_loading && _items.isEmpty) {
       return const FlatListRowSkeleton();
     }
+    final requestsRow = _requests.isEmpty
+        ? null
+        : FollowRequestsRow(requests: _requests, onTap: _openRequests);
     if (_items.isEmpty) {
-      // `NotifEmptyActivity`: usually a brand-new account. Explore art opens Explore.
+      // `NotifEmptyActivity`: usually a brand-new account. Explore art opens Explore. Follow
+      // requests still sit at the top.
       return RefreshIndicator(
         color: c.textPrimary,
-        onRefresh: () => _load(refresh: true),
+        onRefresh: _refresh,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.only(top: 200, bottom: 40),
+          padding: EdgeInsets.only(top: requestsRow == null ? 200 : 0, bottom: 40),
           children: [
+            if (requestsRow != null) ...[
+              Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: requestsRow),
+              const SizedBox(height: 160),
+            ],
             StudioEmptyState(
               title: 'Nothing here yet',
               message: 'Follow artists and save pieces. News about them shows up here.',
@@ -200,12 +249,13 @@ class NotificationsBodyState extends State<NotificationsBody> {
 
     return RefreshIndicator(
       color: c.textPrimary,
-      onRefresh: () => _load(refresh: true),
+      onRefresh: _refresh,
       child: ListView(
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
         children: [
+          ?requestsRow,
           for (final entry in groups.entries)
             if (entry.value.isNotEmpty) ...[
               Padding(
