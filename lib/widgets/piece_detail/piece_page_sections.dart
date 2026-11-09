@@ -23,7 +23,12 @@ class PieceTopIcons extends StatelessWidget {
     required this.onMore,
     required this.onEdit,
     this.showSave = true,
+    this.ownerMore = false,
   });
+
+  /// More (not Edit) on your own piece: your running auction keeps Edit and Cancel in its
+  /// menu (`ArtistAuctionLive`).
+  final bool ownerMore;
 
   /// False on a piece the viewer collected (`PieceCollectedOwner`: no Save).
   final bool showSave;
@@ -47,7 +52,7 @@ class PieceTopIcons extends StatelessWidget {
             onTap: onSave,
           ),
         StudioTopIcon(icon: StudioIcons.share, semanticLabel: 'Share', onTap: onShare),
-        if (isOwner)
+        if (isOwner && !ownerMore)
           StudioTopIcon(icon: StudioIcons.edit, semanticLabel: 'Edit piece', onTap: onEdit)
         else
           StudioTopIcon(icon: StudioIcons.more, semanticLabel: 'More', onTap: onMore),

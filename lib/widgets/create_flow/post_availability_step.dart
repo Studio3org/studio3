@@ -419,9 +419,7 @@ class _AuctionFields extends StatelessWidget {
         ),
         const SizedBox(height: 20),
         StudioTooltip(
-          message:
-              "Your minimum. Bidders never see it. If bidding ends below it, the piece doesn't "
-              'sell and nothing is charged.',
+          message: "Your private minimum. Below it, the piece doesn't sell.",
           builder: (context, toggle) => StudioUnderlineField(
             label: 'Reserve price',
             controller: reserve,

@@ -230,7 +230,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     await tester.tap(_info('What is a reserve price?'));
     await tester.pump();
-    expect(find.textContaining('Bidders never see it.'), findsOneWidget);
+    expect(find.text("Your private minimum. Below it, the piece doesn't sell."), findsOneWidget);
     await tester.tap(_info('What is auction timing?'));
     await tester.pump();
     expect(find.textContaining('There are no extensions'), findsOneWidget);
