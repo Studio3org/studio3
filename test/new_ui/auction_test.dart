@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:studio3/models/address.dart';
 import 'package:studio3/models/auction.dart';
 import 'package:studio3/models/feed_preview_item.dart';
 import 'package:studio3/models/piece_summary.dart';
@@ -24,6 +25,31 @@ import 'golden_harness.dart';
 /// `BidWon`, `BidCheckout`, `BidPaymentFailed`, `BidLost`, `BidReserveNotMet`
 /// (docs/new-ui/NEW_UI_EXECUTION_PLAN.md).
 final _now = DateTime(2026, 10, 25, 12);
+
+const _studio = Address(
+  id: 'a1',
+  firstName: 'Jordan',
+  lastName: 'Lee',
+  phone: '2145550100',
+  line1: '4521 Lovers Ln',
+  city: 'Dallas',
+  state: 'TX',
+  zip: '75225',
+  country: 'US',
+  isDefault: true,
+);
+
+const _home = Address(
+  id: 'a2',
+  firstName: 'Jordan',
+  lastName: 'Lee',
+  phone: '2145550100',
+  line1: '88 Elm St',
+  city: 'Austin',
+  state: 'TX',
+  zip: '78701',
+  country: 'US',
+);
 
 AuctionSummary _auction({
   int? highest = 350000,
@@ -329,17 +355,18 @@ void main() {
     });
   });
 
-  group('add a card', () {
+  group('before you bid', () {
     for (final dark in [false, true]) {
-      testWidgets('title, card, ZIP with its note; Save off until both; returns the card (${dark ? 'dark' : 'light'})', (
-        tester,
-      ) async {
+      final c = dark ? StudioColors.dark : StudioColors.light;
+      testWidgets('title, boxed card, Ship to the default address; Save off until the card; the ZIP '
+          'goes with it (${dark ? 'dark' : 'light'})', (tester) async {
         Object? result;
         final zips = <String>[];
         await tester.pumpWidget(
           _sheetHost(
             (_) => BidVerifySheet(
               cardField: _fakeCard,
+              debugAddresses: const [_studio, _home],
               saveCard: (zip) async {
                 zips.add(zip);
                 return 'pm_new';
@@ -351,28 +378,69 @@ void main() {
         );
         await tester.tap(find.text('open'));
         await tester.pumpAndSettle();
-        expect(find.text('Add a card to bid'), findsOneWidget);
-        expect(find.text("We'll check it's valid. You're only charged if you win."), findsOneWidget);
-        expect(find.text('We use your ZIP to estimate shipping before you bid.'), findsOneWidget);
-        StudioButton save() =>
-            tester.widget<StudioButton>(find.widgetWithText(StudioButton, 'Save card and continue'));
+        expect(find.text('Before you bid'), findsOneWidget);
+        expect(find.text('If you win, this card is charged when the auction ends.'), findsOneWidget);
+        // The card sits in a 10 radius box, Line Strong outline (`BidVerify`).
+        final box = tester.widget<Container>(find.byKey(const Key('bid-verify-card')));
+        final deco = box.decoration! as BoxDecoration;
+        expect(deco.borderRadius, BorderRadius.circular(10));
+        expect(deco.color, c.card);
+        expect((deco.border! as Border).top.color, c.lineStrong);
+        // Ship to: the default address on one line, not a ZIP field.
+        expect(find.text('Ship to'), findsOneWidget);
+        expect(find.text('Jordan Lee, 4521 Lovers Ln, Dallas, TX 75225'), findsOneWidget);
+        expect(find.text('ZIP'), findsNothing);
+        expect(find.text('Saving lets us charge this card if you win. Bidding terms'), findsOneWidget);
+        StudioButton save() => tester.widget<StudioButton>(find.widgetWithText(StudioButton, 'Save and continue'));
         expect(save().onPressed, isNull);
         await tester.tap(find.text('4242 4242 4242 4242'));
-        await tester.enterText(find.byType(TextField), '75225');
         await tester.pump();
         expect(save().onPressed, isNotNull);
-        await tester.tap(find.text('Save card and continue'));
+        await tester.tap(find.text('Save and continue'));
         await tester.pumpAndSettle();
         expect(result, 'pm_new');
         expect(zips, ['75225']);
       });
     }
 
+    testWidgets('Ship to opens the picker; no address yet holds Save', (tester) async {
+      Object? result;
+      final zips = <String>[];
+      await tester.pumpWidget(
+        _sheetHost(
+          (_) => BidVerifySheet(
+            cardField: _fakeCard,
+            debugAddresses: const [],
+            pickAddress: (current) async => _home,
+            saveCard: (zip) async {
+              zips.add(zip);
+              return 'pm_new';
+            },
+          ),
+          (r) => result = r,
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      expect(find.text('Add your address'), findsOneWidget);
+      await tester.tap(find.text('4242 4242 4242 4242'));
+      await tester.pump();
+      expect(tester.widget<StudioButton>(find.widgetWithText(StudioButton, 'Save and continue')).onPressed, isNull);
+      await tester.tap(find.byKey(const Key('bid-verify-ship-to')));
+      await tester.pumpAndSettle();
+      expect(find.text('Jordan Lee, 88 Elm St, Austin, TX 78701'), findsOneWidget);
+      await tester.tap(find.text('Save and continue'));
+      await tester.pumpAndSettle();
+      expect(result, 'pm_new');
+      expect(zips, ['78701']);
+    });
+
     testWidgets('a declined card stays on the sheet with the reason', (tester) async {
       await tester.pumpWidget(
         _sheetHost(
           (_) => BidVerifySheet(
             cardField: _fakeCard,
+            debugAddresses: const [_studio],
             saveCard: (_) async => throw ApiException('Your card was declined.'),
           ),
           (_) {},
@@ -381,12 +449,24 @@ void main() {
       await tester.tap(find.text('open'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('4242 4242 4242 4242'));
-      await tester.enterText(find.byType(TextField), '75225');
       await tester.pump();
-      await tester.tap(find.text('Save card and continue'));
+      await tester.tap(find.text('Save and continue'));
       await tester.pumpAndSettle();
       expect(find.text('Your card was declined.'), findsOneWidget);
-      expect(find.text('Add a card to bid'), findsOneWidget);
+      expect(find.text('Before you bid'), findsOneWidget);
+    });
+
+    testWidgets('updating the card after a decline: just the card, no Ship to', (tester) async {
+      await tester.pumpWidget(
+        _sheetHost((_) => const BidVerifySheet(shipTo: false, cardField: _fakeCard), (_) {}),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      expect(find.text('Add a card'), findsOneWidget);
+      expect(find.text('Ship to'), findsNothing);
+      await tester.tap(find.text('4242 4242 4242 4242'));
+      await tester.pump();
+      expect(tester.widget<StudioButton>(find.widgetWithText(StudioButton, 'Save and continue')).onPressed, isNotNull);
     });
   });
 
@@ -427,7 +507,10 @@ void main() {
         expect(find.text('Reserve not met yet'), findsOneWidget);
         await tester.tap(_info('What is the reserve?'));
         await tester.pump();
-        expect(find.textContaining('This changes to Reserve met'), findsOneWidget);
+        expect(
+          find.text("The artist's private minimum. Below it, the piece doesn't sell and no one is charged."),
+          findsOneWidget,
+        );
         await tester.tap(find.text('Your bid'));
         await tester.pump();
         expect(
@@ -548,6 +631,7 @@ void main() {
       );
       expect(find.text('AUCTION CLOSED'), findsOneWidget);
       expect(find.text('Closed without selling'), findsOneWidget);
+      expect(find.text("Bids didn't reach the artist's minimum. Nothing was charged."), findsOneWidget);
       expect(find.text('Save to hear if it comes back'), findsOneWidget);
       expect(find.text(r'$3,200'), findsOneWidget);
     });
@@ -579,7 +663,7 @@ void main() {
       expect(tester.widget<Text>(find.text("Your card didn't go through")).style!.color, StudioColors.light.alert);
       expect(tester.widget<Text>(find.text('!')).style!.color, StudioColors.light.alert);
       expect(
-        find.text('Bodies in Color is still yours. Update your card to finish paying.'),
+        find.text('Still yours. Update your card in time or it goes to the next bidder.'),
         findsOneWidget,
       );
       expect(find.text('23h 41m'), findsOneWidget);
@@ -636,7 +720,11 @@ void main() {
     }
 
     testWidgets('BidVerify', (tester) async {
-      await sheet(tester, (_) => const BidVerifySheet(cardField: _fakeCard), 'BidVerify');
+      await sheet(
+        tester,
+        (_) => const BidVerifySheet(cardField: _fakeCard, debugAddresses: [_studio]),
+        'BidVerify',
+      );
     }, skip: skip);
 
     testWidgets('BidSheet', (tester) async {

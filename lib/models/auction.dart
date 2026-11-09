@@ -153,6 +153,121 @@ class AuctionSummary {
   static DateTime? _date(Object? v) => v is String ? DateTime.tryParse(v)?.toLocal() : null;
 }
 
+/// The artist's auction that ended without anything still to settle (BACKEND_CHANGES B38
+/// `lastAuction`): sold, unsold or cancelled. Sent on their own piece only, for
+/// `ArtistAuctionUnsold`: why it ended, the top bid and how many people bid.
+class EndedAuction {
+  const EndedAuction({
+    required this.status,
+    this.startingBidCents,
+    this.reserveCents,
+    this.topBidCents,
+    this.bidCount = 0,
+    this.bidderCount = 0,
+  });
+
+  /// `closed_no_bids`, `needs_seller_action` / `closed_reserve_not_met`, `cancelled`,
+  /// `closed_sold`.
+  final String status;
+  final int? startingBidCents;
+  final int? reserveCents;
+  final int? topBidCents;
+  final int bidCount;
+  final int bidderCount;
+
+  /// Ended without a sale: no bids, or the top bid under the reserve.
+  bool get unsold => const {
+    'closed_no_bids',
+    'closed_reserve_not_met',
+    'needs_seller_action',
+  }.contains(status);
+
+  bool get underReserve => status == 'closed_reserve_not_met' || status == 'needs_seller_action';
+
+  static EndedAuction? maybeFrom(Object? json) {
+    if (json is! Map) return null;
+    final status = json['status'];
+    if (status is! String || status.isEmpty) return null;
+    return EndedAuction(
+      status: status,
+      startingBidCents: AuctionSummary._int(json['startingBidCents']),
+      reserveCents: AuctionSummary._int(json['reserveCents']),
+      topBidCents: AuctionSummary._int(json['topBidCents']),
+      bidCount: AuctionSummary._int(json['bidCount']) ?? 0,
+      bidderCount: AuctionSummary._int(json['bidderCount']) ?? 0,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'status': status,
+    'startingBidCents': ?startingBidCents,
+    'reserveCents': ?reserveCents,
+    'topBidCents': ?topBidCents,
+    'bidCount': bidCount,
+    'bidderCount': bidderCount,
+  };
+}
+
+/// One bid on the artist's own auction (`ArtistAuctionLive`): "Bidder 3", the amount and
+/// when. Nobody is named until the winner pays (BACKEND_CHANGES B38).
+class AuctionBidRow {
+  const AuctionBidRow({
+    required this.bidder,
+    required this.amountCents,
+    this.createdAt,
+    this.isTop = false,
+  });
+
+  final int bidder;
+  final int amountCents;
+  final DateTime? createdAt;
+
+  /// From the top bidder (the winner once there is one): their rows are 500.
+  final bool isTop;
+
+  factory AuctionBidRow.fromJson(Map<String, dynamic> json) => AuctionBidRow(
+    bidder: AuctionSummary._int(json['bidder']) ?? 0,
+    amountCents: AuctionSummary._int(json['amountCents']) ?? 0,
+    createdAt: AuctionSummary._date(json['createdAt']),
+    isTop: json['isTop'] == true,
+  );
+}
+
+/// `GET /api/pieces/:id/auction/bids` (BACKEND_CHANGES B38): every bid, newest first, how
+/// many people bid, and the best offer from anyone but the top bidder.
+class AuctionBidHistory {
+  const AuctionBidHistory({
+    this.items = const [],
+    this.bidCount = 0,
+    this.bidderCount = 0,
+    this.nextBidCents,
+  });
+
+  final List<AuctionBidRow> items;
+  final int bidCount;
+  final int bidderCount;
+  final int? nextBidCents;
+
+  factory AuctionBidHistory.fromJson(Map<String, dynamic> json) => AuctionBidHistory(
+    items: [
+      for (final row in (json['items'] as List? ?? const []))
+        if (row is Map<String, dynamic>) AuctionBidRow.fromJson(row),
+    ],
+    bidCount: AuctionSummary._int(json['bidCount']) ?? 0,
+    bidderCount: AuctionSummary._int(json['bidderCount']) ?? 0,
+    nextBidCents: AuctionSummary._int(json['nextBidCents']),
+  );
+}
+
+/// "2m", "18m", "1h", "1d" (`ArtistAuctionLive` bid times).
+String auctionBidAge(DateTime? at, DateTime now) {
+  if (at == null) return '';
+  final age = now.difference(at);
+  if (age.inDays >= 1) return '${age.inDays}d';
+  if (age.inHours >= 1) return '${age.inHours}h';
+  return '${age.inMinutes < 1 ? 1 : age.inMinutes}m';
+}
+
 /// The step above [cents] (`HandoffBidding`): $25 under $500, $50 to $999, $100 to $4,999,
 /// $250 to $9,999, $500 above. Used for the quick picks; the server's minimum always wins.
 int bidIncrementCents(int cents) {

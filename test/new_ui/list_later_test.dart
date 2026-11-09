@@ -6,6 +6,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:studio3/models/auth_user.dart';
 import 'package:studio3/models/feed_preview_item.dart';
+import 'package:studio3/models/auction.dart';
 import 'package:studio3/models/piece_summary.dart';
 import 'package:studio3/models/post_summary.dart';
 import 'package:studio3/models/user_profile.dart';
@@ -232,6 +233,64 @@ void main() {
     );
     expect(find.text('Bodies in Color is listed'), findsOneWidget);
     expect(find.text('Collectors can bid on it now.'), findsOneWidget);
+  });
+
+  testWidgets('relist as an auction: only Auction, filled in from the last run; relists it', (tester) async {
+    setBoardViewport(tester, height: 1000);
+    final relisted = <AuctionTerms>[];
+    await tester.pumpWidget(
+      _app(
+        ListPricingPage(
+          piece: const PieceSummary(id: 'p1', title: 'Quiet Hours', status: 'delisted'),
+          relist: const EndedAuction(status: 'needs_seller_action', startingBidCents: 40000, reserveCents: 150000),
+          quote: _founding,
+          relistAuction: (id, terms) async {
+            relisted.add(terms);
+            return PieceSummary(id: id, title: 'Quiet Hours', isForSale: true, listingType: 'auction', status: 'live');
+          },
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('Relist as an auction'), findsOneWidget);
+    final rows = tester.widgetList<StudioSelectRow>(find.byType(StudioSelectRow)).map((r) => r.title);
+    expect(rows, ['Auction']);
+    expect(find.text(r'$400'), findsOneWidget);
+    expect(find.text(r'$1,500'), findsOneWidget);
+    await tester.tap(find.text('List it'));
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 300));
+    }
+    final terms = relisted.single;
+    expect((terms.startingBidCents, terms.durationDays, terms.reserveCents), (40000, 7, 150000));
+    expect(find.text('Quiet Hours is listed'), findsOneWidget);
+  });
+
+  testWidgets('a piece delisted by an unsold auction goes back up at a fixed price', (tester) async {
+    setBoardViewport(tester);
+    final patches = <Map<String, dynamic>>[];
+    await tester.pumpWidget(
+      _app(
+        ListPricingPage(
+          piece: const PieceSummary(id: 'p1', title: 'Quiet Hours', status: 'delisted'),
+          details: _details,
+          quote: _founding,
+          update: (id, body) async {
+            patches.add(body);
+            return PieceSummary(id: id, title: 'Quiet Hours', isForSale: true, status: 'live');
+          },
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.enterText(find.byType(TextField), '900');
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.text('List it'));
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 300));
+    }
+    expect(patches.single['status'], 'live');
+    expect(patches.single['listingType'], 'fixed');
   });
 
   group("owner's not-for-sale piece", () {
