@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>HandoffPipeline</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;family=Outfit:wght@600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#111111}a:hover{color:#6B6B6B}
+h2{margin:0;font-size:20px;font-weight:600;letter-spacing:-0.2px}
+h3{margin:0;font-size:14px;font-weight:600}
+p{margin:0}
+.k{font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size:11px;color:#6B6B6B;text-transform:uppercase;letter-spacing:0.5px}
+.row{display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:1px solid #E3E3E0;font-size:14px;line-height:1.45}
+.row span:first-child{color:#111111;font-weight:500;flex:0 0 38%}
+.row span:last-child{color:#444;flex:1}
+.li{font-size:14px;line-height:1.5;color:#333;padding:7px 0;border-bottom:1px solid #EDEDEA}
+.li b{font-weight:600;color:#111}
+</style>
+</helmet>
+<div style="width: 760px; height: 3150px; box-sizing: border-box; background: #FAFAF8; font-family: 'Geist', 'Helvetica Neue', Helvetica, sans-serif; color: #111111; padding: 48px; overflow: hidden">
+<div style="display: flex; flex-direction: column; gap: 32px"><header style="display: flex; flex-direction: column; gap: 10px; padding-bottom: 8px; border-bottom: 2px solid #111111"><span class="k">Reference · updated Oct 20</span><h1 style="margin: 0; font-size: 36px; font-weight: 600; letter-spacing: -0.8px; line-height: 1.05">Not designed yet</h1><p style="font-size: 15px; line-height: 1.5; color: #444; max-width: 620px">What is missing from this canvas, what still needs a decision, and what is planned for later versions.</p></header><section style="display: flex; flex-direction: column; gap: 12px"><h2>Screens still to design</h2><div><div class="row"><span>Shipping steps and order details</span><span>Bookmarked until Convelio confirms their process: the artist's shipping steps (packing, label, pickup) and the collector's order details (tracking, receipt, address).</span></div><div class="row"><span>Artist side of auctions</span><span>Bids coming in, ending soon, sold, ended with no bids, reserve not met with options to relist, set a price or keep it.</span></div><div class="row"><span>Explore See all pages</span><span>Available now, New series, Artists to know. Behind the work is done.</span></div><div class="row"><span>Search results</span><span>Artists, pieces, series, events.</span></div><div class="row"><span>Events tab</span><span>Plus ticket checkout, the ticket with QR, sold out and past events.</span></div><div class="row"><span>Account</span><span>The main Profile settings screen, hiding pieces in Collection.</span></div><div class="row"><span>Share card</span><span>Story-sized image with piece, title, price, studio-3.co link.</span></div><div class="row"><span>Scenes in the home feed</span><span>How a Scene appears between pieces.</span></div></div></section><section style="display: flex; flex-direction: column; gap: 12px"><h2>Existing screens to update</h2><div><div class="row"><span>Sign-in step 5</span><span>The piece page behind the toast predates the current piece page.</span></div><div class="row"><span>Airtable specs</span><span>Update tasks for the left-line selection, prices in Geist, the bottom bar layout, image labels, and the bidding status colors.</span></div></div></section><section style="display: flex; flex-direction: column; gap: 12px"><h2>Decisions needed</h2><div><div class="row"><span>Video length</span><span>Max Scene length. 1:00 is a placeholder.</span></div><div class="row"><span>Delivery options</span><span>Real Convelio service names and timing. Can Convelio estimate shipping from a ZIP only? Extra insurance: buyers can add coverage above the included €1,000 per parcel; options and pricing pending from Convelio.</span></div><div class="row"><span>Fees</span><span>Decided: no buyer fees anywhere. Studio 3 fees come from the artist or host payout. Buyers pay the shown price plus sales tax (plus shipping and optional insurance for art).</span></div><div class="row"><span>Auction follow-up</span><span>Revisit maximum bids or a late-bid extension if many pieces are won in the last seconds.</span></div></div></section><section style="display: flex; flex-direction: column; gap: 12px"><h2>Decided since the last update</h2><div><div class="li"><b>Notifications:</b> done. Inbox (Activity and Messages), conversation, new message, settings, the ask sheet, lock screen and the full notification catalog are in Flow 8.</div><div class="li"><b>Saved:</b> done. Opens from the bookmark on Home, private, with folders and the Available folder. Collection only shows owned pieces.</div><div class="li"><b>Bidding:</b> fixed end time, no extensions, no maximum bids for now.</div><div class="li"><b>Increments:</b> $25 under $500, $50 to $999, $100 to $4,999, $250 to $9,999, $500 above. Minimum next bid is the current bid plus the increment.</div><div class="li"><b>Cards:</b> verified on the first bid, no hold. The winner confirms shipping and insurance, then pays within 48 hours.</div><div class="li"><b>Reserve:</b> shows Reserve not met yet, never the amount.</div><div class="li"><b>Status colors:</b> green for top bidder, red for outbid and time under 24 hours. Bidding only.</div><div class="li"><b>Not for sale and list later:</b> owner view, the details sheet, pricing and listed screens are done.</div><div class="li"><b>Collection:</b> View your collection opens the buyer&#39;s Collection with the new piece first.</div><div class="li"><b>Events:</b> tags say EVENT or UPCOMING SHOW, with the venue in the details line.</div></div></section><section style="display: flex; flex-direction: column; gap: 12px"><h2>Counsel questions</h2><div><div class="li">Confirm with counsel the exact wording and record-keeping for the Terms and Privacy Policy agreement (EU rules), and that requiring an account before browsing is fine for App Store review.</div><div class="li">Whether Texas auctioneer licensing applies to timed online auctions with no auctioneer.</div><div class="li">What terms must say about reserve auctions and seller withdrawal, and whether bidders may retract bids.</div><div class="li">Whether Reserve not met yet, without the amount, is enough disclosure.</div><div class="li">Whether winning bids are binding and second chance offers are allowed.</div><div class="li">Whether to require 18+ for bidding and buying, given the 16+ app rating.</div><div class="li">Whether auction texts can use sign-in consent or need their own opt-in.</div><div class="li">Sales tax on sales, shipping and insurance, and other states&#39; rules for out-of-state bidders.</div></div></section><section style="display: flex; flex-direction: column; gap: 12px"><h2>Planned for later versions</h2><div><div class="li"><b>Prints</b> (print on demand).</div><div class="li"><b>Marketplace links</b> from Made with materials and tools to local stores.</div><div class="li"><b>Provenance history</b> listing each owner if a piece is resold.</div><div class="li"><b>Ticket transfers</b> to friends inside the app.</div><div class="li"><b>Commissions</b> (v2): an Open to commissions setting on profiles.</div><div class="li"><b>Reorder pieces in a series</b> by dragging (launch orders them by post date).</div><div class="li"><b>Phone-first sign-in</b> with a texted code, email as backup. Launch uses email codes because that is what is built.</div></div></section></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":760,"height":3150}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

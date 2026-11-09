@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Seller 2: Stripe</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#111111}a:hover{color:#6B6B6B}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #FAFAF8; font-family: 'Geist', 'Helvetica Neue', Helvetica, sans-serif; color: #111111; position: relative; overflow: hidden">
+<header style="display: flex; align-items: center; justify-content: space-between; padding: 12px 8px 0"><a href="SellerIntro.dc.html" aria-label="Back" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: #111111"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></a><span style="font-size: 16px; font-weight: 500"></span><span style="width: 44px"></span></header><div style="display: flex; gap: 6px; padding: 8px 24px 0"><span style="flex: 1; height: 3px; border-radius: 2px; background: #111111"></span><span style="flex: 1; height: 3px; border-radius: 2px; background: #E3E3E0"></span><span style="flex: 1; height: 3px; border-radius: 2px; background: #E3E3E0"></span></div><main style="padding: 30px 24px 0; display: flex; flex-direction: column; gap: 16px">
+<h1 style="margin: 0; font-size: 26px; font-weight: 500; letter-spacing: -0.4px">Set up payouts with Stripe</h1>
+<p style="margin: 0; font-size: 15px; line-height: 1.5; color: #6B6B6B">Studio 3 uses Stripe Connect to pay sellers. On Stripe you'll verify your identity and add a bank account, then come right back here.</p>
+<div style="display: flex; gap: 12px; padding: 14px 16px; border-radius: 12px; border: 1px solid #E3E3E0; background: #FFFFFF; font-size: 13px; line-height: 1.5"><span style="color: #111"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg></span><span>Studio 3 never sees your full bank or ID details. Stripe stores them securely.</span></div>
+</main>
+<div style="position: absolute; left: 24px; right: 24px; bottom: 32px; display: flex; flex-direction: column; gap: 4px"><a href="SellerStudio.dc.html" style="height: 54px; border-radius: 12px; background: #111111; color: #FAFAF8; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 500; text-decoration: none">Continue to Stripe</a><a href="#" style="height: 44px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 500; color: #6B6B6B; text-decoration: none">Finish later</a></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

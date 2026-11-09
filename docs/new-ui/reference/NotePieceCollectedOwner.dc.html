@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Dev notes: Piece page: collected (your piece)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;family=Outfit:wght@600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#111111}a:hover{color:#6B6B6B}
+h2{margin:0;font-size:20px;font-weight:600;letter-spacing:-0.2px}
+h3{margin:0;font-size:14px;font-weight:600}
+p{margin:0}
+.k{font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size:11px;color:#6B6B6B;text-transform:uppercase;letter-spacing:0.5px}
+.row{display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:1px solid #E3E3E0;font-size:14px;line-height:1.45}
+.row span:first-child{color:#111111;font-weight:500;flex:0 0 38%}
+.row span:last-child{color:#444;flex:1}
+.li{font-size:14px;line-height:1.5;color:#333;padding:7px 0;border-bottom:1px solid #EDEDEA}
+.li b{font-weight:600;color:#111}
+</style>
+</helmet>
+<div style="width: 390px; height: 353px; box-sizing: border-box; background: #F0F0EE; font-family: 'Geist', 'Helvetica Neue', Helvetica, sans-serif; color: #111111; padding: 22px 22px; overflow: hidden">
+<div style="display: flex; flex-direction: column; gap: 10px"><span class="k">Dev notes</span><h3 style="font-size: 16px; font-weight: 600">Piece page: collected (your piece)</h3><div><div class="li" style="font-size: 13px">What the collector sees on a piece they bought. The artist row keeps Follow, shown as Following (light outline with a small check) when they already follow the artist. No Save.</div><div class="li" style="font-size: 13px">Shipping is not part of the piece details. While the piece is on its way, the bottom bar becomes a large delivery card (white, thin iridescent border) in place of the Collected button: Arrives Nov 13 to 16 and an On time label (green, or Delayed in red); a tracker of four small round icons (22px) joined by thin bars (collected, packed, shipped, delivered; finished steps show a check, the current step is black, its bar partly filled); then the current step (On its way) with one line of detail and an arrow that opens carrier tracking. Under the card: Message Amara as a grey link. Once delivered, the bar goes back to the Collected button with message.</div><div class="li" style="font-size: 13px">The more menu (top right) has Hide from my Collection, which removes it from their public Collection tab without affecting anything else.</div><div class="li" style="font-size: 13px"></div></div></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":353}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

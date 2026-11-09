@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Dev notes: Home feed</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;family=Outfit:wght@600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#111111}a:hover{color:#6B6B6B}
+h2{margin:0;font-size:20px;font-weight:600;letter-spacing:-0.2px}
+h3{margin:0;font-size:14px;font-weight:600}
+p{margin:0}
+.k{font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size:11px;color:#6B6B6B;text-transform:uppercase;letter-spacing:0.5px}
+.row{display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:1px solid #E3E3E0;font-size:14px;line-height:1.45}
+.row span:first-child{color:#111111;font-weight:500;flex:0 0 38%}
+.row span:last-child{color:#444;flex:1}
+.li{font-size:14px;line-height:1.5;color:#333;padding:7px 0;border-bottom:1px solid #EDEDEA}
+.li b{font-weight:600;color:#111}
+</style>
+</helmet>
+<div style="width: 390px; height: 908px; box-sizing: border-box; background: #F0F0EE; font-family: 'Geist', 'Helvetica Neue', Helvetica, sans-serif; color: #111111; padding: 22px 22px; overflow: hidden">
+<div style="display: flex; flex-direction: column; gap: 10px">
+<span class="k">Dev notes</span>
+<h3 style="font-size: 16px; font-weight: 600">Home feed</h3>
+<div><div class="li" style="font-size: 13px">Default tab. One piece at a time, personalized from the intention answer, then by activity.</div><div class="li" style="font-size: 13px">Standalone piece: full-bleed, square corners, height follows the art with a cap. Artist row below: 32px avatar, name, title, status chip.</div><div class="li" style="font-size: 13px">Swiping a feed image changes photos of that piece. Dots only with 2+ photos, bottom center.</div><div class="li" style="font-size: 13px">Series row: cards about 80% width, radius 12, next card peeks, snap scroll. Cover only, no internal swipe. Last card is See all X pieces.</div><div class="li" style="font-size: 13px">Event card: only events in the next 2 weeks, once per feed load, never next to a series row.</div><div class="li" style="font-size: 13px">Spacing: 20px between pieces, 48px around inset sections. Top bar: All filter, wordmark logo file, Saved, inbox (a small red dot when anything is unread in activity or messages).</div><div class="li" style="font-size: 13px">Event cards in the home feed keep the EVENT tag so they stand out among the art. Everywhere else (Events tab, event page) shows the category instead, like GALLERY WALK. Tapping an event card opens the event page in Flow 9.<div class="li" style="font-size: 13px">Feed layout: pieces are inset with the 16-point screen margins (still 3:4, never cropped). Under each piece, a label 12 points below it: artist name (medium weight, opens their profile) and title with the year in grey on the left; on the right, in small grey Geist Mono, the medium and, under it, the status chip: Available (green dot) or Collected (iridescent pill). Nothing for Not for sale. No photo, no price.</div><div class="li" style="font-size: 13px">52 points between posts (series and event cards too), so the space separates posts. No lines or cards.</div></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":908}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Hosting 2: tickets</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#111111}a:hover{color:#6B6B6B}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #FAFAF8; font-family: 'Geist', 'Helvetica Neue', Helvetica, sans-serif; color: #111111; position: relative; overflow: hidden">
+<header style="display: flex; align-items: center; justify-content: space-between; padding: 12px 8px 0"><a href="#" aria-label="Back" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: #111111"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></a><span style="font-size: 16px; font-weight: 500">Event</span><span style="width: 44px"></span></header><nav style="display: flex; padding: 0 20px; border-bottom: 1px solid #E3E3E0; margin-top: 4px"><span style="flex: 1; height: 42px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 400; color: #8E8E8E; border-bottom: 2px solid transparent; box-sizing: border-box">Details</span><span style="flex: 1; height: 42px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 500; color: #111111; border-bottom: 2px solid #111111; box-sizing: border-box">Tickets</span><span style="flex: 1; height: 42px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 400; color: #8E8E8E; border-bottom: 2px solid transparent; box-sizing: border-box">Lineup</span><span style="flex: 1; height: 42px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 400; color: #8E8E8E; border-bottom: 2px solid transparent; box-sizing: border-box">Review</span></nav><main style="padding: 4px 24px 0">
+<h2 style="margin: 26px 0 6px; font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size: 11px; font-weight: 500; color: #8E8E8E; text-transform: uppercase; letter-spacing: 0.5px">Is this a paid event?</h2><div role="radio" aria-checked="true" style="position: relative; padding: 13px 0 13px 16px; border-bottom: 1px solid #E3E3E0;"><span aria-hidden="true" style="position: absolute; left: 0; top: 13px; bottom: 13px; width: 2px; background: #111111"></span><span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 16px; font-weight: 500; color: #111111">Paid tickets</span><span style="font-size: 12px; color: #6B6B6B">People pay to get in. You can still add free ticket types.</span></span></div><div role="radio" aria-checked="false" style="position: relative; padding: 13px 0 13px 0px; "><span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 16px; font-weight: 400; color: #8E8E8E">Free (RSVP)</span><span style="font-size: 12px; color: #A3A3A3">People reserve a spot. No payment.</span></span></div>
+<h2 style="margin: 26px 0 6px; font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size: 11px; font-weight: 500; color: #8E8E8E; text-transform: uppercase; letter-spacing: 0.5px">Ticket types</h2><div style="display: flex; flex-direction: column; gap: 10px"><div style="border: 1px solid #E3E3E0; border-radius: 14px; padding: 14px; background: #FFFFFF; display: flex; justify-content: space-between; gap: 12px"><span style="display: flex; flex-direction: column; gap: 3px"><span style="font-size: 16px; font-weight: 500">General Admission</span><span style="font-size: 13px">Free · 100 available</span><span style="font-size: 12px; color: #6B6B6B">Up to 4 per order</span></span><a href="HostEditTicket.dc.html" style="font-size: 13px; font-weight: 500; text-decoration: none; color: #111111">Edit</a></div><div style="border: 1px solid #E3E3E0; border-radius: 14px; padding: 14px; background: #FFFFFF; display: flex; justify-content: space-between; gap: 12px"><span style="display: flex; flex-direction: column; gap: 3px"><span style="font-size: 16px; font-weight: 500">VIP</span><span style="font-size: 13px">$25 · 20 available</span><span style="font-size: 12px; color: #6B6B6B">Early entry, reserved seating · up to 2 per order</span></span><a href="HostEditTicket.dc.html" style="font-size: 13px; font-weight: 500; text-decoration: none; color: #111111">Edit</a></div></div>
+<a href="HostEditTicket.dc.html" style="display: inline-block; margin-top: 12px; font-size: 14px; font-weight: 500; color: #111111">+ Add ticket type</a>
+<h2 style="margin: 26px 0 6px; font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size: 11px; font-weight: 500; color: #8E8E8E; text-transform: uppercase; letter-spacing: 0.5px">Refund policy</h2><div role="radio" aria-checked="false" style="position: relative; padding: 13px 0 13px 0px; border-bottom: 1px solid #E3E3E0;"><span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 16px; font-weight: 400; color: #8E8E8E">Up to 7 days before</span></span></div><div role="radio" aria-checked="true" style="position: relative; padding: 13px 0 13px 16px; border-bottom: 1px solid #E3E3E0;"><span aria-hidden="true" style="position: absolute; left: 0; top: 13px; bottom: 13px; width: 2px; background: #111111"></span><span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 16px; font-weight: 500; color: #111111">Up to 24 hours before</span><span style="font-size: 12px; color: #6B6B6B">Refunds happen automatically inside this window</span></span></div><div role="radio" aria-checked="false" style="position: relative; padding: 13px 0 13px 0px; "><span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 16px; font-weight: 400; color: #8E8E8E">No refunds</span></span></div>
+<p style="margin: 10px 0 0; font-size: 12px; line-height: 1.5; color: #6B6B6B">If you cancel the event, every guest gets a full refund automatically. Card processing fees are not returned to you.</p>
+</main><div style="position: absolute; left: 24px; right: 24px; bottom: 30px"><a href="HostLineup.dc.html" style="height: 52px; border-radius: 12px; background: #111111; color: #FAFAF8; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 500; text-decoration: none">Save and continue</a></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Event card without artists</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.holo{background:linear-gradient(115deg,#F3D6FF 0%,#CDE8FF 22%,#D2FBEA 42%,#FFF3C9 62%,#FFD3E6 82%,#E4D8FF 100%);background-size:300% 300%;animation:holo 6s ease-in-out infinite}@keyframes holo{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}@media (prefers-reduced-motion: reduce){.holo{animation:none}}
+a{color:#111111}a:hover{color:#6B6B6B}
+</style>
+</helmet>
+<div style="width: 390px; height: 240px; box-sizing: border-box; background: #FAFAF8; font-family: 'Geist', 'Helvetica Neue', Helvetica, sans-serif; color: #111111; padding: 24px 16px">
+<article aria-label="Event at The Space" style="border-radius: 18px; background: #111111; color: #FAFAF8; overflow: hidden">
+<div style="display: flex; gap: 14px; padding: 14px">
+<div style="width: 76px; height: 76px; flex: 0 0 auto; border-radius: 10px; background: #2F5D8A; position: relative; overflow: hidden">
+<div style="position: absolute; width: 60px; height: 60px; border-radius: 50%; background: #B8742A; left: -14px; top: -14px"></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<div style="display: flex; align-items: center; gap: 8px">
+<span style="font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size: 11px; font-weight: 500; letter-spacing: 0; background: #FAFAF8; color: #111111; padding: 4px 9px; border-radius: 999px">EVENT</span>
+<span style="font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size: 12px; color: #A8A8A8">[Date] · [Time]</span>
+</div>
+<div style="font-size: 19px; font-weight: 500; line-height: 1.2">[Event name]</div>
+<div style="font-size: 13px; color: #A8A8A8">[One line on what the night is]</div>
+</div>
+</div>
+<div style="border-top: 1px solid #2A2A2A; padding: 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px">
+<div style="display: flex; gap: 24px">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 12px; color: #A8A8A8">Price</span>
+<span style="font-size: 15px; font-weight: 500">[$XX]</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 12px; color: #A8A8A8">Where</span>
+<span style="font-size: 15px; font-weight: 500">The Space</span>
+</div>
+</div>
+<a href="#" style="display: flex; align-items: center; justify-content: center; height: 44px; padding: 0 18px; border-radius: 10px; background: #FAFAF8; color: #111111; font-size: 14px; font-weight: 500; text-decoration: none; white-space: nowrap">Get tickets</a>
+</div>
+</article>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":240}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

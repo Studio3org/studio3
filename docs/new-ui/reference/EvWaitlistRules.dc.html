@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Waitlist rules</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;family=Outfit:wght@600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#111111}a:hover{color:#6B6B6B}
+h2{margin:0;font-size:20px;font-weight:600;letter-spacing:-0.2px}
+h3{margin:0;font-size:14px;font-weight:600}
+p{margin:0}
+.k{font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size:11px;color:#6B6B6B;text-transform:uppercase;letter-spacing:0.5px}
+.row{display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:1px solid #E3E3E0;font-size:14px;line-height:1.45}
+.row span:first-child{color:#111111;font-weight:500;flex:0 0 38%}
+.row span:last-child{color:#444;flex:1}
+.li{font-size:14px;line-height:1.5;color:#333;padding:7px 0;border-bottom:1px solid #EDEDEA}
+.li b{font-weight:600;color:#111}
+</style>
+</helmet>
+<div style="width: 520px; height: 1500px; box-sizing: border-box; background: #FAFAF8; font-family: 'Geist', 'Helvetica Neue', Helvetica, sans-serif; color: #111111; padding: 48px; overflow: hidden">
+<header style="display: flex; flex-direction: column; gap: 10px; padding-bottom: 10px; border-bottom: 2px solid #111111"><span class="k">Reference · Flow 9</span><h1 style="margin: 0; font-size: 32px; font-weight: 600; letter-spacing: -0.7px">Waitlist rules</h1><p style="font-size: 14px; color: #444">How the event waitlist works, step by step. Use these exact numbers.</p></header><section style="margin-top: 22px"><h2 style="font-size: 17px; font-weight: 600; margin-bottom: 8px">Joining</h2><div class="li">On a sold-out event, Join waitlist opens a sheet that works like Choose tickets: a card for each ticket type with − / + buttons. They can wait for more than one type at once, up to the host's per-order limit for each.</div><div class="li">No card is needed to join and it is free.</div><div class="li">They can leave the waitlist at any time (tap You're on the waitlist on the event page).</div></section><section style="margin-top: 22px"><h2 style="font-size: 17px; font-weight: 600; margin-bottom: 8px">Who gets tickets first</h2><div class="li">First come, first served, in the order people joined.</div><div class="li">When tickets open up (someone gets a refund or the host adds more), they are held for the next person in line who asked for that ticket type (up to the number they asked for).</div><div class="li">If more tickets open up than that person wants, the rest go to the next people in line at the same time.</div></section><section style="margin-top: 22px"><h2 style="font-size: 17px; font-weight: 600; margin-bottom: 8px">How long the hold lasts</h2><div class="li">2 hours to buy, normally.</div><div class="li">30 minutes when the event is less than 24 hours away.</div><div class="li">10 minutes when the event is less than 2 hours away.</div></section><section style="margin-top: 22px"><h2 style="font-size: 17px; font-weight: 600; margin-bottom: 8px">What they see</h2><div class="li">A lock screen notification, an email, and a text if they opted in: 2 tickets are held for you until 9:40 PM CST.</div><div class="li">Opening it shows Choose tickets with their tickets already picked and a countdown in red Geist Mono at the top.</div></section><section style="margin-top: 22px"><h2 style="font-size: 17px; font-weight: 600; margin-bottom: 8px">Waiting for more than one type</h2><div class="li">Whichever of their ticket types opens first is held for them. On the held screen they can buy it, or tap Keep waiting for [other type] to give it up and keep their place in line for the other type only.</div></section><section style="margin-top: 22px"><h2 style="font-size: 17px; font-weight: 600; margin-bottom: 8px">If they do not buy in time</h2><div class="li">The hold ends, the tickets go to the next person in line, and they are taken off the waitlist. They get a notification saying so.</div></section><section style="margin-top: 22px"><h2 style="font-size: 17px; font-weight: 600; margin-bottom: 8px">Other cases</h2><div class="li">If the host adds more tickets than the whole waitlist wants, the waitlist holds go out first and the rest go on sale to everyone right away.</div><div class="li">Free events work the same way, with Reserve instead of paying.</div><div class="li">The waitlist closes when the event starts. Anyone still waiting is removed quietly.</div><div class="li">The host can see how many people are waiting and for which ticket types.</div></section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":520,"height":1500}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

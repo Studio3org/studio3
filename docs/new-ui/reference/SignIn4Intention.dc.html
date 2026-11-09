@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sign in 4: intention</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.rule{position:absolute;left:0;top:18px;bottom:18px;width:2px;background:#111111;transform-origin:top;animation:rule .22s ease-out}@keyframes rule{from{transform:scaleY(0)}to{transform:scaleY(1)}}@media (prefers-reduced-motion: reduce){.rule{animation:none}}
+.holo{background:linear-gradient(115deg,#F3D6FF 0%,#CDE8FF 22%,#D2FBEA 42%,#FFF3C9 62%,#FFD3E6 82%,#E4D8FF 100%);background-size:300% 300%;animation:holo 6s ease-in-out infinite}@keyframes holo{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}@media (prefers-reduced-motion: reduce){.holo{animation:none}}
+a{color:#111111}a:hover{color:#6B6B6B}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #FAFAF8; font-family: 'Geist', 'Helvetica Neue', Helvetica, sans-serif; color: #111111; position: relative; overflow: hidden">
+<header style="display: flex; align-items: center; gap: 12px; padding: 12px 20px 0 8px">
+<a href="#" aria-label="Back" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: #111111">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>
+</a>
+<div role="progressbar" aria-label="Step 3 of 3" aria-valuenow="3" aria-valuemin="1" aria-valuemax="3" style="flex: 1; display: flex; gap: 6px">
+<span style="flex: 1; height: 3px; border-radius: 2px; background: #111111"></span><span style="flex: 1; height: 3px; border-radius: 2px; background: #111111"></span><span style="flex: 1; height: 3px; border-radius: 2px; background: #111111"></span>
+</div>
+</header>
+<main style="padding: 40px 28px 0; display: flex; flex-direction: column; gap: 28px">
+<div style="display: flex; flex-direction: column; gap: 10px">
+<h1 style="margin: 0; font-size: 32px; font-weight: 500; line-height: 1.1; letter-spacing: -0.6px">What brings you to Studio 3?</h1>
+<p style="margin: 0; font-size: 16px; line-height: 1.45; color: #6B6B6B">We'll use this to get your feed started.</p>
+</div>
+<div role="radiogroup" aria-label="What brings you to Studio 3" style="display: flex; flex-direction: column">
+<div role="radio" aria-checked="true" tabindex="0" style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 22px 0; position: relative; padding-left: 16px; border-bottom: 1px solid #E3E3E0; cursor: pointer">
+<span class="rule" aria-hidden="true"></span>
+<span style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 22px; font-weight: 500; letter-spacing: -0.3px; color: #111111">Collecting art</span><span style="font-size: 14px; color: #6B6B6B">Available pieces and prices first</span></span>
+
+</div>
+<div role="radio" aria-checked="false" tabindex="0" style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 22px 0; border-bottom: 1px solid #E3E3E0; cursor: pointer">
+<span style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 22px; font-weight: 500; letter-spacing: -0.3px; color: #8E8E8E">Sharing my work</span><span style="font-size: 14px; color: #A3A3A3">Post pieces and build a following</span></span>
+
+</div>
+<div role="radio" aria-checked="false" tabindex="0" style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 22px 0; cursor: pointer">
+<span style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 22px; font-weight: 500; letter-spacing: -0.3px; color: #8E8E8E">Exploring and events</span><span style="font-size: 14px; color: #A3A3A3">A bit of everything, plus what's on at The Space</span></span>
+
+</div>
+</div>
+</main>
+<div style="position: absolute; left: 28px; right: 28px; bottom: 40px; display: flex; flex-direction: column; gap: 4px">
+<a href="#" style="height: 54px; border-radius: 12px; background: #111111; color: #FAFAF8; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 500; text-decoration: none">Continue</a>
+<a href="#" style="height: 44px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 500; color: #6B6B6B; text-decoration: none">Skip for now</a>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>
