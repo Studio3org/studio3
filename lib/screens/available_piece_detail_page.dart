@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../models/auction.dart' show AuctionBidHistory;
 import '../models/chat_message.dart' show ChatPiece;
 import '../models/feed_preview_item.dart';
 import '../models/order.dart';
 import '../services/api_exception.dart';
+import '../services/auction_service.dart';
 import '../services/auth_session.dart';
 import '../services/bid_service.dart';
 import '../services/piece_service.dart';
@@ -16,10 +19,15 @@ import '../utils/require_login.dart';
 import 'auction_flow.dart';
 import 'conversation_thread_page.dart';
 import 'edit_piece_page.dart';
+import 'list_piece_flow.dart' show startListingLater, startRelistAuction;
+import 'piece_detail_page.dart';
 import 'order_detail_page.dart';
 import 'series_view_page.dart';
+import '../widgets/auction/artist_auction.dart';
 import '../widgets/auction/auction_widgets.dart';
 import '../widgets/content_actions_sheet.dart';
+import '../widgets/studio/studio.dart'
+    show StudioActionRow, StudioIcons, StudioSheet, showStudioSheet, showStudioToast;
 import '../widgets/piece_detail/ask_about_piece_sheet.dart';
 import '../widgets/piece_detail/available_collect_bar.dart';
 import '../widgets/piece_detail/collect_artist_row.dart';
@@ -79,12 +87,130 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
   /// The bar's height, for the scroll padding and the save toast.
   double get _barHeight {
     if (_sold) return PieceCollectedBar.totalHeight(context, withCard: _delivery != null);
+    final artist = _artistView;
+    if (artist != null) {
+      return ArtistAuctionBar.totalHeight(context, artist, item.auction?.bidCount ?? 0);
+    }
     final base = AvailableCollectBar.totalHeight(
       context,
       hasInfo: item.isAuction || _priceDisplay != null,
     );
     final reserveNote = item.auction?.hasReserve == true && item.auction?.reserveMet == false;
     return base + (item.isAuction && reserveNote ? 21 : 0);
+  }
+
+  /// The artist's own auction (`ArtistAuction*`), or null.
+  ArtistAuctionView? get _artistView => artistAuctionView(item, isOwner: _isOwner);
+
+  /// The bids on the artist's own auction (BACKEND_CHANGES B38).
+  AuctionBidHistory? _bids;
+
+  Future<void> _loadBids() async {
+    final view = _artistView;
+    if (view != ArtistAuctionView.live && view != ArtistAuctionView.paymentFailed) return;
+    try {
+      final bids = await AuctionService.instance.bidHistory(item.id);
+      if (mounted) setState(() => _bids = bids);
+    } catch (_) {
+      // The page stands without the list.
+    }
+  }
+
+  void _shareAuction() => PieceShareSheet.show(context, item, imageIndex: widget.initialImageIndex);
+
+  /// `ArtistAuctionEnd`: ending early cancels it; nobody wins or is charged, and the piece goes
+  /// back to not for sale (`NoteArtistAuctionEnd`). The server's cancel leaves it delisted, so
+  /// the not-for-sale step follows.
+  Future<void> _endAuctionEarly() async {
+    if (!await confirmEndAuction(context, bidderCount: _bids?.bidderCount)) return;
+    try {
+      await AuctionService.instance.cancel(item.id);
+      if (!mounted) return;
+      showStudioToast(context, 'Auction ended. Bidders were told.');
+      if (!await _backToNotForSale()) await _loadDetail();
+    } catch (e) {
+      if (!mounted) return;
+      showStudioToast(
+        context,
+        e is ApiException && e.message.isNotEmpty ? e.message : "Couldn't end the auction. Try again.",
+        icon: null,
+      );
+    }
+  }
+
+  /// Before the first bid, Edit and Cancel are in More (`NoteArtistAuctionLive`).
+  void _onOwnerAuctionMore() {
+    final noBids = (item.auction?.bidCount ?? 0) == 0;
+    showStudioSheet<void>(
+      context: context,
+      builder: (sheetContext) => StudioSheet(
+        horizontalPadding: 24,
+        gap: 6,
+        children: [
+          StudioActionRow(
+            icon: StudioIcons.edit,
+            title: 'Edit piece',
+            onTap: () {
+              Navigator.pop(sheetContext);
+              _onEdit();
+            },
+          ),
+          if (noBids)
+            StudioActionRow(
+              icon: StudioIcons.close,
+              title: 'Cancel auction',
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _endAuctionEarly();
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// `ArtistAuctionPayment`: there is no support inbox yet, so an email (as Settings' Help).
+  Future<void> _messageSupport() async {
+    try {
+      final launched = await launchUrl(
+        Uri.parse('mailto:support@studio-3.co?subject=${Uri.encodeComponent('Auction: ${item.title}')}'),
+      );
+      if (!launched && mounted) showStudioToast(context, 'Email support@studio-3.co', icon: null);
+    } catch (_) {
+      if (mounted) showStudioToast(context, 'Email support@studio-3.co', icon: null);
+    }
+  }
+
+  Future<void> _relistAuction() async {
+    final last = item.lastAuction;
+    if (last == null) return;
+    await startRelistAuction(context, pieceId: item.id, last: last, onListed: _loadDetail);
+  }
+
+  Future<void> _sellAtFixedPrice() =>
+      startListingLater(context, pieceId: item.id, onListed: _loadDetail);
+
+  /// "Keep it as not for sale": back on the profile with no price, as the not-for-sale page.
+  Future<void> _keepNotForSale() async {
+    if (await _backToNotForSale() || !mounted) return;
+    showStudioToast(context, "Couldn't save that. Try again.", icon: null);
+  }
+
+  /// Takes the price off and puts the piece back up, then shows it as the not-for-sale page.
+  /// False when the server refused.
+  Future<bool> _backToNotForSale() async {
+    try {
+      final piece = await PieceService.instance.update(item.id, {'isForSale': false, 'status': 'live'});
+      if (!mounted) return true;
+      Navigator.of(context).pushReplacement<void, void>(
+        MaterialPageRoute<void>(
+          builder: (_) => PieceDetailPage(item: FeedPreviewItem.fromPieceSummary(piece)),
+        ),
+      );
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   /// The viewer's own top bid here, from this phone (`BidStore`); the server's
@@ -219,6 +345,7 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
     applyLikeItem(loaded);
     applyFollowState(loaded);
     if (_order == null) _loadOrder();
+    _loadBids();
   }
 
   Future<void> _onCollect() async {
@@ -308,6 +435,8 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
 
     final sections = <Widget>[
       _padded(PieceTitleBlock(item: item)),
+      if (_artistView != null)
+        _padded(ArtistAuctionSection(view: _artistView!, item: item, history: _bids)),
       if (item.story.trim().isNotEmpty) _padded(PieceDescription(item.story)),
       if (item.materials.isNotEmpty) _padded(PieceMadeWith(materials: item.materials)),
       if (item.relatedScenes.isNotEmpty) PieceRelatedScenesRow(scenes: item.relatedScenes),
@@ -374,6 +503,7 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
                         right: 0,
                         child: PieceTopIcons(
                           isOwner: _isOwner,
+                          ownerMore: _artistView == ArtistAuctionView.live,
                           showSave: !_isCollector,
                           saved: saved,
                           onBack: () => Navigator.pop(context),
@@ -383,7 +513,7 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
                             item,
                             imageIndex: widget.initialImageIndex,
                           ),
-                          onMore: _onMore,
+                          onMore: _artistView == ArtistAuctionView.live ? _onOwnerAuctionMore : _onMore,
                           onEdit: _onEdit,
                         ),
                       ),
@@ -436,6 +566,22 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
                 onMessage: _isOwner ? null : _messageArtist,
                 delivery: _delivery,
                 onLink: _openOrder,
+              )
+            else if (_artistView != null)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: ArtistAuctionBar(
+                  view: _artistView!,
+                  bidCount: item.auction?.bidCount ?? 0,
+                  onShare: _shareAuction,
+                  onEndEarly: _endAuctionEarly,
+                  onSupport: _messageSupport,
+                  onRelist: _relistAuction,
+                  onFixedPrice: _sellAtFixedPrice,
+                  onKeep: _keepNotForSale,
+                ),
               )
             else if (item.isAuction)
               Positioned(

@@ -69,6 +69,7 @@ class PieceSummary {
     this.likeCount = 0,
     this.commentCount = 0,
     this.savesCount,
+    this.lastAuction,
     this.myTopBidCents,
     this.myBidStatus,
     this.isLiked = false,
@@ -145,6 +146,9 @@ class PieceSummary {
 
   /// How many people saved it: sent to its owner only, else null (BACKEND_CHANGES B17).
   final int? savesCount;
+
+  /// The artist's auction that ended, on their own piece only (BACKEND_CHANGES B38).
+  final EndedAuction? lastAuction;
 
   /// The viewer's own bid, from the server (BACKEND_CHANGES B18): the most they bid in this
   /// run, and `leading`, `outbid`, `won`, `lost` or `none`. Null signed out (or from an older
@@ -266,6 +270,7 @@ class PieceSummary {
       likeCount: _intFrom(json['likeCount'] ?? json['likes']) ?? 0,
       commentCount: _intFrom(json['commentCount'] ?? json['comments']) ?? 0,
       savesCount: _intFrom(json['savesCount']),
+      lastAuction: EndedAuction.maybeFrom(json['lastAuction']),
       myTopBidCents: _intFrom(json['myTopBidCents']),
       myBidStatus: json['myBidStatus'] as String?,
       isLiked: json['isLiked'] as bool? ?? false,
@@ -378,6 +383,7 @@ class PieceSummary {
         'likeCount': likeCount,
         'commentCount': commentCount,
         if (savesCount != null) 'savesCount': savesCount,
+        if (lastAuction != null) 'lastAuction': lastAuction!.toJson(),
         if (myTopBidCents != null) 'myTopBidCents': myTopBidCents,
         if (myBidStatus != null) 'myBidStatus': myBidStatus,
         'isLiked': isLiked,

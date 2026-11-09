@@ -83,6 +83,7 @@ class FeedPreviewItem {
     this.likeCount = 0,
     this.commentCount = 0,
     this.savesCount,
+    this.lastAuction,
     this.myTopBidCents,
     this.myBidStatus,
     this.authorName,
@@ -149,6 +150,9 @@ class FeedPreviewItem {
 
   /// How many people saved it, on your own piece only (BACKEND_CHANGES B17); else null.
   final int? savesCount;
+
+  /// The artist's auction that ended, on their own piece only (BACKEND_CHANGES B38).
+  final EndedAuction? lastAuction;
 
   /// The viewer's own bid from the server (BACKEND_CHANGES B18); see [PieceSummary.myBidStatus].
   final int? myTopBidCents;
@@ -241,6 +245,7 @@ class FeedPreviewItem {
     int? likeCount,
     int? commentCount,
     int? savesCount,
+    EndedAuction? lastAuction,
     int? myTopBidCents,
     String? myBidStatus,
     String? authorName,
@@ -291,6 +296,7 @@ class FeedPreviewItem {
       likeCount: likeCount ?? this.likeCount,
       commentCount: commentCount ?? this.commentCount,
       savesCount: savesCount ?? this.savesCount,
+      lastAuction: lastAuction ?? this.lastAuction,
       myTopBidCents: myTopBidCents ?? this.myTopBidCents,
       myBidStatus: myBidStatus ?? this.myBidStatus,
       authorName: authorName ?? this.authorName,
@@ -360,6 +366,7 @@ class FeedPreviewItem {
       likeCount: piece.likeCount,
       commentCount: piece.commentCount,
       savesCount: piece.savesCount,
+      lastAuction: piece.lastAuction,
       myTopBidCents: piece.myTopBidCents,
       myBidStatus: piece.myBidStatus,
       authorName: piece.authorName,
@@ -464,6 +471,7 @@ class FeedPreviewItem {
         'likeCount': likeCount,
         'commentCount': commentCount,
         if (savesCount != null) 'savesCount': savesCount,
+        if (lastAuction != null) 'lastAuction': lastAuction!.toJson(),
         if (myTopBidCents != null) 'myTopBidCents': myTopBidCents,
         if (myBidStatus != null) 'myBidStatus': myBidStatus,
         if (authorName != null) 'authorName': authorName,
@@ -525,6 +533,7 @@ class FeedPreviewItem {
       likeCount: json['likeCount'] as int? ?? 0,
       commentCount: json['commentCount'] as int? ?? 0,
       savesCount: json['savesCount'] as int?,
+      lastAuction: EndedAuction.maybeFrom(json['lastAuction']),
       myTopBidCents: json['myTopBidCents'] as int?,
       myBidStatus: json['myBidStatus'] as String?,
       authorName: json['authorName'] as String?,

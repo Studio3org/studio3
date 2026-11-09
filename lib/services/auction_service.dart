@@ -1,6 +1,8 @@
+import '../models/auction.dart' show AuctionBidHistory;
 import '../models/auction_summary.dart';
 import '../models/bid.dart';
 import 'api_client.dart';
+import 'api_exception.dart';
 
 /// The auction actions (restored from before commit 76f4ef9; `BidService` is the redesigned
 /// bidding flow). Bidding, and the auction actions either party can take afterwards.
@@ -60,6 +62,18 @@ class AuctionService {
   }
 
   // --- seller actions ---------------------------------------------------------------------
+
+  /// Every bid on the artist's own auction, with anonymous bidder numbers (`ArtistAuctionLive`,
+  /// BACKEND_CHANGES B38). Only the artist may ask; null when the server has no list.
+  Future<AuctionBidHistory?> bidHistory(String pieceId) async {
+    try {
+      final json = await _api.get('/api/pieces/$pieceId/auction/bids', auth: true);
+      return AuctionBidHistory.fromJson(_api.extractData(json) as Map<String, dynamic>);
+    } on ApiException catch (e) {
+      if (e.statusCode == 404) return null;
+      rethrow;
+    }
+  }
 
   /// The one manual extension a seller gets, and only while more than three days remain.
   ///

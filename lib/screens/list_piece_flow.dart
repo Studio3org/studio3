@@ -7,6 +7,7 @@ import '../models/feed_preview_item.dart';
 import '../models/piece_summary.dart';
 import '../models/user_profile.dart' show CommissionQuote;
 import '../services/api_exception.dart';
+import '../services/auction_service.dart';
 import '../services/auth_session.dart';
 import '../services/piece_service.dart';
 import '../services/user_service.dart';
@@ -212,20 +213,59 @@ abstract final class ListingDetailsWeight {
   }
 }
 
+/// "Relist as an auction" (`ArtistAuctionUnsold`): the auction settings, filled in from the
+/// run that ended, then a fresh auction (`/auction/relist`, which keeps the old one as the
+/// record) and the listed screen. [onListed] runs once it is up.
+Future<void> startRelistAuction(
+  BuildContext context, {
+  required String pieceId,
+  required EndedAuction last,
+  VoidCallback? onListed,
+}) async {
+  PieceSummary piece;
+  try {
+    piece = await PieceService.instance.getById(pieceId);
+  } catch (_) {
+    if (context.mounted) showStudioToast(context, 'Could not load the piece', icon: null);
+    return;
+  }
+  if (!context.mounted) return;
+  final listed = await Navigator.of(context).push<bool>(
+    MaterialPageRoute(builder: (_) => ListPricingPage(piece: piece, relist: last)),
+  );
+  if (listed == true) onListed?.call();
+}
+
 /// "How do you want to sell it?" (`ListPricing`): Fixed price or Auction, the earnings line,
 /// 2 of 2 in the progress bar, and "List it" (no review step). Listing replaces this page
-/// with the listed screen.
+/// with the listed screen. With [relist], the auction settings of a run that ended without a
+/// sale, filled in (`ArtistAuctionUnsold`).
 class ListPricingPage extends StatefulWidget {
-  const ListPricingPage({super.key, required this.piece, required this.details, this.quote, this.update});
+  const ListPricingPage({
+    super.key,
+    required this.piece,
+    this.details,
+    this.relist,
+    this.quote,
+    this.update,
+    this.relistAuction,
+  });
 
   final PieceSummary piece;
-  final ListLaterDetails details;
+
+  /// What List later collected; not asked again when relisting an auction.
+  final ListLaterDetails? details;
+  final EndedAuction? relist;
 
   /// For tests: the commission quote and the PATCH.
   @visibleForTesting
   final Future<CommissionQuote?> Function(int priceCents)? quote;
   @visibleForTesting
   final Future<PieceSummary> Function(String id, Map<String, dynamic> body)? update;
+
+  /// For tests: the relist call, answering the piece as it is after.
+  @visibleForTesting
+  final Future<PieceSummary> Function(String id, AuctionTerms terms)? relistAuction;
 
   @override
   State<ListPricingPage> createState() => _ListPricingPageState();
@@ -240,6 +280,28 @@ class _ListPricingPageState extends State<ListPricingPage> {
   bool _busy = false;
 
   @override
+  void initState() {
+    super.initState();
+    final last = widget.relist;
+    if (last != null) {
+      _mode = SaleMode.auction;
+      if (last.startingBidCents != null) _start.text = formatUsd(last.startingBidCents!);
+      if (last.reserveCents != null) _reserve.text = formatUsd(last.reserveCents!);
+    }
+  }
+
+  /// A fresh auction on the piece, then the piece as it is now.
+  Future<PieceSummary> _relist(String id, AuctionTerms terms) async {
+    await AuctionService.instance.relist(
+      id,
+      durationDays: terms.durationDays,
+      startingBidCents: terms.startingBidCents,
+      reserveCents: terms.reserveCents,
+    );
+    return PieceService.instance.getById(id);
+  }
+
+  @override
   void dispose() {
     _price.dispose();
     _start.dispose();
@@ -251,8 +313,20 @@ class _ListPricingPageState extends State<ListPricingPage> {
     setState(() => _busy = true);
     final piece = widget.piece;
     final details = widget.details;
+    if (widget.relist != null) {
+      final terms = AuctionTerms(
+        startingBidCents: PostAvailabilityStep.parseCents(_start.text)!,
+        durationDays: _days,
+        reserveCents: PostAvailabilityStep.parseCents(_reserve.text),
+      );
+      await _finish(() => (widget.relistAuction ?? _relist)(piece.id, terms));
+      return;
+    }
     final body = <String, dynamic>{
       'isForSale': true,
+      // An auction that ended without a sale left the piece delisted (`ArtistAuctionUnsold`
+      // "Sell at a fixed price"): listing it puts it back up.
+      if (piece.status == 'delisted') 'status': 'live',
       if (_mode == SaleMode.auction)
         ...AuctionTerms(
           startingBidCents: PostAvailabilityStep.parseCents(_start.text)!,
@@ -263,13 +337,21 @@ class _ListPricingPageState extends State<ListPricingPage> {
         'listingType': 'fixed',
         'priceCents': PostAvailabilityStep.parseCents(_price.text),
       },
-      'dimensions': details.dimensions,
-      'weightKg': details.weightKg,
-      'framingMounting': details.framing,
+      if (details != null) ...{
+        'dimensions': details.dimensions,
+        'weightKg': details.weightKg,
+        'framingMounting': details.framing,
+      },
       if (piece.location != null && piece.location!.isNotEmpty) 'shippingRegion': piece.location,
     };
+    await _finish(() => (widget.update ?? PieceService.instance.update)(piece.id, body));
+  }
+
+  /// Runs the listing call, then the listed screen; a failure keeps the page with the
+  /// server's reason.
+  Future<void> _finish(Future<PieceSummary> Function() call) async {
     try {
-      final listed = await (widget.update ?? PieceService.instance.update)(piece.id, body);
+      final listed = await call();
       if (!mounted) return;
       await Navigator.of(
         context,
@@ -296,7 +378,9 @@ class _ListPricingPageState extends State<ListPricingPage> {
       photoCount: piece.imageUrls.isEmpty ? 1 : piece.imageUrls.length,
       pieceTitle: piece.title,
       mode: _mode,
-      modes: const [SaleMode.fixed, if (kListLaterAuction) SaleMode.auction],
+      modes: widget.relist != null
+          ? const [SaleMode.auction]
+          : const [SaleMode.fixed, if (kListLaterAuction) SaleMode.auction],
       onModeChanged: (m) => setState(() => _mode = m),
       priceController: _price,
       startingBidController: _start,
@@ -306,8 +390,10 @@ class _ListPricingPageState extends State<ListPricingPage> {
       onBack: () => Navigator.pop(context),
       onContinue: _list,
       quote: widget.quote ?? UserService.instance.getCommissionQuote,
-      heading: 'How do you want to sell it?',
-      subheading: 'Pick how collectors can buy ${piece.title}.',
+      heading: widget.relist != null ? 'Relist as an auction' : 'How do you want to sell it?',
+      subheading: widget.relist != null
+          ? 'Your last terms are filled in. Change anything you like.'
+          : 'Pick how collectors can buy ${piece.title}.',
       step: 2,
       steps: 2,
       actionLabel: 'List it',

@@ -174,7 +174,7 @@ class AuctionResultPage extends StatelessWidget {
       AuctionOutcome.reserveNotMet => (
         'Auction closed',
         'Closed without selling',
-        "Bids didn't reach the artist's minimum, so it wasn't sold and nothing was charged.",
+        "Bids didn't reach the artist's minimum. Nothing was charged.",
       ),
     };
     final topCents = a?.winningBidCents ?? a?.highestBidCents;
@@ -472,7 +472,7 @@ class _BidPaymentFailedPageState extends State<BidPaymentFailedPage> {
   }
 
   Future<void> _updateCard() async {
-    final id = await (widget.newCard ?? () => BidVerifySheet.show(context))();
+    final id = await (widget.newCard ?? () => BidVerifySheet.show(context, shipTo: false))();
     if (!mounted || id == null) return;
     await _retryWith(id);
   }
@@ -519,7 +519,7 @@ class _BidPaymentFailedPageState extends State<BidPaymentFailedPage> {
                   ),
                   const SizedBox(height: 14),
                   Text(
-                    '${widget.piece.title} is still yours. Update your card to finish paying.',
+                    'Still yours. Update your card in time or it goes to the next bidder.',
                     textAlign: TextAlign.center,
                     style: StudioType.body15(height: 1.5, color: c.textSecondary),
                   ),
