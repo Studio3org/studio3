@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../services/api_exception.dart';
 import '../services/user_service.dart';
-import '../widgets/auth_ui.dart' show AuthPillInput, StudioOtpSlots;
+import '../widgets/auth_ui.dart'
+    show AuthPillInput, StudioOtpSlots, isWrongCodeError, kCodeExpiredMessage, kMaxCodeAttempts;
 import '../widgets/studio/studio.dart';
 import '../utils/auth_validators.dart';
 import '../widgets/studio_loading.dart';
@@ -26,6 +27,10 @@ class _ChangeEmailPageState extends State<ChangeEmailPage> {
   bool _submitted = false;
   bool _loading = false;
   String? _serverError;
+
+  /// Wrong codes since the last send; the server kills the code at [kMaxCodeAttempts].
+  int _wrongCount = 0;
+  bool get _codeExpired => _wrongCount >= kMaxCodeAttempts;
 
   @override
   void dispose() {
@@ -52,6 +57,8 @@ class _ChangeEmailPageState extends State<ChangeEmailPage> {
       setState(() {
         _step = _Step.confirm;
         _submitted = false;
+        _wrongCount = 0;
+        _otpController.clear();
       });
     } catch (e) {
       if (!mounted) return;
@@ -67,6 +74,10 @@ class _ChangeEmailPageState extends State<ChangeEmailPage> {
       _serverError = null;
     });
     if (_otpController.text.trim().length != 6) return;
+    if (_codeExpired) {
+      setState(() => _serverError = kCodeExpiredMessage);
+      return;
+    }
     setState(() => _loading = true);
     try {
       final email = await UserService.instance.confirmEmailChange(
@@ -78,7 +89,14 @@ class _ChangeEmailPageState extends State<ChangeEmailPage> {
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _serverError = e is ApiException ? e.message : e.toString());
+      setState(() {
+        if (isWrongCodeError(e)) _wrongCount++;
+        _serverError = _codeExpired
+            ? kCodeExpiredMessage
+            : e is ApiException
+                ? e.message
+                : e.toString();
+      });
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -132,9 +150,13 @@ class _ChangeEmailPageState extends State<ChangeEmailPage> {
         const SizedBox(height: 24),
         StudioOtpSlots(controller: _otpController, autofocus: true, errorText: _serverError ?? otpError),
         const SizedBox(height: 32),
-        StudioButton(label: 'Confirm', onPressed: _confirmChange),
+        StudioButton(label: 'Confirm', onPressed: _codeExpired ? null : _confirmChange),
         const SizedBox(height: 4),
-        StudioButton(label: 'Resend code', variant: StudioButtonVariant.text, onPressed: _requestChange),
+        StudioButton(
+          label: _codeExpired ? 'Request a new code' : 'Resend code',
+          variant: StudioButtonVariant.text,
+          onPressed: _requestChange,
+        ),
       ],
     );
   }

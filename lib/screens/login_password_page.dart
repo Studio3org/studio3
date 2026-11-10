@@ -60,7 +60,7 @@ class _LoginPasswordPageState extends State<LoginPasswordPage> {
       Navigator.pushNamedAndRemoveUntil(context, resolvePostAuthRoute(), (_) => false);
     } on ApiException catch (e) {
       if (!mounted) return;
-      if (e.statusCode == 429 && widget.accountKnown) {
+      if (e.statusCode == 429 && widget.accountKnown && _isAccountLock(e)) {
         // Locked: only the emailed code from here (`NoteLoginPassword`).
         setState(() {
           _lockedMessage = e.message;
@@ -75,6 +75,10 @@ class _LoginPasswordPageState extends State<LoginPasswordPage> {
       if (mounted) setState(() => _loading = false);
     }
   }
+
+  /// The five-wrong-passwords lock (B30), not the per-network limit ("Too many requests…",
+  /// FRONTEND_HANDOFF 1.1), which also answers 429 but only means "wait a moment".
+  static bool _isAccountLock(ApiException e) => e.message.toLowerCase().contains('wrong password');
 
   void _emailCode() => EmailCodePage.open(context, email: widget.email, purpose: EmailCodePurpose.login);
 
