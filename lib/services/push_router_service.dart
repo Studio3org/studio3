@@ -113,6 +113,8 @@ class PushRouterService {
       data['targetType'] as String?,
       data['targetId'] as String?,
       actorUsername: data['actorUsername'] as String?,
+      // The inbox's rule (`isSellerOrderNotice`), from what a push carries.
+      asSeller: data['type'] == 'sale' || data['side'] == 'seller',
     );
   }
 }

@@ -62,19 +62,66 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     }
   }
 
-  Future<void> _updateStatus(String status) async {
+  /// Cancels the order (FRONTEND_HANDOFF 2.1). Before payment either side may. Once paid only
+  /// the artist can, after a confirmation, and the server refunds the buyer in full: the order
+  /// comes back `refunded`.
+  Future<void> _cancel(Order order) async {
+    final refunds = order.status == 'paid';
+    if (refunds) {
+      final confirmed = await showStudioConfirm(
+        context,
+        title: 'Cancel this sale?',
+        message: 'The buyer will be refunded in full and the piece goes back on sale.',
+        confirmLabel: 'Cancel sale',
+        cancelLabel: 'Keep sale',
+      );
+      if (!confirmed || !mounted) return;
+    }
     setState(() => _updating = true);
     try {
-      final order = await OrderService.instance.updateOrderStatus(widget.orderId, status);
+      final updated = await OrderService.instance.updateOrderStatus(widget.orderId, 'cancelled');
       if (!mounted) return;
       setState(() {
-        _order = order;
+        _order = updated;
         _updating = false;
       });
+      if (refunds && updated.status == 'refunded') {
+        showStudioToast(context, 'Sale cancelled. The buyer is being refunded.');
+      }
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _updating = false);
+      showStudioToast(context, cancelErrorMessage(e), icon: null);
+      // "Already going through": the payment is landing, so the order is about to be paid.
+      if (e.statusCode == 409) _load();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _updating = false);
+      showStudioToast(context, 'Could not update order', icon: null);
+    }
+  }
+
+  /// "Report an issue" (FRONTEND_HANDOFF 2.1): the buyer's route once an order is paid. It
+  /// holds the artist's payment and opens a dispute; the order comes back `disputed`.
+  Future<void> _reportIssue() async {
+    final reason = await showStudioSheet<String>(
+      context: context,
+      builder: (_) => const _ReportIssueSheet(),
+    );
+    if (reason == null || reason.isEmpty || !mounted) return;
+    setState(() => _updating = true);
+    try {
+      final updated = await OrderService.instance.reportIssue(widget.orderId, reason);
+      if (!mounted) return;
+      setState(() {
+        _order = updated;
+        _updating = false;
+      });
+      showStudioToast(context, "Thanks. We'll look into it and get back to you.");
     } catch (e) {
       if (!mounted) return;
       setState(() => _updating = false);
-      showStudioToast(context, e is ApiException ? e.message : 'Could not update order', icon: null);
+      showStudioToast(context, e is ApiException ? e.message : 'Could not report the issue', icon: null);
     }
   }
 
@@ -153,24 +200,24 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     );
   }
 
+  /// The artist only cancels: shipping is updated by Studio 3 (and Convelio), and completion
+  /// comes from the buyer's Confirm received (FRONTEND_HANDOFF 2.1).
   List<Widget> _sellerActions(Order order) {
     final actions = <Widget>[];
-    if (order.status == 'paid') {
-      actions.add(_actionButton('Mark as shipped', () => _updateStatus('shipped')));
-    }
-    if (order.status == 'shipped') {
-      actions.add(_actionButton('Mark as completed', () => _updateStatus('completed')));
-    }
     if (order.status == 'pending_payment' || order.status == 'paid') {
-      actions.add(_actionButton('Cancel order', () => _updateStatus('cancelled'), secondary: true));
+      actions.add(_actionButton('Cancel order', () => _cancel(order), secondary: true));
     }
     return actions;
   }
 
+  /// The buyer cancels only before payment; after it, they report an issue instead.
   List<Widget> _buyerActions(Order order) {
     final actions = <Widget>[];
-    if (order.status == 'pending_payment' || order.status == 'paid') {
-      actions.add(_actionButton('Cancel order', () => _updateStatus('cancelled'), secondary: true));
+    if (order.status == 'pending_payment') {
+      actions.add(_actionButton('Cancel order', () => _cancel(order), secondary: true));
+    }
+    if (order.canReportIssue) {
+      actions.add(_actionButton('Report an issue', _reportIssue, secondary: true));
     }
     return actions;
   }
@@ -185,6 +232,68 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
         loading: _updating && !secondary,
         onPressed: _updating ? null : onTap,
       ),
+    );
+  }
+}
+
+/// What to show when a cancel is refused. The server's line as it is, except the rare 409 for an
+/// artist already paid out: that text is for staff, so the artist is sent to support instead.
+@visibleForTesting
+String cancelErrorMessage(ApiException e) {
+  if (e.statusCode == 409 && e.message.contains('already been paid')) {
+    return 'We couldn\'t cancel this sale. Please contact support.';
+  }
+  return e.message.isNotEmpty ? e.message : 'Could not update order';
+}
+
+/// "Report an issue": a title 22, what happens 14 Graphite, one field, Send and Cancel (the
+/// Settings field sheets).
+class _ReportIssueSheet extends StatefulWidget {
+  const _ReportIssueSheet();
+
+  @override
+  State<_ReportIssueSheet> createState() => _ReportIssueSheetState();
+}
+
+class _ReportIssueSheetState extends State<_ReportIssueSheet> {
+  final _text = TextEditingController();
+
+  @override
+  void dispose() {
+    _text.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.studio;
+    final reason = _text.text.trim();
+    return StudioSheet(
+      horizontalPadding: StudioSpace.marginForm,
+      gap: 14,
+      children: [
+        Text('Report an issue', style: StudioType.title22(color: c.textPrimary)),
+        Text(
+          "Tell us what's wrong. We'll hold the artist's payment while we sort it out.",
+          style: StudioType.body14(color: c.textSecondary),
+        ),
+        StudioUnderlineField(
+          label: 'What went wrong',
+          controller: _text,
+          autofocus: true,
+          maxLines: 5,
+          minLines: 1,
+          maxLength: 2000,
+          textCapitalization: TextCapitalization.sentences,
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 4),
+        StudioButton(
+          label: 'Send',
+          onPressed: reason.isEmpty ? null : () => Navigator.pop(context, reason),
+        ),
+        StudioButton(label: 'Cancel', variant: StudioButtonVariant.text, onPressed: () => Navigator.pop(context)),
+      ],
     );
   }
 }

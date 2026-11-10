@@ -150,12 +150,17 @@ class OrderService {
     return Order.fromJson(data);
   }
 
-  Future<Order> updateOrderStatus(String orderId, String status) async {
+  /// Cancels (the only status the app sends): before payment either side may; once paid only
+  /// the artist, and the buyer is refunded in full (FRONTEND_HANDOFF 2.1). The artist's
+  /// optional [reason] is kept with the refund.
+  Future<Order> updateOrderStatus(String orderId, String status, {String? reason}) async {
     final json = await _api.patch(
       '/api/orders/$orderId',
-      body: {'status': status},
+      body: {'status': status, 'reason': ?reason},
     );
     final data = _api.extractData(json) as Map<String, dynamic>;
+    await CacheService.instance.invalidate('orders.mine');
+    await CacheService.instance.invalidate('sales.mine');
     return Order.fromJson(data);
   }
 

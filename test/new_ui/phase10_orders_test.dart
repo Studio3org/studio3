@@ -7,6 +7,9 @@ import 'package:studio3/models/order.dart';
 import 'package:studio3/screens/my_orders_page.dart';
 import 'package:studio3/screens/my_sales_page.dart';
 import 'package:studio3/screens/order_detail_page.dart';
+import 'package:studio3/services/api_exception.dart';
+import 'package:studio3/services/push_router_service.dart';
+import 'package:studio3/utils/app_destination.dart';
 import 'package:studio3/screens/seller_analytics_page.dart';
 import 'package:studio3/screens/terms_page.dart';
 import 'package:studio3/theme/app_theme.dart';
@@ -81,7 +84,9 @@ void main() {
       expect(find.text('SHIPPING ADDRESS'), findsOneWidget);
       expect(find.text('Dallas, TX 75201'), findsOneWidget);
       expect(find.text('\$3833.75'), findsOneWidget);
-      expect(tester.widget<StudioButton>(_button('Mark as shipped')).variant, StudioButtonVariant.primary);
+      // Shipping and completion aren't the artist's to set any more (FRONTEND_HANDOFF 2.1).
+      expect(_button('Mark as shipped'), findsNothing);
+      expect(_button('Mark as completed'), findsNothing);
       expect(tester.widget<StudioButton>(_button('Cancel order')).variant, StudioButtonVariant.outline);
       expect(find.byType(ElevatedButton), findsNothing);
     });
@@ -124,14 +129,103 @@ void main() {
     });
   }
 
-  testWidgets('a buyer can cancel a paid order; nothing to do once shipped', (tester) async {
+  testWidgets('a buyer cancels only before payment; after it, Report an issue (FRONTEND_HANDOFF 2.1)',
+      (tester) async {
     setBoardViewport(tester);
-    await tester.pumpWidget(_app(OrderDetailPage(orderId: 'x', debugOrder: _order('paid'))));
-    await tester.pump();
+    Future<void> show(String status) async {
+      await tester.pumpWidget(_app(OrderDetailPage(orderId: 'x', debugOrder: _order(status))));
+      await tester.pump();
+    }
+
+    await show('pending_payment');
     expect(_button('Cancel order'), findsOneWidget);
+    expect(_button('Report an issue'), findsNothing);
+
+    for (final status in ['paid', 'shipped', 'awaiting_confirmation']) {
+      await show(status);
+      expect(_button('Cancel order'), findsNothing, reason: status);
+      expect(tester.widget<StudioButton>(_button('Report an issue')).variant, StudioButtonVariant.outline);
+    }
+
+    for (final status in ['completed', 'disputed', 'refunded', 'cancelled']) {
+      await show(status);
+      expect(find.byType(StudioButton), findsNothing, reason: status);
+    }
+    await show('refunded');
+    expect(find.text('Refunded'), findsOneWidget);
+  });
+
+  testWidgets('Report an issue asks what went wrong; Send stays off until something is typed', (tester) async {
+    setBoardViewport(tester);
     await tester.pumpWidget(_app(OrderDetailPage(orderId: 'x', debugOrder: _order('shipped'))));
     await tester.pump();
-    expect(find.byType(StudioButton), findsNothing);
+    await tester.tap(_button('Report an issue'));
+    await tester.pumpAndSettle();
+    expect(find.text("Tell us what's wrong. We'll hold the artist's payment while we sort it out."), findsOneWidget);
+    expect(tester.widget<StudioButton>(_button('Send')).onPressed, isNull);
+    await tester.enterText(find.byType(TextField).last, 'Arrived with a cracked frame');
+    await tester.pump();
+    expect(tester.widget<StudioButton>(_button('Send')).onPressed, isNotNull);
+    await tester.tap(_button('Cancel'));
+    await tester.pumpAndSettle();
+    expect(find.text('Report an issue'), findsOneWidget, reason: 'back on the order, nothing sent');
+  });
+
+  testWidgets("the artist cancelling a paid sale confirms first; a pending one doesn't need to", (tester) async {
+    setBoardViewport(tester);
+    await tester.pumpWidget(_app(OrderDetailPage(orderId: 'x', isSeller: true, debugOrder: _order('paid'))));
+    await tester.pump();
+    await tester.tap(_button('Cancel order'));
+    await tester.pumpAndSettle();
+    expect(find.text('Cancel this sale?'), findsOneWidget);
+    expect(find.text('The buyer will be refunded in full and the piece goes back on sale.'), findsOneWidget);
+    await tester.tap(_button('Keep sale'));
+    await tester.pumpAndSettle();
+    expect(find.text('Cancel this sale?'), findsNothing);
+    expect(find.text('Paid'), findsOneWidget, reason: 'nothing changed');
+
+    for (final status in ['shipped', 'awaiting_confirmation', 'completed', 'refunded']) {
+      await tester.pumpWidget(_app(OrderDetailPage(orderId: 'x', isSeller: true, debugOrder: _order(status))));
+      await tester.pump();
+      expect(find.byType(StudioButton), findsNothing, reason: status);
+    }
+  });
+
+  test('a refused cancel shows the server line, except the staff-only payout one', () {
+    expect(
+      cancelErrorMessage(ApiException(
+        "A paid order can't be cancelled by the buyer. If something's wrong, report an issue and we'll sort it out.",
+        statusCode: 403,
+      )),
+      startsWith("A paid order can't be cancelled"),
+    );
+    expect(
+      cancelErrorMessage(ApiException(
+        'The artist has already been paid for this order; a refund here would leave the platform out of pocket. '
+        'Recover the transfer in Stripe first.',
+        statusCode: 409,
+      )),
+      "We couldn't cancel this sale. Please contact support.",
+    );
+    expect(
+      cancelErrorMessage(ApiException('This payment is already going through. Check back in a moment.', statusCode: 409)),
+      'This payment is already going through. Check back in a moment.',
+    );
+  });
+
+  test('a sale push opens the order as the artist; a purchase one as the buyer', () {
+    final sale = PushRouterService.destinationFor({'type': 'sale', 'targetType': 'order', 'targetId': 'o1'});
+    expect(sale.type, AppDestinationType.order);
+    expect(sale.asSeller, isTrue);
+    expect(
+      PushRouterService.destinationFor({'type': 'order_shipped', 'side': 'seller', 'targetType': 'order', 'targetId': 'o1'})
+          .asSeller,
+      isTrue,
+    );
+    expect(
+      PushRouterService.destinationFor({'type': 'order', 'targetType': 'order', 'targetId': 'o1'}).asSeller,
+      isFalse,
+    );
   });
 
   testWidgets('Purchases and Sales: empty states after the request fails', (tester) async {

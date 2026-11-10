@@ -6,6 +6,7 @@ import '../../models/follow_request.dart';
 import '../../models/notification_item.dart';
 import '../../screens/auction_flow.dart';
 import '../../screens/follow_requests_page.dart';
+import '../../screens/order_detail_page.dart';
 import '../../services/chat_socket_service.dart';
 import '../../services/connectivity_service.dart';
 import '../../services/main_nav_service.dart';
@@ -454,8 +455,8 @@ List<(String, bool)>? savedPieceLine(NotificationItem n) {
   return [(title, true), (', which you saved, $rest', false)];
 }
 
-/// Opens what a notification is about: the piece or Scene, the person, or the order list
-/// (My sales for the seller). Event reminders have nowhere to go yet (no events in the app).
+/// Opens what a notification is about: the piece or Scene, the person, or the order (as the
+/// artist for a seller notice). Event reminders have nowhere to go yet (no events in the app).
 /// Notifications that open an auction result (`BidWon`, `BidLost`, `BidReserveNotMet`,
 /// `BidPaymentFailed`) instead of the piece.
 const kAuctionOutcomeTypes = {
@@ -491,6 +492,11 @@ Future<void> openNotificationTarget(BuildContext context, NotificationItem n) as
         final post = await PostService.instance.getById(id);
         if (!context.mounted) return;
         await openExploreDetail(context, FeedItem.post(post));
+      // The order itself, as its side sees it (FRONTEND_HANDOFF 2.2); the list without an id.
+      case 'order' when id != null:
+        await Navigator.of(context).push<void>(
+          MaterialPageRoute<void>(builder: (_) => OrderDetailPage(orderId: id, isSeller: isSellerOrderNotice(n))),
+        );
       case 'order':
         await Navigator.of(context).pushNamed(isSellerOrderNotice(n) ? '/sales' : '/orders');
       case 'user':

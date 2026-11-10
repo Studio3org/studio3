@@ -30,10 +30,14 @@ import 'reels_route.dart';
 enum AppDestinationType { piece, scene, series, order, event, profile, payoutSetup, activity, unknown }
 
 class AppDestination {
-  const AppDestination(this.type, [this.id]);
+  const AppDestination(this.type, [this.id, this.asSeller = false]);
 
   final AppDestinationType type;
   final String? id;
+
+  /// An order opened as its artist (a `sale` push, or one with `side` seller), so Order
+  /// details shows the artist's actions rather than the buyer's.
+  final bool asSeller;
 
   bool get isKnown => type != AppDestinationType.unknown && (id != null || !_needsId);
 
@@ -50,7 +54,12 @@ class AppDestination {
   /// `inquiry` deliberately resolves to nothing: inquiries were deferred to v2 and the
   /// blueprint is unregistered, so routing to a screen that cannot load would be worse than
   /// doing nothing.
-  factory AppDestination.fromTarget(String? targetType, String? targetId, {String? actorUsername}) {
+  factory AppDestination.fromTarget(
+    String? targetType,
+    String? targetId, {
+    String? actorUsername,
+    bool asSeller = false,
+  }) {
     if (targetType == 'user') {
       final handle = actorUsername?.trim();
       if (handle == null || handle.isEmpty) {
@@ -72,7 +81,7 @@ class AppDestination {
       case 'series':
         return AppDestination(AppDestinationType.series, targetId);
       case 'order':
-        return AppDestination(AppDestinationType.order, targetId);
+        return AppDestination(AppDestinationType.order, targetId, asSeller);
       case 'event':
         return AppDestination(AppDestinationType.event, targetId);
       default:
@@ -118,7 +127,7 @@ Future<void> openDestination(BuildContext context, AppDestination destination) a
     case AppDestinationType.series:
       Navigator.push<void>(context, MaterialPageRoute<void>(builder: (_) => SeriesViewPage(seriesId: destination.id!)));
     case AppDestinationType.order:
-      Navigator.push<void>(context, MaterialPageRoute<void>(builder: (_) => OrderDetailPage(orderId: destination.id!)));
+      Navigator.push<void>(context, MaterialPageRoute<void>(builder: (_) => OrderDetailPage(orderId: destination.id!, isSeller: destination.asSeller)));
     case AppDestinationType.event:
       await _openEvent(context, destination.id!);
     case AppDestinationType.profile:

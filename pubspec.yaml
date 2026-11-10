@@ -87,6 +87,8 @@ dev_dependencies:
   flutter_launcher_icons: ^0.14.3
   # Used by tool/generate_brand_assets.dart to derive app_icon.png / splash_icon.png
   image: ^4.8.0
+  # Test-only: lets widget tests open the image cache's SQLite (test/flutter_test_config.dart).
+  sqflite_common_ffi: ">=2.3.0 <2.4.0"
 
 # Native splash screen — dark background + Studio3 icon (replaces the
 # default white/Flutter splash). Generate with:
