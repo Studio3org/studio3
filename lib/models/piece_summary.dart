@@ -1,4 +1,5 @@
 import 'auction.dart';
+import 'order.dart' show PieceViewerOrder;
 import 'post_summary.dart';
 import 'series_summary.dart';
 
@@ -30,6 +31,74 @@ class PieceImage {
         if (mediaAspectRatio != null) 'mediaAspectRatio': mediaAspectRatio,
         'sortOrder': sortOrder,
       };
+}
+
+/// A show the piece was on (Phase 5.4, "Exhibited"): the event's name, venue and city, and
+/// the month in the event's own zone, shown as the server sends it. [eventId] is null once the
+/// event is deleted.
+class PieceExhibition {
+  const PieceExhibition({required this.title, this.eventId, this.venueName, this.city, this.date, this.month});
+
+  final String? eventId;
+  final String title;
+  final String? venueName;
+  final String? city;
+  final DateTime? date;
+
+  /// "November 2026".
+  final String? month;
+
+  /// "Cedars Union, Austin", dropping what's missing.
+  String get place => [venueName ?? '', city ?? ''].where((p) => p.trim().isNotEmpty).join(', ');
+
+  factory PieceExhibition.fromJson(Map<String, dynamic> json) => PieceExhibition(
+        eventId: json['eventId'] as String?,
+        title: json['title'] as String? ?? '',
+        venueName: json['venueName'] as String?,
+        city: json['city'] as String?,
+        date: DateTime.tryParse(json['date'] as String? ?? ''),
+        month: json['month'] as String?,
+      );
+
+  static List<PieceExhibition> listFrom(Object? raw) =>
+      (raw as List?)
+          ?.whereType<Map<String, dynamic>>()
+          .map(PieceExhibition.fromJson)
+          .where((e) => e.title.isNotEmpty)
+          .toList() ??
+      const [];
+
+  Map<String, dynamic> toJson() => {
+        'eventId': eventId,
+        'title': title,
+        if (venueName != null) 'venueName': venueName,
+        if (city != null) 'city': city,
+        if (date != null) 'date': date!.toIso8601String(),
+        if (month != null) 'month': month,
+      };
+}
+
+/// What the piece's owner still has to add before it can ship through Convelio
+/// (`shippingReady`, FRONTEND_HANDOFF 8.1): labels such as "packed length", "weight",
+/// "pickup address". Sent to the owner only.
+class ShippingReady {
+  const ShippingReady({required this.ready, this.missing = const []});
+
+  final bool ready;
+  final List<String> missing;
+
+  static ShippingReady? maybeFrom(Object? raw) {
+    if (raw is! Map<String, dynamic>) return null;
+    return ShippingReady(
+      ready: raw['ready'] as bool? ?? false,
+      missing: (raw['missing'] as List?)?.whereType<String>().toList() ?? const [],
+    );
+  }
+
+  /// "To ship, add: packed length, weight." — null when nothing is missing.
+  String? get line => ready || missing.isEmpty ? null : 'To ship, add: ${missing.join(', ')}.';
+
+  Map<String, dynamic> toJson() => {'ready': ready, 'missing': missing};
 }
 
 class PieceSummary {
@@ -91,6 +160,13 @@ class PieceSummary {
     this.updatedAt,
     this.draftStep,
     this.publishFailed = false,
+    this.hidden = false,
+    this.exhibitions = const [],
+    this.shippingItemType,
+    this.shippingPacking,
+    this.shippingMaterials = const [],
+    this.shippingReady,
+    this.viewerOrder,
   });
 
   final String id;
@@ -170,6 +246,9 @@ class PieceSummary {
   final List<String> imageUrls;
   final String? status;
   final List<String> materials;
+
+  /// Shows it was on the bill of, newest first (Phase 5.4); empty for none.
+  final List<PieceExhibition> exhibitions;
   final List<String> styleTags;
   final bool aiDisclosed;
   final String? altText;
@@ -186,6 +265,21 @@ class PieceSummary {
 
   /// A draft that saved but failed to go live, on any device (B33).
   final bool publishFailed;
+
+  /// On the owner's own Collection (`?includeHidden=1`, B32): they hid this piece, so nobody
+  /// else sees it there.
+  final bool hidden;
+
+  /// Convelio item type, packing and materials (FRONTEND_HANDOFF 8.1); null / empty unset.
+  final String? shippingItemType;
+  final String? shippingPacking;
+  final List<String> shippingMaterials;
+
+  /// The owner's what-is-missing-to-ship (8.1); null for anyone else or an older server.
+  final ShippingReady? shippingReady;
+
+  /// The viewer's own order on this piece (8.4); null for everyone else.
+  final PieceViewerOrder? viewerOrder;
 
   bool get isLive => status == null || status == 'live';
 
@@ -295,6 +389,7 @@ class PieceSummary {
       status: json['status'] as String?,
       materials: (json['materials'] as List?)?.whereType<String>().toList() ??
           const [],
+      exhibitions: PieceExhibition.listFrom(json['exhibitions']),
       styleTags: (json['styleTags'] as List?)?.whereType<String>().toList() ??
           const [],
       aiDisclosed: json['aiDisclosed'] as bool? ?? false,
@@ -303,6 +398,13 @@ class PieceSummary {
       updatedAt: DateTime.tryParse(json['updatedAt'] as String? ?? '')?.toLocal(),
       draftStep: json['draftStep'] as String?,
       publishFailed: json['publishFailed'] as bool? ?? false,
+      hidden: json['hidden'] as bool? ?? false,
+      shippingItemType: json['shippingItemType'] as String?,
+      shippingPacking: json['shippingPacking'] as String?,
+      shippingMaterials:
+          (json['shippingMaterials'] as List?)?.whereType<String>().toList() ?? const [],
+      shippingReady: ShippingReady.maybeFrom(json['shippingReady']),
+      viewerOrder: PieceViewerOrder.maybeFrom(json['viewerOrder']),
       relatedPosts: relatedPostsJson is List
           ? relatedPostsJson
               .whereType<Map<String, dynamic>>()
@@ -396,6 +498,7 @@ class PieceSummary {
         if (listingState != null) 'listingState': listingState,
         if (status != null) 'status': status,
         'materials': materials,
+        if (exhibitions.isNotEmpty) 'exhibitions': exhibitions.map((e) => e.toJson()).toList(),
         'styleTags': styleTags,
         'aiDisclosed': aiDisclosed,
         if (altText != null) 'altText': altText,
@@ -403,6 +506,12 @@ class PieceSummary {
         if (updatedAt != null) 'updatedAt': updatedAt!.toUtc().toIso8601String(),
         if (draftStep != null) 'draftStep': draftStep,
         if (publishFailed) 'publishFailed': true,
+        if (hidden) 'hidden': true,
+        if (shippingItemType != null) 'shippingItemType': shippingItemType,
+        if (shippingPacking != null) 'shippingPacking': shippingPacking,
+        if (shippingMaterials.isNotEmpty) 'shippingMaterials': shippingMaterials,
+        if (shippingReady != null) 'shippingReady': shippingReady!.toJson(),
+        if (viewerOrder != null) 'viewerOrder': viewerOrder!.toJson(),
         if (relatedPosts != null)
           'relatedPosts': relatedPosts!.map((p) => p.toJson()).toList(),
       };

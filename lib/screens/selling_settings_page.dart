@@ -1,25 +1,34 @@
 import 'package:flutter/material.dart';
 
+import '../models/address.dart';
+import '../models/user_profile.dart';
+import '../services/address_service.dart';
 import '../services/api_exception.dart';
 import '../services/user_service.dart';
+import '../widgets/selling/pickup_address.dart';
 import '../widgets/settings_tile.dart';
 import '../widgets/studio/studio.dart';
 
 /// Selling (`SettingsSelling`, Flow 12), for seller profiles: a green dot and "Seller profile is
-/// on"; Studio: Seller terms ("Includes fees", the seller terms page); then Turn off seller
-/// profile ("Your listings come down. Pieces stay on your profile."), which asks first. Pops
-/// true once selling is off.
+/// on"; Studio: Seller terms (the account's own rates from `/api/user/me/seller-terms`, e.g.
+/// "15% on art · 8% on tickets", or "Includes fees" until they load; the seller terms page);
+/// then Turn off seller profile ("Your listings and auctions without bids will come down."),
+/// which asks first. Pops true once selling is off.
 ///
-/// The board's Studio address row (the private pickup address, with its "Where your sold pieces
-/// ship from." tooltip) waits on BACKEND_CHANGES B31, on hold with the other shipping work, so it
-/// isn't shown. Turning off is refused by the server while anything is still listed or a sale is
-/// in progress, and its message is shown; taking listings down for the seller is B34.
+/// Pickup address (FRONTEND_HANDOFF 8.1, B31): the private address the courier collects sold
+/// pieces from, its city or "Add", opening the saved-address picker; shown once the server
+/// answers `GET /api/user/me/pickup-address`. Turning off takes listings and auctions without bids down (B34); the server
+/// refuses (409) while an auction has bids or a sale is going through, and its message is shown.
 class SellingSettingsPage extends StatefulWidget {
-  const SellingSettingsPage({super.key, this.debugTurnOff});
+  const SellingSettingsPage({super.key, this.debugTurnOff, this.debugSellerTerms});
 
   /// For tests: what Turn off seller profile calls, instead of the server.
   @visibleForTesting
   final Future<void> Function()? debugTurnOff;
+
+  /// For tests: the seller terms instead of loading them.
+  @visibleForTesting
+  final SellerTerms? debugSellerTerms;
 
   @override
   State<SellingSettingsPage> createState() => _SellingSettingsPageState();
@@ -28,12 +37,60 @@ class SellingSettingsPage extends StatefulWidget {
 class _SellingSettingsPageState extends State<SellingSettingsPage> {
   bool _busy = false;
 
+  /// The rates line under Seller terms, once the server sent them.
+  String? _rates;
+
+  /// The pickup address; [_pickupKnown] once the server answered (an older server has none,
+  /// and the row stays hidden).
+  Address? _pickup;
+  bool _pickupKnown = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final given = widget.debugSellerTerms;
+    if (given != null) {
+      _rates = given.summary;
+    } else {
+      _loadTerms();
+    }
+    _loadPickup();
+  }
+
+  Future<void> _loadPickup() async {
+    try {
+      final pickup = await AddressService.instance.getPickupAddress();
+      if (mounted) {
+        setState(() {
+          _pickup = pickup;
+          _pickupKnown = true;
+        });
+      }
+    } catch (_) {
+      // No row.
+    }
+  }
+
+  Future<void> _choosePickup() async {
+    final saved = await choosePickupAddress(context, current: _pickup);
+    if (saved != null && mounted) setState(() => _pickup = saved);
+  }
+
+  Future<void> _loadTerms() async {
+    try {
+      final terms = await UserService.instance.getSellerTerms();
+      if (mounted) setState(() => _rates = terms.summary);
+    } catch (_) {
+      // "Includes fees" stays.
+    }
+  }
+
   Future<void> _turnOff() async {
     if (_busy) return;
     final confirmed = await showStudioConfirm(
       context,
       title: 'Turn off seller profile?',
-      message: 'Your listings come down. Pieces stay on your profile as not for sale.',
+      message: 'Your listings and auctions without bids will come down. Pieces stay on your profile as not for sale.',
       confirmLabel: 'Turn off',
     );
     if (!confirmed || !mounted) return;
@@ -82,13 +139,20 @@ class _SellingSettingsPageState extends State<SellingSettingsPage> {
           const SettingsSectionLabel('Studio', top: 26),
           SettingsRow(
             label: 'Seller terms',
-            subtitle: 'Includes fees',
+            subtitle: _rates ?? 'Includes fees',
             onTap: () => Navigator.pushNamed(context, '/terms'),
           ),
+          if (_pickupKnown)
+            SettingsRow(
+              label: 'Pickup address',
+              subtitle: 'Where the courier collects sold pieces. Only you see it.',
+              value: _pickup == null || _pickup!.city.trim().isEmpty ? 'Add' : _pickup!.city,
+              onTap: _choosePickup,
+            ),
           const SizedBox(height: 24),
           SettingsRow(
             label: 'Turn off seller profile',
-            subtitle: 'Your listings come down. Pieces stay on your profile.',
+            subtitle: 'Your listings and auctions without bids will come down.',
             chevron: false,
             onTap: _busy ? null : _turnOff,
           ),

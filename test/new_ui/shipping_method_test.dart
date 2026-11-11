@@ -136,7 +136,7 @@ void main() {
     expect(tester.widget<Text>(find.text(r'$420.00')).style!.color, StudioColors.light.textPrimary);
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
-    expect(picked?.method.id, 'wg');
+    expect(picked?.method?.id, 'wg');
     expect(picked?.address.id, 'a1');
   });
 

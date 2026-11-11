@@ -3,6 +3,7 @@ import 'package:flutter_stripe/flutter_stripe.dart';
 
 import '../models/saved_card.dart';
 import 'api_client.dart';
+import 'stripe_setup.dart';
 
 /// Vaulting and listing the cards a collector can bid with.
 ///
@@ -59,6 +60,8 @@ class SavedCardService {
         customerEphemeralKeySecret: data['ephemeralKeySecret'] as String?,
         merchantDisplayName: merchantDisplayName ?? 'Studiothree',
         style: ThemeMode.light,
+        applePay: StripeSetup.applePay,
+        googlePay: StripeSetup.googlePay,
       ),
     );
 
@@ -69,10 +72,13 @@ class SavedCardService {
       rethrow;
     }
 
-    // Stripe holds the truth about which card was saved, so the list is re-read rather than
-    // assumed. Taking the newest entry is safe because the sheet has just added one.
+    // The SetupIntent names the card the sheet just saved; the list only adds its brand and
+    // last four (its order is the server's, so its last entry is not necessarily the new one).
+    final intent = await Stripe.instance.retrieveSetupIntent(clientSecret);
+    final id = intent.paymentMethodId;
+    if (id.isEmpty) return null;
     final cards = await list();
-    return cards.isEmpty ? null : cards.last;
+    return cards.where((card) => card.id == id).firstOrNull ?? SavedCard(id: id);
   }
 
   Future<void> remove(String paymentMethodId) async {

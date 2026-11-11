@@ -18,25 +18,67 @@ class OrderService {
 
   final _api = ApiClient.instance;
 
-  Future<List<ShippingMethodQuote>> getShippingQuote(String pieceId) async {
+  /// Which shipping mode is on (FRONTEND_HANDOFF 8.0): live Convelio quotes, or the flat
+  /// tiers in [ShippingOptions.methods].
+  Future<ShippingOptions> getShippingQuote(String pieceId) async {
     final json = await _api.get('/api/pieces/$pieceId/shipping-quote');
     final data = _api.extractData(json);
-    final methods = data is Map<String, dynamic> ? data['methods'] as List? : null;
-    return methods
-            ?.whereType<Map<String, dynamic>>()
-            .map(ShippingMethodQuote.fromJson)
-            .toList() ??
-        const [];
+    return data is Map<String, dynamic> ? ShippingOptions.fromJson(data) : const ShippingOptions();
   }
 
+  /// A live Convelio quote to [addressId] (8.3). Takes 2 to 9 seconds.
+  Future<ShippingQuote> createShippingQuote(
+    String pieceId, {
+    required String addressId,
+    required String speed,
+    required String deliveryType,
+    required bool insurance,
+  }) async {
+    final json = await _api.post(
+      '/api/pieces/$pieceId/shipping-quotes',
+      body: {'addressId': addressId, 'speed': speed, 'deliveryType': deliveryType, 'insurance': insurance},
+      auth: true,
+    );
+    return ShippingQuote.fromJson(_api.extractData(json) as Map<String, dynamic>);
+  }
+
+  /// A quote as the server stored it; read after `shipping_quote_ready`, never polled.
+  Future<ShippingQuote> getShippingQuoteById(String quoteId) async {
+    final json = await _api.get('/api/shipping-quotes/$quoteId', auth: true);
+    return ShippingQuote.fromJson(_api.extractData(json) as Map<String, dynamic>);
+  }
+
+  /// The piece page's range (8.2); no sign-in needed.
+  Future<ShippingEstimate> getShippingEstimate(String pieceId, {String? zip, String? state}) async {
+    final query = <String, String>{
+      if (zip != null && zip.isNotEmpty) 'zip': zip,
+      if (state != null && state.isNotEmpty) 'state': state,
+    };
+    final json = await _api.get(
+      '/api/pieces/$pieceId/shipping-estimate',
+      query: query.isEmpty ? null : query,
+    );
+    final data = _api.extractData(json);
+    return data is Map<String, dynamic>
+        ? ShippingEstimate.fromJson(data)
+        : const ShippingEstimate(available: false);
+  }
+
+  /// Creates the order. With Convelio on, [quoteId] carries the price; [shippingMethod] is
+  /// only for the flat tiers or `pickup` (FRONTEND_HANDOFF 8.3).
   Future<Order> collect(
     String pieceId, {
     required String addressId,
-    required String shippingMethod,
+    String? shippingMethod,
+    String? quoteId,
   }) async {
     final json = await _api.post(
       '/api/pieces/$pieceId/collect',
-      body: {'addressId': addressId, 'shippingMethod': shippingMethod},
+      body: {
+        'addressId': addressId,
+        'quoteId': ?quoteId,
+        'shippingMethod': ?shippingMethod,
+      },
       auth: true,
     );
     final data = _api.extractData(json) as Map<String, dynamic>;
@@ -50,27 +92,9 @@ class OrderService {
     return Order.fromJson(data);
   }
 
-  /// Winning bidder's checkout, once `auction_closer` has flipped the piece to
-  /// `auction_won` — priced from the winning bid, not the piece's starting price.
-  Future<Order> auctionCheckout(
-    String pieceId, {
-    required String addressId,
-    required String shippingMethod,
-  }) async {
-    final json = await _api.post(
-      '/api/pieces/$pieceId/auction-checkout',
-      body: {'addressId': addressId, 'shippingMethod': shippingMethod},
-      auth: true,
-    );
-    final data = _api.extractData(json) as Map<String, dynamic>;
-    await CacheService.instance.invalidate('piece.$pieceId');
-    await CacheService.instance.invalidate('orders.mine');
-    return Order.fromJson(data);
-  }
-
   /// [pieceId] is optional only because this is also reached from places that don't have
   /// one handy — pass it whenever the caller does, so the piece's cached detail (already
-  /// invalidated once at [collect]/[auctionCheckout] time, when it moved to reserved) is
+  /// invalidated once at [collect] / `BidService.auctionCheckout` time, when it moved to reserved) is
   /// invalidated again for the reserved → sold transition this call makes.
   Future<Order> confirm(String orderId, {String? pieceId}) async {
     final json = await _api.post('/api/orders/$orderId/confirm', auth: true);
@@ -150,12 +174,17 @@ class OrderService {
     return Order.fromJson(data);
   }
 
-  Future<Order> updateOrderStatus(String orderId, String status) async {
+  /// Cancels (the only status the app sends): before payment either side may; once paid only
+  /// the artist, and the buyer is refunded in full (FRONTEND_HANDOFF 2.1). The artist's
+  /// optional [reason] is kept with the refund.
+  Future<Order> updateOrderStatus(String orderId, String status, {String? reason}) async {
     final json = await _api.patch(
       '/api/orders/$orderId',
-      body: {'status': status},
+      body: {'status': status, 'reason': ?reason},
     );
     final data = _api.extractData(json) as Map<String, dynamic>;
+    await CacheService.instance.invalidate('orders.mine');
+    await CacheService.instance.invalidate('sales.mine');
     return Order.fromJson(data);
   }
 

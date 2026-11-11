@@ -48,6 +48,10 @@ class _EmailCodePageState extends State<EmailCodePage> {
   int _cooldown = 0;
   Timer? _timer;
 
+  /// Wrong codes since the last send; the server kills the code at [kMaxCodeAttempts].
+  int _wrongCount = 0;
+  bool get _codeExpired => _wrongCount >= kMaxCodeAttempts;
+
   String get _purpose => widget.purpose.name;
 
   @override
@@ -87,6 +91,7 @@ class _EmailCodePageState extends State<EmailCodePage> {
       setState(() {
         _code = '';
         _error = null;
+        _wrongCount = 0;
       });
       _startCooldown();
       showAuthSnackBar(context, again ? 'Code resent' : 'Code sent to your email');
@@ -103,6 +108,10 @@ class _EmailCodePageState extends State<EmailCodePage> {
       return;
     }
     if (_loading) return;
+    if (_codeExpired) {
+      setState(() => _error = kCodeExpiredMessage);
+      return;
+    }
     setState(() {
       _loading = true;
       _error = null;
@@ -125,7 +134,14 @@ class _EmailCodePageState extends State<EmailCodePage> {
       }
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = e is ApiException ? e.message : 'Could not verify the code');
+      setState(() {
+        if (isWrongCodeError(e)) _wrongCount++;
+        _error = _codeExpired
+            ? kCodeExpiredMessage
+            : e is ApiException
+                ? e.message
+                : 'Could not verify the code';
+      });
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -139,7 +155,7 @@ class _EmailCodePageState extends State<EmailCodePage> {
         onBack: () => Navigator.maybePop(context),
         bottom: AuthPrimaryButton(
           label: 'Verify',
-          enabled: _code.length == 6,
+          enabled: _code.length == 6 && !_codeExpired,
           loading: _loading,
           onPressed: () => _submit(_code),
         ),
@@ -151,6 +167,7 @@ class _EmailCodePageState extends State<EmailCodePage> {
           // Back to the email screen, where the address is typed.
           onWrongEmail: () => Navigator.of(context).popUntil((route) => route.isFirst),
           resendCooldown: _cooldown,
+          codeExpired: _codeExpired,
           onResend: _loading ? null : () => _send(again: true),
         ),
       ),

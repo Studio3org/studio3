@@ -10,9 +10,9 @@ import '../studio/studio.dart';
 /// The three actions differ enormously in consequence, and the sheet is built to make that
 /// difference visible rather than presenting them as a row of equivalent buttons:
 ///
-/// * **Extend** is nearly free — the auction runs longer and every bid and hold survives.
-/// * **Cancel** releases real money. Everybody bidding is refunded and told the seller
-///   withdrew it, so the confirmation says how many people that is.
+/// * **Extend** is nearly free — the auction runs longer and every bid survives.
+/// * **Cancel** ends it for everyone bidding. Nothing is charged to them, and they are told
+///   the seller withdrew it, so the confirmation says how many people that is.
 /// * **Relist** only applies once an auction has ended without a sale, and starts a fresh
 ///   run rather than reopening the old one.
 ///
@@ -118,8 +118,8 @@ class _ManageAuctionSheetState extends State<ManageAuctionSheet> {
       title: 'Cancel this auction?',
       message: auction.bidCount == 0
           ? 'The piece will be delisted. You can list it again at any time.'
-          : 'Every one of the ${auction.bidCount} bids will be cancelled and those '
-                'bidders refunded. They will be told you withdrew the piece.',
+          : 'Every one of the ${auction.bidCount} bids will be cancelled and nothing is '
+                'charged to those bidders. They will be told you withdrew the piece.',
       confirmLabel: 'Cancel auction',
       cancelLabel: 'Keep it running',
     );
@@ -153,7 +153,7 @@ class _ManageAuctionSheetState extends State<ManageAuctionSheet> {
           _ActionRow(
             label: 'Extend the auction',
             detail: auction.bidCount > 0
-                ? 'Adds up to 3 days. Every bid and hold stays exactly as it is.'
+                ? 'Adds up to 3 days. Every bid stays exactly as it is.'
                 : 'Adds up to 3 days. Once only, and not in the last 3 days.',
             enabled: !_busy,
             onTap: _extend,
@@ -171,7 +171,7 @@ class _ManageAuctionSheetState extends State<ManageAuctionSheet> {
           _ActionRow(
             label: 'Cancel the auction',
             detail: auction.bidCount > 0
-                ? '${auction.bidCount} bidders are refunded and told you withdrew it.'
+                ? 'Nothing is charged to the ${auction.bidCount} bidders. They are told you withdrew it.'
                 : 'The piece is delisted. Nobody has bid, so nobody is affected.',
             enabled: !_busy,
             onTap: _cancel,

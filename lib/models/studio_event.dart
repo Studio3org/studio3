@@ -49,6 +49,17 @@ class StudioEvent {
     this.ticketTypes = const [],
     this.waitlist,
     this.ticketCount = 0,
+    this.refundPolicy,
+    this.refundPolicyText,
+    this.refundableUntil,
+    this.ageLimit,
+    this.visibility,
+    this.rescheduledAt,
+    this.rescheduleMessage,
+    this.auctionEndsAt,
+    this.invites = const [],
+    this.viewerInvite,
+    this.viewerCanEdit = false,
   });
 
   final String id;
@@ -129,12 +140,63 @@ class StudioEvent {
   /// until the server runs one (BACKEND_CHANGES B22); the page then keeps the Save bar.
   final EventWaitlist? waitlist;
 
+  /// The host's refund terms: `7d` · `24h` · `none` (BACKEND_CHANGES B22). Null on an older
+  /// server or a card.
+  final String? refundPolicy;
+
+  /// The refund terms in one line: "Refunds up to 7 days before the event."
+  final String? refundPolicyText;
+
+  /// Until when a ticket can be refunded, when the server says.
+  final DateTime? refundableUntil;
+
+  /// `all` · `18` · `21` (B28). Null on an older server.
+  final String? ageLimit;
+
+  /// `public` · `link` (link-only events stay out of browse, search and feeds). Null on an
+  /// older server, which treats every event as public.
+  final String? visibility;
+
+  /// When the host last moved the event (Phase 4); null if it never moved.
+  final DateTime? rescheduledAt;
+
+  /// The host's note about the move, when there is one.
+  final String? rescheduleMessage;
+
+  /// When bidding on the event's auctions ends, when the host set it (Phase 5).
+  final DateTime? auctionEndsAt;
+
+  /// Everyone asked onto the bill with where they stand (`invited` · `accepted` ·
+  /// `declined`), Phase 5.1. Only the host and accepted co-hosts get it; empty otherwise.
+  final List<EventInvite> invites;
+
+  /// The viewer's own invite to this event, when they were ever asked. Stays after an
+  /// answer, so a declined invite reads `declined`.
+  final EventViewerInvite? viewerInvite;
+
+  /// True for the host and accepted co-hosts (Phase 5.1): they can edit the event.
+  final bool viewerCanEdit;
+
+  /// The host or an accepted co-host: can open Manage and edit the event.
+  bool get canManage => isHost || viewerCanEdit;
+
+  /// The viewer was asked onto the bill and hasn't answered yet.
+  bool get hasPendingInvite => viewerInvite?.status == 'invited';
+
+  /// The bill as everyone sees it: approved pieces only. Waiting and declined entries reach
+  /// the host, co-hosts and the piece's artist, but aren't on the event yet (Phase 5.2).
+  List<EventLineupItem> get liveLineup => lineup.where((item) => item.isLive).toList();
+
+  /// Whether the event is link-only (not listed in browse, search or feeds).
+  bool get isLinkOnly => visibility == 'link';
+
   /// What Choose tickets offers: the host's ticket types, or, while every event is a free
   /// RSVP, one free General Admission place per person with the places left as its count.
   List<EventTicketType> get ticketOptions => ticketTypes.isNotEmpty
       ? ticketTypes
       : [
           EventTicketType(
+            // An RSVP, never an order item (`EventService.rsvpTypeId`).
             id: 'rsvp',
             name: 'General Admission',
             includes: 'Open to everyone',
@@ -157,7 +219,7 @@ class StudioEvent {
 
   /// Work on the bill that can actually be bought or bid on, as opposed to merely shown.
   List<EventLineupItem> get sellingLineup =>
-      lineup.where((item) => item.isSelling).toList();
+      lineup.where((item) => item.isSelling && item.isLive).toList();
 
   // --- presentation -------------------------------------------------------------------------
   // Kept on the model rather than in each widget so the events tab, the detail page and any
@@ -224,7 +286,7 @@ class StudioEvent {
   }
 
   /// The work on the bill, for the detail page's strip of images.
-  List<String> get pieceImageUrls => lineup
+  List<String> get pieceImageUrls => liveLineup
       .map((item) => item.mediaUrl ?? '')
       .where((url) => url.isNotEmpty)
       .toList();
@@ -291,6 +353,13 @@ class StudioEvent {
     bool? isFull,
     bool? viewerIsGoing,
     EventWaitlist? waitlist,
+    List<EventTicketType>? ticketTypes,
+    int? ticketCount,
+    DateTime? rescheduledAt,
+    String? rescheduleMessage,
+    List<EventInvite>? invites,
+    EventViewerInvite? viewerInvite,
+    bool? viewerCanEdit,
   }) =>
       StudioEvent(
         id: id,
@@ -327,9 +396,20 @@ class StudioEvent {
         artists: artists,
         lineup: lineup,
         faqs: faqs,
-        ticketTypes: ticketTypes,
-        ticketCount: ticketCount,
+        ticketTypes: ticketTypes ?? this.ticketTypes,
+        ticketCount: ticketCount ?? this.ticketCount,
         waitlist: waitlist ?? this.waitlist,
+        refundPolicy: refundPolicy,
+        refundPolicyText: refundPolicyText,
+        refundableUntil: refundableUntil,
+        ageLimit: ageLimit,
+        visibility: visibility,
+        rescheduledAt: rescheduledAt ?? this.rescheduledAt,
+        rescheduleMessage: rescheduleMessage ?? this.rescheduleMessage,
+        auctionEndsAt: auctionEndsAt,
+        invites: invites ?? this.invites,
+        viewerInvite: viewerInvite ?? this.viewerInvite,
+        viewerCanEdit: viewerCanEdit ?? this.viewerCanEdit,
       );
 
   /// Enough to render a saved-events tile offline.
@@ -355,6 +435,17 @@ class StudioEvent {
         if (hostName != null) 'hostName': hostName,
         if (hostAvatarUrl != null) 'hostAvatarUrl': hostAvatarUrl,
         'saved': saved,
+        if (ageLimit != null) 'ageLimit': ageLimit,
+        if (visibility != null) 'visibility': visibility,
+        if (refundPolicy != null) 'refundPolicy': refundPolicy,
+        if (refundPolicyText != null) 'refundPolicyText': refundPolicyText,
+        if (refundableUntil != null) 'refundableUntil': refundableUntil!.toUtc().toIso8601String(),
+        if (rescheduledAt != null) 'rescheduledAt': rescheduledAt!.toUtc().toIso8601String(),
+        if (rescheduleMessage != null) 'rescheduleMessage': rescheduleMessage,
+        if (auctionEndsAt != null) 'auctionEndsAt': auctionEndsAt!.toUtc().toIso8601String(),
+        if (invites.isNotEmpty) 'invites': [for (final i in invites) i.toJson()],
+        if (viewerInvite != null) 'viewerInvite': viewerInvite!.toJson(),
+        if (viewerCanEdit) 'viewerCanEdit': viewerCanEdit,
       };
 
   factory StudioEvent.fromJson(Map<String, dynamic> json) {
@@ -414,8 +505,29 @@ class StudioEvent {
       waitlist: json['waitlist'] is Map<String, dynamic>
           ? EventWaitlist.fromJson(json['waitlist'] as Map<String, dynamic>)
           : null,
+      refundPolicy: json['refundPolicy'] as String?,
+      refundPolicyText: json['refundPolicyText'] as String?,
+      refundableUntil: _date(json['refundableUntil']),
+      ageLimit: json['ageLimit'] as String?,
+      visibility: json['visibility'] as String?,
+      rescheduledAt: _date(json['rescheduledAt']),
+      rescheduleMessage: json['rescheduleMessage'] as String?,
+      auctionEndsAt: _date(json['auctionEndsAt']),
+      invites: (json['invites'] as List?)
+              ?.whereType<Map<String, dynamic>>()
+              .map(EventInvite.fromJson)
+              .where((i) => i.username.isNotEmpty)
+              .toList() ??
+          const [],
+      viewerInvite: json['viewerInvite'] is Map<String, dynamic>
+          ? EventViewerInvite.fromJson(json['viewerInvite'] as Map<String, dynamic>)
+          : null,
+      viewerCanEdit: json['viewerCanEdit'] as bool? ?? false,
     );
   }
+
+  static DateTime? _date(Object? raw) =>
+      raw is String ? DateTime.tryParse(raw)?.toLocal() : null;
 
   static List<EventPerson> _people(Object? raw) =>
       (raw as List?)
@@ -446,6 +558,111 @@ class EventPerson {
       );
 }
 
+/// Someone asked onto the bill as a co-host or featured artist, with their answer (Phase 5.1).
+class EventInvite {
+  const EventInvite({
+    required this.username,
+    this.name,
+    this.avatarUrl,
+    this.role = 'artist',
+    this.status = 'invited',
+  });
+
+  final String username;
+  final String? name;
+  final String? avatarUrl;
+
+  /// `cohost` · `artist`.
+  final String role;
+
+  /// `invited` · `accepted` · `declined`.
+  final String status;
+
+  bool get isCohost => role == 'cohost';
+  bool get isDeclined => status == 'declined';
+
+  /// "Invited" / "Accepted" / "Declined".
+  String get statusLabel => switch (status) {
+        'accepted' => 'Accepted',
+        'declined' => 'Declined',
+        _ => 'Invited',
+      };
+
+  EventPerson get person => EventPerson(username: username, name: name, avatarUrl: avatarUrl);
+
+  factory EventInvite.fromJson(Map<String, dynamic> json) => EventInvite(
+        username: json['username'] as String? ?? '',
+        name: json['name'] as String?,
+        avatarUrl: json['avatarUrl'] as String?,
+        role: json['role'] as String? ?? 'artist',
+        status: json['status'] as String? ?? 'invited',
+      );
+
+  Map<String, dynamic> toJson() => {
+        'username': username,
+        if (name != null) 'name': name,
+        if (avatarUrl != null) 'avatarUrl': avatarUrl,
+        'role': role,
+        'status': status,
+      };
+}
+
+/// The viewer's own invite to an event: which roles they were asked for and their answer.
+class EventViewerInvite {
+  const EventViewerInvite({this.roles = const [], this.status = 'invited'});
+
+  final List<String> roles;
+
+  /// `invited` · `accepted` · `declined`.
+  final String status;
+
+  bool get isCohost => roles.contains('cohost');
+
+  factory EventViewerInvite.fromJson(Map<String, dynamic> json) => EventViewerInvite(
+        roles: (json['roles'] as List?)?.whereType<String>().toList() ?? const [],
+        status: json['status'] as String? ?? 'invited',
+      );
+
+  Map<String, dynamic> toJson() => {'roles': roles, 'status': status};
+}
+
+/// An invite waiting for the viewer's answer (`GET /me/event-invites`).
+class EventInviteRequest {
+  const EventInviteRequest({required this.role, required this.event, this.invitedAt});
+
+  /// `cohost` · `artist`.
+  final String role;
+  final StudioEvent event;
+  final DateTime? invitedAt;
+
+  /// "Co-host" / "Featured artist".
+  String get roleLabel => role == 'cohost' ? 'Co-host' : 'Featured artist';
+
+  factory EventInviteRequest.fromJson(Map<String, dynamic> json) => EventInviteRequest(
+        role: json['role'] as String? ?? 'artist',
+        event: StudioEvent.fromJson(json['event'] as Map<String, dynamic>? ?? const {}),
+        invitedAt: DateTime.tryParse(json['invitedAt'] as String? ?? '')?.toLocal(),
+      );
+}
+
+/// A host asking to show, sell or auction one of the viewer's pieces (`GET
+/// /me/piece-requests`, Phase 5.2): the lineup entry, what approving would end, and the event.
+class EventPieceRequest {
+  const EventPieceRequest({required this.item, required this.event, this.preview});
+
+  final EventLineupItem item;
+  final StudioEvent event;
+  final EventTaggingPreview? preview;
+
+  factory EventPieceRequest.fromJson(Map<String, dynamic> json) => EventPieceRequest(
+        item: EventLineupItem.fromJson(json),
+        event: StudioEvent.fromJson(json['event'] as Map<String, dynamic>? ?? const {}),
+        preview: json['preview'] is Map<String, dynamic>
+            ? EventTaggingPreview.fromJson(json['preview'] as Map<String, dynamic>)
+            : null,
+      );
+}
+
 /// A question the host answers on the event page.
 class EventFaq {
   const EventFaq({required this.question, required this.answer});
@@ -469,6 +686,16 @@ class EventTicketType {
     this.includes,
     this.left,
     this.perOrderLimit,
+    this.quantity,
+    this.sold,
+    this.hostNetCents,
+    this.closed = false,
+    this.waiting,
+    this.saleStartsAt,
+    this.saleEndsAt,
+    this.onSale,
+    this.soldOut,
+    this.sortOrder,
   });
 
   final String id;
@@ -484,8 +711,26 @@ class EventTicketType {
   /// Null when only [left] limits an order.
   final int? perOrderLimit;
 
+  /// The host's own view only (B22): the cap the host set (null = no cap), how many are sold
+  /// or held, what the host receives per ticket, whether the type is closed and how many wait.
+  final int? quantity;
+  final int? sold;
+  final int? hostNetCents;
+  final bool closed;
+  final int? waiting;
+
+  /// The sale window, when the host set one.
+  final DateTime? saleStartsAt;
+  final DateTime? saleEndsAt;
+
+  /// Whether it can be bought right now (open and inside its sale window). Null on an older
+  /// server, which treats every type as on sale.
+  final bool? onSale;
+  final bool? soldOut;
+  final int? sortOrder;
+
   bool get isFree => priceCents == 0;
-  bool get isSoldOut => left == 0;
+  bool get isSoldOut => soldOut == true || left == 0;
 
   /// The most one order can hold.
   int? get maxPerOrder {
@@ -494,14 +739,41 @@ class EventTicketType {
     return caps.reduce((a, b) => a < b ? a : b);
   }
 
+  static DateTime? _date(Object? raw) =>
+      raw is String ? DateTime.tryParse(raw)?.toLocal() : null;
+
   factory EventTicketType.fromJson(Map<String, dynamic> json) => EventTicketType(
         id: json['id'] as String? ?? '',
         name: json['name'] as String? ?? '',
         priceCents: (json['priceCents'] as num?)?.toInt() ?? 0,
         includes: json['includes'] as String?,
         left: (json['left'] as num?)?.toInt(),
-        perOrderLimit: (json['perOrderLimit'] as num?)?.toInt(),
+        perOrderLimit: (json['perOrderLimit'] as num?)?.toInt() ?? (json['maxPerOrder'] as num?)?.toInt(),
+        quantity: (json['quantity'] as num?)?.toInt(),
+        sold: (json['sold'] as num?)?.toInt(),
+        hostNetCents: (json['hostNetCents'] as num?)?.toInt(),
+        closed: json['closed'] as bool? ?? false,
+        waiting: (json['waiting'] as num?)?.toInt(),
+        saleStartsAt: _date(json['saleStartsAt']),
+        saleEndsAt: _date(json['saleEndsAt']),
+        onSale: json['onSale'] as bool?,
+        soldOut: json['soldOut'] as bool?,
+        sortOrder: (json['sortOrder'] as num?)?.toInt(),
       );
+
+  /// The body the ticket-type endpoints take (POST and PATCH). Read-only facts (`left`,
+  /// `sold`, `hostNetCents`…) are left out; a null sale window or cap is sent as null so an
+  /// edit can clear it.
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'priceCents': priceCents,
+        'includes': includes,
+        'quantity': quantity,
+        'perOrderLimit': perOrderLimit,
+        'saleStartsAt': saleStartsAt?.toUtc().toIso8601String(),
+        'saleEndsAt': saleEndsAt?.toUtc().toIso8601String(),
+        if (sortOrder != null) 'sortOrder': sortOrder,
+      };
 }
 
 /// One work on the bill, and how it appears at this event.
@@ -518,6 +790,9 @@ class EventLineupItem {
     this.artistName,
     this.pieceStatus,
     this.auction,
+    this.approvalStatus,
+    this.listingEnded,
+    this.respondedAt,
   });
 
   final String id;
@@ -545,6 +820,35 @@ class EventLineupItem {
   /// lineup could only show the starting price, which stops being true the moment somebody
   /// bids — and the screen in the room would be the least current thing in it.
   final AuctionSummary? auction;
+
+  /// The artist's answer when someone else tagged their piece (Phase 5.2): `waiting` ·
+  /// `approved` · `declined`. Null when the server leaves it out, which means approved.
+  final String? approvalStatus;
+
+  /// Whether approving ended the piece's own listing or auction.
+  final bool? listingEnded;
+  final DateTime? respondedAt;
+
+  /// On the event for everyone to see: approved, or no approval needed.
+  bool get isLive => approvalStatus == null || approvalStatus == 'approved';
+  bool get isWaiting => approvalStatus == 'waiting';
+  bool get isDeclined => approvalStatus == 'declined';
+
+  /// The artist's name for captions, falling back to the handle.
+  String get artistLabel {
+    final name = artistName ?? '';
+    if (name.isNotEmpty) return name;
+    final handle = artistUsername ?? '';
+    return handle.isNotEmpty ? '@$handle' : 'the artist';
+  }
+
+  /// "Waiting for Mira" / "Approved by Mira" / "Declined by Mira", or null with no status.
+  String? get approvalLine => switch (approvalStatus) {
+        'waiting' => 'Waiting for $artistLabel',
+        'approved' => 'Approved by $artistLabel',
+        'declined' => 'Declined by $artistLabel',
+        _ => null,
+      };
 
   bool get isSelling => mode == 'sale' || mode == 'bid';
   bool get isAuction => mode == 'bid';
@@ -598,6 +902,9 @@ class EventLineupItem {
         auction: json['auction'] is Map<String, dynamic>
             ? AuctionSummary.maybeFrom(json['auction'] as Map<String, dynamic>)
             : null,
+        approvalStatus: json['approvalStatus'] as String?,
+        listingEnded: json['listingEnded'] as bool?,
+        respondedAt: DateTime.tryParse(json['respondedAt'] as String? ?? '')?.toLocal(),
       );
 }
 

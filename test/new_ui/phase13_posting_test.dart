@@ -16,7 +16,8 @@ import 'package:studio3/services/drafts_service.dart';
 import 'package:studio3/theme/app_theme.dart';
 import 'package:studio3/widgets/post_gallery/post_gallery_picker.dart';
 import 'package:studio3/widgets/post_share_type_sheet.dart';
-import 'package:studio3/widgets/studio/studio.dart';
+import 'package:studio3/widgets/studio/studio.dart';
+
 import 'package:studio3/utils/app_clock.dart';
 
 import 'golden_harness.dart';
@@ -318,6 +319,13 @@ void main() {
     expect(draftLeftLine(p({'medium': 'Oil', 'dimensions': '1x1 in'})), 'Ready to post');
     expect(draftLeftLine(p({'title': 'Untitled'})), '3 details left before you can post');
     expect(draftLeftLine(p({'medium': 'Oil'})), 'Size left');
+    // For sale: weight and the packed size count as shipping details (FRONTEND_HANDOFF 8.1).
+    final sale = {'medium': 'Oil', 'dimensions': '1x1 in', 'isForSale': true, 'priceCents': 100};
+    expect(draftLeftLine(p({...sale, 'weightKg': 2})), 'Shipping details left');
+    expect(
+      draftLeftLine(p({...sale, 'weightKg': 2, 'packageLengthCm': 50, 'packageWidthCm': 40, 'packageHeightCm': 10})),
+      'Ready to post',
+    );
   });
 
   group('goldens', () {

@@ -94,7 +94,8 @@ class _MyEventsPageState extends State<MyEventsPage> {
   /// An event with tickets opens them (`EvTicket`); an RSVP opens the event.
   Future<void> _openGoing(StudioEvent event) async {
     if (event.ticketCount > 0) {
-      await EventTicketPage.open(context, event);
+      // A refund there changes the count (or takes the event out of Going).
+      if (await EventTicketPage.open(context, event)) _load();
     } else {
       await _open(event);
     }

@@ -4,6 +4,7 @@ import '../models/feed_preview_item.dart';
 import '../models/order.dart';
 import '../models/piece_summary.dart';
 import '../services/order_service.dart';
+import '../services/piece_service.dart';
 import '../utils/slide_up_page_route.dart';
 import '../widgets/orders/order_list_row.dart';
 import '../widgets/studio/studio.dart';
@@ -19,18 +20,18 @@ import 'order_detail_page.dart';
 /// the ticket rows wait on ticket sales (BACKEND_CHANGES B22, on hold), so every row is art and
 /// there is no filter; the pickup date in "Pack it for pickup Nov 5" waits on B32.
 ///
-/// Orders carry piece ids only, so each piece is read (cached) for its title and picture;
-/// a piece summary on the order is in BACKEND_CHANGES B34.
+/// The title and picture come with the order (`items[0].piece`, B34); the full piece is read
+/// only when a sold one is tapped.
 class MySalesPage extends StatefulWidget {
-  const MySalesPage({super.key, this.debugSales, this.debugPieces});
+  const MySalesPage({super.key, this.debugSales, this.debugOpenPiece});
 
   /// For tests: the sales instead of loading them.
   @visibleForTesting
   final List<Order>? debugSales;
 
-  /// For tests: the pieces on [debugSales], by id.
+  /// For tests: called with the piece id instead of reading and opening the piece page.
   @visibleForTesting
-  final Map<String, PieceSummary>? debugPieces;
+  final void Function(String pieceId)? debugOpenPiece;
 
   @override
   State<MySalesPage> createState() => _MySalesPageState();
@@ -38,7 +39,6 @@ class MySalesPage extends StatefulWidget {
 
 class _MySalesPageState extends State<MySalesPage> {
   final List<Order> _orders = [];
-  final Map<String, PieceSummary> _pieces = {};
   bool _loading = true;
   bool _loadingMore = false;
   String? _nextCursor;
@@ -50,7 +50,6 @@ class _MySalesPageState extends State<MySalesPage> {
     final given = widget.debugSales;
     if (given != null) {
       _orders.addAll(given);
-      _pieces.addAll(widget.debugPieces ?? const {});
       _loading = false;
       return;
     }
@@ -77,7 +76,6 @@ class _MySalesPageState extends State<MySalesPage> {
     });
     try {
       final page = await OrderService.instance.getMySales(cursor: append ? _nextCursor : null);
-      await loadOrderPieces(page.items, _pieces);
       if (!mounted) return;
       setState(() {
         if (!append) _orders.clear();
@@ -104,12 +102,25 @@ class _MySalesPageState extends State<MySalesPage> {
     }
   }
 
-  PieceSummary? _pieceOf(Order order) => orderPiece(order, _pieces);
-
-  /// A sold piece opens its page (the artist's delivery card); anything else, the order.
+  /// A sold piece (the order paid or later) opens its page, the artist's delivery card;
+  /// anything else, or a piece that can't be read, opens the order.
   Future<void> _open(Order order) async {
-    final piece = _pieceOf(order);
-    if (piece != null && piece.status == 'sold') {
+    final pieceId = orderPiece(order)?.id ?? '';
+    PieceSummary? piece;
+    if (pieceId.isNotEmpty && saleIsSold(order)) {
+      final debugOpen = widget.debugOpenPiece;
+      if (debugOpen != null) {
+        debugOpen(pieceId);
+        return;
+      }
+      try {
+        piece = await PieceService.instance.getByIdCached(pieceId);
+      } catch (_) {
+        // Falls back to the order.
+      }
+      if (!mounted) return;
+    }
+    if (piece != null) {
       await Navigator.of(context).push<void>(
         SlideUpPageRoute<void>(
           page: AvailablePieceDetailPage(item: FeedPreviewItem.fromPieceSummary(piece)),
@@ -175,14 +186,14 @@ class _MySalesPageState extends State<MySalesPage> {
           );
         }
         final order = _orders[index];
-        final piece = _pieceOf(order);
+        final piece = orderPiece(order);
         final step = saleStep(order);
         return OrderListRow(
           title: orderPieceTitle(piece),
           imageUrl: piece?.mediaUrl,
           step: step.text,
           urgent: step.urgent,
-          meta: saleMeta(order, piece),
+          meta: saleMeta(order),
           onTap: () => _open(order),
         );
       },

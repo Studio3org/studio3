@@ -650,17 +650,29 @@ void showAuthSnackBar(BuildContext context, String message, {bool isError = fals
 
 void showAuthError(BuildContext context, Object error) {
   final message = switch (error) {
+    // Prefer the server's own message (now specific and useful — e.g.
+    // "Too many requests. Please try again later.", "Sign-in is temporarily
+    // unavailable...", "OTP service is temporarily unavailable...") over a
+    // blanket generic one, for 429 and 5xx too, so failures are actually
+    // diagnosable instead of a dead end.
+    ApiException(:final message) when message.isNotEmpty => message,
     ApiException(statusCode: 429) =>
         'Too many attempts — please wait a moment before trying again.',
-    // Prefer the server's own message (now specific and useful — e.g.
-    // "Could not send the verification email...", "OTP service is
-    // temporarily unavailable...") over a blanket generic one, even for
-    // 5xx, so failures are actually diagnosable instead of a dead end.
-    ApiException(:final message) when message.isNotEmpty => message,
     _ => 'Something went wrong',
   };
   showAuthSnackBar(context, message, isError: true);
 }
+
+/// Wrong guesses the server allows on one emailed code. After the fifth it throws the code
+/// away, and answers the same 400 for a wrong code and a dead one, so the app counts
+/// (FRONTEND_HANDOFF 1.1).
+const int kMaxCodeAttempts = 5;
+
+/// Shown once [kMaxCodeAttempts] wrong codes have been entered.
+const String kCodeExpiredMessage = "That code no longer works. Request a new code.";
+
+/// A wrong (or dead) code: the server's 400. Rate limits (429) and outages (503) don't count.
+bool isWrongCodeError(Object error) => error is ApiException && error.statusCode == 400;
 
 /// Required Terms of Use (EULA) agreement on the sign-up and login forms
 /// (App Store guideline 1.2). "Terms of Use" opens the full text in-app.
@@ -1199,6 +1211,7 @@ class AuthCodeStepBody extends StatelessWidget {
     required this.onResend,
     this.onChanged,
     this.errorText,
+    this.codeExpired = false,
   });
 
   final String email;
@@ -1208,6 +1221,10 @@ class AuthCodeStepBody extends StatelessWidget {
 
   /// Seconds until Resend code shows; 0 shows it.
   final int resendCooldown;
+
+  /// Too many wrong guesses killed the code: "Request a new code" shows at once, whatever
+  /// the cooldown.
+  final bool codeExpired;
 
   /// Null while something is loading.
   final VoidCallback? onResend;
@@ -1249,7 +1266,7 @@ class AuthCodeStepBody extends StatelessWidget {
           onCompleted: onCompleted,
         ),
         const SizedBox(height: 48),
-        if (resendCooldown > 0)
+        if (resendCooldown > 0 && !codeExpired)
           Text.rich(
             TextSpan(
               style: StudioType.body14(color: c.textSecondary),
@@ -1273,7 +1290,7 @@ class AuthCodeStepBody extends StatelessWidget {
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               child: Text(
-                'Resend code',
+                codeExpired ? 'Request a new code' : 'Resend code',
                 style: StudioType.body14(weight: StudioType.medium, color: c.textPrimary),
               ),
             ),

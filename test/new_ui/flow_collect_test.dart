@@ -249,7 +249,8 @@ void main() {
       // Shipping: no saved address, so add one.
       await _tap(tester, find.text('Add a delivery address'));
       expect(find.byType(CollectShippingSheet), findsOneWidget);
-      expect(_server.to('GET', '/api/user/me/addresses'), hasLength(1));
+      // Once for the piece page's shipping estimate (its ZIP; FRONTEND_HANDOFF 8.2), once here.
+      expect(_server.to('GET', '/api/user/me/addresses'), hasLength(2));
       expect(find.text('No saved addresses yet. Add one to continue.'), findsOneWidget);
       expect(_buttonWidget(tester, 'Save and continue').onPressed, isNull);
       await _tap(tester, find.text('Add a new address'));

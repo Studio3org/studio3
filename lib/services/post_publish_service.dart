@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
+
 import '../data/post_material_options.dart';
 import '../models/listing_details.dart';
 import '../models/piece_summary.dart';
@@ -101,30 +103,13 @@ class PostPublishService {
   final _posts = PostService.instance;
   final _series = SeriesService.instance;
 
-  /// Uploads a piece's photos and saves it as a **draft** (with its series), so a failure
-  /// after this point loses nothing (`PostError`). [goLive] then publishes it.
-  ///
-  /// An auction is created **live** instead: the server opens an auction only when its
-  /// piece is created live, and a draft auction taken live later never opens
-  /// (BACKEND_CHANGES B16). Its series is then best-effort, so a failure there doesn't
-  /// leave a live auction behind an error screen.
-  Future<PieceSummary> saveDraft(PostDraft draft) async {
-    if (draft.imagePaths.isEmpty) throw Exception('No image selected');
-    final images = <Map<String, dynamic>>[];
-    for (var i = 0; i < draft.imagePaths.length; i++) {
-      final transform = i < draft.transforms.length ? draft.transforms[i] : PostImageTransform();
-      final url = await _uploadImage(draft.imagePaths[i], transform, 'piece');
-      images.add({
-        'mediaUrl': url,
-        'mediaType': 'image',
-        'mediaAspectRatio': _aspect(transform),
-      });
-    }
-
+  /// The `POST /api/pieces` body for [draft] with its uploaded [images].
+  @visibleForTesting
+  static Map<String, dynamic> pieceBody(PostDraft draft, List<Map<String, dynamic>> images) {
     final details = draft.listingDetails;
     final caption = draft.description.trim();
     final materials = draft.materials.map((m) => m.name).toList();
-    final body = <String, dynamic>{
+    return <String, dynamic>{
       'title': draft.title.trim().isNotEmpty ? draft.title.trim() : 'Untitled',
       'images': images,
       'mediaUrl': images.first['mediaUrl'],
@@ -159,11 +144,44 @@ class PostPublishService {
         else if (details?.priceCents != null)
           'priceCents': details!.priceCents,
         if (details?.weightKg != null) 'weightKg': details!.weightKg,
+        // What the courier prices on (FRONTEND_HANDOFF 8.1): the packed size in cm, an
+        // optional declared value, and the item type, packing and materials when chosen.
+        'packageLengthCm': ?details?.packageLengthCm,
+        'packageWidthCm': ?details?.packageWidthCm,
+        'packageHeightCm': ?details?.packageHeightCm,
+        'declaredValueCents': ?details?.declaredValueCents,
+        'shippingItemType': ?details?.shippingItemType,
+        'shippingPacking': ?details?.shippingPacking,
+        if (details != null && details.shippingMaterials.isNotEmpty)
+          'shippingMaterials': details.shippingMaterials,
         // The city the piece is in is where it ships from.
         if (draft.location != null && draft.location!.isNotEmpty)
           'shippingRegion': draft.location,
       },
     };
+  }
+
+  /// Uploads a piece's photos and saves it as a **draft** (with its series), so a failure
+  /// after this point loses nothing (`PostError`). [goLive] then publishes it.
+  ///
+  /// An auction is created **live** instead: the server opens an auction only when its
+  /// piece is created live, and a draft auction taken live later never opens
+  /// (BACKEND_CHANGES B16). Its series is then best-effort, so a failure there doesn't
+  /// leave a live auction behind an error screen.
+  Future<PieceSummary> saveDraft(PostDraft draft) async {
+    if (draft.imagePaths.isEmpty) throw Exception('No image selected');
+    final images = <Map<String, dynamic>>[];
+    for (var i = 0; i < draft.imagePaths.length; i++) {
+      final transform = i < draft.transforms.length ? draft.transforms[i] : PostImageTransform();
+      final url = await _uploadImage(draft.imagePaths[i], transform, 'piece');
+      images.add({
+        'mediaUrl': url,
+        'mediaType': 'image',
+        'mediaAspectRatio': _aspect(transform),
+      });
+    }
+
+    final body = pieceBody(draft, images);
 
     final piece = await _pieces.create(body);
     await _linkScenes(draft.relatedScenes, piece.id);

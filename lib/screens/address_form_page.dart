@@ -29,6 +29,15 @@ import '../widgets/studio/studio_top_bar.dart';
 /// The coordinates saved are always the address's own: from the search result, or looked
 /// up from what was typed when saving. Never the phone's position on its own, which may be
 /// nowhere near the address.
+/// A phone the courier can call (FRONTEND_HANDOFF 8.1 / 8.3, as the server reads it): 10 US
+/// digits (11 starting with 1), or `+` and 8 to 15 digits.
+bool isValidPhone(String raw) {
+  final text = raw.trim();
+  final digits = text.replaceAll(RegExp(r'\D'), '');
+  if (text.startsWith('+')) return digits.length >= 8 && digits.length <= 15;
+  return digits.length == 10 || (digits.length == 11 && digits.startsWith('1'));
+}
+
 class AddressFormPage extends StatefulWidget {
   const AddressFormPage({super.key, this.existing});
 
@@ -147,7 +156,7 @@ class _AddressFormPageState extends State<AddressFormPage> {
   bool get _canSave =>
       _firstName.text.trim().isNotEmpty &&
       _lastName.text.trim().isNotEmpty &&
-      _phone.text.trim().isNotEmpty &&
+      isValidPhone(_phone.text) &&
       _line1.text.trim().isNotEmpty &&
       _city.text.trim().isNotEmpty &&
       _state != null &&

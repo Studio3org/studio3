@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:cookie_jar/cookie_jar.dart';
@@ -229,6 +230,59 @@ class ApiClient {
       throw ApiException(
         "Can't reach the server. Check your connection and try again.",
       );
+    }
+  }
+
+  /// A GET whose success body is raw bytes (an Apple Wallet pass, B25). Same auth header and
+  /// token refresh as [get]; an error body is still JSON, so it is decoded here to surface the
+  /// server's `message` like every other call.
+  Future<Uint8List> getBytes(
+    String path, {
+    Map<String, String>? query,
+    bool auth = true,
+  }) async {
+    try {
+      final dio = await _client;
+      final response = await dio.get<List<int>>(
+        path,
+        queryParameters: query,
+        options: Options(
+          headers: {..._authHeaders(auth: auth), 'Accept': '*/*'},
+          responseType: ResponseType.bytes,
+        ),
+      );
+      final data = response.data ?? const <int>[];
+      return data is Uint8List ? data : Uint8List.fromList(data);
+    } on DioException catch (e) {
+      throw _toApiException(_withJsonErrorBody(e));
+    } catch (e) {
+      debugPrint('API error (non-Dio, GET bytes $path): $e');
+      throw ApiException(
+        "Can't reach the server. Check your connection and try again.",
+      );
+    }
+  }
+
+  /// [getBytes]'s error responses arrive as bytes; decode them to the JSON map
+  /// [_toApiException] reads, when they are JSON.
+  DioException _withJsonErrorBody(DioException e) {
+    final response = e.response;
+    final raw = response?.data;
+    if (response == null || raw is! List<int>) return e;
+    try {
+      final decoded = jsonDecode(utf8.decode(raw));
+      if (decoded is! Map<String, dynamic>) return e;
+      return e.copyWith(
+        response: Response<dynamic>(
+          requestOptions: response.requestOptions,
+          data: decoded,
+          statusCode: response.statusCode,
+          statusMessage: response.statusMessage,
+          headers: response.headers,
+        ),
+      );
+    } catch (_) {
+      return e;
     }
   }
 

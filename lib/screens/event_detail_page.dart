@@ -17,12 +17,14 @@ import '../widgets/save_flow.dart';
 import '../widgets/events/event_detail_widgets.dart';
 import '../widgets/events/event_tickets_sheet.dart';
 import '../widgets/events/event_waitlist_sheets.dart';
+import '../widgets/accept_decline_buttons.dart';
 import '../widgets/follow_button.dart';
 import '../widgets/piece_detail/detail_follow_state.dart';
 import '../widgets/share/share_sheet.dart';
 import '../widgets/studio/studio.dart';
 import 'event_checkout_page.dart';
 import 'event_confirmed_page.dart';
+import 'event_piece_request_page.dart';
 import 'host/host_manage_page.dart';
 
 /// Returns the pushed route's future, so a caller that wants to know when the viewer is
@@ -40,9 +42,9 @@ Future<void> openEventDetail(BuildContext context, StudioEvent event, {bool open
 /// opens directions; the host's FAQs; and the bar at the bottom with From, When and Get
 /// tickets.
 ///
-/// Get tickets opens Choose tickets (`EvChooseTickets`). Every event is free on the server and
-/// an RSVP is a headcount (BACKEND_CHANGES B22), so the sheet offers one free place and Reserve
-/// saves the RSVP; paid tickets go through checkout (`EvCheckout`) once the server sells them.
+/// Get tickets opens Choose tickets (`EvChooseTickets`). An event with no ticket types offers
+/// one free place and Reserve saves the RSVP; free ticket types are ordered at once, and paid
+/// tickets go through checkout (`EvCheckout`, BACKEND_CHANGES B22).
 /// The host's FAQs and whether the viewer follows the host come with the detail
 /// (BACKEND_CHANGES B24); without the follow flags the page asks the host's profile.
 class EventDetailPage extends StatefulWidget {
@@ -75,6 +77,7 @@ class _EventDetailPageState extends State<EventDetailPage> with DetailFollowStat
 
   bool _rsvping = false;
   bool _waitlistBusy = false;
+  bool _answering = false;
 
   /// The held sheet opens by itself once per visit (from the notification or the page).
   bool _heldShown = false;
@@ -167,7 +170,7 @@ class _EventDetailPageState extends State<EventDetailPage> with DetailFollowStat
   }
 
   void _syncPolling() {
-    final live = _event.lineup.any((item) => item.isBiddingOpen);
+    final live = _event.liveLineup.any((item) => item.isBiddingOpen);
     if (live && _poll == null) {
       _poll = Timer.periodic(_pollInterval, (_) => _loadDetail());
     } else if (!live) {
@@ -266,9 +269,56 @@ class _EventDetailPageState extends State<EventDetailPage> with DetailFollowStat
   }
 
   /// Reserve the free tickets in [choice], then You're going.
+  ///
+  /// An event with no ticket types offers one made-up General Admission place
+  /// ([StudioEvent.ticketOptions], id `rsvp`): that is an RSVP. Free ticket types are ordered
+  /// (B22), which issues them at once; `rsvp` is never sent as an order item.
   Future<void> _reserve(EventTicketChoice choice) async {
-    if (await _setGoing(true) && mounted) {
-      await EventConfirmedPage.open(context, event: _event, choice: choice);
+    final rsvpOnly = choice.counts.entries
+        .where((e) => e.value > 0)
+        .every((e) => e.key.id == EventService.rsvpTypeId);
+    if (rsvpOnly) {
+      if (await _setGoing(true) && mounted) {
+        // A B22 server issues a ticket for the RSVP; the refreshed event says so.
+        if (!_debug) await _loadDetail();
+        if (!mounted) return;
+        if (await EventConfirmedPage.open(context, event: _event, choice: choice)) await _loadDetail();
+      }
+      return;
+    }
+    if (!await requireLogin(
+      context,
+      title: 'Sign in to get tickets',
+      message: 'Log in or create a free account to go to events.',
+    )) {
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _rsvping = true);
+    try {
+      final order = await EventService.instance.placeOrder(_event.id, choice.counts);
+      if (!_debug) await _loadDetail();
+      if (!mounted) return;
+      setState(() => _rsvping = false);
+      // A refund from View tickets changes what the page shows.
+      if (await EventConfirmedPage.open(
+        context,
+        event: _event,
+        choice: choice,
+        orderId: order.id.isEmpty ? null : order.id,
+      )) {
+        await _loadDetail();
+      }
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _rsvping = false);
+      showStudioToast(context, e.message, icon: null);
+      // A type may have sold out while the sheet was open.
+      if (!_debug) await _loadDetail();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _rsvping = false);
+      showStudioToast(context, 'Could not reserve your tickets.', icon: null);
     }
   }
 
@@ -295,21 +345,25 @@ class _EventDetailPageState extends State<EventDetailPage> with DetailFollowStat
       return;
     }
     if (!mounted) return;
-    final outcome = await EventCheckoutPage.open(context, event: _event, choice: choice);
-    if (!mounted || outcome == null) return;
-    if (outcome == EventCheckoutOutcome.reserveInstead) {
-      final free = _event.ticketOptions.firstWhere((t) => t.isFree, orElse: () => _event.ticketOptions.first);
-      await _reserve(EventTicketChoice({free: 1}));
+    final result = await EventCheckoutPage.open(context, event: _event, choice: choice);
+    if (!mounted || result == null) return;
+    if (result.outcome == EventCheckoutOutcome.reserveInstead) {
+      await _reserve(result.choice);
       return;
     }
     await _loadDetail();
     if (!mounted) return;
-    await EventConfirmedPage.open(
+    if (await EventConfirmedPage.open(
       context,
       event: _event,
-      choice: choice,
+      choice: result.choice,
       email: UserService.instance.peekMeCached()?.email,
-    );
+      orderId: result.orderId,
+      order: result.order,
+      pending: result.pending,
+    )) {
+      await _loadDetail();
+    }
   }
 
   /// Join waitlist (`EvSoldOut`, `EvWaitlistJoin`): pick how many of each type, then save
@@ -403,6 +457,44 @@ class _EventDetailPageState extends State<EventDetailPage> with DetailFollowStat
     _loadDetail();
   }
 
+  /// Answer the viewer's invite to be on the bill (Phase 5.1), then show the event as it now is.
+  Future<void> _answerInvite({required bool accept}) async {
+    setState(() => _answering = true);
+    try {
+      if (accept) {
+        await EventService.instance.acceptInvite(_event.id);
+      } else {
+        await EventService.instance.declineInvite(_event.id);
+      }
+      if (!mounted) return;
+      showStudioToast(context, accept ? "You're on the event" : 'Invite declined');
+      await _loadDetail();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      showStudioToast(context, e.message, icon: null);
+      await _loadDetail();
+    } catch (_) {
+      if (mounted) showStudioToast(context, 'Could not answer the invite. Try again.', icon: null);
+    } finally {
+      if (mounted) setState(() => _answering = false);
+    }
+  }
+
+  /// The viewer's own piece waiting for their answer (Phase 5.2), if any.
+  EventLineupItem? _myWaitingPiece(StudioEvent e) {
+    final me = AuthSession.instance.user?.username;
+    if (me == null || me.isEmpty) return null;
+    for (final item in e.lineup) {
+      if (item.isWaiting && item.artistUsername == me) return item;
+    }
+    return null;
+  }
+
+  Future<void> _reviewRequest(EventLineupItem item) async {
+    final answered = await EventPieceRequestPage.open(context, EventPieceRequest(item: item, event: _event));
+    if (answered && mounted) await _loadDetail();
+  }
+
   /// The ··· menu: the host's QR codes, "Can't make it" once going, and Copy link.
   void _openMore() {
     final event = _event;
@@ -412,7 +504,7 @@ class _EventDetailPageState extends State<EventDetailPage> with DetailFollowStat
         horizontalPadding: 24,
         gap: 6,
         children: [
-          if (event.isHost)
+          if (event.canManage)
             StudioActionRow(
               icon: StudioIcons.ticket,
               title: 'Manage event',
@@ -457,7 +549,34 @@ class _EventDetailPageState extends State<EventDetailPage> with DetailFollowStat
     if (e.isCancelled) {
       return const StudioBottomBar(button: StudioButton(label: 'Event cancelled', onPressed: null));
     }
-    if (e.isHost) {
+    // Phase 5.1: asked onto the bill and not answered yet.
+    if (e.hasPendingInvite) {
+      return StudioBottomBar(
+        left: StudioBottomBarInfo(
+          label: 'Invited as',
+          value: e.viewerInvite!.isCohost ? 'Co-host' : 'Featured artist',
+        ),
+        right: when,
+        button: Align(
+          alignment: Alignment.centerRight,
+          child: AcceptDeclineButtons(
+            busy: _answering,
+            onAccept: () => _answerInvite(accept: true),
+            onDecline: () => _answerInvite(accept: false),
+          ),
+        ),
+      );
+    }
+    // Phase 5.2: a host wants the viewer's piece at this event.
+    final waiting = _myWaitingPiece(e);
+    if (waiting != null) {
+      return StudioBottomBar(
+        left: const StudioBottomBarInfo(label: 'Your piece', value: 'Waiting for you'),
+        right: when,
+        button: StudioButton(label: 'Review request', onPressed: () => _reviewRequest(waiting)),
+      );
+    }
+    if (e.canManage) {
       return StudioBottomBar(
         left: StudioBottomBarInfo(label: 'Going', value: '${e.rsvpCount}'),
         right: when,
@@ -530,7 +649,9 @@ class _EventDetailPageState extends State<EventDetailPage> with DetailFollowStat
     final c = context.studio;
     final e = _event;
     final bar = _bottomBar(e);
-    final pieces = e.lineup.where((item) => item.pieceId.isNotEmpty).toList();
+    // Approved pieces only: waiting and declined entries reach the host, co-hosts and the
+    // artist, but aren't on the event yet (Phase 5.2).
+    final pieces = e.liveLineup.where((item) => item.pieceId.isNotEmpty).toList();
     final address = e.address?.trim() ?? '';
 
     Widget padded(Widget child) => Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: child);
@@ -579,6 +700,14 @@ class _EventDetailPageState extends State<EventDetailPage> with DetailFollowStat
                             ? 'This event has ended.'
                             : 'This event has ended. The pieces shown here are still on Studio 3.',
                       ),
+                    ),
+                  ),
+                // Phase 4.4: the host moved it; their message, when they left one.
+                if (e.rescheduledAt != null && !e.isCancelled && !e.isOver)
+                  padded(
+                    Padding(
+                      padding: const EdgeInsets.only(top: 20),
+                      child: EventEndedNote(rescheduledNote(e)),
                     ),
                   ),
                 if (e.isOver && !e.isCancelled && pieces.isNotEmpty)

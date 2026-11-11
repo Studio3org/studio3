@@ -65,9 +65,11 @@ String? eventPieceDeliveryLine(EventLineupItem item) {
 }
 
 /// The bar's Tickets value (`EvDetail`): "Free", "$25", "Free to $25" or "$10 to $25".
+/// Types the server says aren't on sale right now are left out (B22), unless that is all of them.
 String eventTicketRange(List<EventTicketType> options) {
   if (options.isEmpty) return 'Free';
-  final prices = options.map((t) => t.priceCents).toList()..sort();
+  final onSale = options.where((t) => t.onSale != false).toList();
+  final prices = (onSale.isEmpty ? options : onSale).map((t) => t.priceCents).toList()..sort();
   String money(int cents) => cents == 0 ? 'Free' : formatMoney(cents);
   return prices.first == prices.last ? money(prices.first) : '${money(prices.first)} to ${money(prices.last)}';
 }
@@ -658,6 +660,12 @@ class EventSoldOutBar extends StatelessWidget {
 }
 
 /// After the event (`EvPast`): a Surface box at radius 14, 14 16 padding, 14 at 1.5.
+/// "Rescheduled. <the host's message>" (Phase 4.4), for the event page and the ticket.
+String rescheduledNote(StudioEvent e) {
+  final message = e.rescheduleMessage?.trim() ?? '';
+  return message.isEmpty ? 'Rescheduled.' : 'Rescheduled. $message';
+}
+
 class EventEndedNote extends StatelessWidget {
   const EventEndedNote(this.text, {super.key});
 

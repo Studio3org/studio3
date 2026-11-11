@@ -4,7 +4,6 @@ import '../models/user_profile.dart';
 import '../services/api_exception.dart';
 import '../services/auth_service.dart';
 import '../services/auth_session.dart';
-import '../services/device_service.dart';
 import '../services/user_service.dart';
 import '../widgets/settings_tile.dart';
 import '../widgets/studio/studio.dart';
@@ -14,15 +13,19 @@ import '../widgets/studio/studio.dart';
 /// code to the new address first." Email and password open the existing pages; name and phone
 /// change in a sheet.
 ///
-/// Log out of all devices signs this phone out too: the server revokes every session, and the
-/// board's "keeps this phone signed in" waits on BACKEND_CHANGES B34. A password change by
+/// Log out of all devices signs every other device out and keeps this phone signed in (B34): the
+/// page stays and toasts the server's message. A password change by
 /// emailed code (`NoteSettingsAccount`) waits on B30.
 class AccountSettingsPage extends StatefulWidget {
-  const AccountSettingsPage({super.key, this.debugProfile});
+  const AccountSettingsPage({super.key, this.debugProfile, this.debugLogoutAll});
 
   /// For tests: the account instead of loading it.
   @visibleForTesting
   final UserProfile? debugProfile;
+
+  /// For tests: called instead of the server's log out of all devices; returns its message.
+  @visibleForTesting
+  final Future<String> Function()? debugLogoutAll;
 
   @override
   State<AccountSettingsPage> createState() => _AccountSettingsPageState();
@@ -143,14 +146,18 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
     final confirmed = await showStudioConfirm(
       context,
       title: 'Log out of all devices?',
-      message: "You'll be signed out everywhere you're logged in, this phone included.",
+      message: "You'll be signed out everywhere else you're logged in. This phone stays signed in.",
       confirmLabel: 'Log out',
     );
     if (!confirmed || !mounted) return;
-    await DeviceService.instance.unregisterCurrentDevice();
-    await AuthService.instance.logoutAllDevices();
-    if (!mounted) return;
-    Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
+    try {
+      final message = await (widget.debugLogoutAll ?? AuthService.instance.logoutAllDevices)();
+      if (mounted) showStudioToast(context, message);
+    } on ApiException catch (e) {
+      if (mounted) showStudioToast(context, e.message, icon: null);
+    } catch (_) {
+      if (mounted) showStudioToast(context, 'Could not log out of your other devices.', icon: null);
+    }
   }
 
   @override

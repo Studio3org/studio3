@@ -2,8 +2,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/order.dart';
-import '../../models/piece_summary.dart';
-import '../../services/piece_service.dart';
 import '../../utils/app_clock.dart';
 import '../../utils/money_format.dart';
 import '../loading/skeleton_primitives.dart';
@@ -203,45 +201,36 @@ String purchaseStep(Order order) {
 }
 
 /// "COLLECTED · Nov 2" or "AUCTION WIN · Oct 12" (no amount on Purchases).
-String purchaseMeta(Order order, PieceSummary? piece) {
-  final kind = piece?.isAuction == true ? 'AUCTION WIN' : 'COLLECTED';
+String purchaseMeta(Order order) {
+  final kind = order.fromAuction ? 'AUCTION WIN' : 'COLLECTED';
   final date = orderRowDate(order.createdAt);
   return [kind, if (date.isNotEmpty) date].join(' · ');
 }
 
-/// The piece on [order] (its first item) in [pieces], if read.
-PieceSummary? orderPiece(Order order, Map<String, PieceSummary> pieces) =>
-    order.items.isEmpty ? null : pieces[order.items.first.pieceId];
+/// The piece on [order]'s first item, as the order carries it (B34); null when the piece no
+/// longer exists.
+OrderPiece? orderPiece(Order order) => order.items.isEmpty ? null : order.items.first.piece;
 
-/// Reads into [pieces] the pieces on [orders] not read yet (cached), for the rows' titles and
-/// pictures: orders carry piece ids only (a piece summary on the order is BACKEND_CHANGES B34).
-/// One that fails is left out and its row shows "Untitled".
-Future<void> loadOrderPieces(List<Order> orders, Map<String, PieceSummary> pieces) async {
-  final ids = {
-    for (final order in orders)
-      if (order.items.isNotEmpty) order.items.first.pieceId,
-  }.where((id) => id.isNotEmpty && !pieces.containsKey(id));
-  await Future.wait(
-    ids.map((id) async {
-      try {
-        pieces[id] = await PieceService.instance.getByIdCached(id);
-      } catch (_) {
-        // The row shows without its picture.
-      }
-    }),
-  );
-}
-
-/// The row's title: the piece's, or "Untitled" when it couldn't be read.
-String orderPieceTitle(PieceSummary? piece) {
+/// The row's title: the piece's, or "Untitled" when the order has none.
+String orderPieceTitle(OrderPiece? piece) {
   final title = piece?.title.trim() ?? '';
   return title.isEmpty ? 'Untitled' : title;
 }
 
 /// "SOLD · $3,500 · Nov 2" (a fixed-price sale) or "AUCTION · $1,300 · Nov 1" (an auction
 /// result): the artwork amount and the day of the order.
-String saleMeta(Order order, PieceSummary? piece) {
-  final kind = piece?.isAuction == true ? 'AUCTION' : 'SOLD';
+String saleMeta(Order order) {
+  final kind = order.fromAuction ? 'AUCTION' : 'SOLD';
   final date = orderRowDate(order.createdAt);
   return [kind, formatMoney(order.artworkCents), if (date.isNotEmpty) date].join(' · ');
 }
+
+/// Whether the piece on a sale has sold: the order is paid or further along (not waiting for
+/// payment, failed, cancelled or refunded).
+bool saleIsSold(Order order) => const {
+      'paid',
+      'shipped',
+      'awaiting_confirmation',
+      'completed',
+      'disputed',
+    }.contains(order.status);

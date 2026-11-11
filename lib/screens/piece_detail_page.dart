@@ -32,6 +32,8 @@ import '../widgets/piece_detail/piece_location_row.dart';
 import '../widgets/piece_detail/piece_related_scenes_row.dart';
 import '../widgets/piece_detail/piece_share_sheet.dart';
 import '../widgets/piece_detail/collect_artist_row.dart';
+import '../widgets/piece_detail/collected_bar.dart' show findViewerOrder;
+import '../widgets/piece_detail/hide_from_collection.dart';
 import '../widgets/piece_detail/piece_page_sections.dart';
 import '../widgets/piece_detail/piece_series_row.dart';
 import '../widgets/studio/studio_bottom_bar.dart';
@@ -91,7 +93,18 @@ class _PieceDetailPageState extends State<PieceDetailPage>
       onBlocked: () {
         if (mounted) Navigator.of(context).maybePop();
       },
+      onHideFromCollection: _isCollector ? () => hideFromMyCollection(context, item.id) : null,
     );
+  }
+
+  /// The viewer collected this piece (a sold piece with their purchase on it), so the ⋯ sheet
+  /// offers Hide from my Collection (B32).
+  bool _isCollector = false;
+
+  Future<void> _loadCollector() async {
+    if (!item.isPiece || item.status != 'sold' || _isOwner || !AuthSession.instance.isLoggedIn) return;
+    final order = await findViewerOrder(item.id, asSeller: false);
+    if (mounted && order != null) setState(() => _isCollector = true);
   }
 
   bool get _isOwner {
@@ -154,6 +167,7 @@ class _PieceDetailPageState extends State<PieceDetailPage>
     likeCount = _item.likeCount;
     applyFollowState(_item);
     _loadDetail();
+    _loadCollector();
   }
 
   Future<void> _loadDetail() async {
@@ -201,6 +215,7 @@ class _PieceDetailPageState extends State<PieceDetailPage>
       if (item.relatedScenes.isNotEmpty)
         PieceRelatedScenesRow(scenes: item.relatedScenes),
       if (details.isNotEmpty) padded(PieceDetailsSection(rows: details)),
+      if (item.exhibitions.isNotEmpty) padded(PieceExhibited(exhibitions: item.exhibitions)),
       if (item.seriesName.isNotEmpty &&
           (item.seriesThumbUrls.isNotEmpty || item.seriesThumbs.isNotEmpty))
         padded(
@@ -342,6 +357,23 @@ class _PieceDetailPageState extends State<PieceDetailPage>
   Widget _statusLine(StudioColors c) {
     if (item.status == 'sold')
       return const StudioStatusChip(StudioStatus.collected);
+    // The owner also sees what the courier still needs (FRONTEND_HANDOFF 8.1).
+    final toShip = _isOwner ? item.shippingReady?.line : null;
+    if (toShip != null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _ownerStatusLine(c),
+          const SizedBox(height: 4),
+          Text(toShip, style: StudioType.label13(color: c.textSecondary)),
+        ],
+      );
+    }
+    return _ownerStatusLine(c);
+  }
+
+  Widget _ownerStatusLine(StudioColors c) {
     final saved = item.savesCount ?? 0;
     if (_isOwner && saved > 0) {
       final style = StudioType.label13(color: c.textSecondary);

@@ -50,14 +50,18 @@ void main() {
       expect(find.byType(SwitchListTile), findsNothing);
       await tester.scrollUntilVisible(find.text('Ships from'), 300, scrollable: _list);
       expect(
-        tester.widget<PostChevronRow>(find.byType(PostChevronRow)).value,
+        tester
+            .widget<PostChevronRow>(find.byWidgetPredicate((w) => w is PostChevronRow && w.label == 'Ships from'))
+            .value,
         'Dallas, TX',
       );
+      expect(find.byType(StudioSwitch), findsNWidgets(2));
+      // A listed piece also takes its packed size for the courier (FRONTEND_HANDOFF 8.1).
+      await tester.scrollUntilVisible(find.text('Packed size'), 300, scrollable: _list);
       await tester.scrollUntilVisible(find.text('Draft'), 300, scrollable: _list);
       final chips = tester.widgetList<StudioChip>(find.byType(StudioChip)).toList();
       expect(chips.map((ch) => ch.label), ['Draft', 'Live', 'Hidden']);
       expect(chips.map((ch) => ch.selected), [false, true, false]);
-      expect(find.byType(StudioSwitch), findsNWidgets(2));
     });
 
     testWidgets('edit Scene: caption field, work-in-progress switch, linked pieces row ($theme)', (
