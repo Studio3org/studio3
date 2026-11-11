@@ -13,20 +13,26 @@ class PostMaterialOption {
     required this.kind,
   });
 
-  /// An artist's own entry when nothing in the catalog matches.
-  factory PostMaterialOption.custom(String text) => PostMaterialOption(
-    id: 'custom:${text.trim()}',
-    type: text.trim(),
-    brand: '',
-    kind: MaterialKind.material,
-  );
+  /// An artist's own entry, typed by name, as a material or a tool. The kind is kept in
+  /// the id (`custom:` for a material, as before; `custom-tool:` for a tool) so Recent
+  /// brings it back in the right group.
+  factory PostMaterialOption.custom(String text, {MaterialKind kind = MaterialKind.material}) =>
+      PostMaterialOption(
+        id: '${kind == MaterialKind.tool ? _customTool : _customMaterial}${text.trim()}',
+        type: text.trim(),
+        brand: '',
+        kind: kind,
+      );
+
+  static const _customMaterial = 'custom:';
+  static const _customTool = 'custom-tool:';
 
   final String id;
   final String type;
   final String brand;
   final MaterialKind kind;
 
-  bool get isCustom => id.startsWith('custom:');
+  bool get isCustom => id.startsWith(_customMaterial) || id.startsWith(_customTool);
 
   /// "Oil paint · Winsor & Newton", or the type alone for an own entry.
   String get name => brand.isEmpty ? type : '$type · $brand';
@@ -107,7 +113,12 @@ abstract final class PostMaterialOptions {
   ];
 
   static PostMaterialOption? byId(String id) {
-    if (id.startsWith('custom:')) return PostMaterialOption.custom(id.substring(7));
+    const tool = PostMaterialOption._customTool;
+    const material = PostMaterialOption._customMaterial;
+    if (id.startsWith(tool)) {
+      return PostMaterialOption.custom(id.substring(tool.length), kind: MaterialKind.tool);
+    }
+    if (id.startsWith(material)) return PostMaterialOption.custom(id.substring(material.length));
     for (final material in all) {
       if (material.id == id) return material;
     }

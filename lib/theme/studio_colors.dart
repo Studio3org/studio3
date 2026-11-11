@@ -73,7 +73,7 @@ class StudioColors extends ThemeExtension<StudioColors> {
 
   final Color navFill;
 
-  /// Hairline around the floating nav in dark, where an Ink pill would vanish on Ink.
+  /// Hairline around the floating nav's glass, so its edge reads on Ink pages too.
   final Color navBorder;
   final Color navActive;
   final Color navIconActive;
@@ -152,11 +152,14 @@ class StudioColors extends ThemeExtension<StudioColors> {
     buttonText: Color(0xFFFAFAF8),
     buttonDisabledFill: Color(0xFFD4D4D0),
     buttonDisabledText: Color(0xFFFAFAF8),
-    navFill: Color(0xFF111111),
-    navBorder: Color(0x00000000),
-    navActive: Color(0xFF2A2A2A),
+    // Frosted glass (the user's call, 2026-11-11; the boards have solid Ink #111111 with a
+    // #2A2A2A active slot): Ink at 75 % over a blur, a white 10 % hairline, the active slot
+    // white 14 %. Inactive icons lifted from #8E8E8E to keep 3:1 over a light page.
+    navFill: Color(0xBF111111),
+    navBorder: Color(0x1AFFFFFF),
+    navActive: Color(0x24FFFFFF),
     navIconActive: Color(0xFFFAFAF8),
-    navIconInactive: Color(0xFF8E8E8E),
+    navIconInactive: Color(0xFF9E9E9E),
     signInBackground: Color(0xFFFAFAF8),
     available: Color(0xFF2E8B57),
     positive: Color(0xFF1E6B3C),
@@ -190,11 +193,14 @@ class StudioColors extends ThemeExtension<StudioColors> {
     buttonDisabledFill: Color(0x29FAFAF8), // rgba(250,250,248,0.16) — SignInFirstDark
     buttonDisabledText: Color(0x8CFAFAF8), // rgba(250,250,248,0.55) — SignInFirstDark
     // Same ink bar in both themes. The floating nav does not recolor in dark mode.
-    navFill: Color(0xFF111111),
-    navBorder: Color(0x00000000),
-    navActive: Color(0xFF2A2A2A),
+    // Frosted glass (the user's call, 2026-11-11; the boards have solid Ink #111111 with a
+    // #2A2A2A active slot): Ink at 75 % over a blur, a white 10 % hairline, the active slot
+    // white 14 %. Inactive icons lifted from #8E8E8E to keep 3:1 over a light page.
+    navFill: Color(0xBF111111),
+    navBorder: Color(0x1AFFFFFF),
+    navActive: Color(0x24FFFFFF),
     navIconActive: Color(0xFFFAFAF8),
-    navIconInactive: Color(0xFF8E8E8E),
+    navIconInactive: Color(0xFF9E9E9E),
     signInBackground: Color(0xFF0B0B10),
     available: Color(0xFF2E8B57),
     positive: Color(0xFF4CAF7A), // proposed

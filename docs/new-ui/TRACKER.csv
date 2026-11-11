@@ -6,7 +6,7 @@ SignIn1Sheet,Sign in 1: sheet,Phase 4,reference/NoteSignIn1Sheet.dc.html,,Built 
 SignIn2Code,Sign in 2: code,Phase 4,reference/NoteSignIn2Code.dc.html,,Built (plan Phase 4/5),,,,,
 SignIn3Profile,Sign in 3: profile setup (new only),Phase 4,reference/NoteSignIn3Profile.dc.html,,Built (Phase 13 17.2),Y,layout 2.47% (frame 2.47%),,test/new_ui/phase13_account_test.dart,test/new_ui/phase13_account_test.dart
 SignIn4Intention,Sign in 4: intention (new only),Phase 4,reference/NoteSignIn4Intention.dc.html,,Built (plan Phase 4/5),,,,,
-Main,Home feed,Phase 5 (feed); its nav also Phase 3,reference/NoteMain.dc.html,,Built (gallery layout from the canvas update 2026-11-07),Y,layout 17.53% (frame 73.72%),,test/new_ui/home_feed_test.dart + home_feed_flow_test.dart,test/new_ui/home_feed_test.dart
+Main,Home feed,Phase 5 (feed); its nav also Phase 3,reference/NoteMain.dc.html,,"Built (gallery layout from the canvas update 2026-11-07; nav is frosted glass, 2026-11-11, the user's call)",Y,layout 17.53% (frame 73.72%),,test/new_ui/home_feed_test.dart + home_feed_flow_test.dart,test/new_ui/home_feed_test.dart
 Explore,Explore,Phase 5,reference/NoteExplore.dc.html,,Built (plan Phase 4/5),,,,,
 SavedSheet,Saved 1: save to a folder,Phase 5,reference/NoteSavedSheet.dc.html,,Built (plan Phase 4/5),,,,,
 SavedCollection,Saved 2: Saved,Phase 5,reference/NoteSavedCollection.dc.html,,Built (plan Phase 4/5),,,,,
@@ -22,8 +22,8 @@ PostCover,1. Set your cover (dark),Phase 8,reference/NotePostCover.dc.html,,"Bui
 PostAvailFixed,2. Availability: fixed price,Phase 8,reference/NotePostAvailFixed.dc.html,,Built (D11 steps; Auction row since 12.1),Y,layout 1.12% (frame 1.49%),,test/new_ui/post_avail_test.dart,test/new_ui/post_avail_test.dart
 PostDetailsForSale,"3. Details, for sale",Phase 8,reference/NotePostDetailsForSale.dc.html,,Built (D11 step 2),Y,aligned; Related Scenes row not built,,test/new_ui/post_details_test.dart,test/new_ui/post_details_test.dart
 PostDetailsProgress,3. Details: in progress (required dots),Phase 8,reference/NotePostDetailsProgress.dc.html,,Built,Y,layout 2.78% (frame 2.78%),,test/new_ui/post_details_test.dart,test/new_ui/post_details_test.dart
-PostMaterials,3a. Materials and tools,Phase 8,reference/NotePostMaterials.dc.html,,Built,Y,layout 1.77% (frame 1.77%),,test/new_ui/post_materials_test.dart,test/new_ui/post_materials_test.dart
-PostMaterialsSearch,3b. Materials search,Phase 8,reference/NotePostMaterialsSearch.dc.html,,Built,Y,layout 1.88% (frame 1.88%),,test/new_ui/post_materials_test.dart,test/new_ui/post_materials_test.dart
+PostMaterials,3a. Materials and tools,Phase 8,reference/NotePostMaterials.dc.html,,"Built (+ Add your own row and sheet, 2026-11-11; golden to refresh)",Y,layout 1.77% (frame 1.77%),,test/new_ui/post_materials_test.dart,test/new_ui/post_materials_test.dart
+PostMaterialsSearch,3b. Materials search,Phase 8,reference/NotePostMaterialsSearch.dc.html,,"Built (own entry as a material or a tool, always offered, 2026-11-11; golden to refresh)",Y,layout 1.88% (frame 1.88%),,test/new_ui/post_materials_test.dart,test/new_ui/post_materials_test.dart
 PostLocation,Details: location,Phase 8,reference/NotePostLocation.dc.html,,Built,Y,n/a (results from search),,test/new_ui/post_pickers_test.dart,test/new_ui/post_pickers_test.dart
 PostMedium,Details: medium,Phase 8,reference/NotePostMedium.dc.html,,Built (multi-select),Y,layout 1.76% (frame 1.76%),,test/new_ui/post_pickers_test.dart,test/new_ui/post_pickers_test.dart
 PostRelatedScenes,Details: related Scenes,Phase 8 only if the step exists today; else out of scope,reference/NotePostRelatedScenes.dc.html,,Built (no + Post a new Scene),Y,layout 13.19% (frame 36.67%),,test/new_ui/list_later_test.dart,test/new_ui/list_later_test.dart

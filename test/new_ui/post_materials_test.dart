@@ -8,6 +8,7 @@ import 'package:studio3/screens/add_materials_page.dart';
 import 'package:studio3/screens/pick_materials_page.dart';
 import 'package:studio3/theme/app_theme.dart';
 import 'package:studio3/theme/studio_colors.dart';
+import 'package:studio3/widgets/studio/studio_button.dart';
 
 import 'golden_harness.dart';
 
@@ -65,6 +66,11 @@ void main() {
     expect(PostMaterialOptions.search('gamblin').first.brand, 'Gamblin');
     final own = PostMaterialOption.custom(' Beeswax ');
     expect((own.name, own.isCustom, PostMaterialOptions.byId(own.id)), ('Beeswax', true, own));
+    expect(own.kind, MaterialKind.material);
+    final tool = PostMaterialOption.custom('Old credit card', kind: MaterialKind.tool);
+    final back = PostMaterialOptions.byId(tool.id)!;
+    expect((back.name, back.kind, back.isCustom, back == tool), ('Old credit card', MaterialKind.tool, true, true));
+    expect(tool == PostMaterialOption.custom('Old credit card'), isFalse);
   });
 
   for (final dark in [false, true]) {
@@ -112,7 +118,7 @@ void main() {
     });
   }
 
-  testWidgets('search: bold match, material / tool tags, own entry only without matches', (
+  testWidgets('search: bold match, material / tool tags, own entry as a material or a tool', (
     tester,
   ) async {
     setBoardViewport(tester);
@@ -135,15 +141,67 @@ void main() {
       (spans.children![1] as TextSpan).style!.fontWeight,
       FontWeight.w500,
     );
-    expect(find.textContaining('as your own'), findsNothing);
+    expect(find.bySemanticsLabel('Add “Oil pa” as a material'), findsOneWidget);
     expect(find.textContaining('Picking from the list'), findsOneWidget);
+
+    // An exact listed type offers no own entry.
+    await tester.enterText(find.byType(TextField), 'Gesso');
+    await tester.pump();
+    expect(find.textContaining('Add “Gesso”'), findsNothing);
 
     await tester.enterText(find.byType(TextField), 'Beeswax');
     await tester.pump();
-    expect(find.text('Add “Beeswax” as your own'), findsOneWidget);
-    await tester.tap(find.text('Add “Beeswax” as your own'));
+    expect(find.bySemanticsLabel('Add “Beeswax” as a material'), findsOneWidget);
+    await tester.tap(find.bySemanticsLabel('Add “Beeswax” as a tool'));
     await tester.pumpAndSettle();
-    expect((result! as PostMaterialOption).name, 'Beeswax');
+    final own = result! as PostMaterialOption;
+    expect((own.name, own.kind, own.isCustom), ('Beeswax', MaterialKind.tool, true));
+  });
+
+  testWidgets('add your own: name a material or a tool, it lands in its group', (tester) async {
+    setBoardViewport(tester, height: 1000);
+    Object? result;
+    await tester.pumpWidget(
+      _host(
+        (_) => const AddMaterialsPage(initialMaterials: [], recent: []),
+        onResult: (r) => result = r,
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.bySemanticsLabel('Add your own material or tool'));
+    await tester.pumpAndSettle();
+    expect(find.text('Add your own'), findsOneWidget);
+    final add = find.widgetWithText(StudioButton, 'Add material');
+    expect(tester.widget<StudioButton>(add).onPressed, isNull);
+    await tester.tap(find.byKey(const Key('material-kind-tool')));
+    await tester.enterText(find.byType(TextField), '  Bone folder ');
+    await tester.pump();
+    await tester.tap(find.widgetWithText(StudioButton, 'Add tool'));
+    await tester.pumpAndSettle();
+    expect(find.text('Add your own'), findsNothing);
+    expect(find.text('Tools'), findsOneWidget);
+    expect(find.text('Bone folder'), findsOneWidget);
+
+    await tester.tap(find.bySemanticsLabel('Add your own material or tool'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Walnut ink');
+    await tester.pump();
+    await tester.tap(find.widgetWithText(StudioButton, 'Add material'));
+    await tester.pumpAndSettle();
+    expect(find.text('Materials'), findsOneWidget);
+    expect(find.text('Walnut ink'), findsOneWidget);
+
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+    final picked = result! as List<PostMaterialOption>;
+    expect(picked.map((m) => (m.name, m.kind)), [
+      ('Bone folder', MaterialKind.tool),
+      ('Walnut ink', MaterialKind.material),
+    ]);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getStringList('recent_materials'), containsAll(['custom-tool:Bone folder', 'custom:Walnut ink']));
   });
 
   testWidgets('golden: PostMaterials', (tester) async {
