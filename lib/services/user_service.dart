@@ -322,9 +322,29 @@ class UserService {
     return status;
   }
 
+  /// Turns selling off. The server takes down fixed-price listings and auctions without bids
+  /// (B34), so the profile's cached pieces are dropped. A `409` (an auction has bids, a sale is
+  /// going through) comes back as an [ApiException] with the server's message.
   Future<void> disableSeller() async {
     await _api.post('/api/user/me/seller/disable', auth: true);
     await _session.setSellerEnabled(false);
+    final username = _session.user?.username ?? '';
+    if (username.isNotEmpty) {
+      await CacheService.instance.invalidate('profile.pieces.$username');
+      await CacheService.instance.invalidate('profile.forSale.$username');
+    }
+  }
+
+  /// What keeps the account from being deleted right now (`GET /api/user/me/deletion-check`).
+  Future<DeletionCheck> getDeletionCheck() async {
+    final json = await _api.get('/api/user/me/deletion-check', auth: true);
+    return DeletionCheck.fromJson(_api.extractData(json) as Map<String, dynamic>);
+  }
+
+  /// The account's own seller rates (`GET /api/user/me/seller-terms`).
+  Future<SellerTerms> getSellerTerms() async {
+    final json = await _api.get('/api/user/me/seller-terms', auth: true);
+    return SellerTerms.fromJson(_api.extractData(json) as Map<String, dynamic>);
   }
 
   Future<SellerAnalytics> getSellerAnalytics() async {

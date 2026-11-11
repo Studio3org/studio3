@@ -20,6 +20,7 @@ import 'conversation_thread_page.dart';
 import 'follow_list_page.dart';
 import '../widgets/content_actions_sheet.dart';
 import '../widgets/delete_confirmation_dialog.dart';
+import '../widgets/piece_detail/hide_from_collection.dart';
 import '../widgets/profile_avatar_preview_sheet.dart';
 import '../widgets/studio/studio_action_row.dart';
 import '../widgets/studio/studio_icon.dart';
@@ -98,6 +99,23 @@ class _ProfilePageState extends State<ProfilePage>
     }
     _seedContentFromCache();
     _loadProfileShell();
+    PieceService.instance.collectionRevision.addListener(_onCollectionChanged);
+  }
+
+  /// Their own Collection (not viewer mode) shows the pieces they hid, dimmed, with Unhide
+  /// (B32, decision D1). Visitors and viewer mode never get them.
+  bool get _showsHiddenCollection => _isOwnProfile && !widget.viewerMode;
+
+  /// A piece was hidden or brought back somewhere (a piece page's ⋯, Undo): reload their own
+  /// Collection next time it shows, or now if it is showing.
+  void _onCollectionChanged() {
+    if (!mounted || !_showsHiddenCollection) return;
+    _collectionLoaded = false;
+    if (_tab == 'collection') _loadActiveTab(force: true);
+  }
+
+  Future<void> _unhide(PieceSummary piece) async {
+    await unhideFromMyCollection(context, piece.id);
   }
 
   /// Paints Profile's tabs instantly from whatever's already cached (if
@@ -129,6 +147,7 @@ class _ProfilePageState extends State<ProfilePage>
 
   @override
   void dispose() {
+    PieceService.instance.collectionRevision.removeListener(_onCollectionChanged);
     if (_isTabContext) {
       AuthSession.instance.removeListener(_onSessionChanged);
       routeObserver.unsubscribe(this);
@@ -287,7 +306,10 @@ class _ProfilePageState extends State<ProfilePage>
           _tabContentLoading = false;
         });
       } else if (tab == 'collection') {
-        final collection = await PieceService.instance.getUserCollection(profile.username);
+        final collection = await PieceService.instance.getUserCollection(
+          profile.username,
+          includeHidden: _showsHiddenCollection,
+        );
         if (!mounted) return;
         setState(() {
           _collection = collection;
@@ -852,7 +874,11 @@ class _ProfilePageState extends State<ProfilePage>
                         seriesItems: _series,
                         pieces: _pieces,
                         scenes: _scenes,
-                        collection: _collection,
+                        // Hidden pieces only ever come back on their own Collection.
+                        collection: _showsHiddenCollection
+                            ? _collection
+                            : _collection.where((p) => !p.hidden).toList(),
+                        onUnhideCollectionPiece: _showsHiddenCollection ? _unhide : null,
                         loading: _tabContentLoading,
                         isOwnProfile: isOwnProfile && !widget.viewerMode,
                         onDeletePiece: _deletePiece,

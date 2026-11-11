@@ -213,6 +213,21 @@ void main() {
     );
   });
 
+  test('notifications sweep: auction result pushes, chat pushes, everything else unchanged', () {
+    final won = PushRouterService.destinationFor({'type': 'auction_won', 'targetType': 'piece', 'targetId': 'p1'});
+    expect(won.type, AppDestinationType.piece);
+    expect(won.id, 'p1');
+    expect(won.auctionOutcomeType, 'auction_won');
+    final liked = PushRouterService.destinationFor({'type': 'like', 'targetType': 'piece', 'targetId': 'p1'});
+    expect(liked.auctionOutcomeType, isNull, reason: 'other piece pushes still open the piece');
+
+    final chat = PushRouterService.destinationFor({'type': 'message', 'conversationId': 'c9'});
+    expect(chat.type, AppDestinationType.conversation);
+    expect(chat.id, 'c9');
+    expect(chat.isKnown, isTrue);
+    expect(PushRouterService.destinationFor({'type': 'message'}).isKnown, isFalse);
+  });
+
   test('a sale push opens the order as the artist; a purchase one as the buyer', () {
     final sale = PushRouterService.destinationFor({'type': 'sale', 'targetType': 'order', 'targetId': 'o1'});
     expect(sale.type, AppDestinationType.order);

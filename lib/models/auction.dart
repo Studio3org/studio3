@@ -52,6 +52,9 @@ class AuctionSummary {
     this.awaitingPayment = false,
     this.winnerDeadlineAt,
     this.winningBidCents,
+    this.paymentRetryAt,
+    this.secondChanceOffer,
+    this.autoCheckout,
   });
 
   final String auctionId;
@@ -77,6 +80,18 @@ class AuctionSummary {
   final bool awaitingPayment;
   final DateTime? winnerDeadlineAt;
   final int? winningBidCents;
+
+  /// While [awaitingPayment]: the next automatic retry of the winner's card (FRONTEND_HANDOFF
+  /// 7a.3), or null when none is planned.
+  final DateTime? paymentRetryAt;
+
+  /// The piece offered to this viewer after the winner forfeited (7a.4); null for everyone
+  /// else.
+  final SecondChanceOffer? secondChanceOffer;
+
+  /// The winner's delivery after the close (7b); null for everyone else, while the payment is
+  /// being fixed, and on auctions settled before 7b.
+  final AutoCheckout? autoCheckout;
 
   bool get isOpen => status == 'live' || status == 'closing';
 
@@ -124,6 +139,9 @@ class AuctionSummary {
       awaitingPayment: json['awaitingPayment'] == true,
       winnerDeadlineAt: _date(json['winnerDeadlineAt']),
       winningBidCents: _int(json['winningBidCents']),
+      paymentRetryAt: _date(json['paymentRetryAt']),
+      secondChanceOffer: SecondChanceOffer.maybeFrom(json['secondChanceOffer']),
+      autoCheckout: AutoCheckout.maybeFrom(json['autoCheckout']),
     );
   }
 
@@ -146,11 +164,64 @@ class AuctionSummary {
     'awaitingPayment': awaitingPayment,
     if (winnerDeadlineAt != null) 'winnerDeadlineAt': winnerDeadlineAt!.toUtc().toIso8601String(),
     'winningBidCents': ?winningBidCents,
+    if (paymentRetryAt != null) 'paymentRetryAt': paymentRetryAt!.toUtc().toIso8601String(),
+    'secondChanceOffer': ?secondChanceOffer?.toJson(),
+    'autoCheckout': ?autoCheckout?.toJson(),
   };
 
   static int? _int(Object? v) => v is int ? v : (v is num ? v.toInt() : null);
 
   static DateTime? _date(Object? v) => v is String ? DateTime.tryParse(v)?.toLocal() : null;
+}
+
+/// `secondChanceOffer` (FRONTEND_HANDOFF 7a.4): the piece offered at the viewer's top bid
+/// until [expiresAt]; [lastError] says why their last try to accept was declined.
+class SecondChanceOffer {
+  const SecondChanceOffer({required this.amountCents, this.expiresAt, this.lastError});
+
+  final int amountCents;
+  final DateTime? expiresAt;
+  final String? lastError;
+
+  static SecondChanceOffer? maybeFrom(Object? json) {
+    if (json is! Map) return null;
+    final amount = AuctionSummary._int(json['amountCents']);
+    if (amount == null) return null;
+    final error = json['lastError'];
+    return SecondChanceOffer(
+      amountCents: amount,
+      expiresAt: AuctionSummary._date(json['expiresAt']),
+      lastError: error is String && error.trim().isNotEmpty ? error : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'amountCents': amountCents,
+    if (expiresAt != null) 'expiresAt': expiresAt!.toUtc().toIso8601String(),
+    'lastError': ?lastError,
+  };
+}
+
+/// `autoCheckout` (FRONTEND_HANDOFF 7b): how the winner's shipping, insurance and tax are
+/// being charged. `pending_quote` waits on Convelio's price (no checkout); `failed` and
+/// `manual` finish at the auction checkout; `charged` is done.
+class AutoCheckout {
+  const AutoCheckout({required this.state, this.orderId});
+
+  final String state;
+  final String? orderId;
+
+  bool get isPendingQuote => state == 'pending_quote';
+
+  static AutoCheckout? maybeFrom(Object? json) {
+    if (json is! Map) return null;
+    final state = json['state'];
+    if (state is! String || state.isEmpty) return null;
+    final order = json['orderId'];
+    return AutoCheckout(state: state, orderId: order is String && order.isNotEmpty ? order : null);
+  }
+
+  Map<String, dynamic> toJson() => {'state': state, 'orderId': ?orderId};
 }
 
 /// The artist's auction that ended without anything still to settle (BACKEND_CHANGES B38
@@ -278,9 +349,10 @@ int bidIncrementCents(int cents) {
   return 50000;
 }
 
-/// The three quick picks (`BidSheet`): the minimum, then one and two steps above it.
-List<int> bidQuickPicks(int minCents) {
-  final step = bidIncrementCents(minCents);
+/// The three quick picks (`BidSheet`): the minimum, then one and two steps above it. The step
+/// is [stepCents] when given (the server's `bidIncrementCents`), else the table on [minCents].
+List<int> bidQuickPicks(int minCents, {int? stepCents}) {
+  final step = stepCents != null && stepCents > 0 ? stepCents : bidIncrementCents(minCents);
   return [minCents, minCents + step, minCents + 2 * step];
 }
 

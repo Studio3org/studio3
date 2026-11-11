@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models/order.dart';
 import '../services/api_exception.dart';
 import '../services/order_service.dart';
 import '../widgets/orders/order_row.dart';
+import '../widgets/piece_detail/collected_bar.dart' show DeliveryTracker, PieceDelivery;
 import '../widgets/settings_tile.dart' show SettingsSectionLabel;
 import '../widgets/studio/studio.dart';
 
@@ -101,6 +103,35 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     }
   }
 
+  /// "Confirm received" (FRONTEND_HANDOFF 8.4): the buyer says it arrived, which completes the
+  /// order and pays the artist.
+  Future<void> _confirmReceived() async {
+    setState(() => _updating = true);
+    try {
+      final updated = await OrderService.instance.confirmReceived(widget.orderId);
+      if (!mounted) return;
+      setState(() {
+        _order = updated;
+        _updating = false;
+      });
+      showStudioToast(context, 'Thanks for confirming');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _updating = false);
+      showStudioToast(context, e is ApiException ? e.message : 'Could not confirm. Try again.', icon: null);
+    }
+  }
+
+  /// "Track shipment": Convelio's tracking page, outside the app.
+  Future<void> _track(String url) async {
+    try {
+      final launched = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      if (!launched && mounted) showStudioToast(context, "Couldn't open tracking", icon: null);
+    } catch (_) {
+      if (mounted) showStudioToast(context, "Couldn't open tracking", icon: null);
+    }
+  }
+
   /// "Report an issue" (FRONTEND_HANDOFF 2.1): the buyer's route once an order is paid. It
   /// holds the artist's payment and opens a dispute; the order comes back `disputed`.
   Future<void> _reportIssue() async {
@@ -178,6 +209,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
           if (address.line2 != null && address.line2!.isNotEmpty) Text(address.line2!, style: line),
           Text('${address.city}, ${address.state} ${address.zip}', style: line),
         ],
+        ..._shippingSection(order),
         const SizedBox(height: 28),
         Text(
           'Order summary',
@@ -185,7 +217,12 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
         ),
         const SizedBox(height: 6),
         _SummaryLine(label: 'Piece', value: order.artworkDisplay),
-        _SummaryLine(label: 'Shipping', value: order.shippingDisplay),
+        if (order.insuranceCents > 0) ...[
+          // Shipping includes the insurance (FRONTEND_HANDOFF 8.3): shown on separate lines.
+          _SummaryLine(label: 'Shipping', value: _money(order.shippingCents - order.insuranceCents)),
+          _SummaryLine(label: 'Insurance', value: _money(order.insuranceCents)),
+        ] else
+          _SummaryLine(label: 'Shipping', value: order.shippingDisplay),
         _SummaryLine(label: 'Tax', value: order.taxDisplay),
         Container(
           margin: const EdgeInsets.only(top: 6),
@@ -198,6 +235,42 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
         if (actions.isNotEmpty) ...[const SizedBox(height: 28), ...actions],
       ],
     );
+  }
+
+  static String _money(int cents) => '\$${(cents / 100).toStringAsFixed(2)}';
+
+  /// Convelio's tracking (FRONTEND_HANDOFF 8.4), when the order carries it: the tracker, a hold
+  /// or cancellation, the reference in Mono, and Track shipment.
+  List<Widget> _shippingSection(Order order) {
+    final shipment = order.shipment;
+    if (shipment == null || (shipment.steps.isEmpty && (shipment.trackingUrl ?? '').isEmpty)) return const [];
+    final c = context.studio;
+    final delivered = order.status == 'awaiting_confirmation' || order.status == 'completed' || shipment.isDelivered;
+    final step = delivered ? 3 : (PieceDelivery.trackerStep(shipment) ?? 0);
+    final flag = shipment.cancelled ? 'Shipment cancelled' : (shipment.onHold ? 'Shipment on hold' : null);
+    final reference = (shipment.reference ?? '').isNotEmpty ? shipment.reference! : shipment.trackingNumber;
+    final url = shipment.trackingUrl ?? '';
+    return [
+      const SettingsSectionLabel('Shipping', top: 28),
+      const SizedBox(height: 12),
+      DeliveryTracker(step: step, forArtist: widget.isSeller),
+      if (flag != null) ...[
+        const SizedBox(height: 10),
+        Text(flag, style: StudioType.body14(color: c.textPrimary)),
+      ],
+      if (reference.isNotEmpty) ...[
+        const SizedBox(height: 12),
+        Text(reference, style: StudioType.mono(14, color: c.textPrimary)),
+      ],
+      if (url.isNotEmpty) ...[
+        const SizedBox(height: 14),
+        StudioButton(
+          label: 'Track shipment',
+          variant: StudioButtonVariant.outline,
+          onPressed: () => _track(url),
+        ),
+      ],
+    ];
   }
 
   /// The artist only cancels: shipping is updated by Studio 3 (and Convelio), and completion
@@ -215,6 +288,20 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     final actions = <Widget>[];
     if (order.status == 'pending_payment') {
       actions.add(_actionButton('Cancel order', () => _cancel(order), secondary: true));
+    }
+    // Delivered (FRONTEND_HANDOFF 8.4): confirm it, or it completes by itself in 7 days.
+    if (order.canConfirmReceipt) {
+      actions.add(_actionButton('Confirm received', _confirmReceived));
+      actions.add(
+        Padding(
+          padding: const EdgeInsets.only(bottom: 14),
+          child: Text(
+            'or it completes automatically in 7 days',
+            textAlign: TextAlign.center,
+            style: StudioType.caption12(color: context.studio.textSecondary),
+          ),
+        ),
+      );
     }
     if (order.canReportIssue) {
       actions.add(_actionButton('Report an issue', _reportIssue, secondary: true));

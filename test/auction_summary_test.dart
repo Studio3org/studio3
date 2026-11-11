@@ -253,4 +253,47 @@ void main() {
       expect(formatDeadlineCountdown(past), isNull);
     });
   });
+
+  // FRONTEND_HANDOFF 7a.3, 7a.4, 7b: the retry time, the second-chance offer and the delivery
+  // after a win, read and written back (the piece cache round-trips through toJson).
+  group('auctions v2 fields', () {
+    test('read paymentRetryAt, secondChanceOffer and autoCheckout, and keep them in toJson', () {
+      final a = AuctionSummary.fromJson({
+        ..._payload(status: 'second_chance'),
+        'paymentRetryAt': '2026-11-12T10:00:00Z',
+        'secondChanceOffer': {
+          'amountCents': 36000,
+          'expiresAt': '2026-11-13T10:00:00Z',
+          'lastError': 'Your card was declined.',
+        },
+        'autoCheckout': {'state': 'pending_quote', 'orderId': null},
+      });
+      expect(a.paymentRetryAt, DateTime.utc(2026, 11, 12, 10).toLocal());
+      expect(a.secondChanceOffer!.amountCents, 36000);
+      expect(a.secondChanceOffer!.expiresAt, DateTime.utc(2026, 11, 13, 10).toLocal());
+      expect(a.secondChanceOffer!.lastError, 'Your card was declined.');
+      expect(a.autoCheckout!.state, 'pending_quote');
+      expect(a.autoCheckout!.isPendingQuote, isTrue);
+      expect(a.autoCheckout!.orderId, isNull);
+
+      final back = AuctionSummary.fromJson(a.toJson());
+      expect(back.paymentRetryAt, a.paymentRetryAt);
+      expect(back.secondChanceOffer!.amountCents, 36000);
+      expect(back.secondChanceOffer!.lastError, 'Your card was declined.');
+      expect(back.autoCheckout!.state, 'pending_quote');
+    });
+
+    test('absent or null on an older server', () {
+      final a = AuctionSummary.fromJson({
+        ..._payload(),
+        'secondChanceOffer': null,
+        'autoCheckout': null,
+      });
+      expect(a.paymentRetryAt, isNull);
+      expect(a.secondChanceOffer, isNull);
+      expect(a.autoCheckout, isNull);
+      expect(a.toJson().containsKey('secondChanceOffer'), isFalse);
+      expect(a.toJson().containsKey('autoCheckout'), isFalse);
+    });
+  });
 }

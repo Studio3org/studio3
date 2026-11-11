@@ -12,6 +12,7 @@ import '../models/piece_summary.dart';
 import '../models/post_image_transform.dart';
 import '../models/post_summary.dart';
 import '../models/user_profile.dart' show CommissionQuote;
+import '../services/api_exception.dart';
 import '../services/auth_session.dart';
 import '../services/drafts_service.dart';
 import '../services/piece_service.dart';
@@ -31,6 +32,7 @@ import '../widgets/create_flow/series_picker_sheet.dart';
 import '../widgets/piece_detail/piece_share_sheet.dart';
 import '../widgets/post_create_option_sheet.dart';
 import '../widgets/post_crop_preview.dart';
+import '../widgets/selling/pickup_address.dart';
 import '../widgets/studio/studio_toast.dart';
 import 'add_materials_page.dart';
 import 'related_scenes_page.dart';
@@ -477,6 +479,20 @@ class _PostCreatePageState extends State<PostCreatePage> {
         _publishedPiece = live;
         _step = _CreateStep.done;
       });
+    } on ApiException catch (e) {
+      // A listing the server refuses (FRONTEND_HANDOFF 8.1: packed size, weight, pickup
+      // address, medium…) stays on this step with its message; the pickup address can be set
+      // from the toast. A draft that saved but couldn't go live waits in Drafts as before.
+      final saved = _draftPiece;
+      if (saved == null && e.statusCode == 400) {
+        if (mounted) showListingError(context, e.message);
+      } else {
+        if (saved != null) DraftsService.instance.publishFailed(saved.id);
+        if (mounted) {
+          setState(() => _step = _CreateStep.failed);
+          if (e.statusCode == 400) showListingError(context, e.message);
+        }
+      }
     } catch (_) {
       // Saved but not live: Drafts says "Didn't publish. Tap to try again." (here, and on
       // their other devices when the server hears it, B33).

@@ -399,6 +399,7 @@ class CommissionQuote {
     required this.netCents,
     required this.commissionBps,
     this.reducedRate = false,
+    this.reducedRateUntil,
   });
 
   final int priceCents;
@@ -408,13 +409,103 @@ class CommissionQuote {
   /// The seller's own rate is below the standard one (the founding-artist tier).
   final bool reducedRate;
 
+  /// When the reduced rate ends (B3), or null when it has no end date or there is none. Not
+  /// shown anywhere yet: the app never names the tier.
+  final DateTime? reducedRateUntil;
+
   factory CommissionQuote.fromJson(Map<String, dynamic> json) {
     return CommissionQuote(
       priceCents: (json['priceCents'] as num?)?.toInt() ?? 0,
       netCents: (json['netCents'] as num?)?.toInt() ?? 0,
       commissionBps: (json['commissionBps'] as num?)?.toInt() ?? 0,
       reducedRate: json['reducedRate'] as bool? ?? false,
+      reducedRateUntil: DateTime.tryParse(json['reducedRateUntil'] as String? ?? ''),
     );
+  }
+}
+
+/// One thing keeping the account from being deleted (`/api/user/me/deletion-check`), e.g.
+/// `running_auction`, `shipping_sale`, `fee_debt`; [message] is the server's words for it.
+class DeletionBlocker {
+  const DeletionBlocker({required this.kind, required this.message, this.count = 1, this.amountCents});
+
+  final String kind;
+  final String message;
+  final int count;
+
+  /// What is owed, on `fee_debt`.
+  final int? amountCents;
+
+  factory DeletionBlocker.fromJson(Map<String, dynamic> json) {
+    return DeletionBlocker(
+      kind: json['kind'] as String? ?? '',
+      message: json['message'] as String? ?? '',
+      count: (json['count'] as num?)?.toInt() ?? 1,
+      amountCents: (json['amountCents'] as num?)?.toInt(),
+    );
+  }
+}
+
+/// Whether the account can be deleted now, and what is in the way.
+class DeletionCheck {
+  const DeletionCheck({required this.canDelete, this.blockers = const []});
+
+  final bool canDelete;
+  final List<DeletionBlocker> blockers;
+
+  factory DeletionCheck.fromJson(Map<String, dynamic> json) {
+    final blockers = (json['blockers'] as List?)
+            ?.whereType<Map<String, dynamic>>()
+            .map(DeletionBlocker.fromJson)
+            .toList() ??
+        const <DeletionBlocker>[];
+    return DeletionCheck(
+      canDelete: json['canDelete'] as bool? ?? blockers.isEmpty,
+      blockers: blockers,
+    );
+  }
+}
+
+/// The account's own seller rates (`/api/user/me/seller-terms`). The app never names the tier
+/// behind [reducedRate].
+class SellerTerms {
+  const SellerTerms({
+    this.artCommissionPercent,
+    this.ticketFeePercent,
+    this.reducedRate = false,
+    this.reducedRateUntil,
+  });
+
+  final double? artCommissionPercent;
+  final double? ticketFeePercent;
+  final bool reducedRate;
+  final DateTime? reducedRateUntil;
+
+  factory SellerTerms.fromJson(Map<String, dynamic> json) {
+    double? percent(String percentKey, String bpsKey) {
+      final p = json[percentKey];
+      if (p is num) return p.toDouble();
+      final bps = json[bpsKey];
+      return bps is num ? bps / 100 : null;
+    }
+
+    return SellerTerms(
+      artCommissionPercent: percent('artCommissionPercent', 'artCommissionBps'),
+      ticketFeePercent: percent('ticketFeePercent', 'ticketFeeBps'),
+      reducedRate: json['reducedRate'] as bool? ?? false,
+      reducedRateUntil: DateTime.tryParse(json['reducedRateUntil'] as String? ?? ''),
+    );
+  }
+
+  /// "15% on art · 8% on tickets" from what the server sent, or null when it sent neither.
+  String? get summary {
+    String fmt(double p) =>
+        '${p.toStringAsFixed(2).replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '')}%';
+    final parts = [
+      if (artCommissionPercent != null) '${fmt(artCommissionPercent!)} on art',
+      if (ticketFeePercent != null) '${fmt(ticketFeePercent!)} on tickets',
+    ];
+    return parts.isEmpty ? null : parts.join(' · ');
   }
 }
 

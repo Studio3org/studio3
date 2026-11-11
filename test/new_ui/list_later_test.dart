@@ -66,7 +66,7 @@ void main() {
   });
 
   for (final dark in [false, true]) {
-    testWidgets('before you list it: depth, weight, framing; Continue off until all three (${dark ? 'dark' : 'light'})', (
+    testWidgets('before you list it: depth, weight, packed size, framing; Continue off until all are in (${dark ? 'dark' : 'light'})', (
       tester,
     ) async {
       Object? result;
@@ -86,20 +86,48 @@ void main() {
       await tester.tap(find.text('open'));
       await tester.pumpAndSettle();
       expect(find.text('Before you list it'), findsOneWidget);
-      expect(find.text('We need three more details to quote shipping for collectors.'), findsOneWidget);
+      expect(find.text('We need a few more details to quote shipping for collectors.'), findsOneWidget);
       final fields = tester.widgetList<StudioUnderlineField>(find.byType(StudioUnderlineField));
       expect(fields.map((f) => (f.label, f.unit)), [('Depth', 'in'), ('Weight', 'lb')]);
       expect(find.text('Framing'), findsOneWidget);
+      // What the courier prices on (FRONTEND_HANDOFF 8.1).
+      expect(find.text('Packed size'), findsOneWidget);
+      expect(find.text('Packing'), findsOneWidget);
+      expect(find.text('Item type'), findsOneWidget);
+      expect(find.text('Materials or framing'), findsOneWidget);
       StudioButton next() =>
           tester.widget<StudioButton>(find.widgetWithText(StudioButton, 'Continue to pricing'));
       expect(next().onPressed, isNull);
-      await tester.enterText(find.byType(TextField).first, '1.5');
-      await tester.enterText(find.byType(TextField).last, '8');
+      await tester.enterText(find.byType(TextField).at(0), '1.5');
+      await tester.enterText(find.byType(TextField).at(1), '8');
       await tester.pump();
       expect(next().onPressed, isNull);
+      await tester.enterText(find.byType(TextField).at(2), '30');
+      await tester.enterText(find.byType(TextField).at(3), '40');
+      await tester.enterText(find.byType(TextField).at(4), '5');
+      await tester.pump();
+      expect(next().onPressed, isNull);
+      await tester.ensureVisible(find.text('Item type'));
+      await tester.tap(find.text('Item type'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Painting'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Materials or framing'));
+      await tester.tap(find.text('Materials or framing'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Framed under glass'));
+      await tester.pump();
+      await tester.ensureVisible(find.widgetWithText(StudioButton, 'Done'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(StudioButton, 'Done'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Framing'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Framing'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Unframed'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Continue to pricing'));
       await tester.pumpAndSettle();
       expect(next().onPressed, isNotNull);
       await tester.tap(find.text('Continue to pricing'));
@@ -108,6 +136,13 @@ void main() {
       expect(details.dimensions, '24x36x1.5 in');
       expect(details.weightKg, closeTo(3.629, 0.001));
       expect(details.framing, 'Unframed');
+      expect(details.shipping, {
+        'packageLengthCm': 76.2,
+        'packageWidthCm': 101.6,
+        'packageHeightCm': 12.7,
+        'shippingItemType': 'fine_art.painting',
+        'shippingMaterials': ['framed_glass'],
+      });
     });
   }
 

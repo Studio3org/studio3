@@ -1,183 +1,63 @@
 import 'package:flutter/material.dart';
 
-import '../models/order.dart';
-import '../models/piece_summary.dart';
+import '../models/user_profile.dart';
 import '../services/api_exception.dart';
 import '../services/auth_service.dart';
-import '../services/auth_session.dart';
 import '../services/device_service.dart';
-import '../services/order_service.dart';
-import '../services/piece_service.dart';
+import '../services/user_service.dart';
 import '../widgets/feed_skeleton.dart';
-import '../widgets/orders/order_list_row.dart';
 import '../widgets/settings_tile.dart';
 import '../widgets/studio/studio.dart';
-import 'order_detail_page.dart';
-import 'profile/widgets/profile_masonry_grid.dart' show openProfilePiece;
-
-/// Something that keeps the account from being deleted (a row on `SettingsDelete`): what it is,
-/// a line under it, and the piece's title on the right. Opens the piece or the order.
-class DeletionBlocker {
-  const DeletionBlocker({
-    required this.label,
-    this.subtitle,
-    this.value,
-    this.piece,
-    this.order,
-    this.asSeller = false,
-  });
-
-  final String label;
-  final String? subtitle;
-  final String? value;
-
-  /// A listed piece: opens its page.
-  final PieceSummary? piece;
-
-  /// A sale or purchase: opens the order.
-  final Order? order;
-  final bool asSeller;
-}
-
-const _inProgress = {'pending_payment', 'paid', 'shipped', 'awaiting_confirmation', 'disputed'};
-const _payoutWaiting = {'pending', 'ready_to_release', 'transfer_failed'};
-
-/// What is still in progress, in the board's order: a running auction, anything else listed,
-/// a sale or purchase on its way (or waiting for payment, or with an issue open), a payout not
-/// paid yet. [pieces] are the pieces on the orders, by id, for their titles.
-///
-/// The server refuses to delete while anything is listed or a sale or purchase is in progress
-/// (the same list); payouts are the board's addition. Events they host with tickets wait on
-/// ticket sales (BACKEND_CHANGES B22, on hold), and one server check in place of this
-/// (`GET /api/user/me/deletion-check`) is B34.
-List<DeletionBlocker> deletionBlockers({
-  required List<PieceSummary> listed,
-  required List<Order> sales,
-  required List<Order> purchases,
-  required Map<String, PieceSummary> pieces,
-}) {
-  String? titleOf(Order order) {
-    final piece = orderPiece(order, pieces);
-    return piece == null ? null : orderPieceTitle(piece);
-  }
-
-  String orderLabel(Order order, {required bool sale}) => switch (order.status) {
-    'pending_payment' => sale ? 'Sale waiting for payment' : 'Purchase waiting for payment',
-    'disputed' => 'Issue open',
-    _ => 'Piece shipping',
-  };
-
-  return [
-    for (final piece in listed.where((p) => p.isAuction))
-      DeletionBlocker(
-        label: 'Auction running',
-        subtitle: piece.auctionEndsAt == null ? null : 'Ends ${orderRowDate(piece.auctionEndsAt)}',
-        value: orderPieceTitle(piece),
-        piece: piece,
-      ),
-    for (final piece in listed.where((p) => !p.isAuction))
-      DeletionBlocker(label: 'Listed for sale', value: orderPieceTitle(piece), piece: piece),
-    for (final order in sales.where((o) => _inProgress.contains(o.status)))
-      DeletionBlocker(
-        label: orderLabel(order, sale: true),
-        subtitle: saleStep(order).text,
-        value: titleOf(order),
-        order: order,
-        asSeller: true,
-      ),
-    for (final order in purchases.where((o) => _inProgress.contains(o.status)))
-      DeletionBlocker(
-        label: orderLabel(order, sale: false),
-        subtitle: purchaseStep(order),
-        value: titleOf(order),
-        order: order,
-      ),
-    for (final order in sales.where(
-      (o) => o.status == 'completed' && _payoutWaiting.contains(o.payoutStatus),
-    ))
-      DeletionBlocker(label: 'Payout pending', value: titleOf(order), order: order, asSeller: true),
-  ];
-}
 
 /// Delete account (`SettingsDelete`, Flow 12; Apple requires it). While anything is in
 /// progress: "Finish these first", "Your account can be deleted once nothing is in progress.",
-/// a row for each ([deletionBlockers]), what deleting removes, and Delete account grey at the
-/// bottom. Once nothing is: Delete account in Ink, which asks them to type DELETE (and, as the
-/// server still requires, their password).
+/// a row for each of the server's blockers (`/api/user/me/deletion-check`, B34: its message,
+/// inert), what deleting removes, and Delete account grey at the bottom. Once nothing is:
+/// Delete account in Ink, which asks them to type DELETE (and, as the server still requires,
+/// their password; decision D8 keeps both).
 class DeleteAccountPage extends StatefulWidget {
-  const DeleteAccountPage({super.key, this.debugBlockers});
+  const DeleteAccountPage({super.key, this.debugCheck});
 
-  /// For tests: what is in progress, instead of loading it.
+  /// For tests: the server's check, instead of loading it.
   @visibleForTesting
-  final List<DeletionBlocker>? debugBlockers;
+  final DeletionCheck? debugCheck;
 
   @override
   State<DeleteAccountPage> createState() => _DeleteAccountPageState();
 }
 
 class _DeleteAccountPageState extends State<DeleteAccountPage> {
-  List<DeletionBlocker> _blockers = const [];
+  DeletionCheck _check = const DeletionCheck(canDelete: true);
   bool _loading = true;
   bool _deleting = false;
 
   @override
   void initState() {
     super.initState();
-    final given = widget.debugBlockers;
+    final given = widget.debugCheck;
     if (given != null) {
-      _blockers = given;
+      _check = given;
       _loading = false;
       return;
     }
     _load();
   }
 
-  /// Reads the listings, sales and purchases (first pages). One that fails counts as empty:
-  /// the server still refuses the delete and says why.
+  /// Reads the server's check. If it can't be read, Delete stays on: the server still refuses
+  /// while anything is in progress and says why.
   Future<void> _load() async {
-    if (widget.debugBlockers != null) return;
-    final username = AuthSession.instance.user?.username ?? '';
-    Future<T> orEmpty<T>(Future<T> Function() read, T empty) async {
-      try {
-        return await read();
-      } catch (_) {
-        return empty;
-      }
+    if (widget.debugCheck != null) return;
+    DeletionCheck check;
+    try {
+      check = await UserService.instance.getDeletionCheck();
+    } catch (_) {
+      check = const DeletionCheck(canDelete: true);
     }
-
-    final results = await Future.wait<Object>([
-      orEmpty<List<PieceSummary>>(
-        () => username.isEmpty ? Future.value(const []) : PieceService.instance.getUserPiecesForSale(username),
-        const [],
-      ),
-      orEmpty<List<Order>>(() async => (await OrderService.instance.getMySales()).items, const []),
-      orEmpty<List<Order>>(() async => (await OrderService.instance.getMyOrders()).items, const []),
-    ]);
-    final listed = (results[0] as List<PieceSummary>).where((p) => p.status != 'sold').toList();
-    final sales = results[1] as List<Order>;
-    final purchases = results[2] as List<Order>;
-    final pieces = <String, PieceSummary>{};
-    await loadOrderPieces([...sales, ...purchases], pieces);
     if (!mounted) return;
     setState(() {
-      _blockers = deletionBlockers(listed: listed, sales: sales, purchases: purchases, pieces: pieces);
+      _check = check;
       _loading = false;
     });
-  }
-
-  Future<void> _open(DeletionBlocker blocker) async {
-    final piece = blocker.piece;
-    final order = blocker.order;
-    if (piece != null) {
-      openProfilePiece(context, piece);
-      return;
-    }
-    if (order == null) return;
-    await Navigator.push<void>(
-      context,
-      MaterialPageRoute<void>(builder: (_) => OrderDetailPage(orderId: order.id, isSeller: blocker.asSeller)),
-    );
-    if (mounted) _load();
   }
 
   Future<void> _delete() async {
@@ -185,8 +65,9 @@ class _DeleteAccountPageState extends State<DeleteAccountPage> {
     if (password == null || password.isEmpty || !mounted) return;
     setState(() => _deleting = true);
     try {
-      await DeviceService.instance.unregisterCurrentDevice();
       await AuthService.instance.deleteAccount(password);
+      // Only once the account is gone: a refused delete keeps this phone's notifications.
+      await DeviceService.instance.unregisterCurrentDevice();
       if (!mounted) return;
       Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
     } on ApiException catch (e) {
@@ -205,7 +86,7 @@ class _DeleteAccountPageState extends State<DeleteAccountPage> {
   @override
   Widget build(BuildContext context) {
     final c = context.studio;
-    final blocked = _blockers.isNotEmpty;
+    final blocked = !_check.canDelete;
     return Scaffold(
       backgroundColor: c.background,
       appBar: StudioTopBar(context: context, title: 'Delete account'),
@@ -235,13 +116,8 @@ class _DeleteAccountPageState extends State<DeleteAccountPage> {
                       ),
                       if (blocked) ...[
                         const SizedBox(height: 14),
-                        for (final blocker in _blockers)
-                          SettingsRow(
-                            label: blocker.label,
-                            subtitle: blocker.subtitle,
-                            value: blocker.value,
-                            onTap: () => _open(blocker),
-                          ),
+                        for (final blocker in _check.blockers)
+                          SettingsRow(label: blocker.message, chevron: false),
                       ],
                       const SizedBox(height: 20),
                       Text(

@@ -20,7 +20,8 @@ import 'package:studio3/widgets/accept_decline_buttons.dart';
 import 'package:studio3/widgets/inbox/chats_body.dart';
 import 'package:studio3/widgets/inbox/follow_requests_body.dart';
 import 'package:studio3/widgets/inbox/notifications_body.dart';
-import 'package:studio3/widgets/studio/studio.dart';
+import 'package:studio3/widgets/studio/studio.dart';
+
 import 'package:studio3/utils/app_clock.dart';
 
 import 'golden_harness.dart';
@@ -448,14 +449,39 @@ void main() {
         await tester.pump();
       }
       final pushes = [for (final r in server.requests) r.body!['push'] as Map];
-      expect(pushes[0], {'purchase': false, 'order_shipped': false, 'order_delivered': false});
-      expect(pushes[1], {'event_cancelled': false, 'event_reminder': false});
+      expect(pushes[0], {
+        'purchase': false,
+        'order_shipped': false,
+        'order_delivered': false,
+        'shipping_quote_ready': false,
+        'shipment_picked_up': false,
+        'shipment_out_for_delivery': false,
+        'shipment_on_hold': false,
+        'shipment_canceled': false,
+      });
+      expect(pushes[1], {
+        'event_cancelled': false,
+        'event_reminder': false,
+        'event_rescheduled': false,
+        'ticket_refunded': false,
+        'waitlist_hold': false,
+        'waitlist_hold_ended': false,
+        'event_tickets_available': false,
+        'event_invite': false,
+        'event_invite_response': false,
+        'event_piece_request': false,
+        'event_piece_response': false,
+      });
       expect(pushes[2], {
         'bid_placed': false,
         'auction_sold': false,
         'auction_no_sale': false,
         'auction_winner_payment_failed': false,
         'sale': false,
+        'auction_second_chance_sent': false,
+        'auction_needs_action': false,
+        'auction_ended_no_bids': false,
+        'auction_reserve_not_met': false,
       });
     });
 

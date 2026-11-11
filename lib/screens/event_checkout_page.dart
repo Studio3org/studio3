@@ -26,6 +26,41 @@ enum EventCheckoutOutcome {
   reserveInstead,
 }
 
+/// What checkout pops: how it ended, plus the order for the confirmation (B22).
+class EventCheckoutResult {
+  const EventCheckoutResult.paid({required this.choice, this.orderId, this.order, this.pending = false})
+    : outcome = EventCheckoutOutcome.paid;
+
+  const EventCheckoutResult.reserveInstead(this.choice)
+    : outcome = EventCheckoutOutcome.reserveInstead,
+      orderId = null,
+      order = null,
+      pending = false;
+
+  final EventCheckoutOutcome outcome;
+
+  /// What was bought, or the free tickets to reserve instead.
+  final EventTicketChoice choice;
+
+  /// The order's id; null from a server that doesn't send one.
+  final String? orderId;
+
+  /// The order once the server confirmed it, from the poll.
+  final EventOrderStatus? order;
+
+  /// The payment went through but the tickets weren't issued before checkout stopped waiting.
+  final bool pending;
+}
+
+/// What to tell the buyer when an order stopped without tickets (B22).
+String eventOrderStoppedMessage(String status) => switch (status) {
+  'expired' => 'Your 10 minutes to pay ran out, so the tickets went back on sale. Please try again.',
+  'failed' => "Your payment didn't go through. Please try again.",
+  'cancelled' => 'This event was cancelled or ended while you were paying. Any money taken is refunded automatically.',
+  'refunded' => 'This order was refunded.',
+  _ => 'Could not finish checkout. Please try again.',
+};
+
 /// `$25.00`: checkout amounts always show cents (`EvCheckout`).
 String eventCheckoutMoney(int cents) =>
     '${formatMoney(cents - cents % 100)}.${(cents % 100).toString().padLeft(2, '0')}';
@@ -45,6 +80,8 @@ class EventCheckoutPage extends StatefulWidget {
     required this.choice,
     @visibleForTesting this.debugQuote,
     @visibleForTesting this.debugEmail,
+    @visibleForTesting this.pollEvery = const Duration(seconds: 1),
+    @visibleForTesting this.pollFor = const Duration(seconds: 20),
   });
 
   final StudioEvent event;
@@ -54,12 +91,16 @@ class EventCheckoutPage extends StatefulWidget {
   final EventOrderQuote? debugQuote;
   final String? debugEmail;
 
-  static Future<EventCheckoutOutcome?> open(
+  /// After paying, how often to ask whether the tickets are issued, and for how long.
+  final Duration pollEvery;
+  final Duration pollFor;
+
+  static Future<EventCheckoutResult?> open(
     BuildContext context, {
     required StudioEvent event,
     required EventTicketChoice choice,
   }) {
-    return Navigator.of(context).push<EventCheckoutOutcome>(
+    return Navigator.of(context).push<EventCheckoutResult>(
       MaterialPageRoute(
         builder: (_) => EventCheckoutPage(event: event, choice: choice),
       ),
@@ -117,7 +158,7 @@ class _EventCheckoutPageState extends State<EventCheckoutPage> {
     final next = await EventTicketsSheet.show(context, widget.event, initial: _choice);
     if (next == null || !mounted) return;
     if (next.isFree) {
-      Navigator.of(context).pop(EventCheckoutOutcome.reserveInstead);
+      Navigator.of(context).pop(EventCheckoutResult.reserveInstead(next));
       return;
     }
     setState(() => _choice = next);
@@ -132,8 +173,30 @@ class _EventCheckoutPageState extends State<EventCheckoutPage> {
   Future<void> _pay() async {
     setState(() => _paying = true);
     try {
-      await EventService.instance.placeOrder(widget.event.id, _choice.counts);
-      if (mounted) Navigator.of(context).pop(EventCheckoutOutcome.paid);
+      final order = await EventService.instance.placeOrder(widget.event.id, _choice.counts);
+      // Free or a development server (`status: paid`), or a server that doesn't say: done.
+      if (order.status == null || order.isPaid || order.id.isEmpty) {
+        if (mounted) {
+          Navigator.of(context).pop(
+            EventCheckoutResult.paid(choice: _choice, orderId: order.id.isEmpty ? null : order.id),
+          );
+        }
+        return;
+      }
+      // The server issues the tickets once Stripe confirms, a second or two after the sheet.
+      final settled = await _waitForTickets(order.id);
+      if (!mounted) return;
+      if (settled == null) {
+        Navigator.of(context).pop(EventCheckoutResult.paid(choice: _choice, orderId: order.id, pending: true));
+        return;
+      }
+      if (settled.isPaid) {
+        Navigator.of(context).pop(EventCheckoutResult.paid(choice: _choice, orderId: order.id, order: settled));
+        return;
+      }
+      setState(() => _paying = false);
+      showStudioToast(context, eventOrderStoppedMessage(settled.status), icon: null);
+      _loadQuote();
     } on StripeException {
       // Closed the payment sheet: nothing was charged.
       if (mounted) setState(() => _paying = false);
@@ -148,6 +211,22 @@ class _EventCheckoutPageState extends State<EventCheckoutPage> {
       setState(() => _paying = false);
       showStudioToast(context, 'Could not finish checkout. Please try again.', icon: null);
     }
+  }
+
+  /// Polls the order until it leaves `pending_payment`; null when it hasn't by [pollFor].
+  Future<EventOrderStatus?> _waitForTickets(String orderId) async {
+    final tries = widget.pollFor.inMilliseconds ~/ widget.pollEvery.inMilliseconds;
+    for (var i = 0; i < tries; i++) {
+      await Future<void>.delayed(widget.pollEvery);
+      if (!mounted) return null;
+      try {
+        final status = await EventService.instance.getOrder(widget.event.id, orderId);
+        if (!status.isPending) return status;
+      } catch (_) {
+        // A dropped poll: ask again next time.
+      }
+    }
+    return null;
   }
 
   @override

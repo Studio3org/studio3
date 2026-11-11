@@ -19,6 +19,8 @@ import 'package:studio3/screens/host/host_event_page.dart';
 import 'package:studio3/screens/host/host_guest_list_page.dart';
 import 'package:studio3/screens/host/host_live_page.dart';
 import 'package:studio3/screens/host/host_manage_page.dart';
+import 'package:studio3/screens/host/host_reschedule_page.dart';
+import 'package:studio3/screens/host/host_scanner_page.dart';
 import 'package:studio3/screens/my_events_page.dart';
 import 'package:studio3/services/api_client.dart';
 import 'package:studio3/services/auth_session.dart';
@@ -36,7 +38,8 @@ import 'golden_harness.dart';
 /// - a guest: Events tab → the event → Get tickets → Reserve → You're going → Your events;
 /// - a host: Details (cover, title, place, date, category, Selling) → Tickets (a cap) →
 ///   Lineup (a featured artist, two pieces, one for sale) → Review → Publish → live →
-///   Manage → Guest list → Cancel with a message; plus a publish that fails half way and is
+///   Manage → Check in guests (Enter code, the guest list, check in by hand) → Reschedule →
+///   Cancel with the preview and a message; plus a publish that fails half way and is
 ///   tried again, and leaving with unsaved changes.
 final _now = DateTime(2037, 11, 18, 10);
 
@@ -80,6 +83,13 @@ class _FakeServer implements HttpClientAdapter {
 
   int count0(String method, String path) => requests.where((r) => r.method == method && r.path == path).length;
 
+  /// The host's guests (Phase 4.3), in the scan's ticket shape.
+  final guests = <Map<String, dynamic>>[
+    {'id': 'tk1', 'number': 'S3-T-JORDAN', 'ticketTypeName': 'General Admission', 'holderName': 'Jordan Lee', 'holderUsername': 'jordan', 'position': 1, 'of': 1, 'status': 'valid'},
+    {'id': 'tk2', 'number': 'S3-T-KAIMOR', 'ticketTypeName': 'General Admission', 'holderName': 'Kai Moreno', 'holderUsername': 'kai', 'position': 1, 'of': 1, 'status': 'valid'},
+  ];
+  int get _checkedIn => guests.where((g) => g['status'] == 'checked_in').length;
+
   Map<String, dynamic> _hostedNow() => {...hosted!, 'lineup': lineup};
 
   @override
@@ -105,6 +115,22 @@ class _FakeServer implements HttpClientAdapter {
         },
       ]);
     }
+    // Check-in (Phase 4.3): the code is in the path.
+    final checkIn = RegExp(r'^/api/events/new1/tickets/([^/]+)/check-in$').firstMatch(path);
+    if (options.method == 'POST' && checkIn != null) {
+      final code = Uri.decodeComponent(checkIn.group(1)!);
+      final guest = guests.where((g) => g['id'] == code || (g['number'] as String).toLowerCase() == code.toLowerCase());
+      if (guest.isEmpty) {
+        return _json({'success': true, 'data': {'result': 'invalid', 'message': 'Not a valid ticket.', 'ticket': null, 'checkedIn': _checkedIn, 'total': guests.length}}, 200);
+      }
+      final g = guest.first;
+      if (g['status'] == 'checked_in') {
+        return _json({'success': true, 'data': {'result': 'already_checked_in', 'message': 'Already checked in at 8:14 PM CST.', 'ticket': g, 'checkedIn': _checkedIn, 'total': guests.length}}, 200);
+      }
+      g['status'] = 'checked_in';
+      g['checkedInAt'] = '2037-11-21T20:14:00+00:00';
+      return _json({'success': true, 'data': {'result': 'checked_in', 'message': 'Checked in: ${g['holderName']}, ${g['ticketTypeName']} (1 of 1).', 'ticket': g, 'checkedIn': _checkedIn, 'total': guests.length}}, 200);
+    }
     Object? data;
     switch (key) {
       // --- the guest ---
@@ -117,6 +143,12 @@ class _FakeServer implements HttpClientAdapter {
         };
       case 'GET /api/events/ev1':
         data = {..._guestEvent(going: going, count: count), ...detailExtra};
+      // Ticketing (B22): an RSVP event has no ticket types; an order is polled until paid.
+      case 'GET /api/events/ev1/ticket-types':
+      case 'GET /api/events/new1/ticket-types':
+        data = {'ticketTypes': []};
+      case 'GET /api/events/ev1/orders/o1':
+        data = {'id': 'o1', 'eventId': 'ev1', 'status': 'paid', 'ticketCount': 1};
       case 'GET /api/user/amara':
         data = {'username': 'amara', 'name': 'Amara Osei', 'isFollowing': true};
       case 'POST /api/events/ev1/rsvp':
@@ -151,6 +183,45 @@ class _FakeServer implements HttpClientAdapter {
         data = _hostedNow();
       case 'GET /api/events/new1':
         data = {...?hosted, 'rsvpCount': 2, 'lineup': lineup};
+      case 'GET /api/events/new1/guests':
+        final q = (options.uri.queryParameters['q'] ?? '').toLowerCase();
+        data = {
+          'guests': [
+            for (final g in guests)
+              if (q.isEmpty || (g['holderName'] as String).toLowerCase().contains(q)) g,
+          ],
+          'checkedIn': _checkedIn,
+          'total': guests.length,
+          'ageLimit': '21',
+        };
+      case 'GET /api/events/new1/check-in/manifest':
+        data = {
+          'eventId': 'new1',
+          'publicKey': base64.encode(List.filled(32, 0)),
+          'codePrefix': 'S3T1.',
+          'ageLimit': '21',
+          'tickets': guests,
+          'checkedIn': _checkedIn,
+          'total': guests.length,
+        };
+      case 'GET /api/events/new1/cancel-preview':
+        data = {
+          'ticketsToVoid': 2,
+          'ordersToRefund': 1,
+          'refundTotalCents': 5412,
+          'cardFeesCents': 187,
+          'waitlistCount': 0,
+          'guestsToNotify': 2,
+        };
+      case 'POST /api/events/new1/reschedule':
+        hosted = {
+          ...hosted!,
+          'startsAt': body!['startsAt'],
+          'endsAt': body['endsAt'],
+          'rescheduledAt': '2037-11-18T10:00:00+00:00',
+          'rescheduleMessage': body['message'],
+        };
+        data = _hostedNow();
       case 'GET /api/events/new1/attendees':
         data = {
           'attendees': [
@@ -286,6 +357,8 @@ void main() {
     expect(_button('Reserve'), findsOneWidget);
     await _tap(tester, _button('Reserve'), rounds: 10);
     expect(_server.bodies('POST', '/api/events/ev1/rsvp').single, {'going': true});
+    // An event with no ticket types RSVPs; its made-up place is never ordered (B22).
+    expect(_server.count0('POST', '/api/events/ev1/orders'), 0);
 
     // You're going.
     expect(find.byType(EventConfirmedPage), findsOneWidget);
@@ -459,11 +532,16 @@ void main() {
     expect(find.text('2 selected'), findsOneWidget);
     await _tap(tester, find.text('Done'));
 
-    // Only the host's own piece can go on sale; Maria's is shown.
-    expect(find.text('Only Maria Bruno can sell this piece.'), findsOneWidget);
+    // Either piece can go on sale (Phase 5.2: Maria's would wait for her); the host sells
+    // their own and shows Maria's.
+    expect(find.textContaining('can sell this piece'), findsNothing);
     final forSale = find.byWidgetPredicate((w) => w is StudioChip && w.label == 'For sale');
-    expect(forSale, findsOneWidget);
-    await _tap(tester, forSale);
+    expect(forSale, findsNWidgets(2));
+    final ownCard = find.ancestor(
+      of: find.text('Bodies in Color'),
+      matching: find.byWidgetPredicate((w) => w.runtimeType.toString() == 'HostCard'),
+    );
+    await _tap(tester, find.descendant(of: ownCard.first, matching: forSale));
     // It is listed on its own already, so the host is asked first (HostConflict).
     expect(find.text('This will end its current listing'), findsOneWidget);
     await _tap(tester, _button('Continue'));
@@ -494,6 +572,9 @@ void main() {
       ('ps1', 'sale', 350000),
     });
     expect(_server.count0('POST', '/api/events/new1/publish'), 1);
+    // Age limit and Public go with the event; a free RSVP has no ticket types to send (B22).
+    expect((created['ageLimit'], created['visibility'], created.containsKey('refundPolicy')), ('all', 'public', false));
+    expect(_server.requests.where((r) => r.path.contains('/ticket-types')), isEmpty);
 
     // --- Live.
     expect(find.byType(HostLivePage), findsOneWidget);
@@ -504,20 +585,62 @@ void main() {
     // --- Manage: the numbers come from the server.
     expect(find.byType(HostManagePage), findsOneWidget);
     expect(find.text('2 of 40'), findsWidgets);
-    await _tap(tester, _button('Guest list'), rounds: 8);
+    // --- Check in guests (Phase 4.3): the scanner downloads the manifest; Enter code checks a
+    // ticket number in; the guest list checks the other in by hand.
+    HostScannerPage.debugCameraOverride = const ColoredBox(color: Colors.black);
+    await _tap(tester, _button('Check in guests'), rounds: 8);
+    expect(find.byType(HostScannerPage), findsOneWidget);
+    expect(_server.count0('GET', '/api/events/new1/check-in/manifest'), 1);
+    expect(find.text('0/2 checked in'), findsOneWidget);
+    expect(find.text('21+ event: check ID at the door.'), findsOneWidget);
+    await _tap(tester, find.text('Enter code'));
+    await tester.enterText(find.byType(TextField).last, 's3-t-jordan');
+    await _tap(tester, _button('Check in'), rounds: 8);
+    expect(_server.requests.last.path, '/api/events/new1/tickets/s3-t-jordan/check-in');
+    expect(find.text('Checked in: Jordan Lee, General Admission (1 of 1).'), findsOneWidget);
+    expect(find.text('1/2 checked in'), findsOneWidget);
+    await _tap(tester, find.text('Guest list'), rounds: 8);
     expect(find.byType(HostGuestListPage), findsOneWidget);
-    expect(find.text('2 going'), findsOneWidget);
+    expect(find.text('1 of 2 checked in'), findsOneWidget);
     expect(find.text('Jordan Lee'), findsOneWidget);
+    await _tap(tester, find.byKey(const ValueKey('check-in-tk2')), rounds: 8);
+    expect(_server.requests.any((r) => r.path == '/api/events/new1/tickets/tk2/check-in'), isTrue);
+    expect(find.text('2 of 2 checked in'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 4));
     await tester.pageBack();
     await _settle(tester);
+    expect(find.text('2/2 checked in'), findsOneWidget);
+    await _tap(tester, find.byWidgetPredicate((w) => w is StudioTopIcon && w.semanticLabel == 'Back'));
+    HostScannerPage.debugCameraOverride = null;
 
-    // --- Cancel with a message.
+    // --- Reschedule (Phase 4.4): the same date sheet, a message, and the new time sent.
+    await _tap(tester, find.text('Reschedule'), rounds: 8);
+    expect(find.byType(HostReschedulePage), findsOneWidget);
+    await _tap(tester, find.text('Date and time'));
+    await _tap(tester, find.text('28'));
+    await _tap(tester, _button('Done'));
+    await tester.enterText(find.byType(TextField).last, 'The space needs another week.');
+    await tester.pump();
+    await _tap(tester, _button('Reschedule and tell guests'), rounds: 10);
+    final moved = _server.bodies('POST', '/api/events/new1/reschedule').single!;
+    expect(DateTime.parse(moved['startsAt'] as String).toLocal().day, 28);
+    expect(moved['message'], 'The space needs another week.');
+    expect(find.byType(HostManagePage), findsOneWidget);
+    await tester.pump(const Duration(seconds: 4));
+
+    // --- Cancel with the preview's numbers and a message (Phase 4.5).
     await _tap(tester, find.text('Cancel event'));
     expect(find.byType(HostCancelPage), findsOneWidget);
+    expect(find.text('2 people'), findsOneWidget);
+    expect(find.text('\$54.12'), findsOneWidget);
+    expect(find.text('\$1.87'), findsOneWidget);
     await tester.enterText(find.byType(TextField).last, 'The space flooded. Sorry, everyone.');
     await tester.pump();
     await _tap(tester, _button('Cancel event and tell guests'), rounds: 10);
-    expect(_server.bodies('POST', '/api/events/new1/cancel').single, {'reason': 'The space flooded. Sorry, everyone.'});
+    expect(_server.bodies('POST', '/api/events/new1/cancel').single, {
+      'reason': 'The space flooded. Sorry, everyone.',
+      'message': 'The space flooded. Sorry, everyone.',
+    });
     expect(find.byType(HostManagePage), findsOneWidget);
     expect(find.textContaining('This event was cancelled.'), findsOneWidget);
     await tester.pump(const Duration(seconds: 11)); // let toasts and the image cache's cleanup timer finish

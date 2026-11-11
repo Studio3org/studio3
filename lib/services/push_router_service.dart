@@ -109,12 +109,20 @@ class PushRouterService {
     if (data['type'] == 'saves_and_follows_summary') {
       return const AppDestination(AppDestinationType.activity);
     }
+    // A chat message is push-only, with no target: open its conversation.
+    final conversationId = data['conversationId'] as String?;
+    if (data['type'] == 'message' && conversationId != null && conversationId.isNotEmpty) {
+      return AppDestination(AppDestinationType.conversation, conversationId);
+    }
     return AppDestination.fromTarget(
       data['targetType'] as String?,
       data['targetId'] as String?,
       actorUsername: data['actorUsername'] as String?,
       // The inbox's rule (`isSellerOrderNotice`), from what a push carries.
       asSeller: data['type'] == 'sale' || data['side'] == 'seller',
+      // `shipping_quote_ready` with its quote reopens checkout; without one, just the piece.
+      type: data['type'] as String?,
+      quoteId: data['quoteId'] as String?,
     );
   }
 }

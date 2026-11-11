@@ -169,7 +169,19 @@ class PieceDelivery {
         shipment?.status == 'picked_up' ||
         shipment?.status == 'in_transit';
     final labelled = shipment != null;
-    final step = delivered ? 3 : (moving ? 2 : (labelled ? 1 : 0));
+    final tracked = shipment == null ? null : trackerStep(shipment);
+    final step = delivered
+        ? 3
+        : (tracked != null ? (moving && tracked < 2 ? 2 : tracked) : (moving ? 2 : (labelled ? 1 : 0)));
+    // Convelio's hold or cancellation goes in the label slot (FRONTEND_HANDOFF 8.4).
+    final (String? flag, bool flagLate) = shipment == null
+        ? (null, false)
+        : shipment.cancelled
+        ? ('Cancelled', true)
+        : shipment.onHold
+        ? ('On hold', true)
+        : (null, false);
+    final outForDelivery = shipment?.currentStepKey == 'out_for_delivery';
     final courier = (shipment?.courier ?? '').trim();
     final tracking = (shipment?.trackingNumber ?? '').trim();
     final carrier = courier.isEmpty ? 'The courier' : courier;
@@ -196,6 +208,8 @@ class PieceDelivery {
         forArtist: true,
         step: step,
         title: title,
+        label: flag,
+        labelLate: flagLate,
         heading: heading,
         detail: detail,
         linkLabel: 'See shipping steps',
@@ -207,6 +221,7 @@ class PieceDelivery {
     final (title, heading, detail) = switch (step) {
       0 => ('Getting it ready', 'Being packed', '$firstName is getting it ready to ship.'),
       1 => ('Packed', 'Ready for pickup', '$carrier will pick it up from $firstName soon.$trackingLine'),
+      2 when outForDelivery => ('Out for delivery', 'Out for delivery', '$carrier is bringing it to you today.$trackingLine'),
       2 => (
         shippedOn == null ? 'Shipped' : 'Shipped ${_monthDay(shippedOn)}',
         'On its way',
@@ -218,11 +233,26 @@ class PieceDelivery {
       forArtist: false,
       step: step,
       title: title,
+      label: flag,
+      labelLate: flagLate,
       heading: disputed ? 'Issue reported' : heading,
       detail: disputed ? 'We are looking into it and will be in touch.' : detail,
       linkLabel: 'Message $firstName',
       orderId: order.id,
     );
+  }
+
+  /// The 4-dot tracker step for Convelio's 5 steps (FRONTEND_HANDOFF 8.4): booked → Packed
+  /// (Label ready), picked up, in transit and out for delivery → Shipped (Pickup), delivered →
+  /// Delivered. Null without steps (a shipment entered by hand).
+  static int? trackerStep(OrderShipment shipment) {
+    if (shipment.steps.isEmpty) return null;
+    return switch (shipment.currentStepKey) {
+      'delivered' => 3,
+      'picked_up' || 'in_transit' || 'out_for_delivery' => 2,
+      'booked' => 1,
+      _ => 0,
+    };
   }
 
   static const _months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];

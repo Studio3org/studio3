@@ -27,8 +27,7 @@ String privacyMessageLabel(String value) =>
 /// follow, No one, in a sheet), Blocked accounts (the count), and See your profile as others do.
 ///
 /// A seller profile can't go private (listings are public): the switch says so instead. Going
-/// public with requests waiting asks first and approves them; the server doing that itself is
-/// BACKEND_CHANGES B34. Private Collection (B34) shows once the server sends it; Hidden pieces
+/// public with requests waiting asks first; the server approves them in the same call (B34). Private Collection (B34) shows once the server sends it; Hidden pieces
 /// (B32) isn't shown until the server has it. My reports and the privacy policy, moved here from the old Settings, sit
 /// under the board's rows.
 class PrivacySettingsPage extends StatefulWidget {
@@ -150,7 +149,8 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
     });
     try {
       if (!_debug) await UserService.instance.updateMe(profileVisibility: value ? 'private' : 'public');
-      if (!value && waiting.isNotEmpty) await _approveAll(waiting);
+      // Going public approves everyone waiting on the server (B34): reload the counts.
+      if (!value && waiting.isNotEmpty) await _refreshRequests();
     } catch (e) {
       if (!mounted) return;
       setState(() => _private = !value);
@@ -179,15 +179,9 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
     }
   }
 
-  /// Approves everyone still waiting, once the account is public (until the server does it, B34).
-  Future<void> _approveAll(List<String> usernames) async {
-    for (final username in usernames) {
-      try {
-        if (!_debug) await SocialService.instance.acceptFollowRequest(username);
-      } catch (_) {
-        // Left waiting; it stays in Follow requests.
-      }
-    }
+  /// Once the account is public the server has approved everyone waiting (B34): reload the
+  /// counts so Follow requests shows what is left.
+  Future<void> _refreshRequests() async {
     if (_debug) {
       if (mounted) setState(() => _requests = const []);
       return;

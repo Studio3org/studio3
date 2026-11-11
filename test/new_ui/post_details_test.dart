@@ -121,18 +121,23 @@ void main() {
         expect((bar.current, bar.total), (2, 3));
         expect(find.text('Tell us about it'), findsOneWidget);
         expect(find.text('Fields with a red dot still need something.'), findsOneWidget);
-        // Title, dimensions, weight, location, medium (framing starts as Unframed).
-        expect(_dots, findsNWidgets(5));
+        // Title, dimensions, weight, packed size, location, medium (framing starts as
+        // Unframed).
+        expect(_dots, findsNWidgets(6));
         expect(_button(tester, 'Continue').onPressed, isNull);
         expect(find.text(' required fields left', findRichText: true), findsNothing);
         expect(
           find.byWidgetPredicate(
-            (w) => w is RichText && w.text.toPlainText() == '6 required fields left',
+            (w) => w is RichText && w.text.toPlainText() == '7 required fields left',
           ),
           findsOneWidget,
         );
         expect(_row('Framing'), findsOneWidget);
         expect(_field('Weight'), findsOneWidget);
+        expect(find.text('Packed size'), findsOneWidget);
+        expect(_row('Packing'), findsOneWidget);
+        expect(_row('Item type'), findsOneWidget);
+        expect(_row('Materials or framing'), findsOneWidget);
         expect(find.text('Unframed'), findsOneWidget);
         expect(
           find.text(
@@ -170,6 +175,13 @@ void main() {
       await tester.enterText(fields.at(4), '1.5');
       await tester.enterText(fields.at(5), '8');
       await tester.pump();
+      // The packed size is still needed to sell (FRONTEND_HANDOFF 8.1).
+      expect(_dots, findsOneWidget);
+      expect(_button(tester, 'Continue').onPressed, isNull);
+      await tester.enterText(fields.at(6), '30');
+      await tester.enterText(fields.at(7), '42');
+      await tester.enterText(fields.at(8), '6');
+      await tester.pump();
 
       expect(_dots, findsNothing);
       expect(find.text('What collectors see on the piece page.'), findsOneWidget);
@@ -182,6 +194,11 @@ void main() {
       expect(details.weightKg, closeTo(3.629, 0.001));
       expect(details.framingMounting, 'Unframed');
       expect(details.edition, '1 of 1');
+      expect(details.packageLengthCm, closeTo(76.2, 0.01));
+      expect(details.packageWidthCm, closeTo(106.68, 0.01));
+      expect(details.packageHeightCm, closeTo(15.24, 0.01));
+      expect(details.shippingItemType, isNull);
+      expect(details.shippingMaterials, isEmpty);
     });
 
     testWidgets('not for sale: no weight or framing, "depth optional", depth not required', (
@@ -241,7 +258,7 @@ void main() {
       final key = GlobalKey<PieceDetailsStepState>();
       await tester.pumpWidget(_app(_details(forSale: true, key: key)));
       await tester.pump();
-      await tester.tap(find.text('in'));
+      await tester.tap(find.text('in').first);
       await tester.tap(find.text('lb'));
       await tester.pump();
       final d = key.currentState!.buildListingDetails();
@@ -300,6 +317,9 @@ void main() {
       await tester.enterText(fields.at(3), '36');
       await tester.enterText(fields.at(4), '1.5');
       await tester.enterText(fields.at(5), '8');
+      await tester.enterText(fields.at(6), '30');
+      await tester.enterText(fields.at(7), '42');
+      await tester.enterText(fields.at(8), '6');
       await tester.pump();
       await tester.tap(find.text('Continue'));
       await tester.pump(const Duration(milliseconds: 100));

@@ -93,13 +93,47 @@ class HostDateSelection {
 /// Date and time (`HostDate`): a sheet with Multi-day event, the month (15/500 with ‹ ›),
 /// the week in Mono 11, days 34 (the chosen one in an Ink circle; past days grey), Starts and
 /// Ends as Mono underline fields that open the time wheel, the zone line 12 and Done.
+///
+/// [single] cuts it down to one date and time ([showOne]: a ticket's sale start or end): no
+/// Multi-day, one time field, and Clear when a time was already set.
 class HostDateSheet extends StatefulWidget {
-  const HostDateSheet({super.key, this.initial, this.now});
+  const HostDateSheet({super.key, this.initial, this.now, this.single = false, this.title, this.canClear = false});
 
   final HostDateSelection? initial;
 
   /// For tests.
   final DateTime? now;
+
+  final bool single;
+  final String? title;
+  final bool canClear;
+
+  /// One date and time ([single]). Null when closed; `(at: null)` for Clear.
+  static Future<({DateTime? at})?> showOne(
+    BuildContext context, {
+    required String title,
+    DateTime? initial,
+    DateTime? now,
+  }) {
+    return showStudioSheet<({DateTime? at})>(
+      context: context,
+      builder: (_) => HostDateSheet(
+        single: true,
+        title: title,
+        canClear: initial != null,
+        now: now,
+        initial: initial == null
+            ? null
+            : HostDateSelection(
+                multiDay: false,
+                startDate: DateTime(initial.year, initial.month, initial.day),
+                start: TimeOfDay.fromDateTime(initial),
+                end: TimeOfDay.fromDateTime(initial),
+                zone: hostZone(),
+              ),
+      ),
+    );
+  }
 
   static Future<HostDateSelection?> show(BuildContext context, {HostDateSelection? initial, DateTime? now}) {
     return showStudioSheet<HostDateSelection>(
@@ -225,19 +259,29 @@ class _HostDateSheetState extends State<HostDateSheet> {
       gap: 10,
       scrollable: true,
       children: [
-        Text('Date and time', style: StudioType.title22(color: c.textPrimary)),
-        HostSwitchRow(
-          label: 'Multi-day event',
-          subtitle: 'Runs across more than one day',
-          value: _multi,
-          onChanged: (v) => setState(() {
-            _multi = v;
-            if (!v) _endDate = null;
-          }),
-        ),
+        Text(widget.title ?? 'Date and time', style: StudioType.title22(color: c.textPrimary)),
+        if (!widget.single)
+          HostSwitchRow(
+            label: 'Multi-day event',
+            subtitle: 'Runs across more than one day',
+            value: _multi,
+            onChanged: (v) => setState(() {
+              _multi = v;
+              if (!v) _endDate = null;
+            }),
+          ),
         _monthHeader(c),
         _grid(c),
-        Row(
+        if (widget.single)
+          StudioUnderlineField(
+            label: 'Time',
+            controller: _startText,
+            readOnly: true,
+            mono: true,
+            onTap: () => _pickTime(start: true),
+          )
+        else
+          Row(
           children: [
             Expanded(
               child: StudioUnderlineField(
@@ -270,8 +314,13 @@ class _HostDateSheetState extends State<HostDateSheet> {
         ),
         StudioButton(
           label: 'Done',
-          onPressed: _ready
-              ? () => Navigator.pop(
+          onPressed: !_ready
+              ? null
+              : widget.single
+              ? () => Navigator.pop(context, (
+                  at: DateTime(_startDate!.year, _startDate!.month, _startDate!.day, _start.hour, _start.minute),
+                ))
+              : () => Navigator.pop(
                   context,
                   HostDateSelection(
                     multiDay: _multi,
@@ -281,9 +330,9 @@ class _HostDateSheetState extends State<HostDateSheet> {
                     end: _end,
                     zone: _zone,
                   ),
-                )
-              : null,
+                ),
         ),
+        if (widget.canClear) HostTextAction(label: 'Clear', onTap: () => Navigator.pop(context, (at: null))),
       ],
     );
   }

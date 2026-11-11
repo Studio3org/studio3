@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:studio3/models/event_check_in.dart';
 import 'package:studio3/models/piece_summary.dart';
 import 'package:studio3/models/studio_event.dart';
 import 'package:studio3/screens/host/host_cancel_page.dart';
@@ -155,9 +156,11 @@ void main() {
       expect(find.text('Gallery walk'), findsOneWidget);
       expect(find.text('Selling'), findsOneWidget);
       expect(find.text('Pickup at the event'), findsOneWidget);
-      // Not saved by the server yet, so not shown (section 0.3).
-      expect(find.text('Age limit'), findsNothing);
-      expect(find.text('Public'), findsNothing);
+      // Age limit and Public (B22 / B28): All ages and public by default.
+      expect(find.text('Age limit'), findsOneWidget);
+      expect(find.text('All ages'), findsOneWidget);
+      expect(find.text('Public'), findsOneWidget);
+      expect(find.text('Shows in Events, search and profiles'), findsOneWidget);
       expect(tester.widget<StudioButton>(_button('Save and continue')).onPressed, isNotNull);
     });
   }
@@ -187,19 +190,20 @@ void main() {
     await tester.tap(find.text('Auction'));
     await tester.pump();
     expect(find.text('DELIVERY FOR SOLD PIECES'), findsOneWidget);
-    expect(find.text('Bidding ends 30 minutes before the event ends.'), findsOneWidget);
+    expect(find.text('Bidding ends 30 minutes before the event ends, or earlier if you pick a time in Details.'), findsOneWidget);
     await tester.tap(_button('Done'));
     await tester.pumpAndSettle();
     expect(find.text('Auction'), findsOneWidget);
     expect(find.text('Delivery'), findsOneWidget);
   });
 
-  testWidgets('Tickets: Free (RSVP) only; the type card and its limit', (tester) async {
+  testWidgets('Tickets: Free (RSVP); the type card and its limit', (tester) async {
     setBoardViewport(tester, height: 900);
     await tester.pumpWidget(_app(HostEventPage(editing: _event(capacity: null), debugNow: _now, debugStep: 1)));
     await tester.pump();
     expect(find.text('IS THIS A PAID EVENT?'), findsOneWidget);
-    expect(find.text('Coming soon. Every event is free for now.'), findsOneWidget);
+    expect(find.text('Sell ticket types. Some can be free.'), findsOneWidget);
+    expect(find.text('+ Add ticket type'), findsNothing);
     expect(find.text('General Admission'), findsOneWidget);
     expect(find.text('Free · no limit'), findsOneWidget);
     await tester.tap(find.text('Edit'));
@@ -225,12 +229,13 @@ void main() {
     expect(find.text('Selling · Pickup at the event (set in Details)'), findsOneWidget);
     expect(find.text('Bodies in Color'), findsOneWidget);
     final forSale = find.byWidgetPredicate((w) => w is StudioChip && w.label == 'For sale');
-    // Only the host's own piece can be sold; Maria's is shown (the server answers 403 otherwise).
-    expect(forSale, findsOneWidget);
+    // Anyone's piece can be put on sale; someone else's waits for its artist (Phase 5.2).
+    expect(forSale, findsNWidgets(2));
     expect(tester.widget<StudioChip>(forSale.first).selected, isTrue);
+    expect(tester.widget<StudioChip>(forSale.last).selected, isFalse);
     expect(find.text(r'$3,500'), findsOneWidget);
     expect(find.text('Not for sale'), findsWidgets);
-    expect(find.text('Only Maria Bruno can sell this piece.'), findsOneWidget);
+    expect(find.textContaining('can sell this piece'), findsNothing);
     await tester.tap(find.text('Link and QR code').first);
     await tester.pumpAndSettle();
     expect(find.text('Copy link'), findsOneWidget);
@@ -253,12 +258,12 @@ void main() {
     expect(find.text('IS THIS A PAID EVENT?'), findsOneWidget);
   });
 
-  testWidgets('a published event saves changes; its date is locked', (tester) async {
+  testWidgets('a published event saves changes; its date moves with Reschedule (4.4)', (tester) async {
     setBoardViewport(tester, height: 960);
     await tester.pumpWidget(_app(HostEventPage(editing: _event(status: 'published'), debugNow: _now)));
     await tester.pump();
-    expect(find.text("A published event's date can't be changed yet."), findsOneWidget);
-    expect(tester.widget<HostNavRow>(find.widgetWithText(HostNavRow, 'Date and time')).enabled, isFalse);
+    expect(find.text('A published event moves with Reschedule, which tells everyone with a ticket.'), findsOneWidget);
+    expect(tester.widget<HostNavRow>(find.widgetWithText(HostNavRow, 'Date and time')).enabled, isTrue);
   });
 
   testWidgets('date sheet: pick a day; multi-day needs an end', (tester) async {
@@ -361,17 +366,22 @@ void main() {
       expect(find.text('Edit event'), findsOneWidget);
       expect(find.text('Cancel event'), findsOneWidget);
       expect(find.text('Doors open'), findsOneWidget);
-      expect(_button('Guest list'), findsOneWidget);
-      expect(find.text('Reschedule'), findsNothing); // B28
+      expect(_button('Check in guests'), findsOneWidget); // B28, Phase 4.3
+      expect(find.text('Reschedule'), findsOneWidget); // Phase 4.4
     });
   }
 
   testWidgets('Cancel event: what happens, message, the two buttons', (tester) async {
     setBoardViewport(tester);
-    await tester.pumpWidget(_app(HostCancelPage(event: _event(status: 'published'))));
+    await tester.pumpWidget(
+      _app(HostCancelPage(event: _event(status: 'published'), debugPreview: const EventCancelPreview(guestsToNotify: 62))),
+    );
     await tester.pump();
     expect(find.text('Cancel Inside the Mind of an Artist?'), findsOneWidget);
     expect(find.text('62 people'), findsOneWidget);
+    // Free event: no tickets, refund or fee rows.
+    expect(find.text('Refunded to guests'), findsNothing);
+    expect(find.text('Card fees you pay'), findsNothing);
     expect(find.text('Message to guests (optional)'), findsOneWidget);
     expect(_button('Cancel event and tell guests'), findsOneWidget);
     expect(_button('Keep event'), findsOneWidget);
@@ -383,12 +393,18 @@ void main() {
       _app(
         HostGuestListPage(
           event: _event(),
-          debugGuests: const [EventPerson(username: 'jo', name: 'Jo Park'), EventPerson(username: 'max', name: 'Max')],
+          debugGuests: const EventGuestList(
+            guests: [
+              CheckInTicket(id: 't1', holderUsername: 'jo', holderName: 'Jo Park', ticketTypeName: 'VIP', number: 'S3-T-AAAAAA'),
+              CheckInTicket(id: 't2', holderUsername: 'max', holderName: 'Max', ticketTypeName: 'VIP', number: 'S3-T-BBBBBB'),
+            ],
+            total: 2,
+          ),
         ),
       ),
     );
     await tester.pump();
-    expect(find.text('2 going'), findsOneWidget);
+    expect(find.text('0 of 2 checked in'), findsOneWidget);
     await tester.enterText(find.byType(TextField), 'jo');
     await tester.pump();
     expect(find.text('Jo Park'), findsOneWidget);
@@ -425,7 +441,7 @@ void main() {
     ('HostTickets', 844, () => HostEventPage(editing: _event(), debugNow: _now, debugStep: 1)),
     ('HostLineup', 1060, () => HostEventPage(editing: _event(), debugNow: _now, debugStep: 2)),
     ('HostReview', 844, () => HostEventPage(editing: _event(), debugNow: _now, debugStep: 3)),
-    ('HostCancel', 844, () => HostCancelPage(event: _event(status: 'published'))),
+    ('HostCancel', 844, () => HostCancelPage(event: _event(status: 'published'), debugPreview: const EventCancelPreview(guestsToNotify: 62))),
     ('HostManage', 1560, () {
       final e = _event(status: 'published');
       return HostManagePage(event: e, debugEvent: e, debugNow: _now);

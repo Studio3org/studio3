@@ -7,7 +7,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:studio3/models/address.dart';
 import 'package:studio3/models/follow_request.dart';
 import 'package:studio3/models/order.dart';
-import 'package:studio3/models/piece_summary.dart';
 import 'package:studio3/models/saved_card.dart';
 import 'package:studio3/models/user_profile.dart';
 import 'package:studio3/screens/account_settings_page.dart';
@@ -56,6 +55,8 @@ Order _sale(
   required DateTime at,
   String? payout,
   OrderShipment? shipment,
+  String? title,
+  bool fromAuction = false,
 }) => Order(
   id: id,
   status: status,
@@ -63,41 +64,38 @@ Order _sale(
   shippingCents: 0,
   taxCents: 0,
   totalCents: cents,
-  items: [OrderItem(pieceId: 'p-$id', priceCents: cents, quantity: 1)],
+  items: [
+    OrderItem(
+      pieceId: 'p-$id',
+      priceCents: cents,
+      quantity: 1,
+      piece: title == null ? null : OrderPiece(id: 'p-$id', title: title),
+    ),
+  ],
   createdAt: at,
   payoutStatus: payout,
   shipment: shipment,
+  fromAuction: fromAuction,
 );
 
 /// The board's art rows: Pack it for pickup (their move), Waiting for payment (an auction),
 /// Delivered · paid out. The ticket row waits on B22.
 final _sales = [
-  _sale('1', 'paid', cents: 350000, at: DateTime(2026, 11, 2)),
-  _sale('2', 'pending_payment', cents: 130000, at: DateTime(2026, 11, 1)),
-  _sale('3', 'completed', cents: 90000, at: DateTime(2026, 10, 18), payout: 'released'),
+  _sale('1', 'paid', cents: 350000, at: DateTime(2026, 11, 2), title: 'Bodies in Color I'),
+  _sale('2', 'pending_payment', cents: 130000, at: DateTime(2026, 11, 1), title: 'Quiet Hours', fromAuction: true),
+  _sale('3', 'completed', cents: 90000, at: DateTime(2026, 10, 18), payout: 'released', title: 'Paper Planes III'),
 ];
 
-const _salePieces = {
-  'p-1': PieceSummary(id: 'p-1', title: 'Bodies in Color I', status: 'sold', isForSale: true),
-  'p-2': PieceSummary(id: 'p-2', title: 'Quiet Hours', status: 'reserved', listingType: 'auction'),
-  'p-3': PieceSummary(id: 'p-3', title: 'Paper Planes III', status: 'sold', isForSale: true),
-};
-
-Widget _salesPage() => MySalesPage(debugSales: _sales, debugPieces: _salePieces);
+Widget _salesPage({void Function(String pieceId)? onOpenPiece}) =>
+    MySalesPage(debugSales: _sales, debugOpenPiece: onOpenPiece);
 
 /// The board's art rows: Shipped, Delivered (an auction win), Refunded. The ticket row waits
 /// on B22.
 final _purchases = [
-  _sale('1', 'shipped', cents: 350000, at: DateTime(2026, 11, 2)),
-  _sale('2', 'completed', cents: 130000, at: DateTime(2026, 10, 12)),
-  _sale('3', 'refunded', cents: 90000, at: DateTime(2026, 9, 30)),
+  _sale('1', 'shipped', cents: 350000, at: DateTime(2026, 11, 2), title: 'Bodies in Color I'),
+  _sale('2', 'completed', cents: 130000, at: DateTime(2026, 10, 12), title: 'Quiet Hours', fromAuction: true),
+  _sale('3', 'refunded', cents: 90000, at: DateTime(2026, 9, 30), title: 'Paper Planes III'),
 ];
-
-const _purchasePieces = {
-  'p-1': PieceSummary(id: 'p-1', title: 'Bodies in Color I', status: 'sold', isForSale: true),
-  'p-2': PieceSummary(id: 'p-2', title: 'Quiet Hours', status: 'sold', listingType: 'auction'),
-  'p-3': PieceSummary(id: 'p-3', title: 'Paper Planes III', status: 'live', isForSale: true),
-};
 
 const _visa = SavedCard(id: 'pm_1', brand: 'visa', last4: '4242', expMonth: 8, expYear: 2030);
 
@@ -153,30 +151,18 @@ final _followRequests = [
   FollowRequest(username: 'cedric', name: 'Cedric Okafor', requestedAt: _requestsNow.subtract(const Duration(days: 1))),
 ];
 
-/// The board's three: a running auction, a piece shipping, a payout not paid yet.
-List<DeletionBlocker> _boardBlockers() {
-  final auction = PieceSummary(
-    id: 'q',
-    title: 'Quiet Hours',
-    isForSale: true,
-    listingType: 'auction',
-    status: 'live',
-    auctionEndsAt: DateTime(2026, 11, 8, 18),
-  );
-  final shipping = _sale('s', 'shipped', cents: 350000, at: DateTime(2026, 11, 2));
-  final payout = _sale('p', 'completed', cents: 350000, at: DateTime(2026, 10, 20), payout: 'pending');
-  return deletionBlockers(
-    listed: [auction],
-    sales: [payout],
-    purchases: [shipping],
-    pieces: {
-      'p-s': const PieceSummary(id: 'p-s', title: 'Bodies in Color I'),
-      'p-p': const PieceSummary(id: 'p-p', title: 'Paper Planes III'),
-    },
-  );
-}
+/// The board's three, as the server's deletion check sends them (B34): a running auction, a
+/// piece on its way, a payout not paid yet.
+const _boardCheck = DeletionCheck(
+  canDelete: false,
+  blockers: [
+    DeletionBlocker(kind: 'running_auction', message: 'An auction of yours has bids. Wait for it to close.'),
+    DeletionBlocker(kind: 'shipping_purchase', message: 'A piece you bought is still on its way.'),
+    DeletionBlocker(kind: 'pending_payout', message: 'Money is still on its way to you.'),
+  ],
+);
 
-Widget _purchasesPage() => MyOrdersPage(debugOrders: _purchases, debugPieces: _purchasePieces);
+Widget _purchasesPage() => MyOrdersPage(debugOrders: _purchases);
 
 void main() {
   setUpAll(() async {
@@ -347,7 +333,7 @@ void main() {
         final rows = tester.widgetList<SettingsRow>(find.byType(SettingsRow)).toList();
         expect(rows.map((r) => (r.label, r.subtitle, r.chevron)), [
           ('Seller terms', 'Includes fees', true),
-          ('Turn off seller profile', 'Your listings come down. Pieces stay on your profile.', false),
+          ('Turn off seller profile', 'Your listings and auctions without bids will come down.', false),
         ]);
         // The pickup address waits on B31 (on hold).
         expect(find.text('Studio address'), findsNothing);
@@ -518,9 +504,11 @@ void main() {
       expect(step('cancelled'), 'Cancelled');
     });
 
-    testWidgets('a piece that could not be read: Untitled', (tester) async {
+    testWidgets('a piece that no longer exists: Untitled', (tester) async {
       setBoardViewport(tester);
-      await tester.pumpWidget(_app(MyOrdersPage(debugOrders: [_purchases.first])));
+      await tester.pumpWidget(
+        _app(MyOrdersPage(debugOrders: [_sale('1', 'shipped', cents: 350000, at: DateTime(2026, 11, 2))])),
+      );
       await tester.pump();
       expect(find.text('Untitled'), findsOneWidget);
       expect(find.text('COLLECTED · Nov 2'), findsOneWidget);
@@ -741,30 +729,22 @@ void main() {
     setUp(() => appNow = () => DateTime(2026, 11, 6, 10));
     tearDown(() => appNow = DateTime.now);
 
-    test('what keeps the account: auctions, listings, sales and purchases in progress, payouts', () {
-      final blockers = _boardBlockers();
-      expect(blockers.map((b) => b.label), ['Auction running', 'Piece shipping', 'Payout pending']);
-      expect(blockers.map((b) => b.subtitle), ['Ends Nov 8', 'Shipped', null]);
-      expect(blockers.map((b) => b.value), ['Quiet Hours', 'Bodies in Color I', 'Paper Planes III']);
-
-      final none = deletionBlockers(
-        listed: const [],
-        sales: [
-          _sale('a', 'completed', cents: 1, at: DateTime(2026, 1, 1), payout: 'released'),
-          _sale('b', 'cancelled', cents: 1, at: DateTime(2026, 1, 1)),
+    test("the server's check: canDelete and each blocker's message", () {
+      final check = DeletionCheck.fromJson({
+        'canDelete': false,
+        'blockers': [
+          {
+            'kind': 'hosted_event_tickets',
+            'count': 1,
+            'message': "You're hosting an event with tickets sold. Cancel it first (everyone is refunded).",
+          },
+          {'kind': 'fee_debt', 'count': 1, 'amountCents': 420, 'message': 'You owe card fees from an event you cancelled.'},
         ],
-        purchases: [_sale('c', 'refunded', cents: 1, at: DateTime(2026, 1, 1))],
-        pieces: const {},
-      );
-      expect(none, isEmpty);
-
-      final more = deletionBlockers(
-        listed: const [PieceSummary(id: 'l', title: 'Dune', isForSale: true, status: 'live')],
-        sales: [_sale('d', 'pending_payment', cents: 1, at: DateTime(2026, 1, 1))],
-        purchases: [_sale('e', 'disputed', cents: 1, at: DateTime(2026, 1, 1))],
-        pieces: const {},
-      );
-      expect(more.map((b) => b.label), ['Listed for sale', 'Sale waiting for payment', 'Issue open']);
+      });
+      expect(check.canDelete, isFalse);
+      expect(check.blockers.map((b) => b.kind), ['hosted_event_tickets', 'fee_debt']);
+      expect(check.blockers.last.amountCents, 420);
+      expect(DeletionCheck.fromJson({'canDelete': true, 'blockers': <Object>[]}).canDelete, isTrue);
     });
 
     for (final dark in [false, true]) {
@@ -773,16 +753,19 @@ void main() {
         tester,
       ) async {
         setBoardViewport(tester);
-        await tester.pumpWidget(_app(DeleteAccountPage(debugBlockers: _boardBlockers()), dark: dark));
+        await tester.pumpWidget(_app(const DeleteAccountPage(debugCheck: _boardCheck), dark: dark));
         await tester.pump();
         final title = tester.widget<Text>(find.text('Finish these first')).style!;
         expect((title.fontSize, title.fontWeight, title.color), (24, FontWeight.w500, c.textPrimary));
         expect(find.text('Your account can be deleted once nothing is in progress.'), findsOneWidget);
-        expect(tester.widgetList<SettingsRow>(find.byType(SettingsRow)).map((r) => r.label), [
-          'Auction running',
-          'Piece shipping',
-          'Payout pending',
+        final rows = tester.widgetList<SettingsRow>(find.byType(SettingsRow)).toList();
+        expect(rows.map((r) => r.label), [
+          'An auction of yours has bids. Wait for it to close.',
+          'A piece you bought is still on its way.',
+          'Money is still on its way to you.',
         ]);
+        // The server's words, as they are; nothing to open.
+        expect(rows.map((r) => (r.onTap, r.chevron)), everyElement((null, false)));
         expect(
           find.text('Removes your profile, pieces, Scenes and messages. Sale records are kept as the law requires.'),
           findsOneWidget,
@@ -793,7 +776,7 @@ void main() {
 
     testWidgets('nothing in progress: Delete account asks for DELETE and the password', (tester) async {
       setBoardViewport(tester);
-      await tester.pumpWidget(_app(const DeleteAccountPage(debugBlockers: [])));
+      await tester.pumpWidget(_app(const DeleteAccountPage(debugCheck: DeletionCheck(canDelete: true))));
       await tester.pump();
       expect(find.text('Finish these first'), findsNothing);
       expect(find.text('Delete your account?'), findsOneWidget);
@@ -901,7 +884,7 @@ void main() {
       appNow = () => DateTime(2026, 11, 6, 10);
       addTearDown(() => appNow = DateTime.now);
       setBoardViewport(tester);
-      await tester.pumpWidget(_app(DeleteAccountPage(debugBlockers: _boardBlockers())));
+      await tester.pumpWidget(_app(const DeleteAccountPage(debugCheck: _boardCheck)));
       await tester.pump();
       await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/SettingsDelete.png'));
       await checkAcceptance(tester);

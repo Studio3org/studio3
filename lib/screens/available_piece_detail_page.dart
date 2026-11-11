@@ -4,12 +4,16 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../models/auction.dart' show AuctionBidHistory;
 import '../models/chat_message.dart' show ChatPiece;
+import '../models/collect_checkout.dart';
 import '../models/feed_preview_item.dart';
 import '../models/order.dart';
+import '../models/shipping_quote.dart';
+import '../services/address_service.dart';
 import '../services/api_exception.dart';
 import '../services/auction_service.dart';
 import '../services/auth_session.dart';
 import '../services/bid_service.dart';
+import '../services/order_service.dart';
 import '../services/piece_service.dart';
 import '../services/report_service.dart';
 import '../utils/money_format.dart' show formatMoney;
@@ -27,10 +31,11 @@ import '../widgets/auction/artist_auction.dart';
 import '../widgets/auction/auction_widgets.dart';
 import '../widgets/content_actions_sheet.dart';
 import '../widgets/studio/studio.dart'
-    show StudioActionRow, StudioIcons, StudioSheet, showStudioSheet, showStudioToast;
+    show StudioActionRow, StudioIcons, StudioSheet, StudioType, showStudioSheet, showStudioToast;
 import '../widgets/piece_detail/ask_about_piece_sheet.dart';
 import '../widgets/piece_detail/available_collect_bar.dart';
 import '../widgets/piece_detail/collect_artist_row.dart';
+import '../widgets/piece_detail/hide_from_collection.dart';
 import '../widgets/piece_detail/collect_piece_sheet.dart';
 import '../widgets/piece_detail/collected_bar.dart';
 import '../widgets/piece_detail/manage_auction_sheet.dart';
@@ -62,9 +67,14 @@ class AvailablePieceDetailPage extends StatefulWidget {
     this.tappedIndex = 0,
     this.filter = FeedAvailabilityFilter.all,
     this.onWillAdvance,
+    this.initialCheckout,
   });
 
   final FeedPreviewItem item;
+
+  /// Opens checkout on this once the piece has loaded: a shipping quote that came back
+  /// priced by hand (`shipping_quote_ready`, FRONTEND_HANDOFF 8.3).
+  final CollectShippingSelection? initialCheckout;
   final int initialImageIndex;
   final int tappedIndex;
   final FeedAvailabilityFilter filter;
@@ -233,10 +243,71 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
   /// The viewer collected this piece.
   bool get _isCollector => _order != null && !_isOwner;
 
+  /// The piece's own `viewerOrder` (FRONTEND_HANDOFF 8.4) first; Orders or Sales otherwise.
   Future<void> _loadOrder({bool refresh = false}) async {
     if (!_sold || !AuthSession.instance.isLoggedIn) return;
+    final viewerOrder = item.viewerOrder;
+    if (viewerOrder != null && !refresh) {
+      setState(() => _order = viewerOrder.toOrder());
+      return;
+    }
+    if (viewerOrder != null) {
+      // Back from the order: the piece carries it, so read the piece again.
+      await _loadDetail();
+      if (!mounted) return;
+      final fresh = item.viewerOrder;
+      if (fresh != null) {
+        setState(() => _order = fresh.toOrder());
+        return;
+      }
+    }
     final order = await findViewerOrder(item.id, asSeller: _isOwner, refresh: refresh);
     if (mounted) setState(() => _order = order);
+  }
+
+  /// The piece page's shipping range (FRONTEND_HANDOFF 8.2), for a buyer on a live listing.
+  ShippingEstimate? _estimate;
+  bool _estimateAsked = false;
+
+  Future<void> _loadEstimate() async {
+    if (_estimateAsked || _isOwner || _sold || !item.isLive || !item.isAvailable || item.isScene) return;
+    _estimateAsked = true;
+    try {
+      String? zip;
+      String? state;
+      if (AuthSession.instance.isLoggedIn) {
+        try {
+          final addresses = await AddressService.instance.getAddressesCached();
+          final home = addresses.where((a) => a.isDefault).firstOrNull ??
+              (addresses.isEmpty ? null : addresses.first);
+          zip = home?.zip;
+          state = home?.state;
+        } catch (_) {
+          // Without the address: the range for anywhere.
+        }
+      }
+      final estimate = await OrderService.instance.getShippingEstimate(item.id, zip: zip, state: state);
+      if (mounted && estimate.showable) setState(() => _estimate = estimate);
+    } catch (_) {
+      // No Shipping row.
+    }
+  }
+
+  /// "About $250–$600".
+  String? get _estimateLine {
+    final e = _estimate;
+    if (e == null || !e.showable) return null;
+    return 'About ${formatMoney(e.lowCents!)}–${formatMoney(e.highCents!)}';
+  }
+
+  bool _initialCheckoutShown = false;
+
+  /// `shipping_quote_ready`: checkout on the quote, once.
+  void _maybeOpenInitialCheckout() {
+    final checkout = widget.initialCheckout;
+    if (checkout == null || _initialCheckoutShown || !item.isLive) return;
+    _initialCheckoutShown = true;
+    CollectPieceSheet.show(context, item: item, initialShipping: checkout, onMessageArtist: _messageArtist);
   }
 
   Future<void> _messageArtist() async {
@@ -292,21 +363,30 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
       case AuctionBarState.open:
       case AuctionBarState.leading:
       case AuctionBarState.outbid:
-        final after = await startBidding(context, pieceId: item.id, auction: auction);
+        final after = await startBidding(
+          context,
+          pieceId: item.id,
+          auction: auction,
+          myBidStatus: item.myBidStatus,
+        );
         if (after != null && mounted) {
           setState(() => _myTopBid = BidStore.instance.topBidNow(item.id));
           await _loadDetail();
         }
       case AuctionBarState.won:
-        await CollectPieceSheet.show(context, item: item, auction: auction);
+        await CollectPieceSheet.show(context, item: item, auction: auction, onMessageArtist: _messageArtist);
         if (mounted) _loadDetail();
       case AuctionBarState.paymentFailed:
-        await openAuctionOutcome(context, pieceId: item.id, type: 'auction_payment_failed');
+        await openAuctionOutcome(context, pieceId: item.id, type: 'auction_payment_failed', fromPiece: true);
+        if (mounted) _loadDetail();
+      case AuctionBarState.secondChance:
+        await openAuctionOutcome(context, pieceId: item.id, type: 'auction_second_chance', fromPiece: true);
         if (mounted) _loadDetail();
       case AuctionBarState.owner:
         // The seller's controls (restored from before commit 76f4ef9).
         final changed = await ManageAuctionSheet.show(context, pieceId: item.id, auction: auction);
         if (changed && mounted) _loadDetail();
+      case AuctionBarState.shippingPending:
       case AuctionBarState.ended:
         break;
     }
@@ -346,6 +426,8 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
     applyFollowState(loaded);
     if (_order == null) _loadOrder();
     _loadBids();
+    _loadEstimate();
+    _maybeOpenInitialCheckout();
   }
 
   Future<void> _onCollect() async {
@@ -357,7 +439,7 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
       return;
     }
     if (!mounted) return;
-    CollectPieceSheet.show(context, item: item);
+    CollectPieceSheet.show(context, item: item, onMessageArtist: _messageArtist);
   }
 
   /// Report the piece/scene or block its artist (App Store guideline 1.2).
@@ -370,6 +452,7 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
       onBlocked: () {
         if (mounted) Navigator.of(context).maybePop();
       },
+      onHideFromCollection: _isCollector && !item.isScene ? () => hideFromMyCollection(context, item.id) : null,
     );
   }
 
@@ -431,16 +514,24 @@ class _AvailablePieceDetailPageState extends State<AvailablePieceDetailPage>
     final isLive = item.isLive;
     final sold = _sold;
     // A sold page is about the art: no price, no Details (`PieceCollected`).
-    final details = sold ? const <(String, String)>[] : PieceDetailsSection.rowsFor(item);
+    final estimate = _estimateLine;
+    final details = sold
+        ? const <(String, String)>[]
+        : [...PieceDetailsSection.rowsFor(item), if (estimate != null) ('Shipping', estimate)];
+    // What the artist still has to add before it can ship (FRONTEND_HANDOFF 8.1).
+    final toShip = _isOwner && !sold ? item.shippingReady?.line : null;
 
     final sections = <Widget>[
       _padded(PieceTitleBlock(item: item)),
+      if (toShip != null) _padded(Text(toShip, style: StudioType.label13(color: c.textSecondary))),
       if (_artistView != null)
         _padded(ArtistAuctionSection(view: _artistView!, item: item, history: _bids)),
       if (item.story.trim().isNotEmpty) _padded(PieceDescription(item.story)),
       if (item.materials.isNotEmpty) _padded(PieceMadeWith(materials: item.materials)),
       if (item.relatedScenes.isNotEmpty) PieceRelatedScenesRow(scenes: item.relatedScenes),
       if (details.isNotEmpty) _padded(PieceDetailsSection(rows: details)),
+      // Kept on a sold piece: where it was shown stays part of its story (Phase 5.4).
+      if (item.exhibitions.isNotEmpty) _padded(PieceExhibited(exhibitions: item.exhibitions)),
       if (item.seriesName.isNotEmpty &&
           (item.seriesThumbUrls.isNotEmpty || item.seriesThumbs.isNotEmpty))
         _padded(

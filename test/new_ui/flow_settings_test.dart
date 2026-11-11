@@ -10,7 +10,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:studio3/models/auth_user.dart';
 import 'package:studio3/screens/account_settings_page.dart';
 import 'package:studio3/screens/delete_account_page.dart';
-import 'package:studio3/screens/order_detail_page.dart';
 import 'package:studio3/screens/profile_settings_page.dart';
 import 'package:studio3/services/api_client.dart';
 import 'package:studio3/services/auth_session.dart';
@@ -93,6 +92,18 @@ class _Fake implements HttpClientAdapter {
           'data': {
             'items': [_order(purchaseStatus)],
             'nextCursor': null,
+          },
+        };
+      case 'GET /api/user/me/deletion-check':
+        final shipping = purchaseStatus == 'shipped';
+        json = {
+          'success': true,
+          'data': {
+            'canDelete': !shipping,
+            'blockers': [
+              if (shipping)
+                {'kind': 'shipping_purchase', 'count': 1, 'message': 'A piece you bought is still on its way.'},
+            ],
           },
         };
       case 'GET /api/orders/o1':
@@ -263,18 +274,21 @@ void main() {
 
     await _tap(tester, _row('Delete account'));
     expect(find.byType(DeleteAccountPage), findsOneWidget);
-    expect(_server.to('GET', '/api/user/me/orders'), isNotEmpty);
+    // The server's check (B34), not the app's own reading of orders.
+    expect(_server.to('GET', '/api/user/me/deletion-check'), hasLength(1));
+    expect(_server.to('GET', '/api/user/me/orders'), isEmpty);
     expect(find.text('Finish these first'), findsOneWidget);
-    expect(_row('Piece shipping'), findsOneWidget);
-    expect(tester.widget<SettingsRow>(_row('Piece shipping')).value, 'Bodies in Color');
+    final row = _row('A piece you bought is still on its way.');
+    expect(row, findsOneWidget);
+    expect(tester.widget<SettingsRow>(row).onTap, isNull);
     expect(tester.widget<StudioButton>(_button('Delete account')).onPressed, isNull);
 
-    // The row opens the order; once it is delivered and confirmed, coming back clears the list.
-    await _tap(tester, _row('Piece shipping'));
-    expect(find.byType(OrderDetailPage), findsOneWidget);
+    // Once it is delivered and confirmed, coming back to the page clears the list.
     _server.purchaseStatus = 'completed';
-    Navigator.of(tester.element(find.byType(OrderDetailPage))).pop();
+    Navigator.of(tester.element(find.byType(DeleteAccountPage))).pop();
     await _settle(tester);
+    await _tap(tester, _row('Delete account'));
+    expect(_server.to('GET', '/api/user/me/deletion-check'), hasLength(2));
     expect(find.text('Finish these first'), findsNothing);
     expect(find.text('Delete your account?'), findsOneWidget);
     expect(tester.widget<StudioButton>(_button('Delete account')).onPressed, isNotNull);

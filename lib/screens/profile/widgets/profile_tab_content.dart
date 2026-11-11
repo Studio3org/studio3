@@ -25,6 +25,7 @@ class ProfileTabContent extends StatelessWidget {
     this.pieces = const [],
     this.scenes = const [],
     this.collection = const [],
+    this.onUnhideCollectionPiece,
     this.loading = false,
     this.isOwnProfile = false,
     this.onDeletePiece,
@@ -45,6 +46,9 @@ class ProfileTabContent extends StatelessWidget {
 
   /// The pieces they've bought (BACKEND_CHANGES B37).
   final List<PieceSummary> collection;
+
+  /// On their own Collection only: brings back a piece they hid (B32).
+  final void Function(PieceSummary piece)? onUnhideCollectionPiece;
   final bool loading;
   final bool isOwnProfile;
   final void Function(PieceSummary piece)? onDeletePiece;
@@ -132,6 +136,7 @@ class ProfileTabContent extends StatelessWidget {
     return ProfileCollectionGrid(
       pieces: collection,
       onPieceTap: (piece) => openProfilePiece(context, piece),
+      onUnhide: onUnhideCollectionPiece,
     );
   }
 }

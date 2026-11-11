@@ -4,11 +4,14 @@ import '../../models/feed_item.dart';
 import '../../models/feed_preview_item.dart';
 import '../../models/follow_request.dart';
 import '../../models/notification_item.dart';
+import '../../models/studio_event.dart';
 import '../../screens/auction_flow.dart';
+import '../../screens/event_invites_page.dart';
 import '../../screens/follow_requests_page.dart';
 import '../../screens/order_detail_page.dart';
 import '../../services/chat_socket_service.dart';
 import '../../services/connectivity_service.dart';
+import '../../services/event_service.dart';
 import '../../services/main_nav_service.dart';
 import '../../services/notification_service.dart';
 import '../../services/order_service.dart';
@@ -27,6 +30,7 @@ import '../offline_state.dart';
 import '../studio/studio_avatar.dart';
 import '../studio/studio_empty_state.dart';
 import '../../utils/app_clock.dart';
+import '../piece_detail/shipping_quote_ready.dart';
 import 'follow_requests_row.dart';
 
 /// The Inbox's Activity tab (`NotifActivity`, with the in-app looks of `NotifCatalog`).
@@ -68,6 +72,11 @@ class NotificationsBodyState extends State<NotificationsBody> {
   /// People waiting to follow, newest first (the row at the top).
   List<FollowRequest> _requests = const [];
 
+  /// Event invites and piece requests waiting for an answer (Phase 5, D4): the row under
+  /// Follow requests, shown only when there are some.
+  List<EventInviteRequest> _eventInvites = const [];
+  List<EventPieceRequest> _pieceRequests = const [];
+
   bool _showOfflineState = false;
 
   @override
@@ -85,6 +94,46 @@ class NotificationsBodyState extends State<NotificationsBody> {
     ChatSocketService.instance.onNotificationNew(_onSocketNotification);
     _load();
     _loadRequests();
+    _loadEventInvites();
+  }
+
+  /// The Event invites row. Quiet: a failure (or an older server) keeps what was there.
+  Future<void> _loadEventInvites() async {
+    if (widget.debugItems != null) return;
+    final service = EventService.instance;
+    try {
+      final invites = await service.myEventInvites();
+      if (mounted) setState(() => _eventInvites = invites);
+    } catch (_) {}
+    try {
+      final requests = await service.myPieceRequests();
+      if (mounted) setState(() => _pieceRequests = requests);
+    } catch (_) {}
+  }
+
+  Future<void> _openEventInvites() async {
+    await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const EventInvitesPage()));
+    await _loadEventInvites();
+  }
+
+  Widget? _eventInvitesRow() {
+    final count = _eventInvites.length + _pieceRequests.length;
+    if (count == 0) return null;
+    final titles = [
+      for (final i in _eventInvites) i.event.title,
+      for (final r in _pieceRequests) r.event.title,
+    ];
+    final others = count - 1;
+    final line = others == 0 ? titles.first : '${titles.first} + $others ${others == 1 ? 'other' : 'others'}';
+    final cover = _eventInvites.isNotEmpty ? _eventInvites.first.event.coverMediaUrl : _pieceRequests.first.item.mediaUrl;
+    return InboxCountRow(
+      rowKey: const Key('inbox-event-invites'),
+      title: _eventInvites.isEmpty ? 'Piece requests' : 'Event invites',
+      line: line,
+      imageUrl: cover,
+      count: count,
+      onTap: _openEventInvites,
+    );
   }
 
   static List<FollowRequest> _newestFirst(List<FollowRequest> requests) =>
@@ -109,7 +158,7 @@ class NotificationsBodyState extends State<NotificationsBody> {
     await _loadRequests();
   }
 
-  Future<void> _refresh() => Future.wait([_load(refresh: true), _loadRequests()]);
+  Future<void> _refresh() => Future.wait([_load(refresh: true), _loadRequests(), _loadEventInvites()]);
 
   @override
   void dispose() {
@@ -210,9 +259,13 @@ class NotificationsBodyState extends State<NotificationsBody> {
     if (_loading && _items.isEmpty) {
       return const FlatListRowSkeleton();
     }
-    final requestsRow = _requests.isEmpty
+    final followRow = _requests.isEmpty
         ? null
         : FollowRequestsRow(requests: _requests, onTap: _openRequests);
+    final invitesRow = _eventInvitesRow();
+    final requestsRow = followRow == null && invitesRow == null
+        ? null
+        : Column(mainAxisSize: MainAxisSize.min, children: [?invitesRow, ?followRow]);
     if (_items.isEmpty) {
       // `NotifEmptyActivity`: usually a brand-new account. Explore art opens Explore. Follow
       // requests still sit at the top.
@@ -458,12 +511,14 @@ List<(String, bool)>? savedPieceLine(NotificationItem n) {
 /// Opens what a notification is about: the piece or Scene, the person, or the order (as the
 /// artist for a seller notice). Event reminders have nowhere to go yet (no events in the app).
 /// Notifications that open an auction result (`BidWon`, `BidLost`, `BidReserveNotMet`,
-/// `BidPaymentFailed`) instead of the piece.
+/// `BidPaymentFailed`, `BidSecondChance`) instead of the piece.
 const kAuctionOutcomeTypes = {
   'auction_won',
   'auction_lost',
   'auction_no_sale',
   'auction_payment_failed',
+  // A second-chance offer (FRONTEND_HANDOFF 7a.4): its page while it stands, else the piece.
+  'auction_second_chance',
 };
 
 /// Whether an order notification is the seller's, to open My sales rather than My orders: a
@@ -482,6 +537,9 @@ Future<void> openNotificationTarget(BuildContext context, NotificationItem n) as
     switch (n.targetType) {
       case 'piece' when id != null && kAuctionOutcomeTypes.contains(n.type):
         await openAuctionOutcome(context, pieceId: id, type: n.type);
+      // A hand-priced shipping quote is ready (FRONTEND_HANDOFF 8.3): checkout on it.
+      case 'piece' when id != null && n.type == 'shipping_quote_ready' && n.payload['quoteId'] is String:
+        await openShippingQuoteReady(context, pieceId: id, quoteId: n.payload['quoteId'] as String);
       case 'piece':
         if (id == null) return;
         final piece = await PieceService.instance.getByIdCached(id);

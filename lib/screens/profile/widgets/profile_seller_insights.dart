@@ -14,7 +14,7 @@ Future<bool?> toggleSellerMode({
     final confirmed = await showStudioConfirm(
       context,
       title: 'Switch to artist profile?',
-      message: 'Listed pieces will be delisted automatically.',
+      message: 'Your listings and auctions without bids will come down.',
       confirmLabel: 'Switch',
     );
     if (!confirmed) return null;

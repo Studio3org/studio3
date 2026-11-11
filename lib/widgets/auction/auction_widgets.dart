@@ -1,6 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_stripe/flutter_stripe.dart' show CardField, StripeException;
+import 'package:flutter_stripe/flutter_stripe.dart' show StripeException;
 
 import '../../models/address.dart';
 import '../../models/auction.dart';
@@ -30,6 +30,13 @@ enum AuctionBarState {
   /// The viewer won and still has to confirm shipping: Finish checkout.
   won,
 
+  /// The viewer won and shipping is charged without a checkout once Convelio prices it
+  /// (FRONTEND_HANDOFF 7b `pending_quote`): a disabled "Shipping price on its way".
+  shippingPending,
+
+  /// The piece is offered to the viewer after the winner forfeited (7a.4): Accept for $X.
+  secondChance,
+
   /// The viewer won and their card was declined: Update card.
   paymentFailed,
 
@@ -46,8 +53,13 @@ AuctionBarState auctionBarState({
   String? myBidStatus,
 }) {
   if (auction == null) return AuctionBarState.ended;
+  if (auction.secondChanceOffer != null && !isOwner) return AuctionBarState.secondChance;
   if (auction.isWinner && auction.awaitingPayment) return AuctionBarState.paymentFailed;
-  if (auction.isWinner && auction.isSettling) return AuctionBarState.won;
+  if (auction.isWinner && auction.isSettling) {
+    return auction.autoCheckout?.isPendingQuote == true
+        ? AuctionBarState.shippingPending
+        : AuctionBarState.won;
+  }
   if (!auction.isOpen) return AuctionBarState.ended;
   if (isOwner) return AuctionBarState.owner;
   if (auction.isHighestBidder) return AuctionBarState.leading;
@@ -88,16 +100,31 @@ class AuctionBar extends StatelessWidget {
       AuctionBarState.outbid => 'Bid ${formatUsd(a?.minNextBidCents ?? 0)}',
       AuctionBarState.owner => 'Manage auction',
       AuctionBarState.won => 'Finish checkout',
+      AuctionBarState.shippingPending => 'Shipping price on its way',
+      AuctionBarState.secondChance =>
+        'Accept for ${formatUsd(a?.secondChanceOffer?.amountCents ?? 0)}',
       AuctionBarState.paymentFailed => 'Update card',
       AuctionBarState.ended => 'Auction ended',
     };
-    final enabled = state != AuctionBarState.ended;
+    final enabled = state != AuctionBarState.ended && state != AuctionBarState.shippingPending;
 
     StudioBottomBarInfo? left;
     StudioBottomBarInfo? right;
     Widget? leftChild;
     if (a != null) {
       switch (state) {
+        case AuctionBarState.secondChance:
+          final offer = a.secondChanceOffer!;
+          left = StudioBottomBarInfo(label: 'Your top bid', value: formatUsd(offer.amountCents));
+          final expires = offer.expiresAt;
+          if (expires != null) {
+            right = StudioBottomBarInfo(label: 'Offer ends in', value: auctionCountdown(expires, at));
+          }
+        case AuctionBarState.shippingPending:
+          left = StudioBottomBarInfo(
+            label: 'Winning bid',
+            value: formatUsd(a.winningBidCents ?? a.currentCents),
+          );
         case AuctionBarState.won:
         case AuctionBarState.paymentFailed:
           left = StudioBottomBarInfo(
@@ -239,30 +266,31 @@ class _BidStatus extends StatelessWidget {
   }
 }
 
-/// "Before you bid" (`BidVerify`): first bid only. The card in a boxed field (checked with a
-/// setup intent, no hold), then Ship to: a saved address (the default, or the first), which
-/// opens the address picker; its ZIP goes with the card. Save and continue, then "Saving lets
-/// us charge this card if you win." with the bidding terms. Returns the saved card's payment
-/// method id.
+/// What `BidVerify` returns: the saved card and the Ship to address (null without Ship to).
+typedef BidVerifyResult = ({String paymentMethodId, String? addressId});
+
+/// "Before you bid" (`BidVerify`): first bid only. A Card row in a boxed field: it opens
+/// Stripe's PaymentSheet on a SetupIntent (Apple Pay and Google Pay when configured), where
+/// the bank checks the card once; nothing is held (FRONTEND_HANDOFF 7a.1). Then Ship to: a
+/// saved address (the default, or the first), which opens the address picker. Save and
+/// continue, then "Saving lets us charge this card if you win." with the bidding terms.
+/// Returns the saved card's payment method id and the address id.
 ///
-/// With [shipTo] off it is just the card (`BidPaymentFailed` Update card): "Add a card".
+/// With [shipTo] off it is just the card (`BidPaymentFailed` Use another card): "Add a card".
 class BidVerifySheet extends StatefulWidget {
   const BidVerifySheet({
     super.key,
     this.shipTo = true,
     this.saveCard,
-    this.cardField,
     this.debugAddresses,
     this.pickAddress,
   });
 
   final bool shipTo;
 
-  /// For tests: saving the card, and the card field (Stripe's is a platform view).
+  /// For tests: saving a card (Stripe's PaymentSheet is native). Null when they backed out.
   @visibleForTesting
-  final Future<String> Function(String zip)? saveCard;
-  @visibleForTesting
-  final Widget Function(ValueChanged<bool> onComplete)? cardField;
+  final Future<SavedCard?> Function()? saveCard;
 
   /// For tests: the saved addresses, and the picker Ship to opens.
   @visibleForTesting
@@ -270,8 +298,8 @@ class BidVerifySheet extends StatefulWidget {
   @visibleForTesting
   final Future<Address?> Function(Address? current)? pickAddress;
 
-  static Future<String?> show(BuildContext context, {bool shipTo = true}) {
-    return showStudioSheet<String>(
+  static Future<BidVerifyResult?> show(BuildContext context, {bool shipTo = true}) {
+    return showStudioSheet<BidVerifyResult>(
       context: context,
       useRootNavigator: true,
       builder: (_) => BidVerifySheet(shipTo: shipTo),
@@ -285,34 +313,20 @@ class BidVerifySheet extends StatefulWidget {
 class _BidVerifySheetState extends State<BidVerifySheet> {
   late final _terms = TapGestureRecognizer()
     ..onTap = () => Navigator.of(context).pushNamed('/terms');
-  bool _cardComplete = false;
+  SavedCard? _card;
+  bool _addingCard = false;
   bool _saving = false;
   String? _error;
   Address? _address;
-  String? _zip;
 
   @override
   void initState() {
     super.initState();
-    BidStore.instance.zip().then((z) {
-      if (mounted) _zip = z;
-    });
     if (!widget.shipTo) return;
-    final debug = widget.debugAddresses;
-    if (debug != null) {
-      _address = _preferred(debug);
-    } else {
-      AddressService.instance
-          .getAddresses()
-          .then((list) {
-            if (mounted && _address == null) setState(() => _address = _preferred(list));
-          })
-          .catchError((Object _) {});
-    }
+    loadBidShipTo(widget.debugAddresses, (a) {
+      if (mounted && _address == null) setState(() => _address = a);
+    });
   }
-
-  static Address? _preferred(List<Address> list) =>
-      list.where((a) => a.isDefault).firstOrNull ?? list.firstOrNull;
 
   @override
   void dispose() {
@@ -320,7 +334,9 @@ class _BidVerifySheetState extends State<BidVerifySheet> {
     super.dispose();
   }
 
-  bool get _ready => _cardComplete && (!widget.shipTo || _address != null) && !_saving;
+  bool get _canAddCard => widget.saveCard != null || StripeSetup.ready;
+
+  bool get _ready => _card != null && (!widget.shipTo || _address != null) && !_saving && !_addingCard;
 
   Future<void> _pickAddress() async {
     final picked = await (widget.pickAddress ??
@@ -328,20 +344,22 @@ class _BidVerifySheetState extends State<BidVerifySheet> {
     if (picked != null && mounted) setState(() => _address = picked);
   }
 
-  Future<void> _save() async {
+  Future<void> _addCard() async {
     setState(() {
-      _saving = true;
+      _addingCard = true;
       _error = null;
     });
-    final zip = _address?.zip ?? _zip ?? '';
     try {
-      final id = await (widget.saveCard ?? (z) => BidService.instance.saveCard(zip: z))(zip);
-      if (zip.isNotEmpty) await BidStore.instance.saveZip(zip);
-      if (mounted) Navigator.pop(context, id);
+      final card = await (widget.saveCard ?? BidService.instance.saveCard)();
+      if (!mounted) return;
+      setState(() {
+        _addingCard = false;
+        if (card != null) _card = card;
+      });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _saving = false;
+        _addingCard = false;
         _error = e is ApiException
             ? e.message
             : e is StripeException
@@ -351,14 +369,25 @@ class _BidVerifySheetState extends State<BidVerifySheet> {
     }
   }
 
+  Future<void> _save() async {
+    final card = _card;
+    if (card == null) return;
+    setState(() => _saving = true);
+    final zip = _address?.zip ?? '';
+    // The ZIP, for the piece page's shipping estimate.
+    if (zip.isNotEmpty) await BidStore.instance.saveZip(zip);
+    if (mounted) {
+      Navigator.pop<BidVerifyResult>(context, (
+        paymentMethodId: card.id,
+        addressId: widget.shipTo ? _address?.id : null,
+      ));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = context.studio;
-    void onComplete(bool complete) {
-      if (complete != _cardComplete) setState(() => _cardComplete = complete);
-    }
-
-    final address = _address;
+    final card = _card;
     return StudioSheet(
       horizontalPadding: 24,
       gap: 18,
@@ -380,69 +409,65 @@ class _BidVerifySheetState extends State<BidVerifySheet> {
             ),
           ],
         ),
-        // Stripe's card field in a 10 radius box (`BidVerify`), white on the sheet.
-        Container(
-          key: const Key('bid-verify-card'),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: c.card,
-            borderRadius: BorderRadius.circular(StudioRadius.card),
-            border: Border.all(color: c.lineStrong),
-          ),
-          child: widget.cardField?.call(onComplete) ??
-              (StripeSetup.ready
-                  ? CardField(
-                      enablePostalCode: false,
-                      style: StudioType.mono(15, color: c.textPrimary),
-                      cursorColor: c.textPrimary,
-                      decoration: const InputDecoration(
-                        border: InputBorder.none,
-                        isDense: true,
-                        contentPadding: EdgeInsets.zero,
-                      ),
-                      onCardChanged: (details) => onComplete(details?.complete ?? false),
-                    )
-                  : Text(
+        // The card in a 10 radius box (`BidVerify`), white on the sheet: tap to add one in
+        // Stripe's sheet.
+        Semantics(
+          button: _canAddCard,
+          label: card == null ? 'Card, add your card' : 'Card, ${card.label}',
+          excludeSemantics: true,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: !_canAddCard || _addingCard || _saving ? null : _addCard,
+            child: Container(
+              key: const Key('bid-verify-card'),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: c.card,
+                borderRadius: BorderRadius.circular(StudioRadius.card),
+                border: Border.all(color: c.lineStrong),
+              ),
+              child: !_canAddCard
+                  ? Text(
                       'Card payments are not set up in this build yet.',
                       style: StudioType.body14(color: c.textSecondary),
-                    )),
+                    )
+                  : Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Card', style: StudioType.sans(13, color: c.textSecondary)),
+                              const SizedBox(height: 3),
+                              Text(
+                                card == null ? 'Add your card' : card.label,
+                                style: StudioType.sans(
+                                  15,
+                                  color: card == null ? c.textTertiary : c.textPrimary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        if (_addingCard)
+                          SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 1.5, color: c.textSecondary),
+                          )
+                        else
+                          StudioIcon(StudioIcons.chevronRight, size: 18, color: c.textPlaceholder),
+                      ],
+                    ),
+            ),
+          ),
         ),
         if (widget.shipTo)
-          Semantics(
-            button: true,
-            label: address == null ? 'Ship to, add your address' : 'Ship to, ${_oneLine(address)}',
-            excludeSemantics: true,
-            child: GestureDetector(
-              key: const Key('bid-verify-ship-to'),
-              behavior: HitTestBehavior.opaque,
-              onTap: _saving ? null : _pickAddress,
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                decoration: BoxDecoration(border: Border(bottom: BorderSide(color: c.line))),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Ship to', style: StudioType.sans(13, color: c.textSecondary)),
-                          const SizedBox(height: 3),
-                          Text(
-                            address == null ? 'Add your address' : _oneLine(address),
-                            style: StudioType.sans(
-                              15,
-                              color: address == null ? c.textTertiary : c.textPrimary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    StudioIcon(StudioIcons.chevronRight, size: 18, color: c.textPlaceholder),
-                  ],
-                ),
-              ),
-            ),
+          BidShipToRow(
+            key: const Key('bid-verify-ship-to'),
+            address: _address,
+            onTap: _saving ? null : _pickAddress,
           ),
         if (_error != null) Text(_error!, style: StudioType.body14(color: c.textPrimary)),
         StudioButton(
@@ -471,9 +496,33 @@ class _BidVerifySheetState extends State<BidVerifySheet> {
       ],
     );
   }
+}
+
+/// Reads the bidder's saved addresses ([debug] in tests) and reports the preferred one: the
+/// default, or the first. Failures leave Ship to empty.
+void loadBidShipTo(List<Address>? debug, ValueChanged<Address?> onLoaded) {
+  Address? preferred(List<Address> list) =>
+      list.where((a) => a.isDefault).firstOrNull ?? list.firstOrNull;
+  if (debug != null) {
+    onLoaded(preferred(debug));
+    return;
+  }
+  AddressService.instance
+      .getAddresses()
+      .then((list) => onLoaded(preferred(list)))
+      .catchError((Object _) {});
+}
+
+/// Ship to (`BidVerify`): "Ship to" over the address on one line (or "Add your address"), a
+/// chevron, a Line under. Opens the address picker.
+class BidShipToRow extends StatelessWidget {
+  const BidShipToRow({super.key, required this.address, required this.onTap});
+
+  final Address? address;
+  final VoidCallback? onTap;
 
   /// "Jordan Lee, 4521 Lovers Ln, Dallas, TX 75225".
-  static String _oneLine(Address a) {
+  static String oneLine(Address a) {
     final name = [a.firstName, a.lastName].where((p) => p.trim().isNotEmpty).join(' ');
     return [
       if (name.isNotEmpty) name,
@@ -482,6 +531,44 @@ class _BidVerifySheetState extends State<BidVerifySheet> {
       '${a.state} ${a.zip}'.trim(),
     ].where((p) => p.trim().isNotEmpty).join(', ');
   }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.studio;
+    final a = address;
+    return Semantics(
+      button: true,
+      label: a == null ? 'Ship to, add your address' : 'Ship to, ${oneLine(a)}',
+      excludeSemantics: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(border: Border(bottom: BorderSide(color: c.line))),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Ship to', style: StudioType.sans(13, color: c.textSecondary)),
+                    const SizedBox(height: 3),
+                    Text(
+                      a == null ? 'Add your address' : oneLine(a),
+                      style: StudioType.sans(15, color: a == null ? c.textTertiary : c.textPrimary),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              StudioIcon(StudioIcons.chevronRight, size: 18, color: c.textPlaceholder),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// Place a bid (`BidSheet`): Current bid · [N] bids and Time remaining; "Your bid" 32/500 on
@@ -489,20 +576,36 @@ class _BidVerifySheetState extends State<BidVerifySheet> {
 /// steps up); Reserve not met yet with its tooltip; Bid $X; the fine print with the card.
 /// A bid the server now finds too low keeps what was typed and says the new minimum.
 /// Returns the auction after the bid.
+///
+/// [addressId] is the Ship to picked in `BidVerify`. A returning bidder (a saved card, so no
+/// `BidVerify`) bidding on this piece for the first time gets the Ship to row here instead
+/// ([shipTo]), so the win can be delivered without a checkout (FRONTEND_HANDOFF 7a.1, 7b).
 class BidSheet extends StatefulWidget {
   const BidSheet({
     super.key,
     required this.pieceId,
     required this.auction,
     required this.card,
+    this.addressId,
+    this.shipTo = false,
     this.placeBid,
     this.refresh,
     this.now,
+    this.debugAddresses,
+    this.pickAddress,
   });
 
   final String pieceId;
   final AuctionSummary auction;
   final SavedCard card;
+  final String? addressId;
+  final bool shipTo;
+
+  /// For tests: the saved addresses, and the picker Ship to opens.
+  @visibleForTesting
+  final List<Address>? debugAddresses;
+  @visibleForTesting
+  final Future<Address?> Function(Address? current)? pickAddress;
 
   /// For tests: the bid call, and re-reading the auction after a rejected bid.
   @visibleForTesting
@@ -516,12 +619,21 @@ class BidSheet extends StatefulWidget {
     required String pieceId,
     required AuctionSummary auction,
     required SavedCard card,
+    String? addressId,
+    bool shipTo = false,
     Future<AuctionSummary?> Function()? refresh,
   }) {
     return showStudioSheet<AuctionSummary>(
       context: context,
       useRootNavigator: true,
-      builder: (_) => BidSheet(pieceId: pieceId, auction: auction, card: card, refresh: refresh),
+      builder: (_) => BidSheet(
+        pieceId: pieceId,
+        auction: auction,
+        card: card,
+        addressId: addressId,
+        shipTo: shipTo,
+        refresh: refresh,
+      ),
     );
   }
 
@@ -535,11 +647,27 @@ class _BidSheetState extends State<BidSheet> {
     ..addListener(() => setState(() => _error = null));
   bool _sending = false;
   String? _error;
+  Address? _address;
+
+  @override
+  void initState() {
+    super.initState();
+    if (!widget.shipTo) return;
+    loadBidShipTo(widget.debugAddresses, (a) {
+      if (mounted && _address == null) setState(() => _address = a);
+    });
+  }
 
   @override
   void dispose() {
     _amount.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickAddress() async {
+    final picked = await (widget.pickAddress ??
+        (current) => CollectShippingSheet.show(context, initial: current))(_address);
+    if (picked != null && mounted) setState(() => _address = picked);
   }
 
   int? get _cents => PostAvailabilityStep.parseCents(_amount.text);
@@ -556,6 +684,7 @@ class _BidSheetState extends State<BidSheet> {
             widget.pieceId,
             amountCents: amount,
             paymentMethodId: widget.card.id,
+            addressId: widget.shipTo ? _address?.id : widget.addressId,
           ))(cents);
       if (mounted) Navigator.pop(context, after);
     } on ApiException catch (e) {
@@ -583,7 +712,11 @@ class _BidSheetState extends State<BidSheet> {
     final at = widget.now ?? DateTime.now();
     final soon = auctionEndingSoon(a.endsAt, at);
     final cents = _cents;
-    final picks = bidQuickPicks(a.minNextBidCents);
+    // The server's step when it sends one, else the table on the current high bid.
+    final picks = bidQuickPicks(
+      a.minNextBidCents,
+      stepCents: a.bidIncrementCents > 0 ? a.bidIncrementCents : bidIncrementCents(a.currentCents),
+    );
     final valid = cents != null && cents >= a.minNextBidCents;
     return StudioSheet(
       horizontalPadding: 24,
@@ -668,6 +801,12 @@ class _BidSheetState extends State<BidSheet> {
           ],
         ),
         if (a.hasReserve) _ReserveLine(met: a.reserveMet),
+        if (widget.shipTo)
+          BidShipToRow(
+            key: const Key('bid-sheet-ship-to'),
+            address: _address,
+            onTap: _sending ? null : _pickAddress,
+          ),
         StudioButton(
           label: valid ? 'Bid ${formatUsd(cents)}' : 'Bid',
           height: StudioSize.buttonPrimaryTall,
@@ -678,14 +817,16 @@ class _BidSheetState extends State<BidSheet> {
           TextSpan(
             children: [
               const TextSpan(
-                text: "Bids can't be taken back. Tax and shipping are added at checkout. If "
-                    "you win, you'll confirm shipping and pay with the card ending ",
+                text: "Bids can't be taken back. The card ending ",
               ),
               TextSpan(
                 text: widget.card.last4,
                 style: StudioType.mono(12, color: c.textSecondary),
               ),
-              const TextSpan(text: '. All sales are final.'),
+              const TextSpan(
+                text: ' is charged only if you win, and shipping, insurance and tax follow on '
+                    'it automatically where we can. All sales are final.',
+              ),
             ],
           ),
           textAlign: TextAlign.center,

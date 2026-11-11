@@ -20,18 +20,22 @@ class CollectShippingSheet extends StatefulWidget {
   const CollectShippingSheet({
     super.key,
     this.initial,
+    this.title = 'Delivery address',
     @visibleForTesting this.debugAddresses,
   });
 
   final Address? initial;
 
+  /// The header: "Delivery address" at checkout, "Pickup address" in Selling.
+  final String title;
+
   /// Tests only: show these instead of loading.
   final List<Address>? debugAddresses;
 
-  static Future<Address?> show(BuildContext context, {Address? initial}) {
+  static Future<Address?> show(BuildContext context, {Address? initial, String title = 'Delivery address'}) {
     return showStudioSheet<Address>(
       context: context,
-      builder: (context) => CollectShippingSheet(initial: initial),
+      builder: (context) => CollectShippingSheet(initial: initial, title: title),
     );
   }
 
@@ -151,7 +155,7 @@ class _CollectShippingSheetState extends State<CollectShippingSheet> {
       gap: 12,
       scrollable: true,
       children: [
-        _ShippingHeader(onBack: () => Navigator.pop(context)),
+        _ShippingHeader(title: widget.title, onBack: () => Navigator.pop(context)),
         content,
         const SizedBox(height: 8),
         StudioButton(
@@ -174,10 +178,11 @@ extension<T> on Iterable<T> {
   T? get firstOrNull => isEmpty ? null : first;
 }
 
-/// Back (22 px, 44 target) on the left, "Delivery address" 16/500 centred.
+/// Back (22 px, 44 target) on the left, the title ("Delivery address") 16/500 centred.
 class _ShippingHeader extends StatelessWidget {
-  const _ShippingHeader({required this.onBack});
+  const _ShippingHeader({required this.title, required this.onBack});
 
+  final String title;
   final VoidCallback onBack;
 
   @override
@@ -205,7 +210,7 @@ class _ShippingHeader extends StatelessWidget {
           ),
           Expanded(
             child: Text(
-              'Delivery address',
+              title,
               textAlign: TextAlign.center,
               style: StudioType.sans(16, weight: StudioType.medium, color: c.textPrimary),
             ),

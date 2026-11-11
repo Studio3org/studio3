@@ -1,33 +1,83 @@
 import 'address.dart';
 
+/// The piece on an order line, as the order lists carry it (B34): enough for a row's title and
+/// picture. [mediaUrl] is always a picture (a video cover's first photo), or null.
+class OrderPiece {
+  const OrderPiece({required this.id, this.title = '', this.mediaUrl, this.listingType});
+
+  final String id;
+  final String title;
+  final String? mediaUrl;
+  final String? listingType;
+
+  bool get isAuction => listingType == 'auction';
+
+  factory OrderPiece.fromJson(Map<String, dynamic> json) {
+    return OrderPiece(
+      id: json['id'] as String? ?? '',
+      title: json['title'] as String? ?? '',
+      mediaUrl: json['mediaUrl'] as String?,
+      listingType: json['listingType'] as String?,
+    );
+  }
+}
+
 class OrderItem {
   const OrderItem({
     required this.pieceId,
     required this.priceCents,
     required this.quantity,
+    this.piece,
   });
 
   final String pieceId;
   final int priceCents;
   final int quantity;
 
+  /// The piece, or null when the server didn't send it or the piece no longer exists.
+  final OrderPiece? piece;
+
   factory OrderItem.fromJson(Map<String, dynamic> json) {
+    final pieceJson = json['piece'];
     return OrderItem(
       pieceId: json['pieceId'] as String? ?? '',
       priceCents: (json['priceCents'] as num?)?.toInt() ?? 0,
       quantity: (json['quantity'] as num?)?.toInt() ?? 1,
+      piece: pieceJson is Map<String, dynamic> ? OrderPiece.fromJson(pieceJson) : null,
     );
   }
 }
 
-/// Courier tracking for an order, entered by the Studiothree team (there is no
-/// carrier API in this phase, so it is updated manually).
+/// One step of the Convelio tracker (FRONTEND_HANDOFF 8.4): `booked`, `picked_up`,
+/// `in_transit`, `out_for_delivery`, `delivered`.
+class ShipmentStep {
+  const ShipmentStep({required this.key, required this.done});
+
+  final String key;
+  final bool done;
+
+  factory ShipmentStep.fromJson(Map<String, dynamic> json) =>
+      ShipmentStep(key: json['key'] as String? ?? '', done: json['done'] as bool? ?? false);
+
+  Map<String, dynamic> toJson() => {'key': key, 'done': done};
+}
+
+/// Courier tracking for an order: entered by the team, or from Convelio (Phase 8.4) with its
+/// own status, the tracker [steps], a tracking link and the reference.
 class OrderShipment {
   const OrderShipment({
     required this.courier,
     required this.trackingNumber,
     required this.status,
     this.shipmentDate,
+    this.provider,
+    this.providerStatus,
+    this.steps = const [],
+    this.trackingUrl,
+    this.reference,
+    this.deliveredAt,
+    this.onHold = false,
+    this.cancelled = false,
   });
 
   final String courier;
@@ -35,7 +85,26 @@ class OrderShipment {
   final String status;
   final DateTime? shipmentDate;
 
+  /// `convelio`, or null for a shipment entered by hand.
+  final String? provider;
+  final String? providerStatus;
+  final List<ShipmentStep> steps;
+  final String? trackingUrl;
+  final String? reference;
+  final DateTime? deliveredAt;
+  final bool onHold;
+  final bool cancelled;
+
   bool get isDelivered => status == 'delivered';
+
+  /// The last step reached, or null without steps.
+  String? get currentStepKey {
+    String? key;
+    for (final step in steps) {
+      if (step.done) key = step.key;
+    }
+    return key;
+  }
 
   String get statusLabel => switch (status) {
         'label_created' => 'Label created',
@@ -51,8 +120,91 @@ class OrderShipment {
       trackingNumber: json['trackingNumber'] as String? ?? '',
       status: json['status'] as String? ?? 'label_created',
       shipmentDate: DateTime.tryParse(json['shipmentDate'] as String? ?? ''),
+      provider: json['provider'] as String?,
+      providerStatus: json['providerStatus'] as String?,
+      steps: (json['steps'] as List?)
+              ?.whereType<Map<String, dynamic>>()
+              .map(ShipmentStep.fromJson)
+              .toList() ??
+          const [],
+      trackingUrl: json['trackingUrl'] as String?,
+      reference: json['reference'] as String?,
+      deliveredAt: DateTime.tryParse(json['deliveredAt'] as String? ?? ''),
+      onHold: json['onHold'] as bool? ?? false,
+      cancelled: json['cancelled'] as bool? ?? false,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'courier': courier,
+        'trackingNumber': trackingNumber,
+        'status': status,
+        if (shipmentDate != null) 'shipmentDate': shipmentDate!.toIso8601String(),
+        if (provider != null) 'provider': provider,
+        if (providerStatus != null) 'providerStatus': providerStatus,
+        if (steps.isNotEmpty) 'steps': steps.map((s) => s.toJson()).toList(),
+        if (trackingUrl != null) 'trackingUrl': trackingUrl,
+        if (reference != null) 'reference': reference,
+        if (deliveredAt != null) 'deliveredAt': deliveredAt!.toIso8601String(),
+        if (onHold) 'onHold': true,
+        if (cancelled) 'cancelled': true,
+      };
+}
+
+/// The viewer's own order on a piece (`viewerOrder` on `GET /api/pieces/:id`, FRONTEND_HANDOFF
+/// 8.4): the collector's purchase or the artist's sale; null for everyone else.
+class PieceViewerOrder {
+  const PieceViewerOrder({
+    required this.id,
+    required this.side,
+    required this.status,
+    this.deliveryType,
+    this.shipment,
+  });
+
+  final String id;
+
+  /// `buyer` or `seller`.
+  final String side;
+  final String status;
+  final String? deliveryType;
+  final OrderShipment? shipment;
+
+  bool get isSeller => side == 'seller';
+
+  static PieceViewerOrder? maybeFrom(Object? raw) {
+    if (raw is! Map<String, dynamic>) return null;
+    final id = raw['id'] as String?;
+    if (id == null || id.isEmpty) return null;
+    final shipment = raw['shipment'];
+    return PieceViewerOrder(
+      id: id,
+      side: raw['side'] as String? ?? 'buyer',
+      status: raw['status'] as String? ?? 'paid',
+      deliveryType: raw['deliveryType'] as String?,
+      shipment: shipment is Map<String, dynamic> ? OrderShipment.fromJson(shipment) : null,
+    );
+  }
+
+  /// As an [Order], for the delivery card.
+  Order toOrder() => Order(
+        id: id,
+        status: status,
+        artworkCents: 0,
+        shippingCents: 0,
+        taxCents: 0,
+        totalCents: 0,
+        shipment: shipment,
+        deliveryType: deliveryType,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'side': side,
+        'status': status,
+        if (deliveryType != null) 'deliveryType': deliveryType,
+        if (shipment != null) 'shipment': shipment!.toJson(),
+      };
 }
 
 /// An open or resolved issue the collector raised on an order.
@@ -96,6 +248,9 @@ class Order {
     this.shipment,
     this.payoutStatus,
     this.dispute,
+    this.fromAuction = false,
+    this.insuranceCents = 0,
+    this.deliveryType,
   });
 
   final String id;
@@ -118,6 +273,15 @@ class Order {
   final OrderShipment? shipment;
   final String? payoutStatus;
   final OrderDispute? dispute;
+
+  /// An auction win rather than a fixed-price sale (B34).
+  final bool fromAuction;
+
+  /// The insurance part of [shippingCents] (Phase 8); 0 without.
+  final int insuranceCents;
+
+  /// `curbside` or `white_glove` (Phase 8); null for flat-rate or pickup orders.
+  final String? deliveryType;
 
   /// The artwork has been delivered and is waiting on the collector to confirm
   /// receipt — the step that releases the artist's payment.
@@ -179,6 +343,9 @@ class Order {
       dispute: json['dispute'] is Map<String, dynamic>
           ? OrderDispute.fromJson(json['dispute'] as Map<String, dynamic>)
           : null,
+      fromAuction: json['fromAuction'] as bool? ?? false,
+      insuranceCents: (json['insuranceCents'] as num?)?.toInt() ?? 0,
+      deliveryType: json['deliveryType'] as String?,
     );
   }
 

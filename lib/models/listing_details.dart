@@ -28,6 +28,9 @@ class ListingDetails {
     this.declaredValueUsd,
     this.listingType,
     this.auctionDurationDays,
+    this.shippingItemType,
+    this.shippingPacking,
+    this.shippingMaterials = const [],
   }) : _weightKg = weightKg;
 
   final double? priceUsd;
@@ -62,6 +65,16 @@ class ListingDetails {
   final double? packageHeight;
   final String packageUnit;
   final double? declaredValueUsd;
+
+  /// What Convelio is told it is shipping (FRONTEND_HANDOFF 8.1): `fine_art.painting` and so
+  /// on; null lets the server guess from the medium.
+  final String? shippingItemType;
+
+  /// `not_packed` (Convelio crates it) or `wood_crated`; null sends nothing.
+  final String? shippingPacking;
+
+  /// Convelio's materials and framing list (`glass`, `ornate_frame`, …); empty sends nothing.
+  final List<String> shippingMaterials;
 
   /// `'fixed'` or `'auction'` when the piece is listed for sale.
   final String? listingType;
@@ -123,6 +136,9 @@ class ListingDetails {
     double? declaredValueUsd,
     String? listingType,
     int? auctionDurationDays,
+    String? shippingItemType,
+    String? shippingPacking,
+    List<String>? shippingMaterials,
   }) {
     return ListingDetails(
       priceUsd: priceUsd ?? this.priceUsd,
@@ -149,6 +165,9 @@ class ListingDetails {
       declaredValueUsd: declaredValueUsd ?? this.declaredValueUsd,
       listingType: listingType ?? this.listingType,
       auctionDurationDays: auctionDurationDays ?? this.auctionDurationDays,
+      shippingItemType: shippingItemType ?? this.shippingItemType,
+      shippingPacking: shippingPacking ?? this.shippingPacking,
+      shippingMaterials: shippingMaterials ?? this.shippingMaterials,
     );
   }
 

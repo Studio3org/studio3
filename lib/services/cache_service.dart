@@ -170,5 +170,18 @@ class CacheService {
 
   Future<void> invalidate(String key) async => _box?.delete(key);
 
-  Future<void> clearAll() async => _box?.clear();
+  /// Clears everything except door scans not yet sent (`offline_check_in.dart`): a host who
+  /// logs out before the venue's Wi-Fi comes back mustn't lose who they let in. The queue holds
+  /// only ticket codes and scan times; the guest manifest (names) is cleared with the rest.
+  /// If someone else logs in next, the server refuses the sync and the queue is dropped.
+  Future<void> clearAll() async {
+    final box = _box;
+    if (box == null) return;
+    final keep = box.keys.where((k) => k is String && (k.startsWith('checkin.queue.') || k == 'checkin.pending')).toSet();
+    if (keep.isEmpty) {
+      await box.clear();
+      return;
+    }
+    await box.deleteAll(box.keys.where((k) => !keep.contains(k)).toList());
+  }
 }

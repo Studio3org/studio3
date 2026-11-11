@@ -7,10 +7,17 @@ import '../screens/order_detail_page.dart';
 import '../screens/seller/seller_setup_flow.dart';
 import '../models/feed_item.dart';
 import '../screens/series_view_page.dart';
+import '../screens/auction_flow.dart' show openAuctionOutcome;
+import '../screens/conversation_thread_page.dart';
+import '../services/api_exception.dart';
 import '../services/auth_session.dart';
+import '../services/chat_service.dart';
+import '../widgets/inbox/notifications_body.dart' show kAuctionOutcomeTypes;
+import '../widgets/studio/studio.dart' show showStudioToast;
 import '../services/event_service.dart';
 import '../services/piece_service.dart';
 import '../services/post_service.dart';
+import '../widgets/piece_detail/shipping_quote_ready.dart';
 import 'explore_detail_route.dart';
 import 'profile_navigation.dart';
 import 'reels_route.dart';
@@ -27,7 +34,7 @@ import 'reels_route.dart';
 /// They share a resolver so a destination added for one is reachable from all three. The QR
 /// codes in the event flow arrive as deep links and land here too, which is the reason this
 /// is keyed on a type and an id rather than on a URL: a notification has no URL to give.
-enum AppDestinationType { piece, scene, series, order, event, profile, payoutSetup, activity, unknown }
+enum AppDestinationType { piece, scene, series, order, event, profile, conversation, payoutSetup, activity, unknown }
 
 class AppDestination {
   const AppDestination(this.type, [this.id, this.asSeller = false]);
@@ -42,6 +49,14 @@ class AppDestination {
   bool get isKnown => type != AppDestinationType.unknown && (id != null || !_needsId);
 
   bool get _needsId => type != AppDestinationType.payoutSetup && type != AppDestinationType.activity;
+
+  /// `shipping_quote_ready` (FRONTEND_HANDOFF 8.3): the quote to reopen checkout on; the piece
+  /// is [id]. Null for everything else.
+  String? get quoteId => null;
+
+  /// An auction result push (`auction_won`, `auction_payment_failed`, …): opens the result
+  /// screen, as the inbox row does, rather than the bare piece. Null for everything else.
+  String? get auctionOutcomeType => null;
 
   /// From a notification's `targetType` / `targetId`, as the server sends them.
   ///
@@ -59,7 +74,18 @@ class AppDestination {
     String? targetId, {
     String? actorUsername,
     bool asSeller = false,
+    String? type,
+    String? quoteId,
   }) {
+    if (type == 'shipping_quote_ready' &&
+        targetType == 'piece' &&
+        (targetId ?? '').isNotEmpty &&
+        (quoteId ?? '').isNotEmpty) {
+      return ShippingQuoteDestination(targetId!, quoteId!);
+    }
+    if (type != null && kAuctionOutcomeTypes.contains(type) && targetType == 'piece' && (targetId ?? '').isNotEmpty) {
+      return AuctionOutcomeDestination(targetId!, type);
+    }
     if (targetType == 'user') {
       final handle = actorUsername?.trim();
       if (handle == null || handle.isEmpty) {
@@ -113,6 +139,25 @@ class AppDestination {
   }
 }
 
+/// A piece whose hand-priced shipping quote is ready: the piece, then checkout on the quote.
+class ShippingQuoteDestination extends AppDestination {
+  const ShippingQuoteDestination(String pieceId, this._quoteId) : super(AppDestinationType.piece, pieceId);
+
+  final String _quoteId;
+
+  @override
+  String get quoteId => _quoteId;
+}
+
+class AuctionOutcomeDestination extends AppDestination {
+  const AuctionOutcomeDestination(String pieceId, this._type) : super(AppDestinationType.piece, pieceId);
+
+  final String _type;
+
+  @override
+  String? get auctionOutcomeType => _type;
+}
+
 /// Navigate to [destination]. Safe to call with anything — an unknown target does nothing.
 ///
 /// Never throws. A tap arriving from a push may reference a piece that has since been
@@ -120,6 +165,10 @@ class AppDestination {
 /// leave them where they are rather than to crash the app they just opened.
 Future<void> openDestination(BuildContext context, AppDestination destination) async {
   switch (destination.type) {
+    case AppDestinationType.piece when destination.quoteId != null:
+      await openShippingQuoteReady(context, pieceId: destination.id!, quoteId: destination.quoteId!);
+    case AppDestinationType.piece when destination.auctionOutcomeType != null:
+      await openAuctionOutcome(context, pieceId: destination.id!, type: destination.auctionOutcomeType!);
     case AppDestinationType.piece:
       await _openPiece(context, destination.id!);
     case AppDestinationType.scene:
@@ -132,6 +181,8 @@ Future<void> openDestination(BuildContext context, AppDestination destination) a
       await _openEvent(context, destination.id!);
     case AppDestinationType.profile:
       openUserProfile(context, destination.id!);
+    case AppDestinationType.conversation:
+      await _openConversation(context, destination.id!);
     case AppDestinationType.payoutSetup:
       // Stripe's return link: back into seller setup (or the open one checks again).
       if (AuthSession.instance.sellerEnabled) {
@@ -166,11 +217,41 @@ Future<void> _openScene(BuildContext context, String id) async {
   }
 }
 
+/// A chat push carries only the conversation id: load the thread for the other person's
+/// name and photo, then open it. If that fails, the Messages tab.
+Future<void> _openConversation(BuildContext context, String id) async {
+  try {
+    final thread = await ChatService.instance.getThread(id);
+    if (!context.mounted) return;
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => ConversationThreadPage(
+          conversationId: thread.id,
+          otherPartyId: thread.otherPartyId,
+          otherPartyUsername: thread.otherPartyUsername ?? '',
+          otherPartyName: thread.otherPartyName ?? '',
+          otherPartyAvatarUrl: thread.otherPartyAvatarUrl,
+          initialStatus: thread.status,
+        ),
+      ),
+    );
+  } catch (_) {
+    if (context.mounted) Navigator.pushNamed(context, '/inbox', arguments: InboxTab.chats);
+  }
+}
+
 Future<void> _openEvent(BuildContext context, String id) async {
   try {
     final event = await EventService.instance.getById(id);
     if (!context.mounted) return;
     openEventDetail(context, event);
+  } on ApiException catch (e) {
+    // A removed event (`event_cancelled` "removed by its host") or one no longer shared:
+    // say so rather than doing nothing.
+    if (e.statusCode == 404 && context.mounted) {
+      showStudioToast(context, 'This event is no longer available.', icon: null);
+    }
   } catch (_) {
     // Cancelled, still a draft, or gone. Better to stay put than to open an error screen
     // from a link somebody shared weeks ago.

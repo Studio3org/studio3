@@ -182,7 +182,9 @@ class FeedEventCard extends StatelessWidget {
 
   /// `EventNoArtists`: Price and Where (12 Graphite over 15/500), 24 apart.
   Widget _priceWhere() {
-    final lowest = event.ticketOptions.map((t) => t.priceCents).reduce((a, b) => a < b ? a : b);
+    // Types not on sale right now don't set the price (B22), unless that is all of them.
+    final onSale = event.ticketOptions.where((t) => t.onSale != false);
+    final lowest = (onSale.isEmpty ? event.ticketOptions : onSale).map((t) => t.priceCents).reduce((a, b) => a < b ? a : b);
     Widget fact(String label, String value) => Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

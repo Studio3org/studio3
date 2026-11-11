@@ -12,11 +12,13 @@ import '../services/auth_session.dart';
 import '../services/piece_service.dart';
 import '../services/user_service.dart';
 import '../utils/explore_detail_route.dart';
-import '../widgets/create_flow/listing_details_form.dart' show showFramingSheet, kFramingOptions;
+import '../widgets/create_flow/listing_details_form.dart'
+    show showFramingSheet, kFramingOptions, ShippingFields, PackedSizeInput, ShippingOptionRows;
 import '../widgets/create_flow/post_availability_step.dart';
 import '../widgets/create_flow/post_flow_widgets.dart';
 import '../widgets/create_flow/post_result_views.dart';
 import '../widgets/piece_detail/piece_share_sheet.dart';
+import '../widgets/selling/pickup_address.dart';
 import '../widgets/studio/studio.dart';
 import 'post_create_page.dart' show ScenePostArgs;
 import 'seller/seller_setup_flow.dart';
@@ -39,7 +41,8 @@ const kListLaterAuction = true;
 
 /// "List it later" (`ListOwnerPiece` → `PostListLater` → `ListPricing` → `ListDone`): turns
 /// the owner's not-for-sale piece into a sale. Seller mode first; then the details only a
-/// sale needs (depth, weight, framing); then fixed price (or auction); then the listed
+/// sale needs (depth, weight, packed size, framing, and the courier's packing, item type and
+/// materials); then fixed price (or auction); then the listed
 /// screen. [onListed] runs once it is for sale.
 Future<void> startListingLater(BuildContext context, {required String pieceId, VoidCallback? onListed}) async {
   if (!AuthSession.instance.sellerEnabled) {
@@ -66,12 +69,20 @@ Future<void> startListingLater(BuildContext context, {required String pieceId, V
 
 /// What `PostListLater` collects.
 class ListLaterDetails {
-  const ListLaterDetails({required this.dimensions, required this.weightKg, required this.framing});
+  const ListLaterDetails({
+    required this.dimensions,
+    required this.weightKg,
+    required this.framing,
+    this.shipping = const {},
+  });
 
   /// "24x36x1.5 in": the piece's size with the depth added.
   final String dimensions;
   final double weightKg;
   final String framing;
+
+  /// The packed size in cm and the courier's choices (FRONTEND_HANDOFF 8.1), as body fields.
+  final Map<String, dynamic> shipping;
 }
 
 /// Width, height, depth and unit from "24x36x1.5 in" (depth may be missing).
@@ -88,8 +99,9 @@ class ListLaterDetails {
 }
 
 /// "Before you list it" (`PostListLater`): a sheet over the piece with the details only
-/// needed to sell (Depth in Mono with its unit, Weight in lb with its tooltip, Framing), and
-/// "Continue to pricing", off until all three are filled.
+/// needed to sell (Depth in Mono with its unit, Weight in lb with its tooltip, the packed size,
+/// Framing, then Packing, Item type and Materials or framing; FRONTEND_HANDOFF 8.1), and
+/// "Continue to pricing", off until depth, weight, packed size and framing are filled.
 class ListLaterDetailsSheet extends StatefulWidget {
   const ListLaterDetailsSheet({super.key, required this.piece});
 
@@ -114,6 +126,7 @@ class _ListLaterDetailsSheetState extends State<ListLaterDetailsSheet> {
     text: widget.piece.weightKg == null ? '' : ListingDetailsWeight.lb(widget.piece.weightKg!),
   )..addListener(_changed);
   late String? _framing = kFramingOptions.contains(widget.piece.framingMounting) ? widget.piece.framingMounting : null;
+  late final _shipping = ShippingFields.fromPiece(widget.piece)..addListener(_changed);
 
   void _changed() => setState(() {});
 
@@ -121,6 +134,7 @@ class _ListLaterDetailsSheetState extends State<ListLaterDetailsSheet> {
   void dispose() {
     _depth.dispose();
     _weight.dispose();
+    _shipping.dispose();
     super.dispose();
   }
 
@@ -129,7 +143,8 @@ class _ListLaterDetailsSheetState extends State<ListLaterDetailsSheet> {
     return v != null && v > 0 ? v : null;
   }
 
-  bool get _complete => _num(_depth.text) != null && _num(_weight.text) != null && _framing != null;
+  bool get _complete =>
+      _num(_depth.text) != null && _num(_weight.text) != null && _shipping.hasSize && _framing != null;
 
   void _continue() {
     if (!_complete) return;
@@ -141,6 +156,7 @@ class _ListLaterDetailsSheetState extends State<ListLaterDetailsSheet> {
         dimensions: dimensions,
         weightKg: double.parse((_num(_weight.text)! * 0.45359237).toStringAsFixed(3)),
         framing: _framing!,
+        shipping: _shipping.toBody(),
       ),
     );
   }
@@ -155,7 +171,7 @@ class _ListLaterDetailsSheetState extends State<ListLaterDetailsSheet> {
       children: [
         PostHeading(
           title: 'Before you list it',
-          subtitle: 'We need three more details to quote shipping for collectors.',
+          subtitle: 'We need a few more details to quote shipping for collectors.',
         ),
         StudioUnderlineField(
           label: 'Depth',
@@ -184,6 +200,7 @@ class _ListLaterDetailsSheetState extends State<ListLaterDetailsSheet> {
             inputFormatters: [decimal],
           ),
         ),
+        PackedSizeInput(fields: _shipping),
         PostChevronRow(
           label: 'Framing',
           value: _framing,
@@ -194,6 +211,7 @@ class _ListLaterDetailsSheetState extends State<ListLaterDetailsSheet> {
             if (picked != null && mounted) setState(() => _framing = picked);
           },
         ),
+        ShippingOptionRows(fields: _shipping),
         StudioButton(
           label: 'Continue to pricing',
           height: StudioSize.buttonPrimaryTall,
@@ -341,6 +359,7 @@ class _ListPricingPageState extends State<ListPricingPage> {
         'dimensions': details.dimensions,
         'weightKg': details.weightKg,
         'framingMounting': details.framing,
+        ...details.shipping,
       },
       if (piece.location != null && piece.location!.isNotEmpty) 'shippingRegion': piece.location,
     };
@@ -359,11 +378,12 @@ class _ListPricingPageState extends State<ListPricingPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _busy = false);
-      showStudioToast(
-        context,
-        e is ApiException && e.message.isNotEmpty ? e.message : 'Could not list it. Try again.',
-        icon: null,
-      );
+      // The server's reason as it is; one naming the pickup address offers to set it (8.1).
+      if (e is ApiException && e.message.isNotEmpty) {
+        showListingError(context, e.message);
+      } else {
+        showStudioToast(context, 'Could not list it. Try again.', icon: null);
+      }
     }
   }
 

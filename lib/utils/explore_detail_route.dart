@@ -25,11 +25,12 @@ Future<void> openPieceDetailPreview(
   BuildContext context,
   FeedPreviewItem preview,
 ) {
-  final page = preview.isAvailable
-      ? AvailablePieceDetailPage(item: preview)
-      : PieceDetailPage(item: preview);
-
   return Navigator.of(context).push<void>(
-    SlideUpPageRoute<void>(page: page),
+    SlideUpPageRoute<void>(page: pieceDetailPageFor(preview)),
   );
 }
+
+/// The piece's page: the collect page while it is available, else the plain one.
+Widget pieceDetailPageFor(FeedPreviewItem preview) => preview.isAvailable
+    ? AvailablePieceDetailPage(item: preview)
+    : PieceDetailPage(item: preview);

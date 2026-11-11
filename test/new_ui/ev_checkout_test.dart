@@ -46,7 +46,7 @@ class _Host extends StatefulWidget {
 }
 
 class _HostState extends State<_Host> {
-  EventCheckoutOutcome? outcome;
+  EventCheckoutResult? outcome;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -55,10 +55,10 @@ class _HostState extends State<_Host> {
         onPressed: () async {
           final result = await Navigator.of(
             context,
-          ).push<EventCheckoutOutcome>(MaterialPageRoute(builder: (_) => _page()));
+          ).push<EventCheckoutResult>(MaterialPageRoute(builder: (_) => _page()));
           setState(() => outcome = result);
         },
-        child: Text('outcome: ${outcome?.name ?? 'none'}'),
+        child: Text('outcome: ${outcome?.outcome.name ?? 'none'} ${outcome?.choice.summary ?? ''}'.trim()),
       ),
     ),
   );
@@ -149,7 +149,8 @@ void main() {
     await tester.pump();
     await tester.tap(_button('Reserve'));
     await tester.pumpAndSettle();
-    expect(find.text('outcome: reserveInstead'), findsOneWidget);
+    // The free tickets picked come back with it, to reserve.
+    expect(find.text('outcome: reserveInstead 1 General Admission'), findsOneWidget);
   });
 
   testWidgets('paid tickets from the event page ask a signed-out viewer to sign in', (tester) async {

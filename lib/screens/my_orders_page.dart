@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../models/order.dart';
-import '../models/piece_summary.dart';
 import '../services/connectivity_service.dart';
 import '../services/order_service.dart';
 import '../widgets/offline_state.dart';
@@ -16,18 +15,14 @@ import 'order_detail_page.dart';
 ///
 /// The board's All / Art / Tickets filter and the ticket rows wait on ticket sales
 /// (BACKEND_CHANGES B22, on hold), so every row is art and there is no filter; the arrival
-/// window ("arriving Nov 13 to 16") waits on B32. Each piece is read (cached) for its title and
-/// picture until the order carries it (B34).
+/// window ("arriving Nov 13 to 16") waits on B32. The title and picture come with the order
+/// (`items[0].piece`, B34).
 class MyOrdersPage extends StatefulWidget {
-  const MyOrdersPage({super.key, this.debugOrders, this.debugPieces});
+  const MyOrdersPage({super.key, this.debugOrders});
 
   /// For tests: the orders instead of loading them.
   @visibleForTesting
   final List<Order>? debugOrders;
-
-  /// For tests: the pieces on [debugOrders], by id.
-  @visibleForTesting
-  final Map<String, PieceSummary>? debugPieces;
 
   @override
   State<MyOrdersPage> createState() => _MyOrdersPageState();
@@ -35,7 +30,6 @@ class MyOrdersPage extends StatefulWidget {
 
 class _MyOrdersPageState extends State<MyOrdersPage> {
   final List<Order> _orders = [];
-  final Map<String, PieceSummary> _pieces = {};
   bool _loading = true;
   bool _loadingMore = false;
   String? _nextCursor;
@@ -49,7 +43,6 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
     final given = widget.debugOrders;
     if (given != null) {
       _orders.addAll(given);
-      _pieces.addAll(widget.debugPieces ?? const {});
       _loading = false;
       return;
     }
@@ -86,7 +79,6 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
           : await OrderService.instance.getMyOrdersCached(
               forceRefresh: refresh || ConnectivityService.instance.isOnline,
             );
-      await loadOrderPieces(page.items, _pieces);
       if (!mounted) return;
       setState(() {
         if (!append) _orders.clear();
@@ -185,12 +177,12 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
           );
         }
         final order = _orders[index];
-        final piece = orderPiece(order, _pieces);
+        final piece = orderPiece(order);
         return OrderListRow(
           title: orderPieceTitle(piece),
           imageUrl: piece?.mediaUrl,
           step: purchaseStep(order),
-          meta: purchaseMeta(order, piece),
+          meta: purchaseMeta(order),
           onTap: () => _open(order),
         );
       },
