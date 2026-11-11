@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Dev notes: sign in dark</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;family=Outfit:wght@600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#111111}a:hover{color:#6B6B6B}
+h2{margin:0;font-size:20px;font-weight:600;letter-spacing:-0.2px}
+h3{margin:0;font-size:14px;font-weight:600}
+p{margin:0}
+.k{font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size:11px;color:#6B6B6B;text-transform:uppercase;letter-spacing:0.5px}
+.row{display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:1px solid #E3E3E0;font-size:14px;line-height:1.45}
+.row span:first-child{color:#111111;font-weight:500;flex:0 0 38%}
+.row span:last-child{color:#444;flex:1}
+.li{font-size:14px;line-height:1.5;color:#333;padding:7px 0;border-bottom:1px solid #EDEDEA}
+.li b{font-weight:600;color:#111}
+</style>
+</helmet>
+<div style="width: 390px; height: 356px; box-sizing: border-box; background: #F0F0EE; font-family: 'Geist', 'Helvetica Neue', Helvetica, sans-serif; color: #111111; padding: 22px 22px; overflow: hidden">
+<div style="display: flex; flex-direction: column; gap: 10px"><span class="k">Dev notes</span><h3 style="font-size: 16px; font-weight: 600">First launch: sign in, dark</h3><div><div class="li" style="font-size: 13px">Dark option for the first launch screen, to compare with the light one. Same layout and behavior.</div><div class="li" style="font-size: 13px">Near-black background (#0B0B10) with the same soft haze in deeper tones: dusty blue, violet, plum, warm amber. Drifts over about 18s; static with reduced motion.</div><div class="li" style="font-size: 13px">White logo; form in white at different strengths. Continue turns solid white with Ink text once an email is typed.</div></div></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":356}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

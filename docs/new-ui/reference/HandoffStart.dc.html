@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>HandoffStart</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;family=Outfit:wght@600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#111111}a:hover{color:#6B6B6B}
+h2{margin:0;font-size:20px;font-weight:600;letter-spacing:-0.2px}
+h3{margin:0;font-size:14px;font-weight:600}
+p{margin:0}
+.k{font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size:11px;color:#6B6B6B;text-transform:uppercase;letter-spacing:0.5px}
+.row{display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:1px solid #E3E3E0;font-size:14px;line-height:1.45}
+.row span:first-child{color:#111111;font-weight:500;flex:0 0 38%}
+.row span:last-child{color:#444;flex:1}
+.li{font-size:14px;line-height:1.5;color:#333;padding:7px 0;border-bottom:1px solid #EDEDEA}
+.li b{font-weight:600;color:#111}
+</style>
+</helmet>
+<div style="width: 760px; height: 1650px; box-sizing: border-box; background: #FAFAF8; font-family: 'Geist', 'Helvetica Neue', Helvetica, sans-serif; color: #111111; padding: 48px; overflow: hidden">
+<div style="display: flex; flex-direction: column; gap: 32px"><header style="display: flex; flex-direction: column; gap: 10px; padding-bottom: 8px; border-bottom: 2px solid #111111"><span class="k">Studio 3 · Discover redesign · Oct 16, 2026</span><h1 style="margin: 0; font-size: 36px; font-weight: 600; letter-spacing: -0.8px; line-height: 1.05">Start here</h1><p style="font-size: 15px; line-height: 1.5; color: #444; max-width: 620px">Everything designed so far for the redesign, arranged for build. This column is reference. Each row to the right is one flow.</p></header><section style="display: flex; flex-direction: column; gap: 12px"><h2>How this canvas is laid out</h2><div><div class="li"><b>Rows are flows.</b> Read each row left to right in the order a person moves through it.</div><div class="li"><b>The first card in every row</b> explains the flow: where it starts, what it connects to, and the rules that matter.</div><div class="li"><b>Design rules</b> (colors, type, spacing, components) are on the next board in this column. Use them over anything that looks different in a screen.</div><div class="li"><b>Not designed yet</b> is the third board: missing screens, open decisions, and what is planned for later. <b>Sizes and scaling</b> is the fourth: the phone template, every card size, and how layouts adapt.</div><div class="li"><b>Boards with a blue mark</b> are interactive. Press Play to scroll or swipe them.</div><div class="li"><b>Component specs</b> live in Airtable: Studio 3, Design System, Tasks. Each task has the full spec and rules.</div><div class="li"><b>Screen-by-screen explanations</b> are in the <a href="https://claude.ai/code/artifact/d0625c6f-8800-4f18-bca0-598c598aa7dc">Dev Handoff Spec</a>: purpose, data, behavior and edge cases for every board here.</div></div></section><section style="display: flex; flex-direction: column; gap: 12px"><h2>The flows</h2><div><div class="row"><span>1. Sign in and account</span><span>The first screen after download, the signed-out profile, and the email code sign-in. Triggered by any action like save, follow, collect or post.</span></div><div class="row"><span>2. Browse</span><span>Home feed, Explore, Behind the work, event page, event card variant.</span></div><div class="row"><span>3. Profiles</span><span>A seller, a collector, and your own profile.</span></div><div class="row"><span>4. Post a piece</span><span>Cover, availability, details, materials, review, published, error, and listing a piece later.</span></div><div class="row"><span>5. Post a Scene</span><span>Photo first, then video. Edit screens are dark.</span></div><div class="row"><span>6. Piece page and collecting</span><span>Piece page for fixed price, auction and not for sale, messaging the seller, checkout, collect confirmation.</span></div><div class="row"><span>7. Bidding</span><span>Bid sheet, leading and outbid, won, checkout, collected, payment failed, second chance, lost, closed.</span></div></div></section><section style="display: flex; flex-direction: column; gap: 12px"><h2>Reading the mocks</h2><div><div class="li"><b>Art is placeholder.</b> Paintings are flat shapes. Use real images; pieces are always 3:4 and never cropped.</div><div class="li"><b>Text in [brackets]</b> is a placeholder for real data, for example [Event name], [$quote], [Date].</div><div class="li"><b>Numbers are samples</b> (prices, counts) so the layout reads. Wire to real data.</div><div class="li"><b>Names are sample users</b> (Amara Osei, Cedric Okafor, Sarah Osmei, Jordan Lee).</div><div class="li"><b>Questions</b> go to Abott.</div></div></section></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":760,"height":1650}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

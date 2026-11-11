@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Dev notes: Insights</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;family=Outfit:wght@600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#111111}a:hover{color:#6B6B6B}
+h2{margin:0;font-size:20px;font-weight:600;letter-spacing:-0.2px}
+h3{margin:0;font-size:14px;font-weight:600}
+p{margin:0}
+.k{font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size:11px;color:#6B6B6B;text-transform:uppercase;letter-spacing:0.5px}
+.row{display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:1px solid #E3E3E0;font-size:14px;line-height:1.45}
+.row span:first-child{color:#111111;font-weight:500;flex:0 0 38%}
+.row span:last-child{color:#444;flex:1}
+.li{font-size:14px;line-height:1.5;color:#333;padding:7px 0;border-bottom:1px solid #EDEDEA}
+.li b{font-weight:600;color:#111}
+</style>
+</helmet>
+<div style="width: 390px; height: 753px; box-sizing: border-box; background: #F0F0EE; font-family: 'Geist', 'Helvetica Neue', Helvetica, sans-serif; color: #111111; padding: 22px 22px; overflow: hidden">
+<div style="display: flex; flex-direction: column; gap: 10px"><span class="k">Dev notes</span><h3 style="font-size: 16px; font-weight: 600">Insights</h3><div><div class="li" style="font-size: 13px">Only for seller profiles. Opened from the chart icon at the top right of your own profile (next to More). Collectors never see it.</div><div class="li" style="font-size: 13px">Time filter as chips at the top (the same chips as Explore): 7 days, 30 days (default), All time. Everything below follows it.</div><div class="li" style="font-size: 13px">Earned is the main number, large, with See payouts under it (opens Payouts in Settings). No comparison line on earnings. Spacing: 32 between sections, 8 inside them, 14 inside list rows.</div><div class="li" style="font-size: 13px">Then saves, new followers and collected in three equal columns, each centered, each with its change from the previous period as an actual number right next to it in small grey Geist Mono (412 +64, 38 +6), never a percentage. If nothing changed, show nothing next to the number (no +0). No red or green arrows. No view counts anywhere.</div><div class="li" style="font-size: 13px">Most saved: up to 5 pieces, ranked by saves, with a 3:4 thumbnail, title, saves (Geist Mono) and status. Tapping a piece opens it.</div><div class="li" style="font-size: 13px">Events: up to 3, newest first, only if they hosted in the period (hidden otherwise). Tickets sold and check-ins; opens Manage event. No charts for launch.</div><div class="li" style="font-size: 13px">If fewer than 5 pieces have saves, show only those; with no saves at all, hide Most saved. No See all for launch.</div></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":753}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

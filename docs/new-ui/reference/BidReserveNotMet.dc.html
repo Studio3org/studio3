@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Bid result: reserve not met</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+@keyframes settle{from{transform:scale(1.04);opacity:.6}to{transform:scale(1);opacity:1}}@keyframes up{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}.settle{animation:settle .8s cubic-bezier(.2,.8,.2,1) both}.up{animation:up .5s ease-out both}@media (prefers-reduced-motion: reduce){.settle,.up{animation:none}}
+a{color:#111111}a:hover{color:#6B6B6B}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #FAFAF8; font-family: 'Geist', 'Helvetica Neue', Helvetica, sans-serif; color: #111111; position: relative; overflow: hidden">
+<div style="position: relative; height: 520px; overflow: hidden">
+<div class="settle" style="position: absolute; inset: 0; background: #6FA3B0; filter: saturate(0.35); opacity: 0.85"><div style="position: absolute; width: 270px; height: 360px; left: 60px; top: 60px; border-radius: 48% 52% 40% 60%; background: #E39A4C"></div><div style="position: absolute; width: 140px; height: 210px; left: 175px; top: 150px; border-radius: 50%; background: #C8455A"></div></div>
+<div aria-hidden="true" style="position: absolute; left: 0; right: 0; top: 0; height: 110px; background: linear-gradient(to bottom, rgba(17,17,17,0.38), rgba(17,17,17,0))"></div>
+<a href="#" aria-label="Close" style="position: absolute; top: 8px; right: 6px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: #fff; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3))"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></a>
+</div>
+<main style="padding: 22px 24px 0; display: flex; flex-direction: column; gap: 18px">
+<div class="up" style="display: flex; flex-direction: column; gap: 6px; animation-delay: .25s">
+<span style="font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size: 11px; color: #6B6B6B; text-transform: uppercase; letter-spacing: 0.5px">Auction closed</span>
+<h1 style="margin: 0; font-size: 24px; font-weight: 500; letter-spacing: -0.4px; line-height: 1.15">Closed without selling</h1>
+<p style="margin: 0; font-size: 15px; color: #6B6B6B">Bids didn't reach the artist's minimum. Nothing was charged.</p>
+</div>
+<div class="up" style="display: flex; justify-content: space-between; align-items: flex-end; padding-top: 14px; border-top: 1px solid #E3E3E0; animation-delay: .4s">
+<div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #6B6B6B">Top bid</span><span style="font-size: 20px">$3,200</span></div>
+<div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px"><span style="font-size: 12px; color: #6B6B6B">Your top bid</span><span style="font-size: 20px">$3,200</span></div>
+</div>
+</main>
+<div class="up" style="position: absolute; left: 24px; right: 24px; bottom: 30px; display: flex; flex-direction: column; gap: 8px; animation-delay: .55s">
+<a href="#" style="height: 54px; border-radius: 12px; background: #111111; color: #FAFAF8; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 500; text-decoration: none">Save to hear if it comes back</a>
+<a href="#" style="height: 36px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 500; color: #6B6B6B; text-decoration: none">Back to Explore</a>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

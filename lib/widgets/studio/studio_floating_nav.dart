@@ -1,3 +1,5 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 
 import '../../theme/studio_colors.dart';
@@ -27,10 +29,12 @@ class StudioNavItem {
   final String? avatarUrl;
 }
 
-/// Floating nav (`Main`): a 64 tall round pill, Ink in both themes, 16 from the sides and
-/// 28 above the bottom safe area. Slots are 52 × 48; the active one sits on a round
-/// #2A2A2A pill with a Gallery White icon, others are #8E8E8E. Icons are 24 px outlines,
-/// stroke 1.8. The profile slot is a 30 px avatar with a 1.5 px Gallery White ring.
+/// Floating nav (`Main`): a 64 tall round pill, 16 from the sides and 28 above the bottom
+/// safe area. Frosted glass in both themes (the user's call, 2026-11-11): the page behind is
+/// blurred ([StudioSize.navBlur]) under Ink at 75 % with a white 10 % hairline. Slots are
+/// 52 × 48; the active one sits on a round white 14 % pill with a Gallery White icon, others
+/// are #9E9E9E. Icons are 24 px outlines, stroke 1.8. The profile slot is a 30 px avatar
+/// with a 1.5 px Gallery White ring.
 ///
 /// Place it at the bottom of a [Stack] (it pads itself), e.g. `Positioned(left: 0,
 /// right: 0, bottom: 0, child: StudioFloatingNav(...))`.
@@ -50,22 +54,29 @@ class StudioFloatingNav extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.studio;
     final bottom = MediaQuery.viewPaddingOf(context).bottom + StudioSize.navBottomGap;
+    final radius = BorderRadius.circular(StudioRadius.round);
     return Padding(
       padding: EdgeInsets.fromLTRB(StudioSize.navSideInset, 0, StudioSize.navSideInset, bottom),
-      child: Container(
-        height: StudioSize.navHeight,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        decoration: BoxDecoration(
-          color: c.navFill,
-          borderRadius: BorderRadius.circular(StudioRadius.round),
-          border: c.navBorder.a == 0 ? null : Border.all(color: c.navBorder),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            for (var i = 0; i < items.length; i++)
-              _Slot(item: items[i], active: i == currentIndex, onTap: () => onTap(i)),
-          ],
+      child: ClipRRect(
+        borderRadius: radius,
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: StudioSize.navBlur, sigmaY: StudioSize.navBlur),
+          child: Container(
+            height: StudioSize.navHeight,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            decoration: BoxDecoration(
+              color: c.navFill,
+              borderRadius: radius,
+              border: c.navBorder.a == 0 ? null : Border.all(color: c.navBorder, width: 0.5),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                for (var i = 0; i < items.length; i++)
+                  _Slot(item: items[i], active: i == currentIndex, onTap: () => onTap(i)),
+              ],
+            ),
+          ),
         ),
       ),
     );

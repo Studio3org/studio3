@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Artist: auction ended without a sale</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#111111}a:hover{color:#6B6B6B}
+</style>
+</helmet>
+<div style="width: 390px; height: 1000px; box-sizing: border-box; background: #FAFAF8; font-family: 'Geist', 'Helvetica Neue', Helvetica, sans-serif; color: #111111; position: relative; overflow: hidden">
+<sc-if value="{{ devNew }}" hint-placeholder-val="{{ true }}"><span aria-label="New screen, not yet seen by dev" style="position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 50; display: flex; align-items: center; gap: 6px; height: 26px; padding: 0 12px; border-radius: 999px; background: #B3261E; color: #FFFFFF; font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size: 11px; letter-spacing: 0.5px; box-shadow: 0 2px 6px rgba(0,0,0,0.25)"><span style="width: 6px; height: 6px; border-radius: 50%; background: #FFFFFF"></span>NEW</span></sc-if>
+
+<div style="position: relative"><span style="position: relative; display: block; width: 390px; height: 440px; border-radius: 0px; overflow: hidden; background: #5A5672"><span style="position: absolute; width: 234px; height: 242px; left: 78px; top: 88px; border-radius: 50%; background: #CDB98F"></span></span><div aria-hidden="true" style="position: absolute; left: 0; right: 0; top: 0; height: 110px; background: linear-gradient(to bottom, rgba(17,17,17,0.38), rgba(17,17,17,0))"></div>
+<div style="position: absolute; top: 6px; left: 6px; right: 6px; display: flex; justify-content: space-between"><a href="#" aria-label="Back" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: #fff; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.35))"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></a><span style="display: flex"><a href="#" aria-label="Share" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.35))"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"></path><path d="M8 7l4-4 4 4"></path><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"></path></svg></a><a href="#" aria-label="More" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.35))"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="12" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle></svg></a></span></div></div><div style="padding: 18px 20px 0"><h1 style="margin: 0; font-size: 24px; font-weight: 500; letter-spacing: -0.4px">Quiet Hours</h1>
+<span style="display: block; margin-top: 4px; font-size: 14px; color: #6B6B6B">Oil on linen · <span style="font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size: 12px">18 × 24 in · 2025</span></span></div><main style="padding: 22px 20px 260px">
+<span style="font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size: 11px; color: #8E8E8E; letter-spacing: 0.5px">AUCTION ENDED</span>
+<h2 style="margin: 8px 0 6px; font-size: 24px; font-weight: 500; letter-spacing: -0.4px">It didn't sell this time</h2>
+<p style="margin: 0; font-size: 15px; line-height: 1.5; color: #6B6B6B">Top bid $1,300, under your reserve. 4 bidders and 31 saves.</p>
+</main><div style="position: absolute; left: 0; right: 0; bottom: 0; padding: 28px 20px 30px; background: linear-gradient(to bottom, rgba(250,250,248,0) 0, #FAFAF8 22px); display: flex; flex-direction: column; gap: 4px"><a href="#" style="height: 52px; border-radius: 12px; background: #111111; color: #FAFAF8; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 500; text-decoration: none">Relist as an auction</a><a href="#" style="height: 52px; border-radius: 12px; border: 1px solid #D4D4D0; box-sizing: border-box; color: #111111; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 500; text-decoration: none">Sell at a fixed price</a><a href="#" style="height: 40px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 500; color: #6B6B6B; text-decoration: none">Keep it as not for sale</a></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1000},"seenByDev":{"editor":"boolean","default":false,"section":"Dev"}}'>
+class Component extends DCLogic {
+renderVals() {
+return {devNew: !(this.props.seenByDev ?? false)};
+}
+}
+</script>
+</body>
+</html>

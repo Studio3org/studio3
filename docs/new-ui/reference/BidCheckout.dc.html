@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Bid 3: winner checkout</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#111111}a:hover{color:#6B6B6B}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #FAFAF8; font-family: 'Geist', 'Helvetica Neue', Helvetica, sans-serif; color: #111111; position: relative; overflow: hidden">
+<header style="display: flex; align-items: center; justify-content: space-between; padding: 12px 8px 0"><a href="#" aria-label="Close" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: #111111"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></a><span style="font-size: 16px; font-weight: 500">Checkout</span><span style="width: 44px"></span></header>
+<main style="padding: 20px 24px 0; display: flex; flex-direction: column; gap: 18px"><div style="display: flex; align-items: center; gap: 14px"><div style="position: relative; width: 64px; height: 85px; border-radius: 8px; overflow: hidden; background: #6FA3B0; "><div style="position: absolute; width: 38px; height: 57px; left: 11px; top: 8px; border-radius: 48% 52% 40% 60%; background: #E39A4C"></div><div style="position: absolute; width: 20px; height: 34px; left: 28px; top: 23px; border-radius: 50%; background: #C8455A"></div></div><div style="display: flex; flex-direction: column; gap: 3px"><span style="font-size: 16px; font-weight: 500">Bodies in Color</span><span style="font-size: 13px; color: #6B6B6B">Amara Osei · won at auction</span><span style="font-size: 14px">$3,700</span></div></div>
+<div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-radius: 10px; background: #F0F0EE; font-size: 13px"><span>Time left to pay</span><span style="font-family: 'Geist Mono', ui-monospace, Menlo, monospace; ">47h 52m</span></div>
+<div style="border-top: 1px solid #E3E3E0"><a href="#" style="display: flex; align-items: center; justify-content: space-between; padding: 18px 0; border-bottom: 1px solid #E3E3E0; text-decoration: none; color: #111111"><span style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 13px; color: #6B6B6B">Shipping</span><span style="font-size: 15px">Crated, standard · Dallas, TX</span></span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8E8E8E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></a><a href="#" style="display: flex; align-items: center; justify-content: space-between; padding: 18px 0; border-bottom: 1px solid #E3E3E0; text-decoration: none; color: #111111"><span style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 13px; color: #6B6B6B">Payment</span><span style="font-size: 15px">Visa ending <span style="font-family: 'Geist Mono', ui-monospace, Menlo, monospace; ">4242</span></span></span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8E8E8E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></a></div>
+<section><h2 style="margin: 0 0 6px; font-size: 15px; font-weight: 500">Order summary</h2><div style="display: flex; justify-content: space-between; padding: 6px 0; font-size: 14px; "><span style="color: #6B6B6B">Winning bid</span><span>$3,700.00</span></div><div style="display: flex; justify-content: space-between; padding: 6px 0; font-size: 14px; "><span style="color: #6B6B6B">Shipping</span><span>[$XXX.XX]</span></div><div style="display: flex; justify-content: space-between; padding: 6px 0; font-size: 14px; "><span style="color: #6B6B6B">Insurance</span><span>[$XX.XX]</span></div><div style="display: flex; justify-content: space-between; padding: 6px 0; font-size: 14px; "><span style="color: #6B6B6B">Sales tax</span><span>[$XXX.XX]</span></div><div style="border-top: 1px solid #E3E3E0; margin-top: 6px; padding-top: 6px"><div style="display: flex; justify-content: space-between; padding: 6px 0; font-size: 15px; font-weight: 500"><span style="">Total</span><span>[$X,XXX.XX]</span></div></div></section>
+</main><div style="position: absolute; left: 24px; right: 24px; bottom: 32px; display: flex; flex-direction: column; gap: 4px"><p style="margin: 0 0 8px; font-size: 12px; line-height: 1.5; color: #6B6B6B; text-align: center">All sales are final. <a href="#" style="color: #111111">See terms</a></p><a href="BidCollected.dc.html" style="height: 54px; border-radius: 12px; background: #111111; color: #FAFAF8; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 500; text-decoration: none">Pay and collect</a></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

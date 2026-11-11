@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Home</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;family=Outfit:wght@600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.holo{background:linear-gradient(115deg,#F3D6FF 0%,#CDE8FF 22%,#D2FBEA 42%,#FFF3C9 62%,#FFD3E6 82%,#E4D8FF 100%);background-size:300% 300%;animation:holo 6s ease-in-out infinite}@keyframes holo{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}@media (prefers-reduced-motion: reduce){.holo{animation:none}}
+a{color:#111111}a:hover{color:#6B6B6B}
+.row::-webkit-scrollbar{display:none}
+</style>
+</helmet>
+<div style="width: 390px; height: 3320px; box-sizing: border-box; background: #FAFAF8; font-family: 'Geist', 'Helvetica Neue', Helvetica, sans-serif; color: #111111; position: relative; overflow: hidden">
+<sc-if value="{{ devNew }}" hint-placeholder-val="{{ true }}"><span aria-label="New screen, not yet seen by dev" style="position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 50; display: flex; align-items: center; gap: 6px; height: 26px; padding: 0 12px; border-radius: 999px; background: #B3261E; color: #FFFFFF; font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size: 11px; letter-spacing: 0.5px; box-shadow: 0 2px 6px rgba(0,0,0,0.25)"><span style="width: 6px; height: 6px; border-radius: 50%; background: #FFFFFF"></span>NEW</span></sc-if>
+
+
+<header style="display: flex; align-items: center; justify-content: space-between; padding: 16px 16px 12px">
+<button aria-label="Filter feed" style="display: flex; align-items: center; gap: 4px; background: none; border: none; padding: 0; height: 44px; font-family: inherit; font-size: 17px; font-weight: 500; color: #111111">All
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
+</button>
+<div style="font-family: 'Outfit', 'Geist', sans-serif; font-size: 27px; font-weight: 700; letter-spacing: -0.4px">studio 3</div>
+<div style="display: flex; gap: 0">
+<button aria-label="Saved" onclick="location.href='SavedCollection.dc.html'" style="width: 40px; height: 44px; background: none; border: none; padding: 0; color: #111111; display: flex; align-items: center; justify-content: center">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 7v14l-6-4-6 4V7a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4z"></path></svg>
+</button>
+<button aria-label="Inbox, unread items" style="position: relative; width: 40px; height: 44px; background: none; border: none; padding: 0; color: #111111; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 13.5l2.6-7.8A2 2 0 0 1 8 4.3h8a2 2 0 0 1 1.9 1.4l2.6 7.8"></path><path d="M3.5 13.5v5.2a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-5.2h-5l-1.6 2.6h-3.8l-1.6-2.6h-5z"></path></svg><span aria-hidden="true" style="position: absolute; top: 9px; right: 7px; width: 9px; height: 9px; border-radius: 50%; background: #B3261E; border: 1.5px solid #FAFAF8; box-sizing: content-box"></span></button>
+</div>
+</header>
+
+<main style="display: flex; flex-direction: column; gap: 52px; padding: 0 16px">
+<article style="display: flex; flex-direction: column">
+<div style="position: relative; height: 477px; overflow: hidden; background: #6FA3B0">
+<div style="position: absolute; width: 320px; height: 390px; left: 35px; top: 40px; border-radius: 48% 52% 40% 60%; background: #E39A4C"></div>
+<div style="position: absolute; width: 170px; height: 230px; left: 160px; top: 120px; border-radius: 50%; background: #C8455A"></div>
+
+</div>
+<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 12px 0 0">
+<div style="display: flex; flex-direction: column; gap: 3px; min-width: 0">
+<a href="ProfileSeller.dc.html" style="font-size: 14px; font-weight: 500; color: #111111; text-decoration: none">Amara Osei</a>
+<div style="font-size: 15px">Bodies in Color<span style="color: #6B6B6B">, 2025</span></div>
+</div><div style="flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; padding-top: 2px"><span style="font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size: 11px; color: #6B6B6B">Oil on canvas</span><span style="display: flex; align-items: center; gap: 6px; font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size: 11px; color: #111111; border: 1px solid #E3E3E0; padding: 4px 9px; border-radius: 999px"><span style="width: 7px; height: 7px; border-radius: 50%; background: #2E8B57"></span>Available</span></div></div>
+</article>
+
+<article style="display: flex; flex-direction: column">
+<div style="position: relative; height: 477px; overflow: hidden; background: #2F5D8A">
+<div style="position: absolute; width: 280px; height: 115px; left: 30px; top: 70px; border-radius: 50%; background: #EDE7DF"></div>
+<div style="position: absolute; width: 220px; height: 95px; left: 160px; top: 290px; border-radius: 50%; background: #EDE7DF"></div>
+<div style="position: absolute; width: 42px; height: 22px; left: 150px; top: 117px; border-radius: 50%; background: #E3A23A"></div>
+<div style="position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); display: flex; gap: 5px" aria-label="Photo 1 of 4"><span style="width: 6px; height: 6px; border-radius: 50%; background: #fff"></span><span style="width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.5)"></span><span style="width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.5)"></span><span style="width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.5)"></span></div>
+</div>
+<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 12px 0 0">
+<div style="display: flex; flex-direction: column; gap: 3px; min-width: 0">
+<a href="ProfileSeller.dc.html" style="font-size: 14px; font-weight: 500; color: #111111; text-decoration: none">Cedric Okafor</a>
+<div style="font-size: 15px">Companion Bloom<span style="color: #6B6B6B">, 2024</span></div>
+</div><div style="flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; padding-top: 2px"><span style="font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size: 11px; color: #6B6B6B">Acrylic on panel</span><span style="display: flex; align-items: center; gap: 6px; font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size: 11px; color: #111111; border: 1px solid #E3E3E0; padding: 4px 9px; border-radius: 999px"><span style="width: 7px; height: 7px; border-radius: 50%; background: #2E8B57"></span>Available</span></div></div>
+</article>
+
+<section aria-label="Paper Planes series" style="margin: 28px -16px 28px 0; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: center; justify-content: space-between; padding-right: 16px">
+<div style="display: flex; align-items: center; gap: 10px">
+<div><div style="font-size: 17px; font-weight: 500">Paper Planes</div><div style="font-size: 13px; color: #6B6B6B">Amara Osei · <span style="font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size: 12px">5 pieces</span></div></div>
+</div>
+<a href="#" style="font-size: 14px; font-weight: 500; color: #6B6B6B; text-decoration: none; padding: 12px 0">See all</a>
+</div>
+<div class="row" style="display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; padding-right: 16px">
+
+<div style="flex: 0 0 292px; height: 370px; scroll-snap-align: start; position: relative; border-radius: 14px; overflow: hidden; background: #B9A98C">
+<div style="position: absolute; width: 90px; height: 50px; left: 40px; top: 190px; background: #C9432E; transform: skewX(-18deg)"></div>
+<div style="position: absolute; width: 130px; height: 70px; left: 140px; top: 240px; background: #C9432E; transform: skewX(18deg)"></div>
+<span style="position: absolute; top: 4px; right: 4px; display: flex; align-items: center; gap: 4px; font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size: 11px; color: #fff; padding: 8px 14px; text-shadow: 0 1px 2px rgba(0,0,0,0.4)">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4l-8 4 8 4 8-4-8-4"></path><path d="M4 12l8 4 8-4"></path><path d="M4 16l8 4 8-4"></path></svg>3</span>
+<div style="position: absolute; left: 0; right: 0; bottom: 0; padding: 12px; display: flex; align-items: center; justify-content: space-between; background: rgba(20,20,20,0.45)">
+<div style="font-size: 13px; font-weight: 500; color: #fff">Paper Planes I</div>
+<span style="display: flex; align-items: center; gap: 6px; font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size: 11px; color: #fff; background: rgba(20,20,20,0.6); padding: 5px 10px; border-radius: 999px"><span style="width: 7px; height: 7px; border-radius: 50%; background: #2E8B57"></span>Available</span>
+</div>
+</div>
+
+<div style="flex: 0 0 292px; height: 370px; scroll-snap-align: start; position: relative; border-radius: 14px; overflow: hidden; background: #8E8577">
+<div style="position: absolute; width: 150px; height: 80px; left: 70px; top: 150px; background: #C9432E; transform: skewX(-14deg)"></div>
+<div style="position: absolute; left: 0; right: 0; bottom: 0; padding: 12px; display: flex; align-items: center; justify-content: space-between; background: rgba(20,20,20,0.45)">
+<div style="font-size: 13px; font-weight: 500; color: #fff">Paper Planes II</div>
+<span class="holo" style="align-self: flex-start; display: flex; align-items: center; gap: 6px; font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size: 11px; color: #111111; padding: 5px 10px; border-radius: 999px">Collected</span>
+</div>
+</div>
+
+<div style="flex: 0 0 292px; height: 370px; scroll-snap-align: start; position: relative; border-radius: 14px; overflow: hidden; background: #CDB98F">
+<div style="position: absolute; width: 110px; height: 60px; left: 100px; top: 210px; background: #A0522D; transform: skewX(20deg)"></div>
+<span style="position: absolute; top: 4px; right: 4px; display: flex; align-items: center; gap: 4px; font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size: 11px; color: #fff; padding: 8px 14px; text-shadow: 0 1px 2px rgba(0,0,0,0.4)">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4l-8 4 8 4 8-4-8-4"></path><path d="M4 12l8 4 8-4"></path><path d="M4 16l8 4 8-4"></path></svg>2</span>
+<div style="position: absolute; left: 0; right: 0; bottom: 0; padding: 12px; display: flex; align-items: center; justify-content: space-between; background: rgba(20,20,20,0.45)">
+<div style="font-size: 13px; font-weight: 500; color: #fff">Paper Planes III</div>
+<span style="display: flex; align-items: center; gap: 6px; font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size: 11px; color: #fff; background: rgba(20,20,20,0.6); padding: 5px 10px; border-radius: 999px"><span style="width: 7px; height: 7px; border-radius: 50%; background: #2E8B57"></span>Available</span>
+</div>
+</div>
+
+<div style="flex: 0 0 292px; height: 370px; scroll-snap-align: start; position: relative; border-radius: 14px; overflow: hidden; background: #6E6A63">
+<div style="position: absolute; width: 140px; height: 70px; left: 60px; top: 120px; background: #C9432E; transform: skewX(-20deg)"></div>
+<div style="position: absolute; left: 0; right: 0; bottom: 0; padding: 12px; display: flex; align-items: center; justify-content: space-between; background: rgba(20,20,20,0.45)">
+<div style="font-size: 13px; font-weight: 500; color: #fff">Paper Planes IV</div>
+<span style="display: flex; align-items: center; gap: 6px; font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size: 11px; color: #fff; background: rgba(20,20,20,0.6); padding: 5px 10px; border-radius: 999px"><span style="width: 7px; height: 7px; border-radius: 50%; background: #2E8B57"></span>Available</span>
+</div>
+</div>
+
+<a href="#" style="flex: 0 0 292px; height: 370px; scroll-snap-align: start; box-sizing: border-box; border-radius: 14px; border: 1px solid #E3E3E0; background: #F0F0EE; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; text-decoration: none; color: #111111">
+<div style="display: flex; gap: 6px">
+<div style="width: 44px; height: 58px; border-radius: 6px; background: #B9A98C"></div>
+<div style="width: 44px; height: 58px; border-radius: 6px; background: #8E8577"></div>
+<div style="width: 44px; height: 58px; border-radius: 6px; background: #CDB98F"></div>
+</div>
+<div style="font-size: 17px; font-weight: 500">See all 5 pieces</div>
+<div style="display: flex; align-items: center; gap: 6px; font-size: 14px; color: #6B6B6B">Open the series
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg>
+</div>
+</a>
+
+</div>
+</section>
+
+
+<article style="display: flex; flex-direction: column">
+<div style="position: relative; height: 300px; overflow: hidden; background: #C9B8C9">
+<div style="position: absolute; left: 0; right: 0; top: 70px; height: 110px; display: flex; align-items: flex-end; gap: 8px; padding: 0 16px"><div style="width: 28px; height: 70px; background: #6F6A86"></div><div style="width: 22px; height: 100px; background: #5A5672"></div><div style="width: 34px; height: 60px; background: #8A6E70"></div><div style="width: 20px; height: 110px; background: #4D4A63"></div><div style="width: 30px; height: 80px; background: #7B6F8C"></div><div style="width: 26px; height: 95px; background: #5A5672"></div><div style="width: 36px; height: 65px; background: #D29A5C"></div><div style="width: 24px; height: 88px; background: #6F6A86"></div><div style="width: 30px; height: 75px; background: #8A6E70"></div></div>
+<div style="position: absolute; left: 0; right: 0; top: 180px; height: 120px; background: #7E86A6"></div>
+<div style="position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); display: flex; gap: 5px" aria-label="Photo 1 of 4"><span style="width: 6px; height: 6px; border-radius: 50%; background: #fff"></span><span style="width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.5)"></span><span style="width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.5)"></span><span style="width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.5)"></span></div>
+</div>
+<div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 0 0">
+<div style="display: flex; align-items: center; gap: 10px">
+<div style="width: 32px; height: 32px; border-radius: 50%; background: #6B5544"></div>
+<div><div style="font-size: 14px; font-weight: 500">Daisy Smith</div></div>
+</div>
+
+</div>
+</article>
+
+<article aria-label="Event at The Space" style="border-radius: 18px; background: #111111; color: #FAFAF8; overflow: hidden; margin: 28px 0">
+<div style="display: flex; gap: 14px; padding: 14px">
+<div style="width: 76px; height: 76px; flex: 0 0 auto; border-radius: 10px; background: #B8742A; position: relative; overflow: hidden">
+<div style="position: absolute; width: 60px; height: 60px; border-radius: 50%; background: #A0522D; right: -14px; bottom: -14px"></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<div style="display: flex; align-items: center; gap: 8px">
+<span style="font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size: 11px; font-weight: 500; letter-spacing: 0; background: #FAFAF8; color: #111111; padding: 4px 9px; border-radius: 999px">EVENT</span>
+<span style="font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size: 12px; color: #A8A8A8">[Date] · [Time]</span>
+</div>
+<div style="font-size: 19px; font-weight: 500; line-height: 1.2">[Event name]</div>
+<div style="font-size: 13px; color: #A8A8A8">[One line on what the night is]</div>
+</div>
+</div>
+<div style="border-top: 1px solid #2A2A2A; padding: 14px; display: flex; flex-direction: column; gap: 12px">
+<div style="font-size: 13px; font-weight: 500; color: #A8A8A8">Showing work</div>
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px">
+<div style="display: flex; gap: 14px">
+<a href="#" style="display: flex; flex-direction: column; align-items: center; gap: 6px; text-decoration: none; color: #FAFAF8; font-size: 12px"><span style="width: 44px; height: 44px; border-radius: 50%; background: #D9B48F"></span>Amara</a>
+<a href="#" style="display: flex; flex-direction: column; align-items: center; gap: 6px; text-decoration: none; color: #FAFAF8; font-size: 12px"><span style="width: 44px; height: 44px; border-radius: 50%; background: #8C6A4F"></span>Cedric</a>
+<a href="#" style="display: flex; flex-direction: column; align-items: center; gap: 6px; text-decoration: none; color: #FAFAF8; font-size: 12px"><span style="width: 44px; height: 44px; border-radius: 50%; background: #6B5544"></span>Daisy</a>
+<a href="#" style="display: flex; flex-direction: column; align-items: center; gap: 6px; text-decoration: none; color: #A8A8A8; font-size: 12px"><span style="width: 44px; height: 44px; border-radius: 50%; background: #2A2A2A; display: flex; align-items: center; justify-content: center; color: #FAFAF8; font-size: 13px; font-weight: 500">+3</span>More</a>
+</div>
+<a href="#" style="display: flex; align-items: center; justify-content: center; height: 44px; padding: 0 18px; border-radius: 10px; background: #FAFAF8; color: #111111; font-size: 14px; font-weight: 500; text-decoration: none; white-space: nowrap">Get tickets</a>
+</div>
+</div>
+</article>
+
+
+<article style="display: flex; flex-direction: column">
+<div style="position: relative; height: 477px; overflow: hidden; background: #3F4A3A">
+<div style="position: absolute; width: 250px; height: 250px; left: 70px; top: 80px; border-radius: 50%; background: #A0522D"></div>
+<div style="position: absolute; width: 125px; height: 125px; left: 195px; top: 215px; border-radius: 50%; background: #E3A23A"></div>
+
+</div>
+<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 12px 0 0">
+<div style="display: flex; flex-direction: column; gap: 3px; min-width: 0">
+<a href="ProfileSeller.dc.html" style="font-size: 14px; font-weight: 500; color: #111111; text-decoration: none">Cedric Okafor</a>
+<div style="font-size: 15px">[Piece title]<span style="color: #6B6B6B">, [Year]</span></div>
+</div><div style="flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; padding-top: 2px"><span style="font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size: 11px; color: #6B6B6B">[Medium]</span><span class="holo" style="display: inline-flex; align-items: center; background: linear-gradient(115deg,#F3D6FF 0%,#CDE8FF 22%,#D2FBEA 42%,#FFF3C9 62%,#FFD3E6 82%,#E4D8FF 100%); background-size: 200% 200%; font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size: 11px; color: #111111; padding: 4px 10px; border-radius: 999px">Collected</span></div></div>
+</article>
+
+</main>
+
+<nav aria-label="Main" style="position: absolute; left: 16px; right: 16px; bottom: 28px; height: 64px; border-radius: 999px; background: #111111; display: flex; align-items: center; justify-content: space-around; padding: 0 8px">
+<a href="#" aria-label="Home" style="width: 52px; height: 48px; display: flex; align-items: center; justify-content: center; border-radius: 999px; background: #2A2A2A; color: #FAFAF8">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l-2 0 9-9 9 9-2 0"></path><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"></path></svg>
+</a>
+<a href="#" aria-label="Explore" style="width: 52px; height: 48px; display: flex; align-items: center; justify-content: center; color: #8E8E8E">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M8 16l2-6 6-2-2 6-6 2"></path></svg>
+</a>
+<a href="#" aria-label="Post" style="width: 52px; height: 48px; display: flex; align-items: center; justify-content: center; color: #8E8E8E">
+<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
+</a>
+<a href="#" aria-label="Events" style="width: 52px; height: 48px; display: flex; align-items: center; justify-content: center; color: #8E8E8E">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5v2"></path><path d="M15 11v2"></path><path d="M15 17v2"></path><path d="M5 5h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3a2 2 0 0 0 0-4V7a2 2 0 0 1 2-2"></path></svg>
+</a>
+<a href="#" aria-label="Profile" style="width: 52px; height: 48px; display: flex; align-items: center; justify-content: center">
+<span style="width: 30px; height: 30px; border-radius: 50%; background: #D9B48F; border: 1.5px solid #FAFAF8"></span>
+</a>
+</nav>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":3320},"seenByDev":{"editor":"boolean","default":false,"section":"Dev"}}'>
+class Component extends DCLogic {
+renderVals() {
+return {devNew: !(this.props.seenByDev ?? false)};
+}
+}
+</script>
+</body>
+</html>

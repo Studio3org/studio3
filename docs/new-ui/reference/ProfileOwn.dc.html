@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Profile, your own view</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.holo{background:linear-gradient(115deg,#F3D6FF 0%,#CDE8FF 22%,#D2FBEA 42%,#FFF3C9 62%,#FFD3E6 82%,#E4D8FF 100%);background-size:300% 300%;animation:holo 6s ease-in-out infinite}@keyframes holo{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}@media (prefers-reduced-motion: reduce){.holo{animation:none}}
+.row::-webkit-scrollbar{display:none}
+a{color:#111111}a:hover{color:#6B6B6B}
+</style>
+</helmet>
+<div style="width: 390px; height: 2300px; box-sizing: border-box; background: #FAFAF8; font-family: 'Geist', 'Helvetica Neue', Helvetica, sans-serif; color: #111111; position: relative; overflow: hidden">
+<div style="position: relative; height: 190px; background: #E39A4C; overflow: hidden">
+<div style="position: absolute; width: 240px; height: 240px; border-radius: 50%; background: #C8455A; left: 90px; top: -40px"></div>
+<div aria-hidden="true" style="position: absolute; left: 0; right: 0; top: 0; height: 110px; background: linear-gradient(to bottom, rgba(17,17,17,0.38), rgba(17,17,17,0))"></div>
+<a href="#" aria-label="Back" style="display: none; position: absolute; top: 12px; left: 8px; width: 44px; height: 44px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3)); display: flex; align-items: center; justify-content: center; color: #fff"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></a>
+<a href="Insights.dc.html" aria-label="Insights" style="position: absolute; top: 12px; right: 52px; width: 44px; height: 44px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3)); display: flex; align-items: center; justify-content: center; color: #fff"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"></path></svg></a>
+<a href="Settings.dc.html" aria-label="Settings" style="position: absolute; top: 12px; right: 8px; width: 44px; height: 44px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3)); display: flex; align-items: center; justify-content: center; color: #fff"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"></path></svg></a>
+</div>
+<section style="display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 0 20px; margin-top: -44px; position: relative">
+<div style="width: 88px; height: 88px; border-radius: 50%; background: #D9B48F; border: 4px solid #FAFAF8"></div>
+<div style="display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center">
+<h1 style="margin: 0; font-size: 22px; font-weight: 500; letter-spacing: -0.3px">Sarah Osmei</h1>
+<span style="font-size: 13px; color: #6B6B6B">@sarahsunnyart</span>
+<span style="font-size: 13px; color: #333333">Painting · Mixed media</span>
+<span style="font-size: 13px; color: #6B6B6B">100 followers · 60 following</span>
+</div>
+<p style="margin: 0; font-size: 14px; line-height: 1.5; text-align: center; color: #333333">Artist working in oil, mostly figures and the natural world.</p>
+<div style="align-self: stretch; display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: 14px; background: #111111; color: #FAFAF8">
+<a href="#" style="display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; text-decoration: none; color: #FAFAF8">
+<span style="width: 56px; height: 56px; flex: 0 0 auto; border-radius: 9px; background: #B8742A; position: relative; overflow: hidden"><span style="position: absolute; width: 44px; height: 44px; border-radius: 50%; background: #A0522D; right: -10px; bottom: -10px"></span></span>
+<span style="display: flex; flex-direction: column; gap: 4px; min-width: 0">
+<span style="align-self: flex-start; font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size: 10px; font-weight: 500; background: #FAFAF8; color: #111111; padding: 3px 7px; border-radius: 999px">UPCOMING SHOW</span>
+<span style="font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">[Event name]</span>
+<span style="font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size: 11px; color: #A8A8A8">[Venue] · [Date]</span>
+</span>
+</a>
+<a href="#" style="flex: 0 0 auto; height: 36px; padding: 0 12px; border-radius: 10px; background: #FAFAF8; color: #111111; display: flex; align-items: center; font-size: 13px; font-weight: 500; text-decoration: none">Tickets</a>
+</div>
+<div style="align-self: stretch; display: flex; padding: 6px 0"><div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px"><span style="font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size: 17px; font-weight: 500">24</span><span style="font-size: 12px; color: #6B6B6B">pieces</span></div><div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px"><span style="font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size: 17px; font-weight: 500">9</span><span style="font-size: 12px; color: #6B6B6B">collected</span></div><div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px"><span style="font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size: 17px; font-weight: 500">1.2k</span><span style="font-size: 12px; color: #6B6B6B">saves</span></div></div>
+<div style="align-self: stretch; display: flex; gap: 10px"><a href="#" style="flex: 1; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 500; text-decoration: none; background: #111111; color: #FAFAF8">Edit profile</a><a href="#" style="flex: 0 0 auto; padding: 0 16px; height: 44px; border-radius: 12px; border: 1px solid #D4D4D0; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 500; text-decoration: none; color: #111111">Share</a></div>
+
+</section>
+<div style="height: 18px"></div>
+<nav aria-label="Profile sections" style="display: flex; padding: 0 20px; border-bottom: 1px solid #E3E3E0"><a href="#" aria-current="page" style="flex: 1; height: 44px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 500; text-decoration: none; color: #111111; border-bottom: 2px solid #111111; box-sizing: border-box">Pieces</a><a href="#" style="flex: 1; height: 44px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 500; text-decoration: none; color: #8E8E8E; border-bottom: 2px solid transparent; box-sizing: border-box">Scenes</a><a href="#" style="flex: 1; height: 44px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 500; text-decoration: none; color: #8E8E8E; border-bottom: 2px solid transparent; box-sizing: border-box">Collection</a></nav>
+<section aria-label="Series" style="display: flex; flex-direction: column; gap: 12px; padding: 22px 0 0 20px">
+<div style="display: flex; align-items: center; justify-content: space-between; padding-right: 20px"><h2 style="margin: 0; font-size: 17px; font-weight: 500">Series</h2><a href="#" style="font-size: 14px; font-weight: 500; color: #6B6B6B; text-decoration: none; padding: 10px 0">See all</a></div>
+<div class="row" style="display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; padding-right: 20px"><a href="#" style="flex: 0 0 160px; scroll-snap-align: start; display: flex; flex-direction: column; gap: 8px; text-decoration: none; color: #111111">
+<div style="position: relative; width: 160px; height: 160px; flex: 0 0 auto; border-radius: 12px; overflow: hidden; background: #6FA3B0"><div style="position: absolute; width: 132px; height: 90px; left: 44px; top: 30px; border-radius: 50%; background: #E39A4C"></div></div>
+<div style="display: flex; align-items: baseline; gap: 6px"><span style="font-size: 14px; font-weight: 500">Bodies in Color</span><span style="font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size: 12px; color: #6B6B6B">8 pieces</span></div>
+</a><a href="#" style="flex: 0 0 160px; scroll-snap-align: start; display: flex; flex-direction: column; gap: 8px; text-decoration: none; color: #111111">
+<div style="position: relative; width: 160px; height: 160px; flex: 0 0 auto; border-radius: 12px; overflow: hidden; background: #C9B8C9"><div style="position: absolute; left: 0; right: 0; top: 82px; bottom: 0; background: #7E86A6"></div></div>
+<div style="display: flex; align-items: baseline; gap: 6px"><span style="font-size: 14px; font-weight: 500">Strolls in the Park</span><span style="font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size: 12px; color: #6B6B6B">6 pieces</span></div>
+</a><a href="#" style="flex: 0 0 160px; scroll-snap-align: start; display: flex; flex-direction: column; gap: 8px; text-decoration: none; color: #111111">
+<div style="position: relative; width: 160px; height: 160px; flex: 0 0 auto; border-radius: 12px; overflow: hidden; background: #B9A98C"><div style="position: absolute; width: 88px; height: 24px; left: 66px; top: 75px; background: #C9432E; transform: skewX(-18deg)"></div></div>
+<div style="display: flex; align-items: baseline; gap: 6px"><span style="font-size: 14px; font-weight: 500">[Series title]</span><span style="font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size: 12px; color: #6B6B6B">[X] pieces</span></div>
+</a></div>
+</section>
+<div style="display: flex; align-items: center; justify-content: space-between; padding: 30px 20px 0">
+<h2 style="margin: 0; font-size: 17px; font-weight: 500">All <span style="font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size: 13px; font-weight: 400; color: #6B6B6B">24</span></h2>
+<a href="#" role="switch" aria-checked="false" style="flex: 0 0 auto; height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid #D4D4D0; display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 500; text-decoration: none; color: #111111; background: #FFFFFF"><span style="width: 7px; height: 7px; border-radius: 50%; background: #2E8B57"></span>Available</a>
+</div>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 22px 16px; padding: 16px 20px 0">
+<a href="#" style="display: flex; flex-direction: column; gap: 8px; text-decoration: none; color: #111111">
+<div style="position: relative; width: 167px; height: 223px; flex: 0 0 auto; border-radius: 10px; overflow: hidden; background: #6FA3B0"><div style="position: absolute; width: 100px; height: 133px; left: 33px; top: 44px; border-radius: 50%; background: #E39A4C"></div></div>
+<span style="font-size: 14px; font-weight: 500">Bodies in Color I</span><span style="align-self: flex-start; display: flex; align-items: center; gap: 6px; font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size: 11px; color: #111111; border: 1px solid #E3E3E0; padding: 4px 9px; border-radius: 999px"><span style="width: 7px; height: 7px; border-radius: 50%; background: #2E8B57"></span>Available</span>
+</a><a href="#" style="display: flex; flex-direction: column; gap: 8px; text-decoration: none; color: #111111">
+<div style="position: relative; width: 167px; height: 223px; flex: 0 0 auto; border-radius: 10px; overflow: hidden; background: #2F5D8A"><div style="position: absolute; width: 100px; height: 133px; left: 33px; top: 44px; border-radius: 50%; background: #EDE7DF"></div></div>
+<span style="font-size: 14px; font-weight: 500">[Piece title]</span><span style="align-self: flex-start; display: flex; align-items: center; gap: 6px; font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size: 11px; color: #111111; border: 1px solid #E3E3E0; padding: 4px 9px; border-radius: 999px"><span style="width: 7px; height: 7px; border-radius: 50%; background: #2E8B57"></span>Available</span>
+</a><a href="#" style="display: flex; flex-direction: column; gap: 8px; text-decoration: none; color: #111111">
+<div style="position: relative; width: 167px; height: 223px; flex: 0 0 auto; border-radius: 10px; overflow: hidden; background: #C9B8C9"><div style="position: absolute; left: 0; right: 0; top: 122px; bottom: 0; background: #7E86A6"></div></div>
+<span style="font-size: 14px; font-weight: 500">[Piece title]</span><span class="holo" style="align-self: flex-start; display: flex; align-items: center; font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size: 11px; color: #111111; padding: 5px 10px; border-radius: 999px">Collected</span>
+</a><a href="#" style="display: flex; flex-direction: column; gap: 8px; text-decoration: none; color: #111111">
+<div style="position: relative; width: 167px; height: 223px; flex: 0 0 auto; border-radius: 10px; overflow: hidden; background: #3F4A3A"><div style="position: absolute; width: 66px; height: 66px; right: 20px; top: 31px; border-radius: 50%; background: #A0522D"></div></div>
+<span style="font-size: 14px; font-weight: 500">[Piece title]</span>
+</a><a href="#" style="display: flex; flex-direction: column; gap: 8px; text-decoration: none; color: #111111">
+<div style="position: relative; width: 167px; height: 223px; flex: 0 0 auto; border-radius: 10px; overflow: hidden; background: #CDB98F"><div style="position: absolute; left: 0; right: 0; top: 122px; bottom: 0; background: #A0522D"></div></div>
+<span style="font-size: 14px; font-weight: 500">[Piece title]</span><span class="holo" style="align-self: flex-start; display: flex; align-items: center; font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size: 11px; color: #111111; padding: 5px 10px; border-radius: 999px">Collected</span>
+</a><a href="#" style="display: flex; flex-direction: column; gap: 8px; text-decoration: none; color: #111111">
+<div style="position: relative; width: 167px; height: 223px; flex: 0 0 auto; border-radius: 10px; overflow: hidden; background: #B9A98C"><div style="position: absolute; width: 66px; height: 35px; left: 50px; top: 111px; background: #C9432E; transform: skewX(-18deg)"></div></div>
+<span style="font-size: 14px; font-weight: 500">[Piece title]</span><span style="align-self: flex-start; display: flex; align-items: center; gap: 6px; font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size: 11px; color: #111111; border: 1px solid #E3E3E0; padding: 4px 9px; border-radius: 999px"><span style="width: 7px; height: 7px; border-radius: 50%; background: #2E8B57"></span>Available</span>
+</a>
+</div>
+<nav aria-label="Main" style="position: absolute; left: 16px; right: 16px; bottom: 28px; height: 64px; border-radius: 999px; background: #111111; display: flex; align-items: center; justify-content: space-around; padding: 0 8px">
+<a href="#" aria-label="Home" style="width: 52px; height: 48px; display: flex; align-items: center; justify-content: center; color: #8E8E8E">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l-2 0 9-9 9 9-2 0"></path><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"></path></svg>
+</a>
+<a href="#" aria-label="Explore" style="width: 52px; height: 48px; display: flex; align-items: center; justify-content: center; color: #8E8E8E">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M8 16l2-6 6-2-2 6-6 2"></path></svg>
+</a>
+<a href="#" aria-label="Post" style="width: 52px; height: 48px; display: flex; align-items: center; justify-content: center; color: #8E8E8E">
+<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
+</a>
+<a href="#" aria-label="Events" style="width: 52px; height: 48px; display: flex; align-items: center; justify-content: center; color: #8E8E8E">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5v2"></path><path d="M15 11v2"></path><path d="M15 17v2"></path><path d="M5 5h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3a2 2 0 0 0 0-4V7a2 2 0 0 1 2-2"></path></svg>
+</a>
+<a href="#" aria-label="Profile" aria-current="page" style="width: 52px; height: 48px; display: flex; align-items: center; justify-content: center; border-radius: 999px; background: #2A2A2A">
+<span style="width: 30px; height: 30px; border-radius: 50%; background: #D9B48F; border: 1.5px solid #FAFAF8"></span>
+</a>
+</nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":2300}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

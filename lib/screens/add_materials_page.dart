@@ -5,6 +5,7 @@ import '../data/post_material_options.dart';
 import '../theme/studio_colors.dart';
 import '../theme/studio_metrics.dart';
 import '../theme/studio_type.dart';
+import '../widgets/create_flow/material_name_sheet.dart';
 import '../widgets/create_flow/post_flow_widgets.dart';
 import '../widgets/studio/studio_icon.dart';
 import 'pick_materials_page.dart';
@@ -88,6 +89,11 @@ class _AddMaterialsPageState extends State<AddMaterialsPage> {
     if (picked != null && mounted) _add(picked);
   }
 
+  Future<void> _addOwn() async {
+    final own = await MaterialNameSheet.show(context);
+    if (own != null && mounted) _add(own);
+  }
+
   void _done() {
     RecentMaterialsStore.instance.remember(_selected);
     Navigator.pop(context, _selected);
@@ -146,8 +152,10 @@ class _AddMaterialsPageState extends State<AddMaterialsPage> {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 4),
+                  AddOwnMaterialRow(label: 'Add your own material or tool', onTap: _addOwn),
                   if (recent.isNotEmpty) ...[
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 20),
                     Text(
                       'Recent',
                       style: StudioType.label13(weight: StudioType.medium, color: c.textSecondary),
@@ -223,6 +231,46 @@ class MaterialsTopBar extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// A plus and 15 Ink text on a 48 row: types the name of a material or tool by hand
+/// (not on the boards; the user's call, 2026-11-11).
+class AddOwnMaterialRow extends StatelessWidget {
+  const AddOwnMaterialRow({super.key, required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.studio;
+    return Semantics(
+      button: true,
+      label: label,
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          height: 48,
+          child: Row(
+            children: [
+              StudioIcon(StudioIcons.addBold, size: 18, color: c.textPrimary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: StudioType.sans(15, weight: StudioType.medium, color: c.textPrimary),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

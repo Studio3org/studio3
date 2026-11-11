@@ -4,14 +4,16 @@ import '../data/post_material_options.dart';
 import '../theme/studio_colors.dart';
 import '../theme/studio_metrics.dart';
 import '../theme/studio_type.dart';
-import '../widgets/studio/studio_icon.dart';
+import '../widgets/studio/studio_icon.dart';
+
 import '../widgets/studio/studio_tap_area.dart';
-import 'add_materials_page.dart' show MaterialsTopBar;
+import 'add_materials_page.dart' show AddOwnMaterialRow, MaterialsTopBar;
 
 /// Materials search (`PostMaterialsSearch`): the focused field (Card, 1.5 Ink border,
 /// radius 12), suggestions as you type with the matched text in 500 and a Mono
-/// material / tool tag, a custom entry only when nothing matches, and the note under it.
-/// Tapping a suggestion returns it.
+/// material / tool tag, then the typed text as your own material or tool (always offered
+/// unless it is exactly a listed type; the board shows one custom row only when nothing
+/// matches), and the note under it. Tapping a suggestion returns it.
 class PickMaterialsPage extends StatefulWidget {
   const PickMaterialsPage({super.key, required this.selected});
 
@@ -36,6 +38,7 @@ class _PickMaterialsPageState extends State<PickMaterialsPage> {
     final c = context.studio;
     final query = _controller.text.trim();
     final results = PostMaterialOptions.search(query);
+    final listed = results.any((m) => m.type.toLowerCase() == query.toLowerCase());
     return Scaffold(
       backgroundColor: c.background,
       body: SafeArea(
@@ -94,29 +97,14 @@ class _PickMaterialsPageState extends State<PickMaterialsPage> {
                       picked: widget.selected.contains(m),
                       onTap: () => Navigator.pop(context, m),
                     ),
-                  if (query.isNotEmpty && results.isEmpty)
-                    Semantics(
-                      button: true,
-                      child: GestureDetector(
-                        onTap: () => Navigator.pop(context, PostMaterialOption.custom(query)),
-                        behavior: HitTestBehavior.opaque,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          child: Row(
-                            children: [
-                              StudioIcon(StudioIcons.addBold, size: 20, color: c.textPrimary),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Text(
-                                  'Add “$query” as your own',
-                                  style: StudioType.sans(16, color: c.textPrimary),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                  if (query.isNotEmpty && !listed) ...[
+                    if (results.isNotEmpty) const SizedBox(height: 8),
+                    for (final kind in MaterialKind.values)
+                      AddOwnMaterialRow(
+                        label: 'Add “$query” as a ${kind == MaterialKind.tool ? 'tool' : 'material'}',
+                        onTap: () => Navigator.pop(context, PostMaterialOption.custom(query, kind: kind)),
                       ),
-                    ),
+                  ],
                   if (query.isNotEmpty) ...[
                     const SizedBox(height: 18),
                     Text(

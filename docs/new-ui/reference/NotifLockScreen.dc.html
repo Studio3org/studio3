@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lock screen pushes</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#111111}a:hover{color:#6B6B6B}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #FAFAF8; font-family: 'Geist', 'Helvetica Neue', Helvetica, sans-serif; color: #111111; position: relative; overflow: hidden">
+<div style="position: absolute; inset: 0; background: linear-gradient(160deg, #3A3F55, #1C1E2A 55%, #2B2230)"></div>
+<div style="position: relative; display: flex; flex-direction: column; align-items: center; padding-top: 70px; color: #FAFAF8"><span style="font-size: 17px; font-weight: 500; opacity: 0.85">Saturday, October 17</span><span style="font-size: 84px; font-weight: 500; letter-spacing: -2px; line-height: 1">9:41</span></div>
+<div style="position: absolute; left: 10px; right: 10px; top: 300px; display: flex; flex-direction: column; gap: 8px">
+<div style="border-radius: 22px; background: rgba(245,245,245,0.72); backdrop-filter: blur(20px); padding: 12px 14px; display: flex; gap: 12px; align-items: flex-start">
+<span style="width: 38px; height: 38px; flex: 0 0 38px; border-radius: 9px; background: #111111; display: flex; align-items: center; justify-content: center"><svg width="22" height="18" viewBox="40 28 370 292" aria-hidden="true"><circle cx="147" cy="213" r="102" fill="#FAFAF8"></circle><circle cx="305" cy="98" r="66" fill="#FAFAF8"></circle><circle cx="366" cy="220" r="40" fill="#FAFAF8"></circle></svg></span>
+<span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="display: flex; justify-content: space-between; font-size: 14px; font-weight: 600"><span>Outbid on Bodies in Color</span><span style="font-size: 12px; font-weight: 400; color: #555">now</span></span><span style="font-size: 14px; line-height: 1.35; color: #111">Someone bid $3,700. Bid $3,800 to take it back.</span></span></div>
+<div style="border-radius: 22px; background: rgba(245,245,245,0.72); backdrop-filter: blur(20px); padding: 12px 14px; display: flex; gap: 12px; align-items: flex-start">
+<span style="width: 38px; height: 38px; flex: 0 0 38px; border-radius: 9px; background: #111111; display: flex; align-items: center; justify-content: center"><svg width="22" height="18" viewBox="40 28 370 292" aria-hidden="true"><circle cx="147" cy="213" r="102" fill="#FAFAF8"></circle><circle cx="305" cy="98" r="66" fill="#FAFAF8"></circle><circle cx="366" cy="220" r="40" fill="#FAFAF8"></circle></svg></span>
+<span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="display: flex; justify-content: space-between; font-size: 14px; font-weight: 600"><span>Paper Planes III is available</span><span style="font-size: 12px; font-weight: 400; color: #555">12m ago</span></span><span style="font-size: 14px; line-height: 1.35; color: #111">A piece you saved is now $950.</span></span></div>
+<div style="border-radius: 22px; background: rgba(245,245,245,0.72); backdrop-filter: blur(20px); padding: 12px 14px; display: flex; gap: 12px; align-items: flex-start">
+<span style="width: 38px; height: 38px; flex: 0 0 38px; border-radius: 9px; background: #111111; display: flex; align-items: center; justify-content: center"><svg width="22" height="18" viewBox="40 28 370 292" aria-hidden="true"><circle cx="147" cy="213" r="102" fill="#FAFAF8"></circle><circle cx="305" cy="98" r="66" fill="#FAFAF8"></circle><circle cx="366" cy="220" r="40" fill="#FAFAF8"></circle></svg></span>
+<span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="display: flex; justify-content: space-between; font-size: 14px; font-weight: 600"><span>Amara Osei</span><span style="font-size: 12px; font-weight: 400; color: #555">1h ago</span></span><span style="font-size: 14px; line-height: 1.35; color: #111">It comes unframed, but I can recommend a framer.</span></span></div>
+<div style="border-radius: 22px; background: rgba(245,245,245,0.72); backdrop-filter: blur(20px); padding: 12px 14px; display: flex; gap: 12px; align-items: flex-start">
+<span style="width: 38px; height: 38px; flex: 0 0 38px; border-radius: 9px; background: #111111; display: flex; align-items: center; justify-content: center"><svg width="22" height="18" viewBox="40 28 370 292" aria-hidden="true"><circle cx="147" cy="213" r="102" fill="#FAFAF8"></circle><circle cx="305" cy="98" r="66" fill="#FAFAF8"></circle><circle cx="366" cy="220" r="40" fill="#FAFAF8"></circle></svg></span>
+<span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="display: flex; justify-content: space-between; font-size: 14px; font-weight: 600"><span>Bodies in Color is yours</span><span style="font-size: 12px; font-weight: 400; color: #555">Yesterday</span></span><span style="font-size: 14px; line-height: 1.35; color: #111">You won at $3,700. Finish checkout within 48 hours.</span></span></div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

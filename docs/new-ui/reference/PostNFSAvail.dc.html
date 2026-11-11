@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Post: availability, not for sale</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.rule{position:absolute;left:0;top:18px;bottom:18px;width:2px;background:#111111;transform-origin:top;animation:rule .22s ease-out}@keyframes rule{from{transform:scaleY(0)}to{transform:scaleY(1)}}@media (prefers-reduced-motion: reduce){.rule{animation:none}}
+a{color:#111111}a:hover{color:#6B6B6B}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #FAFAF8; font-family: 'Geist', 'Helvetica Neue', Helvetica, sans-serif; color: #111111; position: relative; overflow: hidden">
+<header style="display: flex; align-items: center; gap: 12px; padding: 12px 20px 0 8px">
+<a href="#" aria-label="Back" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: #111111"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></a>
+<div role="progressbar" aria-label="Step 1 of 3" aria-valuenow="1" aria-valuemin="1" aria-valuemax="3" style="flex: 1; display: flex; gap: 6px"><span style="flex: 1; height: 3px; border-radius: 2px; background: #111111"></span><span style="flex: 1; height: 3px; border-radius: 2px; background: #E3E3E0"></span><span style="flex: 1; height: 3px; border-radius: 2px; background: #E3E3E0"></span></div>
+</header><main style="padding: 28px 24px 0; display: flex; flex-direction: column; gap: 26px">
+<div style="display: flex; align-items: center; gap: 14px">
+<div style="width: 54px; height: 72px; border-radius: 8px; background: #6FA3B0; position: relative; overflow: hidden"><div style="position: absolute; width: 34px; height: 46px; left: 10px; top: 13px; border-radius: 50%; background: #E39A4C"></div></div>
+<div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 500">Your piece</span><span style="font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size: 12px; color: #6B6B6B">4 photos</span></div>
+<a href="#" style="margin-left: auto; font-size: 14px; font-weight: 500; color: #6B6B6B; text-decoration: none; padding: 10px 0">Edit</a>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px"><h1 style="margin: 0; font-size: 30px; font-weight: 500; letter-spacing: -0.6px; line-height: 1.1">How do you want to share it?</h1><p style="margin: 0; font-size: 15px; line-height: 1.45; color: #6B6B6B">This decides what details we ask for next.</p></div>
+<div role="radiogroup" aria-label="How do you want to share it" style="display: flex; flex-direction: column"><div role="radio" aria-checked="false" tabindex="0" style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 0; border-bottom: 1px solid #E3E3E0; ">
+<span style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 19px; font-weight: 500; letter-spacing: -0.2px; color: #8E8E8E">Fixed price</span><span style="font-size: 13px; color: #A3A3A3">One price, first to collect it</span></span>
+</div><div role="radio" aria-checked="false" tabindex="0" style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 0; border-bottom: 1px solid #E3E3E0; ">
+<span style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 19px; font-weight: 500; letter-spacing: -0.2px; color: #8E8E8E">Auction</span><span style="font-size: 13px; color: #A3A3A3">3 to 14 days, highest bid wins</span></span>
+</div><div role="radio" aria-checked="true" tabindex="0" style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 0; position: relative; padding-left: 16px; ">
+<span class="rule" aria-hidden="true"></span>
+<span style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 19px; font-weight: 500; letter-spacing: -0.2px; color: #111111">Not for sale</span><span style="font-size: 13px; color: #6B6B6B">Shows on your profile. You can list it later.</span></span>
+</div></div>
+</main><div style="position: absolute; left: 24px; right: 24px; bottom: 36px; display: flex; flex-direction: column; gap: 4px"><a href="#" style="height: 54px; border-radius: 12px; background: #111111; color: #FAFAF8; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 500; text-decoration: none">Continue</a></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

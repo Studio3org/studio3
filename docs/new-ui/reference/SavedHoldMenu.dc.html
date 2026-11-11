@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Saved: press and hold a piece</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#111111}a:hover{color:#6B6B6B}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #FAFAF8; font-family: 'Geist', 'Helvetica Neue', Helvetica, sans-serif; color: #111111; position: relative; overflow: hidden">
+<header style="display: flex; align-items: center; justify-content: space-between; padding: 12px 8px 0"><a href="#" aria-label="Back" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: #111111"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></a><span style="font-size: 16px; font-weight: 500">All saved</span><a href="#" aria-label="Folder options" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: #111111"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.7"></circle><circle cx="12" cy="12" r="1.7"></circle><circle cx="19" cy="12" r="1.7"></circle></svg></a></header><div style="padding: 20px 20px 0; display: grid; grid-template-columns: 1fr 1fr; gap: 20px 16px; filter: blur(3px); opacity: 0.5"><span><span style="position: relative; display: block; width: 167px; height: 223px; border-radius: 10px; overflow: hidden; background: #2F5D8A"><span style="position: absolute; width: 100px; height: 122px; left: 33px; top: 49px; border-radius: 50%; background: #EDE7DF"></span></span></span><span><span style="position: relative; display: block; width: 167px; height: 223px; border-radius: 10px; overflow: hidden; background: #C9B8C9"><span style="position: absolute; width: 100px; height: 122px; left: 33px; top: 49px; border-radius: 50%; background: #7E86A6"></span></span></span><span><span style="position: relative; display: block; width: 167px; height: 223px; border-radius: 10px; overflow: hidden; background: #6FA3B0"><span style="position: absolute; width: 100px; height: 122px; left: 33px; top: 49px; border-radius: 50%; background: #E39A4C"></span></span></span><span><span style="position: relative; display: block; width: 167px; height: 223px; border-radius: 10px; overflow: hidden; background: #CDB98F"><span style="position: absolute; width: 100px; height: 122px; left: 33px; top: 49px; border-radius: 50%; background: #A0522D"></span></span></span></div>
+<div style="position: absolute; left: 0; right: 0; top: 0; bottom: 0; background: rgba(250,250,248,0.35)"></div>
+<div style="position: absolute; left: 20px; top: 76px; box-shadow: 0 20px 40px rgba(17,17,17,0.2); border-radius: 10px"><span style="position: relative; display: block; width: 200px; height: 267px; border-radius: 10px; overflow: hidden; background: #B9A98C"><span style="position: absolute; width: 120px; height: 146px; left: 40px; top: 58px; border-radius: 50%; background: #C9432E"></span></span></div>
+<div role="menu" style="position: absolute; left: 20px; top: 360px; width: 250px; background: #FFFFFF; border-radius: 14px; box-shadow: 0 12px 30px rgba(17,17,17,0.18); overflow: hidden">
+<a href="#" role="menuitem" style="display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid #F0F0EE; font-size: 15px; text-decoration: none; color: #111111">Move to folder<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg></a><a href="#" role="menuitem" style="display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid #F0F0EE; font-size: 15px; text-decoration: none; color: #111111">Share<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"></path><path d="M8 7l4-4 4 4"></path><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"></path></svg></a><a href="#" role="menuitem" style="display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid #F0F0EE; font-size: 15px; text-decoration: none; color: #111111">Remove from Saved<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 7v14l-6-4-6 4V7a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4z"></path></svg></a>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>
