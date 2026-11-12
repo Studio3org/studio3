@@ -31,9 +31,9 @@ class StudioNavItem {
 
 /// Floating nav (`Main`): a 64 tall round pill, 16 from the sides and 28 above the bottom
 /// safe area. Frosted glass in both themes (the user's call, 2026-11-11): the page behind is
-/// blurred ([StudioSize.navBlur]) under Ink at 75 % with a white 10 % hairline. Slots are
+/// blurred ([StudioSize.navBlur]) under Ink at 60 % with a white 10 % hairline. Slots are
 /// 52 × 48; the active one sits on a round white 14 % pill with a Gallery White icon, others
-/// are #9E9E9E. Icons are 24 px outlines, stroke 1.8. The profile slot is a 30 px avatar
+/// are #BDBDBD. Icons are 24 px outlines, stroke 1.8. The profile slot is a 30 px avatar
 /// with a 1.5 px Gallery White ring.
 ///
 /// Place it at the bottom of a [Stack] (it pads itself), e.g. `Positioned(left: 0,

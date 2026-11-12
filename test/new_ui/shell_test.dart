@@ -39,7 +39,7 @@ Widget _app(
 
 void main() {
   test('floating nav tokens are the same glass in both themes', () {
-    expect(StudioColors.light.navFill, const Color(0xBF111111));
+    expect(StudioColors.light.navFill, const Color(0x99111111));
     expect(StudioColors.dark.navFill, StudioColors.light.navFill);
     expect(StudioColors.dark.navActive, StudioColors.light.navActive);
     expect(StudioColors.dark.navBorder, StudioColors.light.navBorder);
@@ -74,17 +74,17 @@ void main() {
           if (w is! Container) return false;
           final decoration = w.decoration;
           return decoration is BoxDecoration &&
-              decoration.color == const Color(0xBF111111) &&
+              decoration.color == const Color(0x99111111) &&
               decoration.borderRadius == BorderRadius.circular(StudioRadius.round);
         }),
       );
       final decoration = pill.decoration! as BoxDecoration;
-      expect(decoration.color, const Color(0xBF111111));
+      expect(decoration.color, const Color(0x99111111));
       expect(decoration.border, Border.all(color: const Color(0x1AFFFFFF), width: 0.5));
       final blur = tester.widget<BackdropFilter>(
         find.descendant(of: find.byType(StudioFloatingNav), matching: find.byType(BackdropFilter)),
       );
-      expect(blur.filter, ImageFilter.blur(sigmaX: 20, sigmaY: 20));
+      expect(blur.filter, ImageFilter.blur(sigmaX: 24, sigmaY: 24));
       expect(
         find.descendant(of: find.byType(StudioFloatingNav), matching: find.byType(ClipRRect)),
         findsOneWidget,

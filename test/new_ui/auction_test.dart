@@ -736,10 +736,15 @@ void main() {
 
   // FRONTEND_HANDOFF 7a and 7b: auctions v2.
   group('auctions v2', () {
-    final offer = SecondChanceOffer(
-      amountCents: 360000,
-      expiresAt: DateTime.now().add(const Duration(hours: 20, minutes: 10, seconds: 30)),
-    );
+    // Fresh per test: built once at load, a slow run could pass the 30 s margin before the
+    // countdown test reads "20h 10m".
+    late SecondChanceOffer offer;
+    setUp(() {
+      offer = SecondChanceOffer(
+        amountCents: 360000,
+        expiresAt: DateTime.now().add(const Duration(hours: 20, minutes: 10, seconds: 30)),
+      );
+    });
 
     test('bar state: the offered bidder accepts; everyone else sees it ended; shipping pending', () {
       AuctionBarState s(AuctionSummary a, {bool owner = false}) =>
@@ -849,10 +854,7 @@ void main() {
         await tester.pumpWidget(_sheetHost((_) => sheet, (_) {}));
         await tester.tap(find.text('open'));
         await tester.pumpAndSettle();
-        await tester.runAsync(() async {
-          await tester.tap(find.text(r'Bid $3,600'));
-          await Future<void>.delayed(const Duration(milliseconds: 300));
-        });
+        await _tapBidAndWait(tester);
         await tester.pumpAndSettle();
       }
 
@@ -891,10 +893,7 @@ void main() {
         await tester.tap(find.byKey(const Key('bid-sheet-ship-to')));
         await tester.pumpAndSettle();
         expect(find.text('Jordan Lee, 88 Elm St, Austin, TX 78701'), findsOneWidget);
-        await tester.runAsync(() async {
-          await tester.tap(find.text(r'Bid $3,600'));
-          await Future<void>.delayed(const Duration(milliseconds: 300));
-        });
+        await _tapBidAndWait(tester);
         await tester.pumpAndSettle();
         expect(server.bids.single['addressId'], 'a2');
       });
@@ -1236,6 +1235,19 @@ void main() {
 }
 
 /// Records `POST /api/pieces/p1/bids` and answers with the auction after it.
+/// Taps "Bid $3,600" and waits (real time, up to 5 s) until the bid call has come back
+/// and the sheet has closed, so nothing lands after the test ends on a loaded machine.
+Future<void> _tapBidAndWait(WidgetTester tester) async {
+  final route = ModalRoute.of(tester.element(find.byType(BidSheet)))!;
+  await tester.runAsync(() async {
+    await tester.tap(find.text(r'Bid $3,600'));
+    for (var i = 0; i < 100 && route.isCurrent; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+  });
+  expect(route.isCurrent, isFalse, reason: 'the bid sheet should close after the bid');
+}
+
 class _BidServer implements HttpClientAdapter {
   final bids = <Map<String, dynamic>>[];
 
