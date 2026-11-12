@@ -3,11 +3,14 @@ import 'package:flutter/material.dart';
 import '../models/piece_summary.dart';
 import '../services/api_exception.dart';
 import '../services/piece_service.dart';
+import 'list_piece_flow.dart' show ListingDetailsWeight;
 import '../theme/studio_colors.dart';
 import '../theme/studio_type.dart';
 import '../widgets/studio/studio_top_bar.dart';
 import '../widgets/choose_location_sheet.dart';
+import '../widgets/create_flow/listing_details_form.dart' show ShippingFields, PackedSizeInput, ShippingOptionRows;
 import '../widgets/create_flow/post_flow_widgets.dart';
+import '../widgets/selling/pickup_address.dart';
 import '../widgets/studio/studio_chip.dart';
 import '../widgets/studio/studio_field.dart';
 import '../widgets/studio/studio_switch.dart';
@@ -36,6 +39,11 @@ class _EditPiecePageState extends State<EditPiecePage> {
   late final TextEditingController _styleTags;
   late final TextEditingController _altText;
 
+  /// Packed weight (lb) and size and the courier's choices (FRONTEND_HANDOFF 8.1, D5): a
+  /// listed piece needs them for any save on a Convelio server.
+  late final TextEditingController _weightLb;
+  late final ShippingFields _shipping;
+
   bool _isForSale = false;
   bool _aiDisclosed = false;
   String? _shippingRegion;
@@ -63,6 +71,8 @@ class _EditPiecePageState extends State<EditPiecePage> {
     _materials = TextEditingController(text: p.materials.join(', '));
     _styleTags = TextEditingController(text: p.styleTags.join(', '));
     _altText = TextEditingController(text: p.altText);
+    _weightLb = TextEditingController(text: p.weightKg == null ? '' : ListingDetailsWeight.lb(p.weightKg!));
+    _shipping = ShippingFields.fromPiece(p);
     _isForSale = p.isForSale;
     _aiDisclosed = p.aiDisclosed;
     _shippingRegion = p.shippingRegion;
@@ -83,7 +93,15 @@ class _EditPiecePageState extends State<EditPiecePage> {
     _materials.dispose();
     _styleTags.dispose();
     _altText.dispose();
+    _weightLb.dispose();
+    _shipping.dispose();
     super.dispose();
+  }
+
+  double? get _weightKg {
+    final lb = double.tryParse(_weightLb.text.trim());
+    if (lb == null || lb <= 0) return null;
+    return double.parse((lb * 0.45359237).toStringAsFixed(3));
   }
 
   bool get _statusIsEditable => _editableStatuses.contains(widget.piece.status ?? 'live');
@@ -132,6 +150,8 @@ class _EditPiecePageState extends State<EditPiecePage> {
         if (_priceUsd.text.trim().isNotEmpty)
           'priceCents': ((double.tryParse(_priceUsd.text.trim()) ?? 0) * 100).round(),
         if (_shippingRegion != null) 'shippingRegion': _shippingRegion,
+        'weightKg': ?_weightKg,
+        ..._shipping.toBody(),
       },
       if (_statusIsEditable) 'status': _status,
     };
@@ -262,6 +282,22 @@ class _EditPiecePageState extends State<EditPiecePage> {
                 value: _shippingRegion,
                 onTap: _openShippingRegionPicker,
               ),
+              const SizedBox(height: 22),
+              StudioUnderlineField(
+                label: 'Weight',
+                controller: _weightLb,
+                hint: 'Packed weight',
+                mono: true,
+                sansHint: true,
+                valueSize: 18,
+                unit: 'lb',
+                helper: 'Used only to get shipping quotes. It never shows on your piece.',
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
+              const SizedBox(height: 22),
+              PackedSizeInput(fields: _shipping),
+              const SizedBox(height: 8),
+              ShippingOptionRows(fields: _shipping),
             ],
             gap(),
             if (_statusIsEditable) ...[
@@ -286,6 +322,12 @@ class _EditPiecePageState extends State<EditPiecePage> {
             if (_error != null) ...[
               const SizedBox(height: 16),
               Text(_error!, style: StudioType.body14(color: c.textPrimary)),
+              // A refusal naming the pickup address (8.1) can be fixed from here.
+              if (mentionsPickupAddress(_error!))
+                PostChevronRow(
+                  label: 'Pickup address',
+                  onTap: () => choosePickupAddress(context),
+                ),
             ],
           ],
         ),

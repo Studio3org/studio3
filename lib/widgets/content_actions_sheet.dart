@@ -14,12 +14,16 @@ import 'studio/studio.dart';
 ///
 /// [onBlocked] runs after a successful block — e.g. a detail page pops
 /// itself, since everything from that account is now hidden.
+///
+/// [onHideFromCollection], passed only when the viewer collected the piece, adds "Hide from
+/// my Collection" (`PieceCollectedOwner`, B32).
 Future<void> showContentActionsSheet(
   BuildContext context, {
   required ReportTarget target,
   String? authorUsername,
   VoidCallback? onBlocked,
   VoidCallback? onDelete,
+  VoidCallback? onHideFromCollection,
 }) {
   final me = AuthSession.instance.user?.username;
   final canBlock = authorUsername != null &&
@@ -42,6 +46,15 @@ Future<void> showContentActionsSheet(
             onTap: () {
               Navigator.pop(sheetContext);
               onDelete();
+            },
+          ),
+        if (onHideFromCollection != null)
+          StudioActionRow(
+            icon: StudioIcons.eyeOff,
+            title: 'Hide from my Collection',
+            onTap: () {
+              Navigator.pop(sheetContext);
+              onHideFromCollection();
             },
           ),
         if (canBlock)

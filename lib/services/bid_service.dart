@@ -59,34 +59,43 @@ class BidService {
         : const [];
   }
 
-  /// `BidVerify`: confirms a SetupIntent with what is in the card field, so the card is
-  /// saved for bidding without a charge or hold. Returns the payment method id.
-  Future<String> saveCard({required String zip}) async {
+  /// `BidVerify`: saves a card with Stripe's PaymentSheet on a SetupIntent (the bank checks
+  /// it; nothing is charged or held), with Apple Pay and Google Pay when configured. Returns
+  /// the saved card, or null when they closed the sheet.
+  Future<SavedCard?> saveCard() async {
     if (!StripeSetup.ready) {
       throw ApiException('Card payments are not set up in this build yet.');
     }
     final json = await _api.post('/api/payments/setup-intent', auth: true);
     final data = _api.extractData(json) as Map<String, dynamic>;
     final secret = data['clientSecret'] as String?;
-    if (secret == null) throw ApiException('Could not start saving the card.');
-    final intent = await Stripe.instance.confirmSetupIntent(
-      paymentIntentClientSecret: secret,
-      params: PaymentMethodParams.card(
-        paymentMethodData: PaymentMethodData(
-          billingDetails: BillingDetails(address: Address(
-            city: null,
-            country: null,
-            line1: null,
-            line2: null,
-            postalCode: zip,
-            state: null,
-          )),
-        ),
+    if (secret == null || secret.isEmpty) throw ApiException('Could not start saving the card.');
+    await Stripe.instance.initPaymentSheet(
+      paymentSheetParameters: SetupPaymentSheetParameters(
+        setupIntentClientSecret: secret,
+        customerId: data['customerId'] as String?,
+        customerEphemeralKeySecret: data['ephemeralKeySecret'] as String?,
+        merchantDisplayName: 'Studio 3',
+        applePay: StripeSetup.applePay,
+        googlePay: StripeSetup.googlePay,
       ),
     );
+    try {
+      await Stripe.instance.presentPaymentSheet();
+    } on StripeException catch (e) {
+      if (e.error.code == FailureCode.Canceled) return null;
+      rethrow;
+    }
+    // The SetupIntent names the card just saved; the list adds its brand and last four.
+    final intent = await Stripe.instance.retrieveSetupIntent(secret);
     final id = intent.paymentMethodId;
     if (id.isEmpty) throw ApiException("The card couldn't be saved. Try again.");
-    return id;
+    try {
+      final saved = await cards();
+      final match = saved.where((c) => c.id == id).firstOrNull;
+      if (match != null) return match;
+    } catch (_) {}
+    return SavedCard(id: id, brand: '', last4: '');
   }
 
   /// Places a bid of [amountCents]. The server rejects one that is now too low (409) and
@@ -95,10 +104,12 @@ class BidService {
     String pieceId, {
     required int amountCents,
     required String paymentMethodId,
+    String? addressId,
   }) async {
     final json = await _api.post(
       '/api/pieces/$pieceId/bids',
-      body: {'amountCents': amountCents, 'paymentMethodId': paymentMethodId},
+      // The Ship to address (FRONTEND_HANDOFF 7a.1), used to deliver without a checkout (7b).
+      body: {'amountCents': amountCents, 'paymentMethodId': paymentMethodId, 'addressId': ?addressId},
       auth: true,
     );
     final data = _api.extractData(json) as Map<String, dynamic>;
@@ -116,19 +127,41 @@ class BidService {
       auth: true,
     );
     final data = _api.extractData(json);
+    await CacheService.instance.invalidate('piece.$pieceId');
     return data is Map<String, dynamic> ? AuctionSummary.maybeFrom(data) : null;
   }
 
+  /// `SecondChance` Accept and pay (FRONTEND_HANDOFF 7a.4): charges their saved card, or
+  /// [paymentMethodId]. 402 when declined (the offer stays open), 404 no offer, 409 expired.
+  Future<AuctionSummary?> acceptOffer(String pieceId, {String? paymentMethodId}) async {
+    final json = await _api.post(
+      '/api/pieces/$pieceId/auction/offer/accept',
+      body: {'paymentMethodId': ?paymentMethodId},
+      auth: true,
+    );
+    final data = _api.extractData(json);
+    await CacheService.instance.invalidate('piece.$pieceId');
+    return data is Map<String, dynamic> ? AuctionSummary.maybeFrom(data) : null;
+  }
+
+  /// No thanks: the offer passes to the next bidder.
+  Future<void> declineOffer(String pieceId) async {
+    await _api.post('/api/pieces/$pieceId/auction/offer/decline', auth: true);
+    await CacheService.instance.invalidate('piece.$pieceId');
+  }
+
   /// `BidCheckout`: the winner's shipping. The hammer price is already paid; what is left
-  /// (shipping and tax) is [AuctionOrder.balanceDueCents].
+  /// (shipping and tax) is [AuctionOrder.balanceDueCents]. With Convelio on, [quoteId] carries
+  /// the shipping; [shippingMethod] is only the flat-tier fallback or `pickup` (8.3).
   Future<AuctionOrder> auctionCheckout(
     String pieceId, {
     required String addressId,
-    required String shippingMethod,
+    String? shippingMethod,
+    String? quoteId,
   }) async {
     final json = await _api.post(
       '/api/pieces/$pieceId/auction-checkout',
-      body: {'addressId': addressId, 'shippingMethod': shippingMethod},
+      body: {'addressId': addressId, 'quoteId': ?quoteId, 'shippingMethod': ?shippingMethod},
       auth: true,
     );
     final data = _api.extractData(json) as Map<String, dynamic>;

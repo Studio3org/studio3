@@ -343,7 +343,13 @@ String draftLeftLine(PieceSummary piece) {
     if ((piece.medium ?? '').trim().isEmpty) 'medium',
     if ((piece.dimensions ?? '').trim().isEmpty) 'size',
     if (piece.isForSale && piece.priceCents == null && piece.startingBidCents == null) 'price',
-    if (piece.isForSale && piece.weightKg == null) 'shipping details',
+    // Shipping details: the weight and the packed size the courier prices on (FRONTEND_HANDOFF 8.1).
+    if (piece.isForSale &&
+        (piece.weightKg == null ||
+            piece.packageLengthCm == null ||
+            piece.packageWidthCm == null ||
+            piece.packageHeightCm == null))
+      'shipping details',
   ];
   if (left.isEmpty) return 'Ready to post';
   if (left.length == 1) return '${_capital(left.first)} left';

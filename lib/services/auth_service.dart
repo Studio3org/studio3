@@ -140,13 +140,14 @@ class AuthService {
     await _session.clear();
   }
 
-  Future<void> logoutAllDevices() async {
-    try {
-      await _api.post('/api/auth/logout-all', auth: true);
-    } on ApiException {
-      // Clear local session even if server logout fails.
-    }
-    await _session.clear();
+  /// Signs out every other device; this one stays signed in (B34). Returns the server's
+  /// message ("Logged out of all other devices."). Throws [ApiException] when it fails.
+  Future<String> logoutAllDevices() async {
+    final json = await _api.post('/api/auth/logout-all', auth: true);
+    final message = json['message'];
+    return message is String && message.trim().isNotEmpty
+        ? message
+        : 'Logged out of all other devices.';
   }
 
   /// Permanently deletes the account and its data (Google Play / App Store account-deletion

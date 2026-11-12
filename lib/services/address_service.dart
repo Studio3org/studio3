@@ -82,4 +82,24 @@ class AddressService {
     await CacheService.instance.invalidate(_cacheKey);
     return Address.fromJson(data);
   }
+
+  /// The artist's pickup address (FRONTEND_HANDOFF 8.1, B31), or null when none is set. Only
+  /// ever shown to the artist.
+  Future<Address?> getPickupAddress() async {
+    final json = await _api.get('/api/user/me/pickup-address', auth: true);
+    return _pickup(_api.extractData(json));
+  }
+
+  /// Sets the pickup address to one of the artist's own US addresses with a phone; null
+  /// clears it. The server's 400s ("US only", "Add a phone number…") come back as
+  /// [ApiException]s.
+  Future<Address?> setPickupAddress(String? addressId) async {
+    final json = await _api.put('/api/user/me/pickup-address', body: {'addressId': addressId});
+    return _pickup(_api.extractData(json));
+  }
+
+  static Address? _pickup(Object? data) {
+    final raw = data is Map<String, dynamic> ? data['pickupAddress'] : null;
+    return raw is Map<String, dynamic> ? Address.fromJson(raw) : null;
+  }
 }

@@ -303,9 +303,13 @@ void _postFlows() {
     await _type(tester, 3, '36');
     await _type(tester, 4, '1.5');
     await _type(tester, 5, '8');
+    // The packed size the courier prices on (FRONTEND_HANDOFF 8.1).
+    await _type(tester, 6, '30');
+    await _type(tester, 7, '40');
+    await _type(tester, 8, '5');
     await tester.tap(find.text('Additional details'));
     await tester.pump();
-    await _type(tester, 6, '2025');
+    await _type(tester, 9, '2025');
     await tester.tap(find.text('Yes'));
     await tester.pump();
     await _tapAndRun(tester, 'Continue', ms: 500);
@@ -342,6 +346,9 @@ void _postFlows() {
     expect(created['isForSale'], true);
     expect(created['priceCents'], 360000);
     expect(created['weightKg'], closeTo(3.629, 0.001));
+    expect(created['packageLengthCm'], closeTo(76.2, 0.001));
+    expect(created['packageWidthCm'], closeTo(101.6, 0.001));
+    expect(created['packageHeightCm'], closeTo(12.7, 0.001));
     expect(created['location'], 'Dallas, TX, United States');
     expect(created['shippingRegion'], 'Dallas, TX, United States');
     expect(created['aiDisclosed'], false);
@@ -545,6 +552,9 @@ void _postFlows() {
     await _type(tester, 3, '36');
     await _type(tester, 4, '1.5');
     await _type(tester, 5, '8');
+    await _type(tester, 6, '30');
+    await _type(tester, 7, '40');
+    await _type(tester, 8, '5');
     await _tapAndRun(tester, 'Related Scenes', ms: 600);
     // The page loads its Scenes from initState, inside the fake clock.
     for (var i = 0; i < 5; i++) {

@@ -14,11 +14,16 @@ Timer? _timer;
 /// 2.4), 14/500 text, 12 18 padding. The board draws it as a pill, but round corners are only
 /// for chips, tags, filters, avatars, switch and nav (`HandoffRules`; plan section 0.3), so it
 /// uses the 12 radius of the tooltip box. One at a time; fades in and out.
+///
+/// With [actionLabel] and [onAction] (e.g. Undo) the label sits after the text, 14/500
+/// underlined, and tapping it closes the toast and runs [onAction].
 void showStudioToast(
   BuildContext context,
   String message, {
   String? icon = StudioIcons.check,
   Duration duration = const Duration(milliseconds: 2500),
+  String? actionLabel,
+  VoidCallback? onAction,
 }) {
   // A Navigator's own context sits above its Overlay (onboarding's welcome after it replaces
   // itself with the feed): use that Navigator's overlay.
@@ -27,8 +32,15 @@ void showStudioToast(
   if (overlay == null) return;
   _dismiss();
   final key = GlobalKey<_ToastState>();
-  final entry = OverlayEntry(
-    builder: (_) => _Toast(key: key, message: message, icon: icon),
+  late final OverlayEntry entry;
+  final action = actionLabel != null && onAction != null
+      ? () {
+          if (_current == entry) _dismiss();
+          onAction();
+        }
+      : null;
+  entry = OverlayEntry(
+    builder: (_) => _Toast(key: key, message: message, icon: icon, actionLabel: actionLabel, onAction: action),
   );
   _current = entry;
   overlay.insert(entry);
@@ -46,10 +58,12 @@ void _dismiss() {
 }
 
 class _Toast extends StatefulWidget {
-  const _Toast({super.key, required this.message, required this.icon});
+  const _Toast({super.key, required this.message, required this.icon, this.actionLabel, this.onAction});
 
   final String message;
   final String? icon;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   @override
   State<_Toast> createState() => _ToastState();
@@ -79,8 +93,16 @@ class _ToastState extends State<_Toast> {
       right: 16,
       bottom: 120,
       child: IgnorePointer(
+        // Only a toast with an action takes taps.
+        ignoring: widget.onAction == null,
         child: Center(
-          child: StudioToastBox(message: widget.message, icon: widget.icon, visible: _visible),
+          child: StudioToastBox(
+            message: widget.message,
+            icon: widget.icon,
+            visible: _visible,
+            actionLabel: widget.actionLabel,
+            onAction: widget.onAction,
+          ),
         ),
       ),
     );
@@ -94,11 +116,17 @@ class StudioToastBox extends StatelessWidget {
     required this.message,
     this.icon = StudioIcons.check,
     this.visible = true,
+    this.actionLabel,
+    this.onAction,
   });
 
   final String message;
   final String? icon;
   final bool visible;
+
+  /// An optional action after the text (e.g. Undo).
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
@@ -129,6 +157,23 @@ class StudioToastBox extends StatelessWidget {
                     style: StudioType.body14(weight: StudioType.medium, color: c.tooltipText),
                   ),
                 ),
+                if (actionLabel != null && onAction != null) ...[
+                  const SizedBox(width: 14),
+                  Semantics(
+                    button: true,
+                    child: GestureDetector(
+                      onTap: onAction,
+                      behavior: HitTestBehavior.opaque,
+                      child: Text(
+                        actionLabel!,
+                        style: StudioType.body14(weight: StudioType.medium, color: c.tooltipText).copyWith(
+                          decoration: TextDecoration.underline,
+                          decorationColor: c.tooltipText,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

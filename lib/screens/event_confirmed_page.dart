@@ -1,10 +1,14 @@
 import 'package:add_2_calendar/add_2_calendar.dart' as cal;
 import 'package:flutter/material.dart';
 
+import '../models/event_order.dart';
 import '../models/studio_event.dart';
+import '../services/auth_session.dart';
+import '../services/event_service.dart';
 import '../widgets/events/event_detail_widgets.dart' show EventCover;
 import '../widgets/events/event_tab_widgets.dart' show eventCity;
 import '../widgets/events/event_tickets_sheet.dart';
+import '../widgets/events/event_wallet_button.dart';
 import '../widgets/studio/studio.dart';
 import 'event_ticket_page.dart';
 import 'my_events_page.dart';
@@ -25,11 +29,22 @@ String eventTicketWhen(StudioEvent e) => eventStartLabel(e).replaceAll(',', '').
 /// as a ticket that rises in straight, a line about where the tickets are, then Add to
 /// calendar and the way to the tickets.
 ///
-/// Add to Apple Wallet needs a pass the server signs (BACKEND_CHANGES B25), so Add to calendar
-/// leads. View tickets opens the tickets (`EvTicket`, B22); a free reservation has no ticket
-/// codes, so it says "Your events" and opens those.
+/// Add to Apple Wallet (iOS) or Google Wallet (Android) sits above Add to calendar when the
+/// server says that wallet can take the order's passes (B25): from the poll ([order]), or else
+/// from `myTickets` on open. View tickets opens the tickets (`EvTicket`, B22) whenever there are some: paid,
+/// an order ([orderId]), or the event says the viewer holds tickets (an RSVP issues a QR
+/// ticket on a B22 server). Otherwise it says "Your events" and opens those.
 class EventConfirmedPage extends StatefulWidget {
-  const EventConfirmedPage({super.key, required this.event, required this.choice, this.email});
+  const EventConfirmedPage({
+    super.key,
+    required this.event,
+    required this.choice,
+    this.email,
+    this.orderId,
+    this.order,
+    this.pending = false,
+    this.onRefunded,
+  });
 
   final StudioEvent event;
   final EventTicketChoice choice;
@@ -37,18 +52,45 @@ class EventConfirmedPage extends StatefulWidget {
   /// Where paid tickets were emailed; null for a free reservation.
   final String? email;
 
-  static Future<void> open(
+  /// The order the tickets came in, when they were ordered (B22).
+  final String? orderId;
+
+  /// The order as the server last described it (the poll after paying), with which wallets
+  /// can take its passes (B25). Null when it wasn't polled.
+  final EventOrderStatus? order;
+
+  /// Paid, but the server hadn't issued the tickets yet when checkout stopped waiting.
+  final bool pending;
+
+  /// Called when tickets were refunded from View tickets (Phase 4.1).
+  final VoidCallback? onRefunded;
+
+  /// True when tickets were refunded from View tickets, so the caller reloads the event.
+  static Future<bool> open(
     BuildContext context, {
     required StudioEvent event,
     required EventTicketChoice choice,
     String? email,
-  }) {
-    return Navigator.of(context).push<void>(
+    String? orderId,
+    EventOrderStatus? order,
+    bool pending = false,
+  }) async {
+    var refunded = false;
+    await Navigator.of(context).push<void>(
       MaterialPageRoute(
         fullscreenDialog: true,
-        builder: (_) => EventConfirmedPage(event: event, choice: choice, email: email),
+        builder: (_) => EventConfirmedPage(
+          event: event,
+          choice: choice,
+          email: email,
+          orderId: orderId,
+          order: order,
+          pending: pending,
+          onRefunded: () => refunded = true,
+        ),
       ),
     );
+    return refunded;
   }
 
   @override
@@ -62,6 +104,44 @@ class _EventConfirmedPageState extends State<EventConfirmedPage> with SingleTick
     vsync: this,
     duration: const Duration(milliseconds: 1100),
   );
+
+  /// The order and which wallets take its passes (B25), from the poll or `myTickets`.
+  String? _orderId;
+  EventWalletPasses? _passes;
+  List<String>? _ticketIds;
+
+  bool get _hasTickets => !widget.choice.isFree || widget.orderId != null || widget.event.ticketCount > 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _orderId = widget.orderId ?? widget.order?.id;
+    _passes = widget.order?.walletPasses;
+    // No poll to say which wallets work: ask the ticket list. Only where a wallet could show.
+    if (widget.order == null &&
+        _hasTickets &&
+        AuthSession.instance.isLoggedIn &&
+        EventWalletButton.showsFor(const EventWalletPasses(apple: true, google: true))) {
+      _loadWallet();
+    }
+  }
+
+  Future<void> _loadWallet() async {
+    try {
+      final tickets = await EventService.instance.myTickets(widget.event.id);
+      final orderId = _orderId ?? tickets.map((t) => t.orderId).nonNulls.firstOrNull;
+      final mine = [for (final t in tickets) if (orderId != null && t.orderId == orderId) t];
+      final passes = mine.map((t) => t.walletPasses).nonNulls.firstOrNull;
+      if (!mounted || orderId == null || passes == null) return;
+      setState(() {
+        _orderId = orderId;
+        _passes = passes;
+        _ticketIds = [for (final t in mine) if (t.id.isNotEmpty) t.id];
+      });
+    } catch (_) {
+      // No wallet button; the tickets are still in the app.
+    }
+  }
 
   @override
   void didChangeDependencies() {
@@ -112,10 +192,14 @@ class _EventConfirmedPageState extends State<EventConfirmedPage> with SingleTick
   Widget build(BuildContext context) {
     final c = context.studio;
     final choice = widget.choice;
-    final paid = !choice.isFree;
+    final hasTickets = _hasTickets;
+    final orderId = _orderId;
     final count = choice.count;
     final email = widget.email;
-    final note = paid
+    final note = widget.pending
+        ? 'Your tickets will appear shortly'
+              '${email == null ? '.' : ". We'll also email them to $email."}'
+        : hasTickets
         ? 'Your $count ${count == 1 ? 'ticket is' : 'tickets are'} saved here'
               '${email == null ? '.' : ' and emailed to $email.'}'
         : 'Your place is saved in Your events.';
@@ -197,15 +281,25 @@ class _EventConfirmedPageState extends State<EventConfirmedPage> with SingleTick
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    if (orderId != null && EventWalletButton.showsFor(_passes)) ...[
+                      EventWalletButton(
+                        eventId: widget.event.id,
+                        orderId: orderId,
+                        passes: _passes,
+                        ticketIds: _ticketIds,
+                      ),
+                      const SizedBox(height: 10),
+                    ],
                     StudioButton(label: 'Add to calendar', onPressed: _addToCalendar),
                     const SizedBox(height: 10),
                     StudioButton(
-                      label: paid ? 'View tickets' : 'Your events',
+                      label: hasTickets ? 'View tickets' : 'Your events',
                       variant: StudioButtonVariant.outline,
                       height: 48,
-                      onPressed: () => paid
-                          ? EventTicketPage.open(context, widget.event)
-                          : MyEventsPage.open(context),
+                      onPressed: () async {
+                        if (!hasTickets) return MyEventsPage.open(context);
+                        if (await EventTicketPage.open(context, widget.event)) widget.onRefunded?.call();
+                      },
                     ),
                   ],
                 ),

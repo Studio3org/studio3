@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../config/app_link_config.dart';
 import '../../models/studio_event.dart';
 import '../../services/event_service.dart';
+import '../../utils/money_format.dart';
 import '../../widgets/events/your_events_widgets.dart' show eventHowSoon;
 import '../../widgets/settings_tile.dart';
 import '../../widgets/share/share_sheet.dart';
@@ -11,7 +12,8 @@ import '../../widgets/studio/studio.dart';
 import '../event_qr_codes_page.dart';
 import 'host_cancel_page.dart';
 import 'host_event_page.dart';
-import 'host_guest_list_page.dart';
+import 'host_reschedule_page.dart';
+import 'host_scanner_page.dart';
 
 /// Manage event (`HostManage`): the host's tools. The cover full width at 3:4 (radius 14) with
 /// how soon it is; the name 24/500 and the Mono date, time and venue; the numbers side by side
@@ -19,9 +21,10 @@ import 'host_guest_list_page.dart';
 /// for piece links and QR codes and Edit event; Cancel event as a grey link; the bar at the
 /// bottom with Going and Doors open.
 ///
-/// Free RSVP events today: earned and check-in scanning need tickets (BACKEND_CHANGES B22; the
-/// waitlist count shows once the server sends it), and a published event can't be rescheduled (B28) — those parts are left out, and the
-/// bar's button opens the guest list.
+/// Ticket types list the event's own (B22), or General Admission for a free RSVP event.
+/// Earned comes later (the waitlist count shows once the server sends it). The bar's button is
+/// Check in guests (B28, Phase 4.3), for a published or archived event; Reschedule sits under
+/// Edit event while a published event hasn't ended (Phase 4.4).
 class HostManagePage extends StatefulWidget {
   const HostManagePage({super.key, required this.event, this.debugEvent, this.debugNow});
 
@@ -79,7 +82,18 @@ class _HostManagePageState extends State<HostManagePage> {
     if (cancelled == true) _load();
   }
 
-  void _guests() => HostGuestListPage.open(context, _event);
+  Future<void> _checkIn() async {
+    await HostScannerPage.open(context, _event);
+    _load();
+  }
+
+  Future<void> _reschedule() async {
+    final moved = await HostReschedulePage.open(context, _event);
+    if (moved != null && mounted) {
+      setState(() => _event = moved);
+      _load();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -90,7 +104,21 @@ class _HostManagePageState extends State<HostManagePage> {
     final zone = e.zoneLabel.isEmpty ? '' : ' ${e.zoneLabel}';
     final when = '${_day(e.startsAt)} · ${_time(e.startsAt)}$zone';
     final active = e.isPublished && !e.isOver;
+    final scanning = e.isPublished || e.status == 'archived';
     final going = e.capacity == null ? '${e.rsvpCount}' : '${e.rsvpCount} of ${e.capacity}';
+    // Pieces on the event: approved ones (waiting and declined entries aren't on it yet).
+    final pieces = e.liveLineup.length;
+    // An accepted co-host (Phase 5.1): only the host reschedules or cancels.
+    final coHost = !e.isHost && e.viewerCanEdit;
+    Widget typeRow(String name, String taken, {required bool soldOut}) => Container(
+      padding: const EdgeInsets.symmetric(vertical: 11),
+      child: Row(
+        children: [
+          Expanded(child: Text(name, style: StudioType.body14(color: c.textSecondary))),
+          Text(taken, style: StudioType.mono(14, color: soldOut ? c.alert : c.textPrimary)),
+        ],
+      ),
+    );
     Widget stat(String value, String label) => Expanded(
       child: Column(
         children: [
@@ -176,33 +204,41 @@ class _HostManagePageState extends State<HostManagePage> {
                     children: [
                       stat('${e.rsvpCount}', e.capacity == null ? 'going' : 'going of ${e.capacity}'),
                       stat('${e.saveCount}', 'saved'),
-                      stat('${e.lineup.length}', e.lineup.length == 1 ? 'piece' : 'pieces'),
+                      stat('$pieces', pieces == 1 ? 'piece' : 'pieces'),
                       // The waitlist's size, once the server runs one (BACKEND_CHANGES B22).
                       if (e.waitlist?.waitingCount != null) stat('${e.waitlist!.waitingCount}', 'waiting'),
                     ],
                   ),
                 ),
                 const HostManageLabel('Ticket types'),
-                Container(
-                  padding: const EdgeInsets.symmetric(vertical: 11),
-                  child: Row(
-                    children: [
-                      Expanded(child: Text('General Admission', style: StudioType.body14(color: c.textSecondary))),
-                      Text(
-                        e.isFull ? 'Sold out' : (e.capacity == null ? '${e.rsvpCount} going' : '${e.rsvpCount} of ${e.capacity}'),
-                        style: StudioType.mono(14, color: e.isFull ? c.alert : c.textPrimary),
-                      ),
-                    ],
-                  ),
-                ),
+                // The event's ticket types (B22), or its one free RSVP place when it has none.
+                if (e.ticketTypes.isEmpty)
+                  typeRow(
+                    'General Admission',
+                    e.isFull ? 'Sold out' : (e.capacity == null ? '${e.rsvpCount} going' : '${e.rsvpCount} of ${e.capacity}'),
+                    soldOut: e.isFull,
+                  )
+                else
+                  for (final t in e.ticketTypes) typeRow(t.closed ? '${t.name} (closed)' : t.name, _taken(t), soldOut: t.isSoldOut),
+                // Who was asked onto the bill and where they stand (Phase 5.1), host and co-hosts.
+                if (e.invites.isNotEmpty) ...[
+                  const HostManageLabel('People'),
+                  for (final i in e.invites)
+                    typeRow(
+                      '${i.person.displayName} · ${i.isCohost ? 'Co-host' : 'Featured artist'}',
+                      i.statusLabel,
+                      soldOut: false,
+                    ),
+                ],
                 const SizedBox(height: 8),
-                if (e.lineup.isNotEmpty)
+                if (pieces > 0)
                   SettingsTile(
                     label: 'Piece links and QR codes',
                     subtitle: 'Copy or download for printing',
                     onTap: () => EventQrCodesPage.open(context, eventId: e.id, eventTitle: e.title),
                   ),
                 if (!e.isCancelled && !e.isOver) SettingsTile(label: 'Edit event', onTap: _edit),
+                if (active && e.isHost && !coHost) SettingsTile(label: 'Reschedule', onTap: _reschedule),
                 if (e.isCancelled)
                   Padding(
                     padding: const EdgeInsets.only(top: 18),
@@ -213,7 +249,7 @@ class _HostManagePageState extends State<HostManagePage> {
                       style: StudioType.body14(color: c.textSecondary),
                     ),
                   ),
-                if (active)
+                if (active && !coHost)
                   Semantics(
                     button: true,
                     child: GestureDetector(
@@ -246,12 +282,22 @@ class _HostManagePageState extends State<HostManagePage> {
             child: StudioBottomBar(
               left: StudioBottomBarInfo(label: 'Going', value: going, mono: true, monoSize: 17),
               right: StudioBottomBarInfo(label: 'Doors open', value: '${_time(e.startsAt)}$zone', mono: true, monoSize: 17),
-              button: StudioButton(label: 'Guest list', onPressed: _guests),
+              button: StudioButton(label: 'Check in guests', onPressed: scanning ? _checkIn : null),
             ),
           ),
         ],
       ),
     );
+  }
+
+  /// How many of a ticket type are taken: `12 of 40` (sold or held, the host's view), `8 left`
+  /// (a co-host's view), or its price when nothing says.
+  static String _taken(EventTicketType t) {
+    if (t.isSoldOut) return 'Sold out';
+    final sold = t.sold;
+    if (sold != null) return t.quantity == null ? '$sold sold' : '$sold of ${t.quantity}';
+    if (t.left != null) return '${t.left} left';
+    return t.isFree ? 'Free' : formatMoney(t.priceCents);
   }
 
   static const _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];

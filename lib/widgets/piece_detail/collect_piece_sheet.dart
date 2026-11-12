@@ -30,14 +30,21 @@ import 'collect_shipping_sheet.dart';
 /// they bid with, the summary starts with Winning bid, and "Pay and collect" confirms
 /// shipping (`auction-checkout`) then pays the rest (shipping and tax; the winning bid was
 /// charged when the auction closed).
+///
+/// Shipping is a live Convelio quote where the server has one on (FRONTEND_HANDOFF 8.3, shown
+/// as shipping and insurance lines), the flat tiers otherwise; a piece collected at the event
+/// ([deliveryMode] or the auction's `pickup`) only asks for a billing address and sends
+/// `shippingMethod: pickup`.
 class CollectPieceSheet extends StatefulWidget {
   const CollectPieceSheet({
     super.key,
     required this.item,
-    @visibleForTesting this.initialShipping,
+    this.initialShipping,
     @visibleForTesting this.initialPayment,
     this.auction,
     @visibleForTesting this.debugCard,
+    this.onMessageArtist,
+    this.deliveryMode,
   });
 
   final FeedPreviewItem item;
@@ -48,19 +55,37 @@ class CollectPieceSheet extends StatefulWidget {
   /// Tests only: the card the winner bid with, instead of loading it.
   final SavedCard? debugCard;
 
-  /// Tests only: start with shipping / payment already chosen (`BuyCheckoutReady`).
+  /// Start with shipping already chosen: a quote that came back priced by hand
+  /// (`shipping_quote_ready`), or tests (`BuyCheckoutReady`).
   final CollectShippingSelection? initialShipping;
+
+  /// Tests only: start with payment already chosen.
   final CollectPaymentMethod? initialPayment;
+
+  /// "Message the artist" when a quote is refused for what the artist hasn't added.
+  final VoidCallback? onMessageArtist;
+
+  /// The lineup's delivery mode when known; `pickup` is collected at the event (D6).
+  final String? deliveryMode;
 
   static Future<void> show(
     BuildContext context, {
     required FeedPreviewItem item,
     AuctionSummary? auction,
+    CollectShippingSelection? initialShipping,
+    VoidCallback? onMessageArtist,
+    String? deliveryMode,
   }) {
     return showStudioSheet<void>(
       context: context,
       useRootNavigator: auction != null,
-      builder: (context) => CollectPieceSheet(item: item, auction: auction),
+      builder: (context) => CollectPieceSheet(
+        item: item,
+        auction: auction,
+        initialShipping: initialShipping,
+        onMessageArtist: onMessageArtist,
+        deliveryMode: deliveryMode,
+      ),
     );
   }
 
@@ -101,19 +126,32 @@ class _CollectPieceSheetState extends State<CollectPieceSheet> {
 
   int get _artworkCents =>
       _auction?.winningBidCents ?? _auction?.currentCents ?? item.priceCents ?? 0;
-  int get _shippingCents => _shipping?.method.priceCents ?? 0;
+  int get _shippingCents => _shipping?.shippingCents ?? 0;
+
+  /// Collected in the room at the event: no shipping, the address is for billing and tax.
+  bool get _pickup => (_auction?.deliveryMode ?? widget.deliveryMode) == 'pickup';
   int get _taxCents => (_artworkCents * 0.0825).round();
   int get _totalCents => _artworkCents + _shippingCents + _taxCents;
 
   Future<void> _openShipping() async {
-    final address = await CollectShippingSheet.show(context, initial: _shipping?.address);
+    final address = await CollectShippingSheet.show(
+      context,
+      initial: _shipping?.address,
+      title: _pickup ? 'Billing address' : 'Delivery address',
+    );
     if (!mounted || address == null) return;
+    if (_pickup) {
+      setState(() => _shipping = CollectShippingSelection(address: address, pickup: true));
+      return;
+    }
 
     final selection = await CollectShippingMethodSheet.show(
       context,
       pieceId: item.id,
       address: address,
-      initialMethodId: _shipping?.method.id,
+      initialMethodId: _shipping?.method?.id,
+      initialQuote: _shipping?.quote,
+      onMessageArtist: widget.onMessageArtist,
     );
     if (!mounted || selection == null) return;
     setState(() => _shipping = selection);
@@ -131,10 +169,12 @@ class _CollectPieceSheetState extends State<CollectPieceSheet> {
     if (shipping == null || _collecting) return;
     setState(() => _collecting = true);
     try {
+      final fields = shipping.orderFields;
       final result = await BidService.instance.auctionCheckout(
         item.id,
         addressId: shipping.address.id,
-        shippingMethod: shipping.method.id,
+        quoteId: fields['quoteId'] as String?,
+        shippingMethod: fields['shippingMethod'] as String?,
       );
       if (result.balanceDueCents > 0) await BidService.instance.payBalance(result.order.id);
       final order = await OrderService.instance.getOrder(result.order.id);
@@ -159,10 +199,12 @@ class _CollectPieceSheetState extends State<CollectPieceSheet> {
     if (shipping == null || _collecting) return;
     setState(() => _collecting = true);
     try {
+      final fields = shipping.orderFields;
       final order = await OrderService.instance.collect(
         item.id,
         addressId: shipping.address.id,
-        shippingMethod: shipping.method.id,
+        quoteId: fields['quoteId'] as String?,
+        shippingMethod: fields['shippingMethod'] as String?,
       );
 
       // Real Stripe PaymentIntent flow is not wired yet. Debug/profile may
@@ -254,7 +296,7 @@ class _CollectPieceSheetState extends State<CollectPieceSheet> {
                         value: shipping == null
                             ? null
                             : [
-                                shipping.method.title,
+                                shipping.title,
                                 place,
                               ].where((part) => part.trim().isNotEmpty).join(' · '),
                         placeholder: 'Add a delivery address',
@@ -273,7 +315,10 @@ class _CollectPieceSheetState extends State<CollectPieceSheet> {
                 _OrderSummary(
                   artworkLabel: _auction != null ? 'Winning bid' : 'Artwork',
                   artwork: _cents(_artworkCents),
-                  shipping: shipping == null ? null : _cents(_shippingCents),
+                  shipping: shipping == null
+                      ? null
+                      : _cents(shipping.quote?.shippingCents ?? _shippingCents),
+                  insurance: shipping?.insuranceCents == null ? null : _cents(shipping!.insuranceCents!),
                   tax: shipping == null ? null : _cents(_taxCents),
                   total: shipping == null ? null : _cents(_totalCents),
                 ),
@@ -472,12 +517,14 @@ class CheckoutNavRow extends StatelessWidget {
 /// "Order summary" 15/500, then Artwork, Shipping and Sales tax (14, label Graphite, 6 above
 /// and below), a 1 px Line and Total 15/500. Until an address is set, Shipping, Sales tax and
 /// Total show "–" in Mono with the line about shipping and tax under them. No buyer fee ever
-/// (`HandoffPipeline`: buyers pay the price plus sales tax); no Insurance until B19.
+/// (`HandoffPipeline`: buyers pay the price plus sales tax). Insurance shows on its own line
+/// only when a Convelio quote carries it (FRONTEND_HANDOFF 8.3).
 class _OrderSummary extends StatelessWidget {
   const _OrderSummary({
     this.artworkLabel = 'Artwork',
     required this.artwork,
     required this.shipping,
+    this.insurance,
     required this.tax,
     required this.total,
   });
@@ -485,6 +532,7 @@ class _OrderSummary extends StatelessWidget {
   final String artworkLabel;
   final String artwork;
   final String? shipping;
+  final String? insurance;
   final String? tax;
   final String? total;
 
@@ -526,6 +574,7 @@ class _OrderSummary extends StatelessWidget {
         const SizedBox(height: 6),
         line(artworkLabel, artwork),
         line('Shipping', shipping),
+        if (insurance != null) line('Insurance', insurance),
         line('Sales tax', tax),
         Container(
           margin: const EdgeInsets.only(top: 6),

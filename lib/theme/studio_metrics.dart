@@ -76,7 +76,7 @@ abstract final class StudioSize {
   static const double navBottomGap = 28;
 
   /// Backdrop blur (sigma) under the floating nav's glass.
-  static const double navBlur = 20;
+  static const double navBlur = 24;
 
   /// Sheets never exceed this share of the screen height.
   static const double sheetMaxHeightFactor = 0.9;

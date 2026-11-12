@@ -1,4 +1,7 @@
+import 'dart:convert';
 import 'dart:io';
+
+import 'package:dio/dio.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,10 +14,13 @@ import 'package:studio3/models/feed_preview_item.dart';
 import 'package:studio3/models/piece_summary.dart';
 import 'package:studio3/screens/auction_flow.dart';
 import 'package:studio3/screens/available_piece_detail_page.dart';
+import 'package:studio3/services/api_client.dart';
 import 'package:studio3/services/api_exception.dart';
+import 'package:studio3/services/auth_session.dart';
 import 'package:studio3/services/bid_service.dart';
 import 'package:studio3/theme/app_theme.dart';
 import 'package:studio3/theme/studio_colors.dart';
+import 'package:studio3/widgets/auction/artist_auction.dart' show winnerDeadlinePhrase;
 import 'package:studio3/widgets/auction/auction_widgets.dart';
 import 'package:studio3/widgets/piece_detail/collect_piece_sheet.dart';
 import 'package:studio3/widgets/studio/studio.dart';
@@ -64,6 +70,10 @@ AuctionSummary _auction({
   bool awaitingPayment = false,
   DateTime? deadline,
   int? winning,
+  int increment = 0,
+  DateTime? retryAt,
+  SecondChanceOffer? offer,
+  AutoCheckout? autoCheckout,
 }) => AuctionSummary(
   auctionId: 'a1',
   status: status,
@@ -79,6 +89,10 @@ AuctionSummary _auction({
   awaitingPayment: awaitingPayment,
   winnerDeadlineAt: deadline,
   winningBidCents: winning,
+  bidIncrementCents: increment,
+  paymentRetryAt: retryAt,
+  secondChanceOffer: offer,
+  autoCheckout: autoCheckout,
 );
 
 Widget _app(Widget home, {bool dark = false}) => MaterialApp(
@@ -126,11 +140,8 @@ final _piece = PieceSummary(
   listingType: 'auction',
 );
 
-/// A fake card field: a switch that reports the card complete.
-Widget _fakeCard(ValueChanged<bool> onComplete) => TextButton(
-  onPressed: () => onComplete(true),
-  child: const Text('4242 4242 4242 4242'),
-);
+/// Stripe's PaymentSheet stand-in: the card it saved.
+Future<SavedCard?> _fakeSheet() async => const SavedCard(id: 'pm_new', brand: 'visa', last4: '4242');
 
 /// The colour of the span reading [text] inside the rich text at [finder].
 Color? _spanColor(WidgetTester tester, Finder finder, String text) {
@@ -358,18 +369,17 @@ void main() {
   group('before you bid', () {
     for (final dark in [false, true]) {
       final c = dark ? StudioColors.dark : StudioColors.light;
-      testWidgets('title, boxed card, Ship to the default address; Save off until the card; the ZIP '
-          'goes with it (${dark ? 'dark' : 'light'})', (tester) async {
+      testWidgets('title, boxed Card row, Ship to the default address; Save off until the card; '
+          'returns the card and the address (${dark ? 'dark' : 'light'})', (tester) async {
         Object? result;
-        final zips = <String>[];
+        var sheets = 0;
         await tester.pumpWidget(
           _sheetHost(
             (_) => BidVerifySheet(
-              cardField: _fakeCard,
               debugAddresses: const [_studio, _home],
-              saveCard: (zip) async {
-                zips.add(zip);
-                return 'pm_new';
+              saveCard: () {
+                sheets++;
+                return _fakeSheet();
               },
             ),
             (r) => result = r,
@@ -393,29 +403,29 @@ void main() {
         expect(find.text('Saving lets us charge this card if you win. Bidding terms'), findsOneWidget);
         StudioButton save() => tester.widget<StudioButton>(find.widgetWithText(StudioButton, 'Save and continue'));
         expect(save().onPressed, isNull);
-        await tester.tap(find.text('4242 4242 4242 4242'));
-        await tester.pump();
+        // The Card row opens Stripe's sheet (PaymentSheet, with Apple Pay when configured).
+        expect(find.text('Card'), findsOneWidget);
+        expect(find.text('Add your card'), findsOneWidget);
+        await tester.tap(find.byKey(const Key('bid-verify-card')));
+        await tester.pumpAndSettle();
+        expect(sheets, 1);
+        expect(find.text('Visa ending 4242'), findsOneWidget);
         expect(save().onPressed, isNotNull);
         await tester.tap(find.text('Save and continue'));
         await tester.pumpAndSettle();
-        expect(result, 'pm_new');
-        expect(zips, ['75225']);
+        expect(result, (paymentMethodId: 'pm_new', addressId: 'a1'));
+        expect(await BidStore.instance.zip(), '75225');
       });
     }
 
     testWidgets('Ship to opens the picker; no address yet holds Save', (tester) async {
       Object? result;
-      final zips = <String>[];
       await tester.pumpWidget(
         _sheetHost(
           (_) => BidVerifySheet(
-            cardField: _fakeCard,
             debugAddresses: const [],
             pickAddress: (current) async => _home,
-            saveCard: (zip) async {
-              zips.add(zip);
-              return 'pm_new';
-            },
+            saveCard: _fakeSheet,
           ),
           (r) => result = r,
         ),
@@ -423,50 +433,67 @@ void main() {
       await tester.tap(find.text('open'));
       await tester.pumpAndSettle();
       expect(find.text('Add your address'), findsOneWidget);
-      await tester.tap(find.text('4242 4242 4242 4242'));
-      await tester.pump();
+      await tester.tap(find.byKey(const Key('bid-verify-card')));
+      await tester.pumpAndSettle();
       expect(tester.widget<StudioButton>(find.widgetWithText(StudioButton, 'Save and continue')).onPressed, isNull);
       await tester.tap(find.byKey(const Key('bid-verify-ship-to')));
       await tester.pumpAndSettle();
       expect(find.text('Jordan Lee, 88 Elm St, Austin, TX 78701'), findsOneWidget);
       await tester.tap(find.text('Save and continue'));
       await tester.pumpAndSettle();
-      expect(result, 'pm_new');
-      expect(zips, ['78701']);
+      expect(result, (paymentMethodId: 'pm_new', addressId: 'a2'));
+      expect(await BidStore.instance.zip(), '78701');
+    });
+
+    testWidgets('closing Stripe\'s sheet leaves the card empty and Save off', (tester) async {
+      await tester.pumpWidget(
+        _sheetHost(
+          (_) => BidVerifySheet(debugAddresses: const [_studio], saveCard: () async => null),
+          (_) {},
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('bid-verify-card')));
+      await tester.pumpAndSettle();
+      expect(find.text('Add your card'), findsOneWidget);
+      expect(tester.widget<StudioButton>(find.widgetWithText(StudioButton, 'Save and continue')).onPressed, isNull);
     });
 
     testWidgets('a declined card stays on the sheet with the reason', (tester) async {
       await tester.pumpWidget(
         _sheetHost(
           (_) => BidVerifySheet(
-            cardField: _fakeCard,
             debugAddresses: const [_studio],
-            saveCard: (_) async => throw ApiException('Your card was declined.'),
+            saveCard: () async => throw ApiException('Your card was declined.'),
           ),
           (_) {},
         ),
       );
       await tester.tap(find.text('open'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('4242 4242 4242 4242'));
-      await tester.pump();
-      await tester.tap(find.text('Save and continue'));
+      await tester.tap(find.byKey(const Key('bid-verify-card')));
       await tester.pumpAndSettle();
       expect(find.text('Your card was declined.'), findsOneWidget);
       expect(find.text('Before you bid'), findsOneWidget);
+      expect(tester.widget<StudioButton>(find.widgetWithText(StudioButton, 'Save and continue')).onPressed, isNull);
     });
 
     testWidgets('updating the card after a decline: just the card, no Ship to', (tester) async {
+      Object? result;
       await tester.pumpWidget(
-        _sheetHost((_) => const BidVerifySheet(shipTo: false, cardField: _fakeCard), (_) {}),
+        _sheetHost((_) => const BidVerifySheet(shipTo: false, saveCard: _fakeSheet), (r) => result = r),
       );
       await tester.tap(find.text('open'));
       await tester.pumpAndSettle();
       expect(find.text('Add a card'), findsOneWidget);
       expect(find.text('Ship to'), findsNothing);
-      await tester.tap(find.text('4242 4242 4242 4242'));
-      await tester.pump();
+      await tester.tap(find.byKey(const Key('bid-verify-card')));
+      await tester.pumpAndSettle();
       expect(tester.widget<StudioButton>(find.widgetWithText(StudioButton, 'Save and continue')).onPressed, isNotNull);
+      await tester.tap(find.text('Save and continue'));
+      await tester.pumpAndSettle();
+      expect(result, (paymentMethodId: 'pm_new', addressId: null));
     });
   });
 
@@ -636,7 +663,7 @@ void main() {
       expect(find.text(r'$3,200'), findsOneWidget);
     });
 
-    testWidgets('payment failed: time left, the card, Update card and try again', (tester) async {
+    testWidgets('payment failed: time left, the card, Use another card and try again', (tester) async {
       setBoardViewport(tester);
       final retried = <String>[];
       await tester.pumpWidget(
@@ -670,7 +697,7 @@ void main() {
       expect(find.text('Visa ending 4242 · declined'), findsOneWidget);
       await tester.tap(find.text('Try the same card again'));
       await tester.pump();
-      await tester.tap(find.text('Update card'));
+      await tester.tap(find.text('Use another card'));
       await tester.pump();
       await tester.pump(const Duration(seconds: 3));
       expect(retried, ['pm_1', 'pm_2']);
@@ -707,6 +734,431 @@ void main() {
     expect(find.text('Pay and collect'), findsOneWidget);
   });
 
+  // FRONTEND_HANDOFF 7a and 7b: auctions v2.
+  group('auctions v2', () {
+    // Fresh per test: built once at load, a slow run could pass the 30 s margin before the
+    // countdown test reads "20h 10m".
+    late SecondChanceOffer offer;
+    setUp(() {
+      offer = SecondChanceOffer(
+        amountCents: 360000,
+        expiresAt: DateTime.now().add(const Duration(hours: 20, minutes: 10, seconds: 30)),
+      );
+    });
+
+    test('bar state: the offered bidder accepts; everyone else sees it ended; shipping pending', () {
+      AuctionBarState s(AuctionSummary a, {bool owner = false}) =>
+          auctionBarState(auction: a, isOwner: owner, myTopBidCents: null, myBidStatus: 'outbid');
+      expect(s(_auction(status: 'second_chance', offer: offer)), AuctionBarState.secondChance);
+      expect(s(_auction(status: 'second_chance')), AuctionBarState.ended);
+      expect(s(_auction(status: 'second_chance'), owner: true), AuctionBarState.ended);
+      AuctionSummary won(String? state) => _auction(
+        status: 'awaiting_winner',
+        winner: true,
+        autoCheckout: state == null ? null : AutoCheckout(state: state),
+      );
+      expect(s(won('pending_quote')), AuctionBarState.shippingPending);
+      for (final state in ['failed', 'manual', null]) {
+        expect(s(won(state)), AuctionBarState.won, reason: '$state');
+      }
+    });
+
+    testWidgets('bar: Accept for the offer, with its countdown', (tester) async {
+      await tester.pumpWidget(
+        _barHost(AuctionBarState.secondChance, _auction(status: 'second_chance', offer: offer)),
+      );
+      expect(find.text(r'Accept for $3,600'), findsOneWidget);
+      expect(find.text('Offer ends in'), findsOneWidget);
+      expect(tester.widget<StudioButton>(find.byType(StudioButton)).onPressed, isNotNull);
+    });
+
+    testWidgets('bar: shipping price on its way never opens checkout', (tester) async {
+      await tester.pumpWidget(
+        _barHost(
+          AuctionBarState.shippingPending,
+          _auction(status: 'awaiting_winner', winner: true, autoCheckout: const AutoCheckout(state: 'pending_quote')),
+        ),
+      );
+      expect(find.text('Shipping price on its way'), findsOneWidget);
+      expect(find.text('Finish checkout'), findsNothing);
+      expect(tester.widget<StudioButton>(find.byType(StudioButton)).onPressed, isNull);
+    });
+
+    test("quick picks step by the server's increment, else the table on the high bid", () {
+      // Backward compatible: no step given, the table on the minimum.
+      expect(bidQuickPicks(360000), [360000, 370000, 380000]);
+      expect(bidQuickPicks(360000, stepCents: 25000), [360000, 385000, 410000]);
+      expect(bidQuickPicks(360000, stepCents: 0), [360000, 370000, 380000]);
+    });
+
+    testWidgets("bid sheet picks use the server's increment", (tester) async {
+      await tester.pumpWidget(
+        _sheetHost(
+          (_) => BidSheet(pieceId: 'p1', auction: _auction(increment: 25000), card: _card, now: _now),
+          (_) {},
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      for (final pick in [r'$3,600', r'$3,850', r'$4,100']) {
+        expect(find.widgetWithText(GestureDetector, pick), findsWidgets, reason: pick);
+      }
+    });
+
+    testWidgets('bid sheet picks without one: the table on the current high bid', (tester) async {
+      // High bid $950 (step $50), minimum $1,000: $1,000, $1,050, $1,100.
+      await tester.pumpWidget(
+        _sheetHost(
+          (_) => BidSheet(
+            pieceId: 'p1',
+            auction: _auction(highest: 95000, minNext: 100000),
+            card: _card,
+            now: _now,
+          ),
+          (_) {},
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      for (final pick in [r'$1,050', r'$1,100']) {
+        expect(find.widgetWithText(GestureDetector, pick), findsWidgets, reason: pick);
+      }
+    });
+
+    testWidgets('fine print: charged only if they win; shipping follows automatically', (tester) async {
+      await tester.pumpWidget(
+        _sheetHost((_) => BidSheet(pieceId: 'p1', auction: _auction(), card: _card, now: _now), (_) {}),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      final print = find.byWidgetPredicate(
+        (w) => w is RichText && w.text.toPlainText().contains('card ending 4242 is charged only if you win'),
+      );
+      expect(print, findsOneWidget);
+      expect(
+        tester.widget<RichText>(print).text.toPlainText(),
+        contains('shipping, insurance and tax follow on it automatically'),
+      );
+    });
+
+    group('the bid call', () {
+      late _BidServer server;
+      setUp(() {
+        server = _BidServer();
+        ApiClient.instance.debugUseAdapter(server);
+        AuthSession.instance.accessToken = 'token';
+      });
+      tearDown(() => AuthSession.instance.accessToken = null);
+
+      Future<void> bid(WidgetTester tester, BidSheet sheet) async {
+        await tester.pumpWidget(_sheetHost((_) => sheet, (_) {}));
+        await tester.tap(find.text('open'));
+        await tester.pumpAndSettle();
+        await _tapBidAndWait(tester);
+        await tester.pumpAndSettle();
+      }
+
+      testWidgets('sends the Ship to picked in Before you bid', (tester) async {
+        await bid(tester, BidSheet(pieceId: 'p1', auction: _auction(), card: _card, addressId: 'a1', now: _now));
+        expect(server.bids.single, {'amountCents': 360000, 'paymentMethodId': 'pm_1', 'addressId': 'a1'});
+      });
+
+      testWidgets('no address: none sent', (tester) async {
+        await bid(tester, BidSheet(pieceId: 'p1', auction: _auction(), card: _card, now: _now));
+        expect(server.bids.single, {'amountCents': 360000, 'paymentMethodId': 'pm_1'});
+      });
+
+      testWidgets("a returning bidder's first bid here: Ship to in the sheet, and its address goes", (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          _sheetHost(
+            (_) => BidSheet(
+              pieceId: 'p1',
+              auction: _auction(),
+              card: _card,
+              shipTo: true,
+              debugAddresses: const [_studio, _home],
+              pickAddress: (_) async => _home,
+              now: _now,
+            ),
+            (_) {},
+          ),
+        );
+        await tester.tap(find.text('open'));
+        await tester.pumpAndSettle();
+        expect(find.text('Ship to'), findsOneWidget);
+        expect(find.text('Jordan Lee, 4521 Lovers Ln, Dallas, TX 75225'), findsOneWidget);
+        await tester.ensureVisible(find.byKey(const Key('bid-sheet-ship-to')));
+        await tester.tap(find.byKey(const Key('bid-sheet-ship-to')));
+        await tester.pumpAndSettle();
+        expect(find.text('Jordan Lee, 88 Elm St, Austin, TX 78701'), findsOneWidget);
+        await _tapBidAndWait(tester);
+        await tester.pumpAndSettle();
+        expect(server.bids.single['addressId'], 'a2');
+      });
+    });
+
+    testWidgets('a bidder with a bid here already: no Ship to in the sheet', (tester) async {
+      await tester.pumpWidget(
+        _sheetHost((_) => BidSheet(pieceId: 'p1', auction: _auction(), card: _card, now: _now), (_) {}),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      expect(find.text('Ship to'), findsNothing);
+    });
+
+    testWidgets("payment failed: when it tries again; Use another card; then the piece as it now is", (
+      tester,
+    ) async {
+      setBoardViewport(tester);
+      final retried = <String>[];
+      final retryAt = DateTime.now().add(const Duration(hours: 1));
+      await tester.pumpWidget(
+        _app(
+          BidPaymentFailedPage(
+            piece: _piece,
+            auction: _auction(
+              status: 'awaiting_payment',
+              winner: true,
+              awaitingPayment: true,
+              deadline: DateTime.now().add(const Duration(hours: 11)),
+              retryAt: retryAt,
+            ),
+            debugCard: _card,
+            retry: (id) async => retried.add(id),
+            newCard: () async => 'pm_2',
+            // The fresh piece: paid, delivery being priced (7b).
+            reload: () async => PieceSummary(
+              id: 'p1',
+              title: 'Bodies in Color',
+              authorName: 'Amara Osei',
+              listingType: 'auction',
+              auction: _auction(
+                status: 'awaiting_winner',
+                winner: true,
+                winning: 370000,
+                autoCheckout: const AutoCheckout(state: 'pending_quote'),
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(
+        find.textContaining("We'll try again at ${winnerDeadlinePhrase(retryAt, DateTime.now()).split(' ').first}"),
+        findsOneWidget,
+      );
+      expect(find.text('Update card'), findsNothing);
+      await tester.tap(find.text('Use another card'));
+      await tester.pumpAndSettle();
+      expect(retried, ['pm_2']);
+      expect(find.text('AUCTION WON'), findsOneWidget);
+      expect(find.text('Shipping price on its way'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 3));
+    });
+
+    testWidgets('payment failed without a retry planned: no retry line', (tester) async {
+      setBoardViewport(tester);
+      await tester.pumpWidget(
+        _app(
+          BidPaymentFailedPage(
+            piece: _piece,
+            auction: _auction(status: 'awaiting_payment', winner: true, awaitingPayment: true),
+            debugCard: _card,
+          ),
+        ),
+      );
+      expect(find.textContaining("We'll try again"), findsNothing);
+    });
+
+    testWidgets('won with the shipping price on its way: no checkout', (tester) async {
+      setBoardViewport(tester);
+      await tester.pumpWidget(
+        _app(
+          AuctionResultPage.won(
+            piece: _piece,
+            auction: _auction(
+              status: 'awaiting_winner',
+              winner: true,
+              winning: 370000,
+              autoCheckout: const AutoCheckout(state: 'pending_quote'),
+            ),
+            now: _now,
+          ),
+        ),
+      );
+      expect(find.text('Finish checkout'), findsNothing);
+      expect(find.text('Shipping price on its way'), findsOneWidget);
+      expect(
+        tester.widget<StudioButton>(find.widgetWithText(StudioButton, 'Shipping price on its way')).onPressed,
+        isNull,
+      );
+      expect(find.textContaining('Nothing more to do.'), findsOneWidget);
+    });
+
+    testWidgets('won, failed or manual delivery: Finish checkout as before', (tester) async {
+      setBoardViewport(tester);
+      await tester.pumpWidget(
+        _app(
+          AuctionResultPage.won(
+            piece: _piece,
+            auction: _auction(status: 'awaiting_winner', winner: true, autoCheckout: const AutoCheckout(state: 'failed')),
+            now: _now,
+          ),
+        ),
+      );
+      expect(find.text('Finish checkout'), findsOneWidget);
+    });
+
+    group('second chance', () {
+      final wonPiece = PieceSummary(
+        id: 'p1',
+        title: 'Bodies in Color',
+        authorName: 'Amara Osei',
+        listingType: 'auction',
+        auction: _auction(status: 'awaiting_winner', winner: true, winning: 360000),
+      );
+
+      Widget page({
+        SecondChanceOffer? withOffer,
+        Future<void> Function(String?)? accept,
+        Future<void> Function()? decline,
+        Future<String?> Function()? newCard,
+      }) => _app(
+        SecondChancePage(
+          piece: _piece,
+          auction: _auction(status: 'second_chance', offer: withOffer ?? offer),
+          accept: accept,
+          decline: decline,
+          newCard: newCard,
+          reload: () async => wonPiece,
+        ),
+      );
+
+      testWidgets('the amount, the countdown; Accept and pay, then the win', (tester) async {
+        setBoardViewport(tester);
+        final accepted = <String?>[];
+        await tester.pumpWidget(page(accept: (id) async => accepted.add(id)));
+        expect(find.text('Bodies in Color can still be yours'), findsOneWidget);
+        expect(find.text(r'$3,600'), findsOneWidget);
+        expect(find.text('20h 10m'), findsOneWidget);
+        expect(find.text('No thanks'), findsOneWidget);
+        await tester.tap(find.text('Accept and pay'));
+        await tester.pumpAndSettle();
+        expect(accepted, [null]);
+        expect(find.text('AUCTION WON'), findsOneWidget);
+        await tester.pump(const Duration(seconds: 3));
+      });
+
+      testWidgets('declined (402): the reason, then Use another card pays with it', (tester) async {
+        setBoardViewport(tester);
+        final accepted = <String?>[];
+        await tester.pumpWidget(
+          page(
+            accept: (id) async {
+              accepted.add(id);
+              if (id == null) {
+                throw ApiException(
+                  'Your card was declined. Try another card before the offer runs out.',
+                  statusCode: 402,
+                );
+              }
+            },
+            newCard: () async => 'pm_2',
+          ),
+        );
+        await tester.tap(find.text('Accept and pay'));
+        await tester.pumpAndSettle();
+        expect(find.text('Your card was declined. Try another card before the offer runs out.'), findsOneWidget);
+        await tester.tap(find.text('Use another card'));
+        await tester.pumpAndSettle();
+        expect(accepted, [null, 'pm_2']);
+        expect(find.text('AUCTION WON'), findsOneWidget);
+        await tester.pump(const Duration(seconds: 3));
+      });
+
+      testWidgets("the server's last error shows with Use another card", (tester) async {
+        setBoardViewport(tester);
+        await tester.pumpWidget(
+          page(
+            withOffer: SecondChanceOffer(
+              amountCents: 360000,
+              expiresAt: DateTime.now().add(const Duration(hours: 3)),
+              lastError: 'Insufficient funds.',
+            ),
+          ),
+        );
+        expect(find.text('Insufficient funds.'), findsOneWidget);
+        expect(find.text('Use another card'), findsOneWidget);
+        expect(find.text('Accept and pay'), findsNothing);
+      });
+
+      testWidgets('an expired offer (409): the message as a toast', (tester) async {
+        setBoardViewport(tester);
+        await tester.pumpWidget(
+          page(accept: (_) async => throw ApiException('This offer has expired.', statusCode: 409)),
+        );
+        await tester.tap(find.text('Accept and pay'));
+        await tester.pump();
+        expect(find.text('This offer has expired.'), findsOneWidget);
+        await tester.pumpAndSettle();
+        // Then the piece as it is now.
+        expect(find.text('AUCTION WON'), findsOneWidget);
+        await tester.pump(const Duration(seconds: 3));
+      });
+
+      testWidgets('No thanks: confirmed, then declined', (tester) async {
+        setBoardViewport(tester);
+        var declined = 0;
+        await tester.pumpWidget(page(decline: () async => declined++));
+        await tester.tap(find.text('No thanks'));
+        await tester.pumpAndSettle();
+        expect(find.text('Pass on this piece?'), findsOneWidget);
+        await tester.tap(find.widgetWithText(StudioButton, 'No thanks'));
+        await tester.pumpAndSettle();
+        expect(declined, 1);
+        await tester.pump(const Duration(seconds: 3));
+      });
+    });
+
+    test('openAuctionOutcome goes by the piece as it is now', () {
+      PieceSummary piece({AuctionSummary? auction, String status = 'auction_won', String? myBid, Map? order}) =>
+          PieceSummary.fromJson({
+            'id': 'p1',
+            'title': 'Bodies in Color',
+            'status': status,
+            'listingType': 'auction',
+            ...?auction?.toJson(),
+            'myBidStatus': ?myBid,
+            'viewerOrder': ?order,
+          });
+      final won = _auction(status: 'awaiting_winner', winner: true);
+      // Bought: the piece, never the "lost" page.
+      expect(auctionOutcomePage(piece(status: 'sold', myBid: 'won'), type: 'auction_won'), isNull);
+      expect(
+        auctionOutcomePage(piece(auction: won, order: <String, dynamic>{'id': 'o1', 'side': 'buyer', 'status': 'paid'}), type: 'auction_won'),
+        isNull,
+      );
+      expect(auctionOutcomePage(piece(myBid: 'won'), type: 'auction_won'), isNull);
+      // A payment notification for a payment already fixed: the win.
+      expect(auctionOutcomePage(piece(auction: won), type: 'auction_payment_failed'), isA<AuctionResultPage>());
+      expect(
+        auctionOutcomePage(
+          piece(auction: _auction(status: 'awaiting_payment', winner: true, awaitingPayment: true)),
+          type: 'auction_won',
+        ),
+        isA<BidPaymentFailedPage>(),
+      );
+      expect(
+        auctionOutcomePage(piece(auction: _auction(status: 'second_chance', offer: offer)), type: 'auction_second_chance'),
+        isA<SecondChancePage>(),
+      );
+      // The offer is gone: the piece.
+      expect(auctionOutcomePage(piece(myBid: 'lost'), type: 'auction_second_chance'), isNull);
+      expect(auctionOutcomePage(piece(myBid: 'lost'), type: 'auction_lost'), isA<AuctionResultPage>());
+    });
+  });
+
   group('goldens', () {
     final skip = Platform.environment['NEW_UI_GOLDENS'] != '1';
 
@@ -722,7 +1174,7 @@ void main() {
     testWidgets('BidVerify', (tester) async {
       await sheet(
         tester,
-        (_) => const BidVerifySheet(cardField: _fakeCard, debugAddresses: [_studio]),
+        (_) => const BidVerifySheet(saveCard: _fakeSheet, debugAddresses: [_studio]),
         'BidVerify',
       );
     }, skip: skip);
@@ -780,4 +1232,41 @@ void main() {
       await checkAcceptance(tester);
     }, skip: skip);
   });
+}
+
+/// Records `POST /api/pieces/p1/bids` and answers with the auction after it.
+/// Taps "Bid $3,600" and waits (real time, up to 5 s) until the bid call has come back
+/// and the sheet has closed, so nothing lands after the test ends on a loaded machine.
+Future<void> _tapBidAndWait(WidgetTester tester) async {
+  final route = ModalRoute.of(tester.element(find.byType(BidSheet)))!;
+  await tester.runAsync(() async {
+    await tester.tap(find.text(r'Bid $3,600'));
+    for (var i = 0; i < 100 && route.isCurrent; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+  });
+  expect(route.isCurrent, isFalse, reason: 'the bid sheet should close after the bid');
+}
+
+class _BidServer implements HttpClientAdapter {
+  final bids = <Map<String, dynamic>>[];
+
+  @override
+  Future<ResponseBody> fetch(RequestOptions options, Stream<List<int>>? requestStream, Future<void>? cancelFuture) async {
+    Object json = {'success': true, 'data': <String, dynamic>{}};
+    if (options.method == 'POST' && options.uri.path == '/api/pieces/p1/bids') {
+      bids.add(Map<String, dynamic>.from(options.data as Map));
+      json = {'success': true, 'data': _auction(highest: 360000, highestBidder: true).toJson()};
+    }
+    return ResponseBody.fromString(
+      jsonEncode(json),
+      200,
+      headers: {
+        Headers.contentTypeHeader: ['application/json'],
+      },
+    );
+  }
+
+  @override
+  void close({bool force = false}) {}
 }

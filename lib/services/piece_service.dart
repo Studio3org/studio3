@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../models/piece_summary.dart';
 import '../models/post_summary.dart';
 import 'api_client.dart';
@@ -63,9 +65,14 @@ class PieceService {
 
   /// The pieces [username] bought on Studio 3, newest first: the profile's Collection tab
   /// (BACKEND_CHANGES B37). Empty from a server that doesn't have the list yet (404).
-  Future<List<PieceSummary>> getUserCollection(String username) async {
+  ///
+  /// [includeHidden] is for the owner's own Collection only (B32): it adds the pieces they hid,
+  /// each marked [PieceSummary.hidden]. Everyone else never gets them.
+  Future<List<PieceSummary>> getUserCollection(String username, {bool includeHidden = false}) async {
     try {
-      final json = await _api.get('/api/users/$username/collection');
+      final json = includeHidden
+          ? await _api.get('/api/users/$username/collection', query: {'includeHidden': '1'}, auth: true)
+          : await _api.get('/api/users/$username/collection');
       return _api.extractList(json).map(PieceSummary.fromJson).toList();
     } on ApiException catch (e) {
       if (e.statusCode == 404) return const [];
@@ -147,4 +154,29 @@ class PieceService {
   }
 
   Future<void> delete(String id) => _api.delete('/api/pieces/$id');
+
+  /// Bumped whenever the viewer hides or unhides a piece in their Collection, so their own
+  /// profile can reload its Collection tab.
+  final collectionRevision = ValueNotifier<int>(0);
+
+  /// Hides a piece the viewer collected from their Collection (B32). Returns the server's
+  /// message ("Hidden from your Collection."); a piece they didn't collect is a 404.
+  Future<String> hideFromCollection(String pieceId) async {
+    final json = await _api.post('/api/collection/$pieceId/hide', auth: true);
+    collectionRevision.value++;
+    return _messageOf(json, 'Hidden from your Collection.');
+  }
+
+  /// Puts a hidden piece back in the viewer's Collection (the Undo, and Unhide). Returns the
+  /// server's message ("Back in your Collection.").
+  Future<String> unhideFromCollection(String pieceId) async {
+    final json = await _api.delete('/api/collection/$pieceId/hide', auth: true);
+    collectionRevision.value++;
+    return _messageOf(json, 'Back in your Collection.');
+  }
+
+  static String _messageOf(Map<String, dynamic> json, String fallback) {
+    final message = json['message'];
+    return message is String && message.trim().isNotEmpty ? message : fallback;
+  }
 }

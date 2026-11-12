@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../models/feed_preview_item.dart';
+import '../../models/piece_summary.dart' show PieceExhibition;
+import '../../utils/app_destination.dart';
 import '../../theme/studio_colors.dart';
 import '../../theme/studio_type.dart';
 import '../studio/studio_icon.dart';
@@ -121,6 +123,65 @@ class PieceMadeWith extends StatelessWidget {
               border: Border(bottom: BorderSide(color: c.line)),
             ),
             child: Text(material, style: StudioType.sans(15, color: c.textPrimary)),
+          ),
+      ],
+    );
+  }
+}
+
+/// "Exhibited" (Phase 5.4), in the Made with style: 17/500 header, then one row per show,
+/// newest first: the event's name (15) over its venue (13 Graphite) on the left, the month
+/// (14 Graphite) on the right; 11 above and below, a Line under. A row opens the event while
+/// it still exists.
+class PieceExhibited extends StatelessWidget {
+  const PieceExhibited({super.key, required this.exhibitions});
+
+  final List<PieceExhibition> exhibitions;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.studio;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('Exhibited', style: StudioType.header17(color: c.textPrimary)),
+        const SizedBox(height: 2),
+        for (final show in exhibitions)
+          Semantics(
+            button: show.eventId != null,
+            child: GestureDetector(
+              onTap: show.eventId == null
+                  ? null
+                  : () => openDestination(context, AppDestination(AppDestinationType.event, show.eventId)),
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 11),
+                decoration: BoxDecoration(
+                  border: Border(bottom: BorderSide(color: c.line)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(show.title, style: StudioType.sans(15, color: c.textPrimary)),
+                          if (show.place.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(show.place, style: StudioType.label13(color: c.textSecondary)),
+                          ],
+                        ],
+                      ),
+                    ),
+                    if ((show.month ?? '').isNotEmpty) ...[
+                      const SizedBox(width: 16),
+                      Text(show.month!, style: StudioType.body14(color: c.textSecondary)),
+                    ],
+                  ],
+                ),
+              ),
+            ),
           ),
       ],
     );

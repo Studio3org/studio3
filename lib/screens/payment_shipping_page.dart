@@ -111,7 +111,7 @@ class _PaymentShippingPageState extends State<PaymentShippingPage> {
     final confirmed = await showStudioConfirm(
       context,
       title: 'Remove ${savedCardName(card)}?',
-      message: 'A bid you placed with this card can fail when its hold renews.',
+      message: 'If you win an auction you bid on with this card, the payment can fail.',
       confirmLabel: 'Remove',
     );
     if (!confirmed || !mounted) return;

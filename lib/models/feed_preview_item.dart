@@ -1,6 +1,7 @@
 import '../utils/media_type_utils.dart';
 import 'auction.dart';
 import 'feed_item.dart';
+import 'order.dart' show PieceViewerOrder;
 import 'piece_summary.dart';
 import 'post_summary.dart';
 import 'series_summary.dart';
@@ -94,6 +95,9 @@ class FeedPreviewItem {
     this.materials = const [],
     this.styleTags = const [],
     this.seriesPieceCount,
+    this.exhibitions = const [],
+    this.shippingReady,
+    this.viewerOrder,
   });
 
   final String id;
@@ -167,11 +171,20 @@ class FeedPreviewItem {
   final String? status;
   final List<String> materials;
 
+  /// Shows the piece was on, newest first (Phase 5.4).
+  final List<PieceExhibition> exhibitions;
+
   /// Piece page meta line after the medium ("Oil · Figurative · Portrait").
   final List<String> styleTags;
 
   /// Pieces in this piece's series ("6 pieces" on the series card); null when unknown.
   final int? seriesPieceCount;
+
+  /// The owner's what-is-missing-to-ship (Phase 8.1); null for anyone else.
+  final ShippingReady? shippingReady;
+
+  /// The viewer's own order on the piece, with its shipment (Phase 8.4).
+  final PieceViewerOrder? viewerOrder;
 
 
   bool get isLive => status == null || status == 'live';
@@ -256,6 +269,9 @@ class FeedPreviewItem {
     List<String>? materials,
     List<String>? styleTags,
     int? seriesPieceCount,
+    List<PieceExhibition>? exhibitions,
+    ShippingReady? shippingReady,
+    PieceViewerOrder? viewerOrder,
   }) {
     return FeedPreviewItem(
       id: id ?? this.id,
@@ -307,6 +323,9 @@ class FeedPreviewItem {
       materials: materials ?? this.materials,
       styleTags: styleTags ?? this.styleTags,
       seriesPieceCount: seriesPieceCount ?? this.seriesPieceCount,
+      exhibitions: exhibitions ?? this.exhibitions,
+      shippingReady: shippingReady ?? this.shippingReady,
+      viewerOrder: viewerOrder ?? this.viewerOrder,
     );
   }
 
@@ -376,6 +395,9 @@ class FeedPreviewItem {
       materials: piece.materials,
       styleTags: piece.styleTags,
       seriesPieceCount: (series?.pieceIds.isNotEmpty ?? false) ? series!.pieceIds.length : null,
+      exhibitions: piece.exhibitions,
+      shippingReady: piece.shippingReady,
+      viewerOrder: piece.viewerOrder,
     );
   }
 
@@ -482,6 +504,9 @@ class FeedPreviewItem {
         'materials': materials,
         'styleTags': styleTags,
         if (seriesPieceCount != null) 'seriesPieceCount': seriesPieceCount,
+        if (exhibitions.isNotEmpty) 'exhibitions': exhibitions.map((e) => e.toJson()).toList(),
+        if (shippingReady != null) 'shippingReady': shippingReady!.toJson(),
+        if (viewerOrder != null) 'viewerOrder': viewerOrder!.toJson(),
       };
 
   factory FeedPreviewItem.fromCacheJson(Map<String, dynamic> json) {
@@ -544,6 +569,9 @@ class FeedPreviewItem {
       materials: (json['materials'] as List?)?.whereType<String>().toList() ?? const [],
       styleTags: (json['styleTags'] as List?)?.whereType<String>().toList() ?? const [],
       seriesPieceCount: json['seriesPieceCount'] as int?,
+      exhibitions: PieceExhibition.listFrom(json['exhibitions']),
+      shippingReady: ShippingReady.maybeFrom(json['shippingReady']),
+      viewerOrder: PieceViewerOrder.maybeFrom(json['viewerOrder']),
     );
   }
 

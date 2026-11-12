@@ -37,6 +37,16 @@ class _Fake implements HttpClientAdapter {
   /// The next log-in answers 429 (locked after five wrong passwords).
   var locked = false;
 
+  /// Log-in answers the per-network 429 (FRONTEND_HANDOFF 1.1), not the account lock.
+  var rateLimited = false;
+
+  /// The next code check answers 503 (Redis down), then this resets.
+  var verifyUnavailable = false;
+
+  /// Wrong codes since the last send; at 5 the server kills the code, so even the right one
+  /// then answers the same 400 (FRONTEND_HANDOFF 1.1).
+  var wrongGuesses = 0;
+
   Iterable<Object?> bodies(String method, String path) =>
       requests.where((r) => r.method == method && r.path == path).map((r) => r.body);
 
@@ -64,8 +74,15 @@ class _Fake implements HttpClientAdapter {
         } else {
           json = {'success': true, 'data': {'exists': exists}};
         }
+      case 'POST /api/auth/otp/generate' || 'POST /api/auth/otp/resend':
+        wrongGuesses = 0;
+      case 'POST /api/auth/otp/verify' when verifyUnavailable:
+        verifyUnavailable = false;
+        status = 503;
+        json = {'success': false, 'message': 'Sign-in is temporarily unavailable. Please try again shortly.'};
       case 'POST /api/auth/otp/verify':
-        if (body['otp'] != '123456') {
+        if (body['otp'] != '123456' || wrongGuesses >= 5) {
+          if (body['otp'] != '123456') wrongGuesses++;
           status = 400;
           json = {'success': false, 'message': 'Invalid or expired OTP.'};
         } else if (body['purpose'] == 'login') {
@@ -76,7 +93,10 @@ class _Fake implements HttpClientAdapter {
           json = {'success': true, 'data': {'verified': true}};
         }
       case 'POST /api/auth/login':
-        if (locked) {
+        if (rateLimited) {
+          status = 429;
+          json = {'success': false, 'message': 'Too many requests. Please try again later.'};
+        } else if (locked) {
           status = 429;
           json = {
             'success': false,
@@ -238,6 +258,58 @@ void main() {
       expect(AuthSession.instance.isLoggedIn, isFalse);
       expect(tester.takeException(), isNull);
       await tester.pump(const Duration(seconds: 5));
+    });
+
+    testWidgets('the network limit ($theme): its message shows and password log-in stays on', (tester) async {
+      _dark = dark;
+      setBoardViewport(tester, height: 900);
+      await _continueWith(tester, 'jordan@email.com');
+      _server.rateLimited = true;
+
+      await tester.enterText(find.byType(TextField), 'wrong');
+      await tester.pump();
+      await _tap(tester, _primary('Log in'));
+
+      expect(find.text('Too many requests. Please try again later.'), findsOneWidget);
+      expect(tester.widget<TextField>(find.byType(TextField)).enabled, isTrue, reason: 'not the account lock');
+      expect(tester.widget<AuthPrimaryButton>(_primary('Log in')).enabled, isTrue);
+      expect(tester.takeException(), isNull);
+      await tester.pump(const Duration(seconds: 5));
+    });
+
+    testWidgets('five wrong codes ($theme): the code dies, "Request a new code" shows at once, a new one works',
+        (tester) async {
+      _dark = dark;
+      setBoardViewport(tester, height: 900);
+      await _continueWith(tester, 'jordan@email.com');
+      await _tap(tester, find.text('Email me a login code instead'));
+
+      // An outage shows the server's line and doesn't count as a wrong guess.
+      _server.verifyUnavailable = true;
+      await _typeCode(tester, '000000');
+      expect(find.text('Sign-in is temporarily unavailable. Please try again shortly.'), findsOneWidget);
+
+      for (var i = 0; i < 5; i++) {
+        await _typeCode(tester, '11111$i');
+      }
+      expect(find.text(kCodeExpiredMessage), findsOneWidget);
+      expect(find.text('Request a new code'), findsOneWidget, reason: 'shown despite the resend countdown');
+      expect(tester.widget<AuthPrimaryButton>(_primary('Verify')).enabled, isFalse);
+
+      // The right code is no longer sent: it would be refused anyway.
+      final checks = _server.bodies('POST', '/api/auth/otp/verify').length;
+      await _typeCode(tester, '123456');
+      expect(_server.bodies('POST', '/api/auth/otp/verify').length, checks);
+
+      await _tap(tester, find.text('Request a new code'));
+      expect(_server.bodies('POST', '/api/auth/otp/resend').single, {'email': 'jordan@email.com', 'purpose': 'login'});
+      expect(find.text('Request a new code'), findsNothing);
+
+      await _typeCode(tester, '12345');
+      await _typeCode(tester, '123456');
+      expect(AuthSession.instance.isLoggedIn, isTrue);
+      expect(tester.takeException(), isNull);
+      await tester.pump(const Duration(minutes: 3));
     });
 
     testWidgets('Forgot password? ($theme): a reset code, then Set a new password, Save and log in', (tester) async {

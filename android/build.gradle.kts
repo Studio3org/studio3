@@ -47,6 +47,20 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
+// flutter_stripe's Android plugin (stripe_android) declares the optional Issuing push-provisioning
+// library twice, once without `transitive = false`, which drags in Google's
+// play-services-tapandpay. That artifact isn't on Google's public Maven, so the release build's
+// lint classpath can't resolve it. The plugin only reaches TapAndPay by reflection (and its
+// ProGuard rules already -dontwarn it), and we don't use card push provisioning, so leave it out
+// of that one plugin, as its own `transitive = false` line intends.
+subprojects {
+    if (name == "stripe_android") {
+        configurations.configureEach {
+            exclude(group = "com.google.android.gms", module = "play-services-tapandpay")
+        }
+    }
+}
+
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../models/listing_details.dart';
+import '../../models/piece_summary.dart';
 import '../../theme/studio_colors.dart';
 import '../../theme/studio_type.dart';
 import '../studio/studio_button.dart';
@@ -26,7 +27,8 @@ const kFramingOptions = ['Unframed', 'Framed', 'Ready to hang'];
 /// Edition, Signed, Handling notes, and the existing provenance and AI disclosure).
 ///
 /// Required, each with a red dot while empty: title, width and height, location, medium;
-/// for a sale also depth, weight and framing. Continue stays off until none are left and
+/// for a sale also depth, weight, packed size and framing (packing, item type and materials
+/// are optional). Continue stays off until none are left and
 /// the line under it counts them.
 class PieceDetailsStep extends StatefulWidget {
   const PieceDetailsStep({
@@ -84,6 +86,9 @@ class PieceDetailsStepState extends State<PieceDetailsStep> {
   final _handling = TextEditingController();
   final _provenance = TextEditingController();
 
+  /// Packed size, packing, item type and materials (FRONTEND_HANDOFF 8.1), for a sale.
+  final _shipping = ShippingFields();
+
   String _unit = 'in';
   String _weightUnit = 'lb';
   String? _framing = kFramingOptions.first;
@@ -111,6 +116,7 @@ class PieceDetailsStepState extends State<PieceDetailsStep> {
     for (final c in [..._all, widget.titleController]) {
       c.addListener(_rebuild);
     }
+    _shipping.addListener(_rebuild);
   }
 
   @override
@@ -130,6 +136,7 @@ class PieceDetailsStepState extends State<PieceDetailsStep> {
     for (final c in _all) {
       c.dispose();
     }
+    _shipping.dispose();
     super.dispose();
   }
 
@@ -142,6 +149,9 @@ class PieceDetailsStepState extends State<PieceDetailsStep> {
   bool get _hasSize => _number(_width) != null && _number(_height) != null;
   bool get _depthMissing => widget.forSale && _number(_depth) == null;
   bool get _weightMissing => widget.forSale && _number(_weight) == null;
+
+  /// The courier prices on the packed size, so a sale needs it (8.1).
+  bool get _packedMissing => widget.forSale && !_shipping.hasSize;
   bool get _framingMissing => widget.forSale && (_framing == null || _framing!.isEmpty);
   bool get _locationMissing => widget.location == null || widget.location!.isEmpty;
   bool get _mediumMissing => widget.medium == null || widget.medium!.isEmpty;
@@ -153,6 +163,7 @@ class PieceDetailsStepState extends State<PieceDetailsStep> {
     !_hasSize,
     _depthMissing,
     _weightMissing,
+    _packedMissing,
     _framingMissing,
     _locationMissing,
     _mediumMissing,
@@ -175,6 +186,13 @@ class PieceDetailsStepState extends State<PieceDetailsStep> {
       edition: edition.isEmpty ? null : edition,
       signed: _signed,
       handlingNotes: _handling.text.trim(),
+      packageLength: widget.forSale ? _shipping.lengthValue : null,
+      packageWidth: widget.forSale ? _shipping.widthValue : null,
+      packageHeight: widget.forSale ? _shipping.heightValue : null,
+      packageUnit: _shipping.unit,
+      shippingItemType: widget.forSale ? _shipping.itemType : null,
+      shippingPacking: widget.forSale ? _shipping.packing : null,
+      shippingMaterials: widget.forSale ? _shipping.materials : const [],
     );
   }
 
@@ -254,6 +272,8 @@ class PieceDetailsStepState extends State<PieceDetailsStep> {
                           ),
                         ),
                       ),
+                      const SizedBox(height: 22),
+                      PackedSizeInput(fields: _shipping),
                     ],
                     const SizedBox(height: 22),
                     if (widget.forSale)
@@ -265,6 +285,7 @@ class PieceDetailsStepState extends State<PieceDetailsStep> {
                             'ready to hang.',
                         onTap: _pickFraming,
                       ),
+                    if (widget.forSale) ShippingOptionRows(fields: _shipping),
                     PostChevronRow(
                       label: 'Location',
                       value: widget.location,
@@ -685,5 +706,346 @@ Future<String?> showFramingSheet(BuildContext context, {String? selected}) {
         ],
       );
     },
+  );
+}
+
+/// Convelio's item types (FRONTEND_HANDOFF 8.1), with the words the artist sees.
+const kShippingItemTypes = <String, String>{
+  'fine_art.painting': 'Painting',
+  'fine_art.picture': 'Photo, print or drawing',
+  'fine_art.sculpture': 'Sculpture',
+  'fine_art.installation': 'Installation',
+  'decorative.ceramics': 'Ceramics',
+  'decorative.artefact': 'Decorative object',
+  'other.other': 'Other',
+};
+
+/// How it's packed: `not_packed` (the courier crates it, the default) or `wood_crated`.
+const kShippingPacking = <String, String>{
+  'not_packed': 'The courier packs it',
+  'wood_crated': 'Already in a wooden crate',
+};
+
+/// Convelio's materials and framing list.
+const kShippingMaterials = <String, String>{
+  'unframed': 'Unframed',
+  'framed_glass': 'Framed under glass',
+  'ornate_frame': 'Ornate frame',
+  'glass': 'Glass',
+  'stone': 'Stone',
+  'ceramic': 'Ceramic',
+  'plaster_concrete': 'Plaster or concrete',
+  'resin': 'Resin',
+  'lacquered': 'Lacquered',
+  'pastel': 'Pastel',
+  'wet': 'Still wet',
+  'protruding': 'Has parts that stick out',
+  'stackable': 'Stackable',
+  'dismountable': 'Comes apart',
+  'can_be_rolled': 'Can be rolled',
+  'can_be_folded': 'Can be folded',
+  'rolled_in_plastic': 'Rolled in plastic',
+  'horizontal': 'Must stay flat',
+  'none': 'None of these',
+};
+
+/// The packed size, packing, item type and materials a sale ships on (FRONTEND_HANDOFF 8.1),
+/// shared by the posting flow, List it later and Edit piece. Sizes are typed in [unit]
+/// (inches by default) and sent in centimetres.
+class ShippingFields extends ChangeNotifier {
+  ShippingFields({double? lengthCm, double? widthCm, double? heightCm, this.itemType, this.packing, List<String>? materials})
+    : materials = materials ?? const [] {
+    length.text = _inches(lengthCm);
+    width.text = _inches(widthCm);
+    height.text = _inches(heightCm);
+    for (final c in [length, width, height]) {
+      c.addListener(notifyListeners);
+    }
+  }
+
+  /// Filled in from what the piece already has.
+  factory ShippingFields.fromPiece(PieceSummary piece) => ShippingFields(
+    lengthCm: piece.packageLengthCm,
+    widthCm: piece.packageWidthCm,
+    heightCm: piece.packageHeightCm,
+    itemType: kShippingItemTypes.containsKey(piece.shippingItemType) ? piece.shippingItemType : null,
+    packing: kShippingPacking.containsKey(piece.shippingPacking) ? piece.shippingPacking : null,
+    materials: piece.shippingMaterials.where(kShippingMaterials.containsKey).toList(),
+  );
+
+  final length = TextEditingController();
+  final width = TextEditingController();
+  final height = TextEditingController();
+  String unit = 'in';
+  String? itemType;
+  String? packing;
+  List<String> materials;
+
+  static String _inches(double? cm) {
+    if (cm == null || cm <= 0) return '';
+    final v = double.parse((cm / 2.54).toStringAsFixed(1));
+    return v == v.roundToDouble() ? '${v.round()}' : '$v';
+  }
+
+  static double? _value(TextEditingController c) {
+    final v = double.tryParse(c.text.trim());
+    return v != null && v > 0 ? v : null;
+  }
+
+  double? _cm(TextEditingController c) {
+    final v = _value(c);
+    if (v == null) return null;
+    return double.parse((unit == 'cm' ? v : v * 2.54).toStringAsFixed(2));
+  }
+
+  double? get lengthValue => _value(length);
+  double? get widthValue => _value(width);
+  double? get heightValue => _value(height);
+  double? get lengthCm => _cm(length);
+  double? get widthCm => _cm(width);
+  double? get heightCm => _cm(height);
+
+  /// All three packed sides are filled.
+  bool get hasSize => lengthCm != null && widthCm != null && heightCm != null;
+
+  void setUnit(String value) {
+    unit = value;
+    notifyListeners();
+  }
+
+  void setItemType(String? value) {
+    itemType = value;
+    notifyListeners();
+  }
+
+  void setPacking(String? value) {
+    packing = value;
+    notifyListeners();
+  }
+
+  void setMaterials(List<String> value) {
+    materials = value;
+    notifyListeners();
+  }
+
+  /// The body fields: the packed size in cm, and the choices that were made.
+  Map<String, dynamic> toBody() => {
+    'packageLengthCm': ?lengthCm,
+    'packageWidthCm': ?widthCm,
+    'packageHeightCm': ?heightCm,
+    'shippingItemType': ?itemType,
+    'shippingPacking': ?packing,
+    if (materials.isNotEmpty) 'shippingMaterials': materials,
+  };
+
+  @override
+  void dispose() {
+    length.dispose();
+    width.dispose();
+    height.dispose();
+    super.dispose();
+  }
+}
+
+/// "Packed size": L × W × H in Mono 18 with the unit toggle, as Dimensions, and a red dot
+/// while [required] and a side is missing.
+class PackedSizeInput extends StatelessWidget {
+  const PackedSizeInput({super.key, required this.fields, this.required = true});
+
+  final ShippingFields fields;
+  final bool required;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.studio;
+    Widget times() => Padding(
+      padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+      child: Text('×', style: StudioType.mono(18, color: c.textPlaceholder)),
+    );
+    return ListenableBuilder(
+      listenable: fields,
+      builder: (context, _) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text('Packed size', style: StudioType.label13(color: c.textSecondary)),
+              if (required && !fields.hasSize) const StudioRequiredDot(),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(child: _DimensionCell(controller: fields.length, axis: 'L')),
+              times(),
+              Expanded(child: _DimensionCell(controller: fields.width, axis: 'W')),
+              times(),
+              Expanded(child: _DimensionCell(controller: fields.height, axis: 'H')),
+              const SizedBox(width: 10),
+              _UnitToggle(
+                value: fields.unit,
+                options: const ['in', 'cm'],
+                underline: true,
+                onChanged: fields.setUnit,
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'The box it ships in. The courier prices shipping on it.',
+            style: StudioType.caption12(color: c.textSecondary),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Packing, Item type and Materials or framing as chevron rows, each opening its sheet.
+class ShippingOptionRows extends StatelessWidget {
+  const ShippingOptionRows({super.key, required this.fields});
+
+  final ShippingFields fields;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: fields,
+      builder: (context, _) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          PostChevronRow(
+            label: 'Packing',
+            value: kShippingPacking[fields.packing ?? 'not_packed'],
+            info: 'The courier crates it unless it is already in a wooden crate.',
+            onTap: () async {
+              final picked = await showShippingOptionSheet(
+                context,
+                title: 'Packing',
+                options: kShippingPacking,
+                selected: fields.packing ?? 'not_packed',
+              );
+              if (picked != null) fields.setPacking(picked);
+            },
+          ),
+          PostChevronRow(
+            label: 'Item type',
+            value: kShippingItemTypes[fields.itemType],
+            placeholder: 'From the medium',
+            info: 'What the courier is told it is carrying. Left empty, we work it out from the medium.',
+            onTap: () async {
+              final picked = await showShippingOptionSheet(
+                context,
+                title: 'Item type',
+                options: kShippingItemTypes,
+                selected: fields.itemType,
+              );
+              if (picked != null) fields.setItemType(picked);
+            },
+          ),
+          PostChevronRow(
+            label: 'Materials or framing',
+            value: fields.materials.isEmpty ? null : '${fields.materials.length}',
+            mono: true,
+            placeholder: 'Optional',
+            info: 'Glass, a frame, anything fragile: it tells the courier how to pack it.',
+            onTap: () async {
+              final picked = await showShippingMaterialsSheet(context, selected: fields.materials);
+              if (picked != null) fields.setMaterials(picked);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One choice from [options] (value → label), as the Framing sheet.
+Future<String?> showShippingOptionSheet(
+  BuildContext context, {
+  required String title,
+  required Map<String, String> options,
+  String? selected,
+}) {
+  final entries = options.entries.toList();
+  return showStudioSheet<String>(
+    context: context,
+    builder: (sheetContext) {
+      final c = sheetContext.studio;
+      return StudioSheet(
+        horizontalPadding: 24,
+        gap: 0,
+        scrollable: true,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(title, style: StudioType.title22(color: c.textPrimary)),
+          ),
+          for (var i = 0; i < entries.length; i++)
+            StudioSelectRow(
+              title: entries[i].value,
+              selected: selected == entries[i].key,
+              divider: i < entries.length - 1,
+              titleSize: 17,
+              titleLetterSpacing: 0,
+              verticalPadding: 16,
+              ruleInset: 14,
+              onTap: () => Navigator.pop(sheetContext, entries[i].key),
+            ),
+        ],
+      );
+    },
+  );
+}
+
+/// Any number of [kShippingMaterials], then Done.
+Future<List<String>?> showShippingMaterialsSheet(BuildContext context, {List<String> selected = const []}) {
+  final picked = [...selected];
+  final entries = kShippingMaterials.entries.toList();
+  return showStudioSheet<List<String>>(
+    context: context,
+    builder: (sheetContext) => StatefulBuilder(
+      builder: (sheetContext, setSheet) {
+        final c = sheetContext.studio;
+        return StudioSheet(
+          horizontalPadding: 24,
+          gap: 0,
+          scrollable: true,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text('Materials or framing', style: StudioType.title22(color: c.textPrimary)),
+            ),
+            for (var i = 0; i < entries.length; i++)
+              StudioSelectRow(
+                title: entries[i].value,
+                selected: picked.contains(entries[i].key),
+                divider: i < entries.length - 1,
+                titleSize: 17,
+                titleLetterSpacing: 0,
+                verticalPadding: 16,
+                ruleInset: 14,
+                onTap: () => setSheet(() {
+                  final key = entries[i].key;
+                  if (picked.contains(key)) {
+                    picked.remove(key);
+                  } else if (key == 'none') {
+                    picked
+                      ..clear()
+                      ..add(key);
+                  } else {
+                    picked
+                      ..remove('none')
+                      ..add(key);
+                  }
+                }),
+              ),
+            const SizedBox(height: 16),
+            StudioButton(label: 'Done', height: 54, onPressed: () => Navigator.pop(sheetContext, picked)),
+          ],
+        );
+      },
+    ),
   );
 }

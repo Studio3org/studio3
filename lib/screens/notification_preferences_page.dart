@@ -42,6 +42,14 @@ const notificationSections = [
       'auction_payment_failed',
       'auction_cancelled',
       'bid_hold_expired',
+      // Phases 7a and 7b: the card fixed or forfeited, second chances, and delivery after a win.
+      'auction_payment_fixed',
+      'auction_forfeited',
+      'auction_second_chance',
+      'auction_second_chance_expired',
+      'auction_shipping_pending',
+      'auction_shipping_charged',
+      'auction_shipping_failed',
     ]),
     // BACKEND_CHANGES B12.
     NotificationSwitch('Saved pieces', 'Now listed, price changes, auctions starting.', [
@@ -54,6 +62,12 @@ const notificationSections = [
       'purchase',
       'order_shipped',
       'order_delivered',
+      // Phase 8: a hand-priced shipping quote is ready, and Convelio's tracking updates.
+      'shipping_quote_ready',
+      'shipment_picked_up',
+      'shipment_out_for_delivery',
+      'shipment_on_hold',
+      'shipment_canceled',
     ]),
   ]),
   NotificationSection('Following', [
@@ -61,6 +75,17 @@ const notificationSections = [
     NotificationSwitch('Events', 'Reminders for events you have tickets to.', [
       'event_cancelled',
       'event_reminder',
+      // Phase 4: reschedules, refunds and the waitlist.
+      'event_rescheduled',
+      'ticket_refunded',
+      'waitlist_hold',
+      'waitlist_hold_ended',
+      'event_tickets_available',
+      // Phase 5: invites onto the bill and piece requests, and the answers to them.
+      'event_invite',
+      'event_invite_response',
+      'event_piece_request',
+      'event_piece_response',
     ]),
   ]),
   NotificationSection('Your work', yourWork: true, [
@@ -70,6 +95,12 @@ const notificationSections = [
       'auction_no_sale',
       'auction_winner_payment_failed',
       'sale',
+      // Phase 7a: the seller's side of a second chance, and an auction nobody could pay for.
+      'auction_second_chance_sent',
+      'auction_needs_action',
+      // The seller's auction ending with no bids, or under the reserve.
+      'auction_ended_no_bids',
+      'auction_reserve_not_met',
     ]),
     NotificationSwitch(
       'Saves and follows',

@@ -153,13 +153,13 @@ class StudioColors extends ThemeExtension<StudioColors> {
     buttonDisabledFill: Color(0xFFD4D4D0),
     buttonDisabledText: Color(0xFFFAFAF8),
     // Frosted glass (the user's call, 2026-11-11; the boards have solid Ink #111111 with a
-    // #2A2A2A active slot): Ink at 75 % over a blur, a white 10 % hairline, the active slot
-    // white 14 %. Inactive icons lifted from #8E8E8E to keep 3:1 over a light page.
-    navFill: Color(0xBF111111),
+    // #2A2A2A active slot): Ink at 60 % over a blur, a white 10 % hairline, the active slot
+    // white 14 %. Inactive icons lifted from #8E8E8E so they still read over a light page.
+    navFill: Color(0x99111111),
     navBorder: Color(0x1AFFFFFF),
     navActive: Color(0x24FFFFFF),
     navIconActive: Color(0xFFFAFAF8),
-    navIconInactive: Color(0xFF9E9E9E),
+    navIconInactive: Color(0xFFBDBDBD),
     signInBackground: Color(0xFFFAFAF8),
     available: Color(0xFF2E8B57),
     positive: Color(0xFF1E6B3C),
@@ -194,13 +194,13 @@ class StudioColors extends ThemeExtension<StudioColors> {
     buttonDisabledText: Color(0x8CFAFAF8), // rgba(250,250,248,0.55) — SignInFirstDark
     // Same ink bar in both themes. The floating nav does not recolor in dark mode.
     // Frosted glass (the user's call, 2026-11-11; the boards have solid Ink #111111 with a
-    // #2A2A2A active slot): Ink at 75 % over a blur, a white 10 % hairline, the active slot
-    // white 14 %. Inactive icons lifted from #8E8E8E to keep 3:1 over a light page.
-    navFill: Color(0xBF111111),
+    // #2A2A2A active slot): Ink at 60 % over a blur, a white 10 % hairline, the active slot
+    // white 14 %. Inactive icons lifted from #8E8E8E so they still read over a light page.
+    navFill: Color(0x99111111),
     navBorder: Color(0x1AFFFFFF),
     navActive: Color(0x24FFFFFF),
     navIconActive: Color(0xFFFAFAF8),
-    navIconInactive: Color(0xFF9E9E9E),
+    navIconInactive: Color(0xFFBDBDBD),
     signInBackground: Color(0xFF0B0B10),
     available: Color(0xFF2E8B57),
     positive: Color(0xFF4CAF7A), // proposed

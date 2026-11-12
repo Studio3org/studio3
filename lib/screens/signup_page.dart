@@ -74,6 +74,10 @@ class _SignUpPageState extends State<SignUpPage> {
   String _otp = '';
   String? _otpError;
 
+  /// Wrong codes since the last send; the server kills the code at [kMaxCodeAttempts].
+  int _wrongCodeCount = 0;
+  bool get _codeExpired => _wrongCodeCount >= kMaxCodeAttempts;
+
   String? _photoPath;
   final _picker = ImagePicker();
 
@@ -139,6 +143,7 @@ class _SignUpPageState extends State<SignUpPage> {
       _submitted = false;
       _otp = '';
       _otpError = null;
+      _wrongCodeCount = 0;
       _step = _SignUpStep.emailVerify;
     });
 
@@ -177,6 +182,7 @@ class _SignUpPageState extends State<SignUpPage> {
         setState(() {
           _otp = '';
           _otpError = null;
+          _wrongCodeCount = 0;
         });
         _startResendCooldown();
         showAuthSnackBar(context, 'Verification code resent');
@@ -194,6 +200,10 @@ class _SignUpPageState extends State<SignUpPage> {
       return;
     }
     if (_loading) return;
+    if (_codeExpired) {
+      setState(() => _otpError = kCodeExpiredMessage);
+      return;
+    }
     setState(() {
       _loading = true;
       _otpError = null;
@@ -208,7 +218,10 @@ class _SignUpPageState extends State<SignUpPage> {
     } catch (e) {
       if (!mounted) return;
       final message = e is ApiException ? e.message : 'Could not verify the code';
-      setState(() => _otpError = message);
+      setState(() {
+        if (isWrongCodeError(e)) _wrongCodeCount++;
+        _otpError = _codeExpired ? kCodeExpiredMessage : message;
+      });
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -353,7 +366,7 @@ class _SignUpPageState extends State<SignUpPage> {
     return switch (_step) {
       _SignUpStep.emailVerify => AuthPrimaryButton(
           label: 'Verify',
-          enabled: _otp.length == 6,
+          enabled: _otp.length == 6 && !_codeExpired,
           loading: _loading,
           onPressed: () => _continueOtp(_otp),
         ),
@@ -426,6 +439,7 @@ class _SignUpPageState extends State<SignUpPage> {
       onCompleted: _continueOtp,
       onWrongEmail: _goBack,
       resendCooldown: _resendCooldown,
+      codeExpired: _codeExpired,
       onResend: _loading ? null : _resendOtp,
     );
   }
