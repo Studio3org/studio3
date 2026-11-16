@@ -819,7 +819,7 @@ class AuthLegalLine extends StatelessWidget {
 /// First screen (`SignInFirst` / `SignInFirstDark`): haze, large centred logo, form pinned
 /// at the bottom (24 margins, 28 above the safe area). Login uses this same frame — there
 /// is no separate login board — with the login fields inside [form].
-class SignInLaunchScaffold extends StatelessWidget {
+class SignInLaunchScaffold extends StatefulWidget {
   const SignInLaunchScaffold({
     super.key,
     required this.form,
@@ -832,8 +832,22 @@ class SignInLaunchScaffold extends StatelessWidget {
   final VoidCallback? onBackPressed;
 
   @override
+  State<SignInLaunchScaffold> createState() => _SignInLaunchScaffoldState();
+}
+
+class _SignInLaunchScaffoldState extends State<SignInLaunchScaffold> {
+  /// Keeps the form's elements (the email field, its focus and its keyboard connection) when
+  /// the layout below switches between the column and the scroll view. Opening the keyboard
+  /// shrinks the screen into the scroll view; without this the field was rebuilt in its new
+  /// parent, lost focus, the keyboard closed, the screen grew back, and so on: no typing.
+  final _formKey = GlobalKey(debugLabel: 'sign-in form');
+
+  @override
   Widget build(BuildContext context) {
     final c = context.studio;
+    final form = widget.form;
+    final showBackButton = widget.showBackButton;
+    final onBackPressed = widget.onBackPressed;
     final showBack = showBackButton || onBackPressed != null;
     return Scaffold(
       backgroundColor: c.signInBackground,
@@ -854,7 +868,11 @@ class SignInLaunchScaffold extends StatelessWidget {
                         )
                       : null,
                 );
-                final formBlock = Padding(padding: const EdgeInsets.fromLTRB(24, 16, 24, 28), child: form);
+                final formBlock = Padding(
+                  key: _formKey,
+                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 28),
+                  child: form,
+                );
                 // With room to spare, the logo sits in the middle of the space above the form
                 // (`SignInFirst`) and shrinks if it must. With the keyboard up or large text, the
                 // whole screen scrolls instead. (The form is about 260 tall at normal text size.)
