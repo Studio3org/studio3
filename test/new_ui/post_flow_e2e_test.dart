@@ -119,14 +119,21 @@ Widget _page(PostCreatePage page) =>
     MaterialApp(theme: _dark ? AppTheme.dark : AppTheme.light, home: page);
 
 /// Taps [label] in the real event loop, so the publish it starts (file reads, image
-/// encoding, the fake server) actually runs, then lets it finish.
-Future<void> _tapAndRun(WidgetTester tester, String label, {int ms = 2500}) async {
+/// encoding, the fake server) actually runs, then lets it finish. With [until], keeps
+/// waiting (up to about 15 s more) until that appears: on a loaded machine the uploads can
+/// outlast [ms].
+Future<void> _tapAndRun(WidgetTester tester, String label, {int ms = 2500, Finder? until}) async {
   await tester.runAsync(() async {
     await tester.tap(find.text(label));
     await Future<void>.delayed(Duration(milliseconds: ms));
   });
   await tester.pump();
   await tester.pump();
+  if (until == null) return;
+  for (var i = 0; i < 60 && until.evaluate().isEmpty; i++) {
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 250)));
+    await tester.pump();
+  }
 }
 
 /// Lets file reads, image codecs and the fake server finish (they need the real event loop).
@@ -317,7 +324,7 @@ void _postFlows() {
     // Review → Publish.
     expect(find.text('Look it over'), findsOneWidget);
     expect(find.text(r'$2,880'), findsOneWidget);
-    await _tapAndRun(tester, 'Publish');
+    await _tapAndRun(tester, 'Publish', until: find.byType(PostPublishedView));
 
     expect(find.byType(PostPublishedView), findsOneWidget);
     expect(find.text('Portrait Dream is live'), findsOneWidget);
@@ -383,7 +390,7 @@ void _postFlows() {
     await _type(tester, 3, '36');
     await tester.tap(find.text('Continue'));
     await tester.pump();
-    await _tapAndRun(tester, 'Publish');
+    await _tapAndRun(tester, 'Publish', until: find.text('Bodies in Color is live'));
 
     expect(find.text('Bodies in Color is live'), findsOneWidget);
     final created = _server.bodies('POST', '/api/pieces').single!;
@@ -424,7 +431,7 @@ void _postFlows() {
     await _type(tester, 3, '12');
     await tester.tap(find.text('Continue'));
     await tester.pump();
-    await _tapAndRun(tester, 'Publish');
+    await _tapAndRun(tester, 'Publish', until: find.byType(PostErrorView));
 
     expect(find.byType(PostErrorView), findsOneWidget);
     expect(find.textContaining('Saved as draft · '), findsOneWidget);
@@ -579,7 +586,7 @@ void _postFlows() {
     for (final text in ['Auction', r'$360', '8 days', r'$1,200 · private']) {
       expect(find.text(text), findsWidgets, reason: text);
     }
-    await _tapAndRun(tester, 'Publish');
+    await _tapAndRun(tester, 'Publish', until: find.text('Portrait Dream is live'));
     expect(find.text('Portrait Dream is live'), findsOneWidget);
 
     final created = _server.bodies('POST', '/api/pieces').single!;

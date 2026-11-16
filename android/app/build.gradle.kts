@@ -2,6 +2,8 @@ import java.util.Properties
 
 plugins {
     id("com.android.application")
+    // Kept until easy_video_editor, firebase_core and photo_manager move to built-in Kotlin:
+    // AGP 9 refuses plugins that apply KGP once android.builtInKotlin=true.
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
@@ -30,18 +32,25 @@ if (hasReleaseSigning) {
     keystoreProperties.load(keystorePropertiesFile.inputStream())
 }
 
-android {
+// Configured through ApplicationExtension: on Flutter 3.50 (Kotlin Gradle Plugin 2.4 on the
+// classpath) the old `android {}` accessor (BaseAppModuleExtension) no longer compiles while
+// android.newDsl=false, which KGP still needs (see gradle.properties).
+configure<com.android.build.api.dsl.ApplicationExtension> {
     namespace = "com.studio3.discover"
+
+    // Android's default asset ignore list includes ".*", which silently drops every dotfile from
+    // the APK. Since Flutter 3.50 hands flutter_assets to that packager, the bundled `.env` went
+    // missing, `dotenv.load` threw at startup and the app sat on the splash screen. This is the
+    // default list without ".*".
+    androidResources {
+        ignoreAssetsPattern = "!.svn:!.git:!.ds_store:!*.scc:<dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"
+    }
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-    }
-
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
     }
 
     defaultConfig {
@@ -92,6 +101,13 @@ android {
 // abiFilters cannot be present when splits abi filters are set"). Ship via
 // `flutter build appbundle` instead: Play Store already serves per-device
 // ABI/density/language splits from a single AAB without needing this.
+
+// The compilerOptions DSL replaces kotlinOptions, which no longer compiles on Flutter 3.50.
+kotlin {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+    }
+}
 
 flutter {
     source = "../.."
