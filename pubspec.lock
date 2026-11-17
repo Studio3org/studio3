@@ -277,8 +277,8 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: "17989b573f88442e49243820d7dbb7889e9cb15e"
-      resolved-ref: "17989b573f88442e49243820d7dbb7889e9cb15e"
+      ref: "4901ba8bfc80a213ae44398a5fb5c2272c1e2d02"
+      resolved-ref: "4901ba8bfc80a213ae44398a5fb5c2272c1e2d02"
       url: "https://github.com/iawtk2302/easy_video_editor.git"
     source: git
     version: "0.1.6"

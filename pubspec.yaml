@@ -65,7 +65,7 @@ dependencies:
   easy_video_editor:
     git:
       url: https://github.com/iawtk2302/easy_video_editor.git
-      ref: 17989b573f88442e49243820d7dbb7889e9cb15e
+      ref: 4901ba8bfc80a213ae44398a5fb5c2272c1e2d02
   flutter_stripe: ^14.2.0
   mobile_scanner: 7.4.2
   qr_flutter: 4.1.0
