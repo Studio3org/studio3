@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/auth_session.dart';
 import '../utils/auth_validators.dart';
+import 'privacy_policy.dart';
 import '../widgets/studio/studio.dart';
 
 /// Gate for account-based actions (like, save, comment, follow, collect,
@@ -106,9 +107,21 @@ class _LoginPromptSheetState extends State<_LoginPromptSheet> {
                 ),
               ),
               const TextSpan(text: ' and '),
-              TextSpan(
-                text: 'Privacy Policy',
-                style: StudioType.caption12(height: 1.5, color: c.textPrimary),
+              // The policy on the company site (App Store guideline 5.1.1(i)). It opens in the
+              // browser, so the sheet stays where it is.
+              WidgetSpan(
+                alignment: PlaceholderAlignment.baseline,
+                baseline: TextBaseline.alphabetic,
+                child: Semantics(
+                  link: true,
+                  child: GestureDetector(
+                    onTap: () => openPrivacyPolicy(context),
+                    child: Text(
+                      'Privacy Policy',
+                      style: StudioType.caption12(height: 1.5, color: c.textPrimary),
+                    ),
+                  ),
+                ),
               ),
               const TextSpan(text: '.'),
             ],

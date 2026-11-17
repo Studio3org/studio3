@@ -18,7 +18,7 @@ Each of these was checked in the code; all are still open.
 - [x] iPad: the share sheet needs an anchor there or it doesn't open. The QR codes page and
       "Download all" passed none; `QrImageShare` now falls back to the middle of the screen
       (done 17 Nov).
-- [x] Tests: `test/new_ui/qr_save_image_test.dart` checks the Info.plist texts and that one
+- [x] Tests: `test/new_ui/ios_launch_checklist_test.dart` checks the Info.plist texts and that one
       code and "Download all" send their PNGs with an anchor (5 tests; they fail without the
       fixes).
 - [ ] Build, share a QR code, tap Save Image, and check it saves (needs a Mac and an iPhone;
@@ -30,32 +30,68 @@ Image" is the iOS share sheet's own option (the QR is shared through `share_plus
 key.
 
 ### 1.2 Stop the encryption question on every upload
-- [ ] In `ios/Runner/Info.plist`, add `ITSAppUsesNonExemptEncryption` = `NO` (the app only uses
-      HTTPS, which is exempt).
+- [x] In `ios/Runner/Info.plist`, add `ITSAppUsesNonExemptEncryption` = `NO` (done 17 Nov).
+- [x] Checked it's true: the app's only encryption is HTTPS through iOS, plus the
+      `cryptography` package used solely to verify the Ed25519 signature on ticket QR codes
+      (`lib/services/offline_check_in.dart`). Authentication and signature checks are exempt;
+      nothing is encrypted to keep it secret.
+- [x] Test: `test/new_ui/ios_launch_checklist_test.dart` fails if the key goes missing or
+      turns true.
+- [ ] On the next upload, check App Store Connect no longer asks the encryption question
+      for the build. If the app later adds its own encryption of data (not HTTPS, not
+      signatures), revisit this.
 
-Found: the key is missing.
+Found: the key was missing, so every upload asked.
 
 ### 1.3 Privacy manifest (`PrivacyInfo.xcprivacy`)
-- [ ] Add `ios/Runner/PrivacyInfo.xcprivacy` to the Runner target in Xcode.
-- [ ] Declare the "required reason" APIs the app and its Flutter plugins use: at least
-      UserDefaults (`shared_preferences`, reason `CA92.1`) and file timestamps
-      (`C617.1`). Check Apple's upload email or Xcode's privacy report for any others.
-- [ ] Declare the collected data types so they match the App Privacy answers in 4.2.
-- [ ] Set `NSPrivacyTracking` to false (nothing is used for tracking).
+- [x] `ios/Runner/PrivacyInfo.xcprivacy` written and added to the Runner target's Resources
+      in `ios/Runner.xcodeproj/project.pbxproj` (done 17 Nov).
+- [x] `NSPrivacyTracking` false, no tracking domains (no analytics, ads or tracking SDKs).
+- [x] Collected data, all linked to the account, none for tracking, purpose App Functionality:
+      name, email, phone, user ID, physical address, precise location (lat/lng is sent in
+      full for nearby sellers and events), photos or videos, messages (chat), other user
+      content (captions, comments), purchase history, payment info (through Stripe).
+- [x] Required-reason APIs. Checked every iOS plugin: all but five ship their own manifest.
+      Of those five, two call such APIs, now declared: UserDefaults `CA92.1` (`stripe_ios`)
+      and file timestamp `C617.1` (`easy_video_editor` reads a video's creation date).
+      `firebase_core`, `printing` and `flutter_wallet_card` call none.
+- [x] `flutter_wallet_card` pulls in OpenSSL (on Apple's list of SDKs that need their own
+      manifest and signature). Its code never calls OpenSSL; current OpenSSL-Universal 3.x
+      ships both. `ios/Podfile.lock` doesn't list it yet, so the next `pod install` fetches it.
+- [x] Tests: `test/new_ui/ios_launch_checklist_test.dart` checks the manifest's contents and
+      that the Xcode project copies it into the app.
+- [ ] On the Mac: `pod install`, then Product → Archive. In Organizer, right-click the
+      archive → Generate Privacy Report, and check it lists the app's manifest plus each
+      SDK's. Upload, and check Apple sends no "missing privacy manifest" or "missing API
+      declaration" email (ITMS-91053 / 91061). If one names an API, add its reason here.
+- [ ] When a plugin is added or updated, check whether it ships a manifest; if not, declare
+      its required-reason APIs here.
 
-Found: no privacy manifest in `ios/Runner/`. Without it Apple emails a warning on each upload.
+Found: there was no privacy manifest in `ios/Runner/`.
 
 ### 1.4 "Privacy Policy" on sign-in must open the real policy (Guideline 5.1.1(i))
-- [ ] `lib/widgets/auth_ui.dart` around line 753: the agreement's "Privacy Policy" link opens
-      the in-app Terms ("No separate policy page yet"). Make it open
-      `https://studiosthree.com/privacy`.
-- [ ] `lib/widgets/auth_ui.dart` around line 810: the legal line's "Privacy Policy" is plain
-      text. Make it tappable and open the same URL.
-- [ ] `lib/utils/require_login.dart` around line 110: same check for its "Privacy Policy" text.
+- [x] Checked the policy page works (17 Nov): `https://studiosthree.com/privacy` answers 200
+      and its site defines a `/privacy` route with the full policy ("Third Place Studios LLC,
+      d/b/a Studio 3 · Effective: July 2026"). The page is drawn by JavaScript, so it shows
+      in any browser, but a tool that doesn't run scripts sees an empty page. Linked directly;
+      no copy in the app.
+- [x] One shared opener, `lib/utils/privacy_policy.dart` (`kPrivacyPolicyUrl`,
+      `openPrivacyPolicy`): opens the policy in the browser, or shows "Could not open the
+      browser." Settings → Privacy now uses it too.
+- [x] Sign-up agreement (`AuthTermsCheckbox` in `lib/widgets/auth_ui.dart`): "Privacy Policy"
+      opened the in-app Terms; it now opens the policy. Terms of Service still opens the
+      in-app Terms, and tapping either link doesn't tick the box.
+- [x] Legal line (`AuthLegalLine`, same file): "Privacy Policy" was plain text; now a link.
+      Not on any screen today, fixed so it's right if it comes back.
+- [x] Guest sign-in prompt (`lib/utils/require_login.dart`): "Privacy Policy" was plain text;
+      now a link. The sheet stays open behind the browser.
+- [x] Tests: `test/new_ui/privacy_policy_link_test.dart` (6: the URL, each link, Terms
+      unchanged, the box untouched, the no-browser message). They fail with the old
+      behaviour. The other sign-in, sign-up, settings and guest tests pass (119 + 5).
+- [ ] On an iPhone (TestFlight): tap each "Privacy Policy" and check Safari shows the policy.
 
-Settings → Privacy already opens the policy correctly (`lib/screens/privacy_settings_page.dart`
-line 243); reuse that. The policy domain is studio**s**three.com; studiothree.com (no second
-"s") is a different business.
+The policy domain is studio**s**three.com; studiothree.com (no second "s") is a different
+business.
 
 ### 1.5 iPhone only, or iPad too? (decision, then us)
 - [ ] Decide. Today the app installs on iPads: `TARGETED_DEVICE_FAMILY = "1,2"` in all three
@@ -151,7 +187,12 @@ The live app has only 2 artworks and none for sale; an empty app is a common rej
 ### 4.2 App Privacy answers
 - [ ] Collected: name, email, phone, address, photos and videos, messages, purchases,
       location (only while using the app), payment info through Stripe.
-- [ ] None of it used for tracking. Must match the privacy manifest (1.3).
+- [ ] Also answer **User ID** and **Other User Content** (captions, comments). The source doc
+      leaves these out, but the app collects them and the privacy manifest (1.3) declares
+      them.
+- [ ] Location: answer **Precise Location**; the app sends exact coordinates.
+- [ ] Every type: linked to the user, not used for tracking, purpose App Functionality. Must
+      match the privacy manifest (1.3).
 
 ## 5. Test the uploaded build on a real iPhone (TestFlight)
 

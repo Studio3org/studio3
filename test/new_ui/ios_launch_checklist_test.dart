@@ -4,9 +4,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:studio3/utils/qr_image_share.dart';
 
-/// Launch checklist 1.1 (`docs/new-ui/APPLE_LAUNCH_CHECKLIST.md`): sharing a QR code and tapping
+/// iOS launch checklist (`docs/new-ui/APPLE_LAUNCH_CHECKLIST.md`). 1.1: sharing a QR code and tapping
 /// the share sheet's "Save Image" crashed on iPhone (no photo-saving text in Info.plist), and
-/// the sheet could not open at all on an iPad when no anchor was given.
+/// the sheet could not open at all on an iPad when no anchor was given. 1.2: the build answers
+/// Apple's export (encryption) question itself.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -20,6 +21,13 @@ void main() {
       expect(text('NSPhotoLibraryAddUsageDescription'), 'Studio3 saves the QR codes you choose to your photo library.');
     });
 
+    // Launch checklist 1.2: answers Apple's export question in the build, so uploads stop
+    // asking. True to the app: HTTPS through iOS, and Ed25519 only to check the signature on
+    // ticket codes (lib/services/offline_check_in.dart), both exempt.
+    test('declares no non-exempt encryption', () {
+      expect(plist, matches(RegExp(r'<key>ITSAppUsesNonExemptEncryption</key>\s*<false/>')));
+    });
+
     test('says why for every permission the app asks for', () {
       for (final key in [
         'NSPhotoLibraryUsageDescription', // picking photos and videos to post
@@ -30,6 +38,60 @@ void main() {
       ]) {
         expect(text(key), isNotEmpty, reason: '$key is missing or empty: iOS stops the app when it asks');
       }
+    });
+  });
+
+  // Launch checklist 1.3: the privacy manifest exists, says what the app collects (in step with
+  // the App Privacy answers, checklist 4.2), and is copied into the app.
+  group('privacy manifest', () {
+    final manifest = File('ios/Runner/PrivacyInfo.xcprivacy').readAsStringSync();
+    final pbxproj = File('ios/Runner.xcodeproj/project.pbxproj').readAsStringSync();
+
+    test('no tracking, no tracking domains', () {
+      expect(manifest, matches(RegExp(r'<key>NSPrivacyTracking</key>\s*<false/>')));
+      expect(manifest, matches(RegExp(r'<key>NSPrivacyTrackingDomains</key>\s*<array/>')));
+    });
+
+    test('declares what the app collects, linked, never for tracking, for its own features', () {
+      const collected = [
+        'Name', 'EmailAddress', 'PhoneNumber', 'UserID', 'PhysicalAddress', 'PreciseLocation',
+        'PhotosorVideos', 'EmailsOrTextMessages', 'OtherUserContent', 'PurchaseHistory', 'PaymentInfo',
+      ];
+      final entries = RegExp(r'<dict>\s*<key>NSPrivacyCollectedDataType</key>(.*?)</dict>', dotAll: true)
+          .allMatches(manifest)
+          .map((m) => m.group(1)!)
+          .toList();
+      final types = [
+        for (final e in entries) RegExp(r'<string>NSPrivacyCollectedDataType(\w+)</string>').firstMatch(e)!.group(1),
+      ];
+      expect(types, unorderedEquals(collected));
+      for (final e in entries) {
+        expect(e, matches(RegExp(r'<key>NSPrivacyCollectedDataTypeLinked</key>\s*<true/>')));
+        expect(e, matches(RegExp(r'<key>NSPrivacyCollectedDataTypeTracking</key>\s*<false/>')));
+        expect(e, contains('NSPrivacyCollectedDataTypePurposeAppFunctionality'));
+      }
+    });
+
+    test('gives the reasons for the APIs plugins without their own manifest use', () {
+      String? reasons(String category) => RegExp(
+        '<string>NSPrivacyAccessedAPICategory$category</string>\\s*<key>NSPrivacyAccessedAPITypeReasons</key>\\s*<array>(.*?)</array>',
+        dotAll: true,
+      ).firstMatch(manifest)?.group(1);
+      expect(reasons('UserDefaults'), contains('CA92.1'), reason: 'stripe_ios uses UserDefaults');
+      expect(reasons('FileTimestamp'), contains('C617.1'), reason: 'easy_video_editor reads file dates');
+    });
+
+    test('is copied into the app (Runner group and Resources phase)', () {
+      final fileRef = RegExp(r'(\w{24}) /\* PrivacyInfo\.xcprivacy \*/ = \{isa = PBXFileReference;').firstMatch(pbxproj);
+      expect(fileRef, isNotNull, reason: 'no file reference in project.pbxproj');
+      final buildFile = RegExp('(\\w{24}) /\\* PrivacyInfo\\.xcprivacy in Resources \\*/ = \\{isa = PBXBuildFile; fileRef = ${fileRef!.group(1)}')
+          .firstMatch(pbxproj);
+      expect(buildFile, isNotNull, reason: 'no build file for it');
+      final resources = RegExp(r'/\* Resources \*/ = \{\s*isa = PBXResourcesBuildPhase;(.*?)\};', dotAll: true)
+          .allMatches(pbxproj)
+          .map((m) => m.group(1)!)
+          .where((phase) => phase.contains('Assets.xcassets in Resources'));
+      expect(resources.single, contains('${buildFile!.group(1)} /* PrivacyInfo.xcprivacy in Resources */'));
     });
   });
 

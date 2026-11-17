@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../models/user_profile.dart';
 import '../services/api_exception.dart';
 import '../services/auth_session.dart';
 import '../services/social_service.dart';
 import '../services/user_service.dart';
+import '../utils/privacy_policy.dart';
 import '../utils/profile_navigation.dart';
 import '../widgets/feed_skeleton.dart';
 import '../widgets/settings_tile.dart';
@@ -237,17 +237,7 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
     _loadCounts();
   }
 
-  Future<void> _openPrivacyPolicy() async {
-    try {
-      final launched = await launchUrl(
-        Uri.parse('https://studiosthree.com/privacy'),
-        mode: LaunchMode.externalApplication,
-      );
-      if (!launched && mounted) showStudioToast(context, 'Could not open the browser.', icon: null);
-    } catch (_) {
-      if (mounted) showStudioToast(context, 'Could not open the privacy policy.', icon: null);
-    }
-  }
+  Future<void> _openPrivacyPolicy() => openPrivacyPolicy(context);
 
   void _showError(Object e) {
     showStudioToast(context, e is ApiException ? e.message : 'Could not save that.', icon: null);

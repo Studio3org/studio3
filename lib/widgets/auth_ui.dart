@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../services/api_exception.dart';
 import '../theme/auth_palette.dart';
+import '../utils/privacy_policy.dart';
 import 'studio/studio.dart';
 
 /// Thin wrapper so auth screens use the brand's Geist family with an honest
@@ -697,12 +698,12 @@ class AuthTermsCheckbox extends StatelessWidget {
       height: 1.45,
       color: showError && !value ? c.textPrimary : c.textSecondary,
     );
-    InlineSpan link(String label) => WidgetSpan(
+    InlineSpan link(String label, VoidCallback onTap) => WidgetSpan(
       alignment: PlaceholderAlignment.baseline,
       baseline: TextBaseline.alphabetic,
       // A link inside the sentence (inline links are exempt from the 44 minimum).
       child: Semantics(link: true, child: GestureDetector(
-        onTap: () => Navigator.pushNamed(context, '/terms'),
+        onTap: onTap,
         child: Text(
           label,
           style: base.copyWith(
@@ -747,10 +748,10 @@ class AuthTermsCheckbox extends StatelessWidget {
                 style: base,
                 children: [
                   const TextSpan(text: 'I agree to the '),
-                  link('Terms of Service'),
+                  link('Terms of Service', () => Navigator.pushNamed(context, '/terms')),
                   const TextSpan(text: ' and '),
-                  // No separate policy page yet: both open the in-app Terms.
-                  link('Privacy Policy'),
+                  // The policy on the company site (App Store guideline 5.1.1(i)).
+                  link('Privacy Policy', () => openPrivacyPolicy(context)),
                   // Kept for App Store review (guideline 1.2): the agreement covers this.
                   const TextSpan(
                     text: '. Studio 3 has zero tolerance for objectionable content or abusive users.',
@@ -782,7 +783,8 @@ class AuthGuestLink extends StatelessWidget {
   }
 }
 
-/// 11 px legal line on `SignInFirst` (1.5, centered). Terms open the in-app page.
+/// 11 px legal line on `SignInFirst` (1.5, centered). Terms open the in-app page, Privacy
+/// Policy the policy on the company site.
 class AuthLegalLine extends StatelessWidget {
   const AuthLegalLine({super.key});
 
@@ -807,7 +809,17 @@ class AuthLegalLine extends StatelessWidget {
             ),
           ),
           const TextSpan(text: ' and '),
-          TextSpan(text: 'Privacy Policy', style: base.copyWith(color: c.textTertiary)),
+          WidgetSpan(
+            alignment: PlaceholderAlignment.baseline,
+            baseline: TextBaseline.alphabetic,
+            child: Semantics(
+              link: true,
+              child: GestureDetector(
+                onTap: () => openPrivacyPolicy(context),
+                child: Text('Privacy Policy', style: base.copyWith(color: c.textTertiary)),
+              ),
+            ),
+          ),
           const TextSpan(text: '.'),
         ],
       ),
