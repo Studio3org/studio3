@@ -65,6 +65,7 @@ import 'utils/shell_back.dart';
 import 'utils/snappy_page_physics.dart';
 import 'utils/require_login.dart';
 import 'widgets/terms_acceptance_dialog.dart';
+import 'widgets/wide_screen_column.dart';
 
 Future<void> main() async {
   final widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
@@ -139,11 +140,15 @@ class Studio3App extends StatelessWidget {
             // An emoji fallback for any Text with no style of its own (AppTheme.emojiFallback).
             // System text size follows the phone up to 2.0 and stops there: every screen wraps
             // without clipping up to 2.0 (section 19.1, decided 2026-10-28).
+            // On an iPad (or any wide window) the app keeps to a centred, phone-width column
+            // (WideScreenColumn; launch checklist 1.5).
             builder: (context, child) => MediaQuery.withClampedTextScaling(
               maxScaleFactor: 2.0,
-              child: DefaultTextStyle.merge(
-                style: const TextStyle(fontFamilyFallback: AppTheme.emojiFallback),
-                child: child!,
+              child: WideScreenColumn(
+                child: DefaultTextStyle.merge(
+                  style: const TextStyle(fontFamilyFallback: AppTheme.emojiFallback),
+                  child: child!,
+                ),
               ),
             ),
             routes: {

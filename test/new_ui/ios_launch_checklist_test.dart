@@ -95,6 +95,28 @@ void main() {
     });
   });
 
+  // Launch checklist 1.5: iPhone and iPad (the user's call, 17 Nov 2026).
+  group('iPhone and iPad', () {
+    final pbxproj = File('ios/Runner.xcodeproj/project.pbxproj').readAsStringSync();
+    final plist = File('ios/Runner/Info.plist').readAsStringSync();
+
+    test('every build configuration targets iPhone and iPad', () {
+      final families = RegExp(r'TARGETED_DEVICE_FAMILY = "?([\d,]+)"?;').allMatches(pbxproj).map((m) => m.group(1));
+      expect(families, isNotEmpty);
+      expect(families, everyElement('1,2'));
+    });
+
+    test('iPad supports every orientation (needed for iPad multitasking)', () {
+      final ipad = RegExp(r'<key>UISupportedInterfaceOrientations~ipad</key>\s*<array>(.*?)</array>', dotAll: true)
+          .firstMatch(plist)
+          ?.group(1);
+      expect(ipad, isNotNull);
+      for (final o in ['Portrait', 'PortraitUpsideDown', 'LandscapeLeft', 'LandscapeRight']) {
+        expect(ipad, contains('<string>UIInterfaceOrientation$o</string>'));
+      }
+    });
+  });
+
   group('sharing codes as images', () {
     final calls = <Map<Object?, Object?>>[];
     late Directory tmp;

@@ -21,8 +21,7 @@ Each of these was checked in the code; all are still open.
 - [x] Tests: `test/new_ui/ios_launch_checklist_test.dart` checks the Info.plist texts and that one
       code and "Download all" send their PNGs with an anchor (5 tests; they fail without the
       fixes).
-- [ ] Build, share a QR code, tap Save Image, and check it saves (needs a Mac and an iPhone;
-      on an iPad too if iPad is kept, 1.5).
+- [ ] Build, share a QR code, tap Save Image, and check it saves (needs a Mac and an iPhone).
 
 Found: `Info.plist` had `NSPhotoLibraryUsageDescription` (read) but not the "add" key. "Save
 Image" is the iOS share sheet's own option (the QR is shared through `share_plus` in
@@ -93,11 +92,36 @@ Found: there was no privacy manifest in `ios/Runner/`.
 The policy domain is studio**s**three.com; studiothree.com (no second "s") is a different
 business.
 
-### 1.5 iPhone only, or iPad too? (decision, then us)
-- [ ] Decide. Today the app installs on iPads: `TARGETED_DEVICE_FAMILY = "1,2"` in all three
-      build configurations of `ios/Runner.xcodeproj/project.pbxproj`.
-- [ ] iPhone only: change those three to `"1"`.
-- [ ] iPad kept: check every screen on an iPad, and take iPad screenshots for the listing (4.1).
+### 1.5 iPhone and iPad (decided 17 Nov)
+- [x] Decision: the app ships for iPhone **and iPad** (the user's call, 17 Nov). It was
+      briefly switched to iPhone only the same day, then put back.
+- [x] `TARGETED_DEVICE_FAMILY = "1,2"` in `ios/Runner.xcodeproj/project.pbxproj` (all three
+      project configurations, which the Runner target inherits).
+- [x] `UISupportedInterfaceOrientations~ipad` in `ios/Runner/Info.plist` keeps all four
+      orientations, which iPad multitasking needs.
+- [x] Tests: `test/new_ui/ios_launch_checklist_test.dart` checks both.
+- [x] The QR share sheet opens on iPad (anchor fix, 1.1).
+- [x] **iPad layout** (done 17 Nov, the least-work route): on a window wider than 600 pt
+      the app keeps to a centred 600 pt column, margins in the page colour
+      (`lib/widgets/wide_screen_column.dart`, wrapped around the Navigator in `lib/main.dart`,
+      so pages, sheets, dialogs and toasts all sit in it). Inside it the screen size reads
+      600 wide, and side safe-area insets inside the margins are dropped. Phones, and iPad
+      windows 600 or narrower (Slide Over, narrow Split View), are untouched. The app's
+      portrait lock is ignored by iPadOS for multitasking apps, so landscape iPad shows the
+      same column, 1024 tall.
+  - [x] Tests: `test/new_ui/wide_screen_column_test.dart` (10: phones and narrow windows
+        untouched, iPad portrait and landscape column, insets, sheets inside it, margin
+        colour in both themes).
+  - [x] Every acceptance screen (`acceptance_19_1_test.dart`, 19 boards) now also runs at
+        320 × 1024 (iPad Slide Over, narrower than any phone) and 600 × 1024 (the column in
+        iPad landscape): nothing overflows or throws (38 runs pass).
+  - [ ] Later, if wanted: real iPad layouts (wider grids, side panels). Needs design.
+- [ ] Check every screen on an iPad (or the iPad simulator in Xcode): portrait, landscape,
+      Split View and Slide Over. The automatic checks cover the 19 acceptance boards only.
+      Look for anything that reads the device size directly instead of the layout, and for
+      full-screen media (Reels, the image viewer, the code scanner) inside the column.
+- [ ] Check the camera flows (posting a photo or video, the event code scanner) on an iPad.
+- [ ] iPad screenshots for the listing (4.1).
 
 ### 1.6 Review notes for Apple's reviewer (Guideline 2.1)
 - [ ] Rewrite the review notes (the source doc names `docs/APP_REVIEW_NOTES.md`; that file
@@ -178,7 +202,8 @@ The live app has only 2 artworks and none for sale; an empty app is a common rej
 
 ### 4.1 Listing
 - [ ] App name, subtitle, description, keywords.
-- [ ] Screenshots from a 6.9-inch iPhone (1320 × 2868), plus iPad ones if iPad is kept (1.5).
+- [ ] Screenshots from a 6.9-inch iPhone (1320 × 2868).
+- [ ] Screenshots from a 13-inch iPad (2064 × 2752), since the app supports iPad (1.5).
 - [ ] Support link (2.1) and privacy policy link.
 - [ ] Age rating: user posts, chat and purchases, so expect 17+.
 - [ ] Price Free; United States only (shipping and payouts are US only).
@@ -210,7 +235,7 @@ The live app has only 2 artworks and none for sale; an empty app is a common rej
 
 ## 6. Order
 
-1. Now: app fixes 1.1 to 1.4 and 1.7, the iPad decision (1.5), the review notes (1.6) and
+1. Now: app fixes 1.1 to 1.4 and 1.7, the iPad layout work (1.5), the review notes (1.6) and
    the repo clean-up (1.9). In parallel, the client publishes the support page and starts
    adding real artwork (2.1, 2.2).
 2. Build and upload: Xcode → Product → Archive → Validate → Distribute to App Store Connect.
