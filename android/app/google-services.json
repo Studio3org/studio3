@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "1076941812660",
-    "project_id": "studio3-ac2cb",
-    "storage_bucket": "studio3-ac2cb.firebasestorage.app"
+    "project_number": "775279267977",
+    "project_id": "studio-3-916e0",
+    "storage_bucket": "studio-3-916e0.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:1076941812660:android:0e2ed0c1691832d9a078e1",
+        "mobilesdk_app_id": "1:775279267977:android:3ead9c23a421b94188b658",
         "android_client_info": {
           "package_name": "com.studio3.discover"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyDOhqxSaoev_sEbfxOkcBfxoU7UGaLTs-U"
+          "current_key": "AIzaSyCqpOZKEXI9aveGTUjbC0bXax01pbFPEPA"
         }
       ],
       "services": {

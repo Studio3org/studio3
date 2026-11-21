@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- Push notifications (Firebase Cloud Messaging via APNs). Xcode re-signs this as
+	     "production" for TestFlight and App Store builds. -->
+	<key>aps-environment</key>
+	<string>development</string>
 	<!-- Every host that may ever serve a link this app should open. Compile-time, so both
 	     belong here in one build: api.studio-3.co (the deployed backend, which serves
 	     /share/... and answers /.well-known/apple-app-site-association for itself — see
