@@ -89,6 +89,24 @@ Found: there was no privacy manifest in `ios/Runner/`.
       behaviour. The other sign-in, sign-up, settings and guest tests pass (119 + 5).
 - [ ] On an iPhone (TestFlight): tap each "Privacy Policy" and check Safari shows the policy.
 
+**Copy on studio-3.co (17 Nov, the user's ask).** studio-3.co is this repo's web app (`app/`,
+on Vercel: the live page and assets match `app/dist`).
+- [x] `app/public/privacy.html`: the studiosthree.com policy word for word (785 words,
+      compared against the site's own source), "Effective: July 2026", contact
+      `privacy@studio-3.co`. Plain HTML, no JavaScript, light and dark, the site's logo and font.
+- [x] `/privacy` rewrite to `/privacy.html` above the catch-all in `app/vercel.json` and
+      `app/vercel.static.json` (the one copied into builds).
+- [x] The page and the rewrite also added to the committed builds `app/dist/` and
+      `app/.dist/` (not rebuilt, so nothing else on the site changes).
+- [ ] Deploy: commit and push to the branch Vercel deploys studio-3.co from, then check
+      `https://studio-3.co/privacy` shows the policy (it redirects to www today).
+- [ ] Then, if wanted, point the app at it: `kPrivacyPolicyUrl` in
+      `lib/utils/privacy_policy.dart`, and the privacy link in App Store Connect.
+- [ ] Keep both copies the same when the policy changes on studiosthree.com.
+- Careful: the repo clean-up (1.9) removes `app/dist` from git. If Vercel deploys the
+  committed `app/dist` (or `.dist`), that breaks the site. Switch Vercel to build from
+  `app/` first.
+
 The policy domain is studio**s**three.com; studiothree.com (no second "s") is a different
 business.
 
@@ -124,17 +142,38 @@ business.
 - [ ] iPad screenshots for the listing (4.1).
 
 ### 1.6 Review notes for Apple's reviewer (Guideline 2.1)
-- [ ] Rewrite the review notes (the source doc names `docs/APP_REVIEW_NOTES.md`; that file
-      is not in this repo, so it lives in the other app repo or needs writing here):
-  - [ ] Remove the line saying bids "hold" money. Use: "Your card is checked and saved at
-        your first bid. Nothing is charged unless you win."
-  - [ ] Add short sections on event tickets, Apple Wallet, door check-in and shipping.
-  - [ ] Say payments are live, and how the reviewer can try checkout without a real charge.
-- [ ] Paste them into App Store Connect → App Review Information, with the `artist` login.
+- [x] Written fresh in `docs/new-ui/APP_REVIEW_NOTES.md` (18 Nov). The old
+      `docs/APP_REVIEW_NOTES.md` the source doc names isn't in this repo. Every statement
+      was checked in the app and the live server's code; the file lists the source of each.
+  - [x] No "hold" line. Auctions: "Your card is checked and saved at your first bid. Nothing
+        is charged unless you win." True to the server (auctions v2: a card check at the first
+        bid, only the winner charged at close).
+  - [x] Sections on event tickets, Apple Wallet, door check-in and shipping, plus payments
+        (why not in-app purchase), user content and safety, account deletion, permissions,
+        contact.
+  - [x] Payments are live; checkout without a real charge: try every step up to the card
+        sheet, or buy a $1 test piece that the seller cancels within 24 hours (full refund).
+        Ticket test: a $1 refundable ticket the reviewer refunds from the ticket page.
+  - [x] 2,865 characters, under App Store Connect's 4,000 limit.
+- [ ] Before submitting: set up the $1 test piece and the $1 refundable test event, fill in
+      `@[TEST SELLER]`, and remove or keep the Wallet sentence (section 1 of the notes file).
+- [ ] Paste the notes into App Store Connect → App Review Information, with the `artist`
+      login (password from the password manager, never in the repo) and a contact person.
 
 ### 1.7 Build number
-- [ ] In `pubspec.yaml`, raise `version: 1.0.0+5` to `1.0.0+6` (each upload needs a higher
-      number).
+- [x] `pubspec.yaml`: `version: 1.0.0+5` raised to `1.0.0+6` (18 Nov). iOS reads it as
+      `CFBundleVersion` / `CFBundleShortVersionString` (`$(FLUTTER_BUILD_NUMBER)` /
+      `$(FLUTTER_BUILD_NAME)` in `Info.plist`); Android as `versionCode` / `versionName`.
+- [x] Checked it flows through: Android's generated `local.properties` now says
+      `flutter.versionCode=6` (`flutter build apk --config-only`).
+- [x] Test: `test/new_ui/ios_launch_checklist_test.dart` checks `Info.plist` takes both from
+      pubspec and that the build number is at least 6.
+- [ ] On the Mac, before Product → Archive: `flutter pub get`, `flutter build ios
+      --config-only`, then `cd ios && pod install`, so `ios/Flutter/Generated.xcconfig` says
+      `FLUTTER_BUILD_NUMBER=6` (it's git-ignored and still says 5 on this PC).
+- [ ] If App Store Connect (TestFlight) or Google Play already has a build 6 or higher, raise
+      it past the highest there. Each upload needs a new, higher number; the version name
+      (1.0.0) can stay until release.
 
 ### 1.8 iPhone notifications (after the client sends the file, see 2.3)
 - [ ] Add `GoogleService-Info.plist` to `ios/Runner` in Xcode (tick the Runner target).

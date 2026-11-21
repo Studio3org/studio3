@@ -28,6 +28,17 @@ void main() {
       expect(plist, matches(RegExp(r'<key>ITSAppUsesNonExemptEncryption</key>\s*<false/>')));
     });
 
+    // Launch checklist 1.7: the build number comes from pubspec.yaml (`version: x.y.z+N`), so
+    // raising it there is enough for the next upload.
+    test('takes its version and build number from pubspec.yaml', () {
+      expect(plist, matches(RegExp(r'<key>CFBundleShortVersionString</key>\s*<string>\$\(FLUTTER_BUILD_NAME\)</string>')));
+      expect(plist, matches(RegExp(r'<key>CFBundleVersion</key>\s*<string>\$\(FLUTTER_BUILD_NUMBER\)</string>')));
+      final version = RegExp(r'^version: (\d+\.\d+\.\d+)\+(\d+)$', multiLine: true)
+          .firstMatch(File('pubspec.yaml').readAsStringSync());
+      expect(version, isNotNull, reason: 'pubspec.yaml needs version: x.y.z+N');
+      expect(int.parse(version!.group(2)!), greaterThanOrEqualTo(6), reason: 'build 5 was the last upload');
+    });
+
     test('says why for every permission the app asks for', () {
       for (final key in [
         'NSPhotoLibraryUsageDescription', // picking photos and videos to post
