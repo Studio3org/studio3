@@ -38,6 +38,8 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCalendarsUsageDescription</key>
@@ -48,6 +50,8 @@
 	<string>Studio3 needs camera access so you can take a photo to post, and scan the code beside a piece at an event.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Studio3 uses your location to show shipping addresses and nearby sellers.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Studio3 saves the QR codes you choose to your photo library.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Studio3 needs access to your photo library so you can upload artwork photos and videos.</string>
 	<key>UIApplicationSceneManifest</key>

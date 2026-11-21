@@ -400,6 +400,10 @@ const _configs = [
   _Config('375 light, text 1.4', Size(375, 667), textScale: 1.4),
   _Config('390 dark, text 2.0', Size(390, 844), dark: true, textScale: 2.0),
   _Config('440 dark', Size(440, 956), dark: true),
+  // iPad (launch checklist 1.5): Slide Over is 320 wide, narrower than any phone; on a wider
+  // window the app keeps to a 600 column (WideScreenColumn), here as in iPad landscape.
+  _Config('iPad Slide Over 320', Size(320, 1024)),
+  _Config('iPad column 600 dark', Size(600, 1024), dark: true),
 ];
 
 Future<void> _settle(WidgetTester tester) async {

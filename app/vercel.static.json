@@ -26,6 +26,7 @@
     { "source": "/piece/:path*", "destination": "/index.html" },
     { "source": "/series/:path*", "destination": "/index.html" },
     { "source": "/auth/:path*", "destination": "/index.html" },
+    { "source": "/privacy", "destination": "/privacy.html" },
     { "source": "/:path*", "destination": "/index.html" }
   ]
 }

@@ -61,7 +61,7 @@ abstract final class QrImageShare {
       ShareParams(
         text: '$title\n$url',
         files: [XFile(file.path, mimeType: 'image/png')],
-        sharePositionOrigin: origin,
+        sharePositionOrigin: origin ?? _screenCentre(),
       ),
     );
   }
@@ -85,9 +85,19 @@ abstract final class QrImageShare {
       ShareParams(
         text: codes.map((c) => '${c.title}\n${c.url}').join('\n\n'),
         files: files,
-        sharePositionOrigin: origin,
+        sharePositionOrigin: origin ?? _screenCentre(),
       ),
     );
+  }
+
+  /// Where the share sheet points from when the caller has no button to anchor it to.
+  /// iPhones ignore it, but on an iPad the sheet is a popover and won't open without one,
+  /// so sharing a code (and its "Save Image") failed there.
+  static Rect _screenCentre() {
+    final dispatcher = WidgetsBinding.instance.platformDispatcher;
+    final view = dispatcher.implicitView ?? dispatcher.views.first;
+    final size = view.physicalSize / view.devicePixelRatio;
+    return Rect.fromCenter(center: size.center(Offset.zero), width: 1, height: 1);
   }
 
   static String _slug(String title) {
