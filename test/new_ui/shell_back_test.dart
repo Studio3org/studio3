@@ -7,8 +7,11 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:studio3/main.dart' show MainShell;
+import 'package:studio3/screens/event_page.dart';
 import 'package:studio3/screens/explore_page.dart';
 import 'package:studio3/screens/home_feed_page.dart';
+import 'package:studio3/screens/reels_page.dart';
+import 'package:studio3/screens/saved_page.dart';
 import 'package:studio3/services/api_client.dart';
 import 'package:studio3/theme/app_theme.dart';
 
@@ -101,6 +104,36 @@ void main() {
     await tester.binding.handlePopRoute();
     await settle(tester);
     expect(exits, ['SystemNavigator.pop']);
+    await tester.pump(const Duration(seconds: 11));
+  });
+
+  testWidgets('Home to Events opens at once: no page in between is shown on the way', (tester) async {
+    setBoardViewport(tester);
+    await tester.pumpWidget(MaterialApp(theme: AppTheme.light, home: const MainShell()));
+    await settle(tester);
+    final width = tester.getSize(find.byType(MainShell)).width;
+
+    await tester.tap(find.bySemanticsLabel('Events').first);
+    final shownOnTheWay = <String>{};
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+      for (final (name, type) in [('Explore', ExplorePage), ('Reels', ReelsPage), ('Saved', SavedPage)]) {
+        final page = find.byType(type, skipOffstage: false);
+        if (page.evaluate().isEmpty) continue;
+        final rect = tester.getRect(page);
+        if (rect.right > 0 && rect.left < width) shownOnTheWay.add(name);
+      }
+      if (i == 0) expect(tester.getRect(find.byType(EventPage)).left, 0, reason: 'Events is there on the first frame');
+    }
+    await settle(tester);
+
+    expect(shownOnTheWay, isEmpty, reason: 'no page between Home and Events flashes up');
+    expect(tester.getRect(find.byType(EventPage)).left, 0, reason: 'Events is on screen');
+
+    // And back: Events to Home is a one-page slide too.
+    await tester.tap(find.bySemanticsLabel('Home').first);
+    await settle(tester);
+    expect(tester.getRect(find.byType(HomePage)).left, 0, reason: 'Home is on screen');
     await tester.pump(const Duration(seconds: 11));
   });
 }

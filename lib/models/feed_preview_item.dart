@@ -1,3 +1,4 @@
+import '../utils/dimensions_text.dart';
 import '../utils/media_type_utils.dart';
 import 'auction.dart';
 import 'feed_item.dart';
@@ -516,7 +517,7 @@ class FeedPreviewItem {
       title: json['title'] as String? ?? '',
       medium: json['medium'] as String? ?? '',
       year: json['year'] as int? ?? DateTime.now().year,
-      dimensions: json['dimensions'] as String? ?? '',
+      dimensions: dimensionsText(json['dimensions']) ?? '',
       story: json['story'] as String? ?? '',
       handle: json['handle'] as String? ?? '',
       isAvailable: json['isAvailable'] as bool? ?? false,

@@ -29,6 +29,7 @@ import 'utils/app_routes.dart';
 import 'utils/app_state_store.dart';
 import 'utils/profile_navigation.dart';
 import 'theme/app_theme.dart';
+import 'widgets/dismiss_keyboard_on_tap.dart';
 import 'widgets/bottom_nav.dart' show BottomNav, BottomNavIndex;
 import 'screens/login_page.dart';
 import 'screens/signup_page.dart';
@@ -142,12 +143,15 @@ class Studio3App extends StatelessWidget {
             // without clipping up to 2.0 (section 19.1, decided 2026-10-28).
             // On an iPad (or any wide window) the app keeps to a centred, phone-width column
             // (WideScreenColumn; launch checklist 1.5).
-            builder: (context, child) => MediaQuery.withClampedTextScaling(
-              maxScaleFactor: 2.0,
-              child: WideScreenColumn(
-                child: DefaultTextStyle.merge(
-                  style: const TextStyle(fontFamilyFallback: AppTheme.emojiFallback),
-                  child: child!,
+            // A tap anywhere but a text field closes the keyboard (DismissKeyboardOnTap).
+            builder: (context, child) => DismissKeyboardOnTap(
+              child: MediaQuery.withClampedTextScaling(
+                maxScaleFactor: 2.0,
+                child: WideScreenColumn(
+                  child: DefaultTextStyle.merge(
+                    style: const TextStyle(fontFamilyFallback: AppTheme.emojiFallback),
+                    child: child!,
+                  ),
                 ),
               ),
             ),
@@ -365,6 +369,11 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   final HomeFeedStore _homeFeedStore = HomeFeedStore();
   int _currentPage = _kHomePage;
 
+  /// The page a bottom-nav tap is sliding to. Pages passed on the way are not visited:
+  /// _onPageChanged ignores them, so Reels never starts playing and the nav highlight
+  /// doesn't flicker through tabs the user didn't pick.
+  int? _navTarget;
+
   /// Where the Reels page's back arrow returns to.
   int _pageBeforeReels = _kHomePage;
 
@@ -545,6 +554,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   }
 
   void _onPageChanged(int page) {
+    if (_navTarget != null && page != _navTarget) return; // passing through on a nav tap
     // Covers swipe-to-switch too, not just bottom-nav taps (see _onNavTap).
     FocusManager.instance.primaryFocus?.unfocus();
     if (page != _kHomePage) _back.reset();
@@ -622,13 +632,31 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     };
     _selectedNavIndex.value = navIndex;
     AppStateStore.instance.saveNavIndex(navIndex);
-    if (targetPage != _currentPage) {
-      _pageController.animateToPage(
-        targetPage,
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.easeOut,
-      );
+    if (targetPage != _currentPage) _slideTo(targetPage);
+  }
+
+  /// A tab next door (Home and Explore) slides in. A tab further away (Home to Events is four
+  /// pages: Explore, Reels, Saved, Events) opens at once, as on Instagram: sliding through the
+  /// pages between meant building and drawing each one mid-slide (Reels even started its
+  /// video), which stuttered, and showing the neighbour first looked like the wrong page loading.
+  void _slideTo(int targetPage) {
+    final from = _currentPage;
+    _navTarget = targetPage;
+    if ((targetPage - from).abs() > 1) {
+      _pageController.jumpToPage(targetPage);
+      _navTarget = null;
+      if (_currentPage != targetPage) _onPageChanged(targetPage);
+      return;
     }
+    _pageController
+        .animateToPage(targetPage, duration: const Duration(milliseconds: 250), curve: Curves.easeOut)
+        .whenComplete(() {
+          if (_navTarget != targetPage) return;
+          _navTarget = null;
+          // A swipe that interrupted the slide: settle on wherever the user left it.
+          final landed = _pageController.hasClients ? _pageController.page?.round() : null;
+          if (landed != null && landed != _currentPage && mounted) _onPageChanged(landed);
+        });
   }
 
   void _scrollToTopAndRefresh(int navIndex) {

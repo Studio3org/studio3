@@ -57,6 +57,8 @@ Future<void> startListingLater(BuildContext context, {required String pieceId, V
     return;
   }
   if (!context.mounted) return;
+  // The courier collects from the pickup address, so ask for it before the sale details.
+  if (!await ensurePickupAddress(context) || !context.mounted) return;
   final details = await ListLaterDetailsSheet.show(context, piece: piece);
   if (details == null || !context.mounted) return;
   final listed = await Navigator.of(context).push<bool>(

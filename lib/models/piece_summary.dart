@@ -1,3 +1,4 @@
+import '../utils/dimensions_text.dart';
 import 'auction.dart';
 import 'order.dart' show PieceViewerOrder;
 import 'post_summary.dart';
@@ -348,7 +349,7 @@ class PieceSummary {
       minNextBidCents: _intFrom(json['minNextBidCents']),
       isHighestBidder: json['isHighestBidder'] as bool? ?? false,
       auction: AuctionSummary.maybeFrom(json),
-      dimensions: json['dimensions'] as String?,
+      dimensions: dimensionsText(json['dimensions']),
       shippingRegion: json['shippingRegion'] as String?,
       weightKg: _doubleFrom(json['weightKg']),
       packageLengthCm: _doubleFrom(json['packageLengthCm']),

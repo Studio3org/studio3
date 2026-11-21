@@ -287,6 +287,7 @@ void main() {
       AuthSession.instance.sellerEnabled = seller;
       return _app(
         PostCreatePage(
+          pickupReady: (_) async => true,
           postType: 'piece',
           imagePaths: [_photo, _photo],
           transforms: [PostImageTransform(), PostImageTransform()],
@@ -572,6 +573,7 @@ void main() {
       await tester.pumpWidget(
         _app(
           PostCreatePage(
+            pickupReady: (_) async => true,
             postType: 'scene',
             imagePaths: [_photo],
             transforms: [PostImageTransform()],
@@ -607,6 +609,7 @@ void main() {
       await tester.pumpWidget(
         _app(
           PostCreatePage(
+            pickupReady: (_) async => true,
             postType: 'scene',
             imagePaths: [_photo],
             transforms: [PostImageTransform()],

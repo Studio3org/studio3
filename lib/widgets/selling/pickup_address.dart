@@ -4,6 +4,7 @@ import '../../models/address.dart';
 import '../../services/address_service.dart';
 import '../../services/api_exception.dart';
 import '../piece_detail/collect_shipping_sheet.dart';
+import '../studio/studio_sheet.dart';
 import '../studio/studio_toast.dart';
 
 /// Picks the artist's pickup address (FRONTEND_HANDOFF 8.1, B31): the saved-address picker
@@ -50,4 +51,35 @@ void showListingError(BuildContext context, String message) {
           }
         : null,
   );
+}
+
+/// Before a piece goes up for sale: the courier collects it from the artist's pickup address,
+/// and the server refuses a sale listing without one (FRONTEND_HANDOFF 8.1). Asking here, as
+/// the artist leaves the details step, beats a refusal on the very last tap. True when an
+/// address is set (or was just added); false keeps the artist where they are. When the check
+/// itself fails (offline), it lets them carry on: the server's own refusal still explains.
+Future<bool> ensurePickupAddress(
+  BuildContext context, {
+  @visibleForTesting Future<Address?> Function()? debugCurrent,
+  @visibleForTesting Future<Address?> Function(BuildContext context)? debugPick,
+}) async {
+  Address? current;
+  try {
+    current = await (debugCurrent ?? AddressService.instance.getPickupAddress)();
+  } catch (_) {
+    return true;
+  }
+  if (current != null) return true;
+  if (!context.mounted) return false;
+  final add = await showStudioConfirm(
+    context,
+    title: 'Add your pickup address',
+    message: 'The courier collects sold pieces from here, so a piece can\'t go up for sale without '
+        'it. Use a US address with a phone number. Buyers never see it.',
+    confirmLabel: 'Add pickup address',
+    cancelLabel: 'Not now',
+  );
+  if (!add || !context.mounted) return false;
+  final saved = await choosePickupAddress(context, debugPick: debugPick);
+  return saved != null;
 }

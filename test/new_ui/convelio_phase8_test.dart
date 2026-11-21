@@ -978,4 +978,93 @@ void main() {
       await tester.pump(const Duration(seconds: 11));
     });
   });
+
+  group('pickup address asked for before a sale (8.1)', () {
+    Future<bool?> run(
+      WidgetTester tester, {
+      required Future<Address?> Function() current,
+      Future<Address?> Function(BuildContext)? pick,
+    }) async {
+      bool? result;
+      await tester.pumpWidget(
+        _app(
+          Builder(
+            builder: (context) => Center(
+              child: TextButton(
+                onPressed: () async =>
+                    result = await ensurePickupAddress(context, debugCurrent: current, debugPick: pick),
+                child: const Text('Continue'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+      return result;
+    }
+
+    testWidgets('an artist with a pickup address goes straight on', (tester) async {
+      expect(await run(tester, current: () async => _address), isTrue);
+      expect(find.text('Add your pickup address'), findsNothing);
+    });
+
+    testWidgets('without one, they are asked, and Not now keeps them on the details', (tester) async {
+      bool? result;
+      await tester.pumpWidget(
+        _app(
+          Builder(
+            builder: (context) => Center(
+              child: TextButton(
+                onPressed: () async => result = await ensurePickupAddress(context, debugCurrent: () async => null),
+                child: const Text('Continue'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+      expect(find.text('Add your pickup address'), findsOneWidget);
+      expect(find.textContaining('Buyers never see it'), findsOneWidget);
+      await tester.tap(_button('Not now'));
+      await tester.pumpAndSettle();
+      expect(result, isFalse);
+    });
+
+    testWidgets('choosing to add one opens the address picker; backing out stays put', (tester) async {
+      var opened = false;
+      bool? result;
+      await tester.pumpWidget(
+        _app(
+          Builder(
+            builder: (context) => Center(
+              child: TextButton(
+                onPressed: () async => result = await ensurePickupAddress(
+                  context,
+                  debugCurrent: () async => null,
+                  debugPick: (_) async {
+                    opened = true;
+                    return null;
+                  },
+                ),
+                child: const Text('Continue'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+      await tester.tap(_button('Add pickup address'));
+      await tester.pumpAndSettle();
+      expect(opened, isTrue);
+      expect(result, isFalse);
+    });
+
+    testWidgets('when the check itself fails (offline), the server decides', (tester) async {
+      expect(await run(tester, current: () async => throw Exception('offline')), isTrue);
+      expect(find.text('Add your pickup address'), findsNothing);
+    });
+  });
 }

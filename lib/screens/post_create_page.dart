@@ -103,6 +103,7 @@ class PostCreatePage extends StatefulWidget {
     this.videoLength,
     this.initialLinkedPiece,
     this.commissionQuote,
+    this.pickupReady,
     this.publisher,
     this.active = true,
     this.debugLocation,
@@ -131,6 +132,11 @@ class PostCreatePage extends StatefulWidget {
   /// Seller's earnings for a price; defaults to the API. Tests pass their own.
   @visibleForTesting
   final Future<CommissionQuote?> Function(int priceCents)? commissionQuote;
+
+  /// Whether the artist's pickup address is set (asking for it if not); defaults to
+  /// [ensurePickupAddress]. Tests pass their own.
+  @visibleForTesting
+  final Future<bool> Function(BuildContext context)? pickupReady;
 
   /// Saving and publishing; defaults to [PostPublishService]. Tests pass their own.
   @visibleForTesting
@@ -450,7 +456,18 @@ class _PostCreatePageState extends State<PostCreatePage> {
   Future<CommissionQuote?> _quote(int priceCents) =>
       (widget.commissionQuote ?? UserService.instance.getCommissionQuote)(priceCents);
 
-  void _toReview() {
+  bool _checkingPickup = false;
+
+  /// Details → review. A piece going up for sale needs the artist's pickup address first
+  /// (FRONTEND_HANDOFF 8.1), asked for here rather than refused at Publish.
+  Future<void> _toReview() async {
+    if (_checkingPickup) return;
+    if (_isPiece && _listForSale) {
+      _checkingPickup = true;
+      final ready = await (widget.pickupReady ?? ensurePickupAddress)(context);
+      _checkingPickup = false;
+      if (!ready || !mounted) return;
+    }
     setState(() => _step = _CreateStep.review);
     final price = _price;
     if (_mode == SaleMode.fixed && price != null) {
