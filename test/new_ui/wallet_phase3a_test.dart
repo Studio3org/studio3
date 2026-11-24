@@ -286,6 +286,45 @@ void main() {
       debugDefaultTargetPlatformOverride = null;
     });
 
+    testWidgets('iOS: the button is Apple\'s own badge, and a tap on it adds every ticket', (tester) async {
+      setBoardViewport(tester);
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      EventWalletButton.nativeAppleBadge = true;
+      VoidCallback? tapBadge;
+      EventWalletButton.appleBadge = ({required busy, required onTap}) {
+        tapBadge = onTap;
+        return const SizedBox(key: ValueKey('native-badge'), height: 48);
+      };
+      await tester.pumpWidget(
+        _confirmed(orderId: 'o1', order: const EventOrderStatus(id: 'o1', status: 'paid', walletPasses: _both)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('native-badge')), findsOneWidget);
+      expect(find.widgetWithText(StudioButton, 'Add to Apple Wallet'), findsNothing, reason: 'no text button');
+      tapBadge!(); // what the native view's tap does
+      await tester.pumpAndSettle();
+      expect(added.single, [_passBytes, _passBytes]);
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets("Apple's badge is the native PKAddPassButton view", (tester) async {
+      final created = <Object?>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform_views, (call) async {
+        if (call.method == 'create') created.add((call.arguments as Map)['viewType']);
+        return null;
+      });
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      await tester.pumpWidget(MaterialApp(home: AppleAddPassButton(busy: false, onTap: () {})));
+      await tester.pump();
+      expect(find.byType(UiKitView), findsOneWidget);
+      expect(created, [AppleAddPassButton.viewType]);
+      expect(find.bySemanticsLabel('Add to Apple Wallet'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform_views, null);
+      debugDefaultTargetPlatformOverride = null;
+    });
+
     testWidgets('iOS: Add to Apple Wallet above Directions adds the ticket on screen', (tester) async {
       setBoardViewport(tester);
       debugDefaultTargetPlatformOverride = TargetPlatform.iOS;

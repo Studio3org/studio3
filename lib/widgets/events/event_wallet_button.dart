@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_wallet_card/core/ios_wallet_platform.dart';
 import 'package:flutter_wallet_card/core/wallet_platform.dart' show WalletException;
@@ -62,6 +63,8 @@ class EventWalletButton extends StatefulWidget {
   static void debugReset() {
     launcher = _launch;
     addApplePasses = _addApplePasses;
+    nativeAppleBadge = !kIsWeb && Platform.isIOS;
+    appleBadge = _nativeBadge;
   }
 
   static Future<bool> _launch(Uri url) => launchUrl(url, mode: LaunchMode.externalApplication);
@@ -89,6 +92,18 @@ class EventWalletButton extends StatefulWidget {
       }
     }
   }
+
+  /// Whether to show Apple's native button. True only on a real iOS app (platform views don't
+  /// exist in widget tests or on the Mac that runs them). Tests may set it.
+  @visibleForTesting
+  static bool nativeAppleBadge = !kIsWeb && Platform.isIOS;
+
+  /// Builds Apple's native button. Tests replace it (platform views don't run there).
+  @visibleForTesting
+  static Widget Function({required bool busy, required VoidCallback onTap}) appleBadge = _nativeBadge;
+
+  static Widget _nativeBadge({required bool busy, required VoidCallback onTap}) =>
+      AppleAddPassButton(busy: busy, onTap: onTap);
 
   /// Which wallet this device would show for [passes], if any.
   static bool showsFor(EventWalletPasses? passes) => switch (defaultTargetPlatform) {
@@ -178,13 +193,74 @@ class _EventWalletButtonState extends State<EventWalletButton> {
         ),
       );
     }
-    return StudioButton(
+    // Apple's own "Add to Apple Wallet" button (PKAddPassButton, drawn by iOS: the official
+    // badge Apple's Wallet guidelines ask for, in the phone's language). It only exists on a
+    // real iOS build; tests and other hosts get a plain button that adds the same way.
+    if (!EventWalletButton.nativeAppleBadge) {
+      return StudioButton(
+        key: const ValueKey('wallet-apple'),
+        label: 'Add to Apple Wallet',
+        variant: StudioButtonVariant.outline,
+        height: 48,
+        loading: _busy,
+        onPressed: () => _add(_addApple),
+      );
+    }
+    return KeyedSubtree(
       key: const ValueKey('wallet-apple'),
+      child: EventWalletButton.appleBadge(busy: _busy, onTap: () => _add(_addApple)),
+    );
+  }
+}
+
+/// Apple's own "Add to Apple Wallet" button: PKAddPassButton, a native view registered in
+/// ios/Runner/AppDelegate.swift as `studio3/add_pass_button`. iOS draws it, so it is always the
+/// official badge (Apple's Wallet guidelines), in the phone's language. A tap arrives on the
+/// view's own channel, `studio3/add_pass_button_<id>`; while [busy] it is dimmed with a spinner
+/// and taps are ignored.
+class AppleAddPassButton extends StatelessWidget {
+  const AppleAddPassButton({super.key, required this.busy, required this.onTap});
+
+  static const viewType = 'studio3/add_pass_button';
+
+  final bool busy;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
       label: 'Add to Apple Wallet',
-      variant: StudioButtonVariant.outline,
-      height: 48,
-      loading: _busy,
-      onPressed: () => _add(_addApple),
+      child: Center(
+        child: SizedBox(
+          width: 280,
+          height: 48,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              AbsorbPointer(
+                absorbing: busy,
+                child: UiKitView(
+                  viewType: viewType,
+                  onPlatformViewCreated: (id) => MethodChannel('${viewType}_$id').setMethodCallHandler((call) async {
+                    if (call.method == 'tap') onTap();
+                  }),
+                ),
+              ),
+              if (busy)
+                const ColoredBox(
+                  color: Color(0x99000000),
+                  child: Center(
+                    child: SizedBox.square(
+                      dimension: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFFFFFF)),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
