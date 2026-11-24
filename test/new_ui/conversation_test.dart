@@ -309,4 +309,39 @@ void main() {
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/Conversation.png'));
     await checkAcceptance(tester);
   }, skip: Platform.environment['NEW_UI_GOLDENS'] != '1');
+
+  group('a pending message request', () {
+    Widget pending(String openedBy) => MaterialApp(
+          theme: AppTheme.light,
+          home: ConversationThreadPage(
+            conversationId: 'c1',
+            otherPartyUsername: 'amarasart',
+            otherPartyName: 'Amara Osei',
+            otherPartyAvatarUrl: null,
+            initialStatus: 'pending',
+            debugMessages: [
+              ChatMessage(id: 'm1', body: 'Hi, is it still available?', senderUsername: openedBy,
+                  createdAt: DateTime.utc(2026, 11, 24, 15)),
+            ],
+            debugMyUsername: 'jordan',
+          ),
+        );
+
+    testWidgets('the one who sent it keeps writing, with no Accept for their own request', (tester) async {
+      await tester.pumpWidget(pending('jordan'));
+      await tester.pumpAndSettle();
+      expect(find.text('Accept'), findsNothing);
+      expect(find.text('Decline'), findsNothing);
+      expect(find.textContaining("Amara Osei hasn't accepted your message request yet"), findsOneWidget);
+      expect(find.byType(TextField), findsOneWidget, reason: 'the message box stays');
+    });
+
+    testWidgets('the one it was sent to gets Accept and Decline', (tester) async {
+      await tester.pumpWidget(pending('amarasart'));
+      await tester.pumpAndSettle();
+      expect(find.text('Accept'), findsOneWidget);
+      expect(find.text('Decline'), findsOneWidget);
+      expect(find.textContaining("hasn't accepted your message request"), findsNothing);
+    });
+  });
 }

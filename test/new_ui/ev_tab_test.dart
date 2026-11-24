@@ -300,6 +300,29 @@ void main() {
     });
   });
 
+  testWidgets('nothing on today: the tab opens on the first range that has events', (tester) async {
+    setBoardViewport(tester);
+    final later = _e('n', 'Night Market', start: _at(7, 10));
+    await tester.pumpWidget(_app(browse: EventBrowse(upcoming: [_e('s', 'Saturday Sketch', start: _at(3, 10)), later])));
+    await tester.pumpAndSettle();
+    expect(find.text('Saturday Sketch'), findsWidgets, reason: 'This week, not an empty Today');
+    expect(find.textContaining('Nothing on today'), findsNothing);
+  });
+
+  testWidgets('an empty range says what is next and offers to show it', (tester) async {
+    setBoardViewport(tester);
+    final market = _e('n', 'Night Market', start: _at(7, 10));
+    await tester.pumpWidget(_app(browse: EventBrowse(upcoming: [_e('s', 'Saturday Sketch', start: _at(3, 10)), market])));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Today').first);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Nothing on today. Next up: Saturday Sketch'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('events-next-up')));
+    await tester.pumpAndSettle();
+    expect(find.text('Saturday Sketch'), findsWidgets);
+    expect(find.textContaining('Nothing on today'), findsNothing);
+  });
+
   testWidgets('no events: the empty state offers hosting', (tester) async {
     await tester.pumpWidget(_app(browse: const EventBrowse()));
     await tester.pump();

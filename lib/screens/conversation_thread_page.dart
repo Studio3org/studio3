@@ -533,6 +533,15 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
     }
   }
 
+  /// Whether [me] sent this pending request. Like the server, the opening message is the
+  /// request, so its sender is the one waiting. With no messages loaded yet, the chat was
+  /// just started from this phone, so it's ours too.
+  bool _requestSentBy(String? me) {
+    if (_messages.isEmpty) return true;
+    final first = _messages.reduce((a, b) => b.createdAt.isBefore(a.createdAt) ? b : a);
+    return me != null && first.senderUsername == me;
+  }
+
   /// The thread as rows: a day line where the day changes, then bubbles. A bubble is the
   /// last of its run when the next message is from someone else or on another day.
   List<_Row> _rows(String? me) {
@@ -579,6 +588,9 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
     final c = context.studio;
     final me = widget.debugMyUsername ?? AuthSession.instance.user?.username;
     final pending = _status == 'pending';
+    // A pending chat is a request to the other person: only they get Accept / Decline. The
+    // one who sent it keeps writing, as on Instagram (the server refuses their accept).
+    final waitingOnThem = pending && _requestSentBy(me);
     final empty = !_loading && _messages.isEmpty;
     final rows = _rows(me);
     final seenId = _seenId(me);
@@ -703,7 +715,9 @@ class _ConversationThreadPageState extends State<ConversationThreadPage> {
                       },
                     ),
             ),
-            if (pending)
+            if (waitingOnThem)
+              _RequestSentNote(name: widget.otherPartyName),
+            if (pending && !waitingOnThem)
               Padding(
                 padding: EdgeInsets.fromLTRB(
                   20,
@@ -1120,6 +1134,28 @@ class _TypingBubble extends StatelessWidget {
 /// Composer (`Conversation`): 1 px Line above, 10 12 padding; + (40) attaches a photo or video; a
 /// 42 Surface pill field ("Message", 15); a 40 round send, Line until there is text, then
 /// Ink.
+/// Above the composer while a request the user sent waits on the other person.
+class _RequestSentNote extends StatelessWidget {
+  const _RequestSentNote({required this.name});
+
+  final String? name;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.studio;
+    final who = (name == null || name!.trim().isEmpty) ? 'They' : name!.trim();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 2),
+      child: Text(
+        '$who hasn\'t accepted your message request yet. You can keep writing; they\'ll see it '
+        'all when they open it.',
+        textAlign: TextAlign.center,
+        style: StudioType.caption12(color: c.textSecondary),
+      ),
+    );
+  }
+}
+
 class _Composer extends StatelessWidget {
   const _Composer({
     required this.controller,

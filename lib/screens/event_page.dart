@@ -60,6 +60,11 @@ class _EventPageState extends State<EventPage> with ScrollsToTopOnDoubleTap<Even
   bool _loading = true;
   String? _error;
   EventRange _range = EventRange.today;
+
+  /// Set once the user picks a range themselves; until then the tab opens on the first range
+  /// with something in it (Today, else This week, else This month), so a quiet day doesn't
+  /// look like an empty tab.
+  bool _rangeChosen = false;
   EventFilters _filters = const EventFilters();
   String _place = 'Near me';
 
@@ -73,10 +78,12 @@ class _EventPageState extends State<EventPage> with ScrollsToTopOnDoubleTap<Even
     if (given != null) {
       _browse = given;
       _loading = false;
+      _startRange();
       _refine();
       return;
     }
     _browse = EventService.instance.peekBrowseCached();
+    _startRange();
     _load();
     _refine();
   }
@@ -132,15 +139,18 @@ class _EventPageState extends State<EventPage> with ScrollsToTopOnDoubleTap<Even
           : await EventService.instance.browseCached(
               onBackgroundUpdate: (next) {
                 if (mounted) setState(() => _browse = next);
+                if (mounted && _startRange()) _refine();
               },
             );
       if (!mounted) return;
+      var moved = false;
       setState(() {
         _browse = browse;
         _loading = false;
         _error = null;
+        moved = _startRange();
       });
-      if (fresh) _refine();
+      if (fresh || moved) _refine();
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -218,6 +228,29 @@ class _EventPageState extends State<EventPage> with ScrollsToTopOnDoubleTap<Even
       for (final e in [...browse.today, ...browse.upcoming, ...browse.following])
         if (seen.add(e.id)) e,
     ]..sort((a, b) => a.startsAt.compareTo(b.startsAt));
+  }
+
+  /// Opens on the first range with an event in it, unless the user has chosen one. Returns
+  /// whether the range changed (the caller then refines for it).
+  bool _startRange() {
+    if (_rangeChosen) return false;
+    final live = _all.where((e) => !e.isCancelled).toList();
+    for (final r in EventRange.values) {
+      if (live.any((e) => r.includes(e, _now))) {
+        if (r == _range) return false;
+        _range = r;
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// The next event after the chosen range, to point at when the range is empty.
+  StudioEvent? get _nextAfterRange {
+    for (final e in _all) {
+      if (!e.isCancelled && e.endsAt.isAfter(_now) && !_range.includes(e, _now)) return e;
+    }
+    return null;
   }
 
   List<String> get _cities {
@@ -352,16 +385,45 @@ class _EventPageState extends State<EventPage> with ScrollsToTopOnDoubleTap<Even
           ),
         );
       } else {
+        final next = filtering ? null : _nextAfterRange;
+        final rangeName = _range == EventRange.today ? 'today' : _range.label.toLowerCase();
+        // The shortest range that would show the next event, if any does.
+        final showRange = next == null
+            ? null
+            : EventRange.values.where((r) => r.index > _range.index && r.includes(next, _now)).firstOrNull;
         body.add(
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 48, 24, 8),
-            child: Text(
-              filtering
-                  ? 'No events match. Try another place, search or filter.'
-                  : 'Nothing on ${_range == EventRange.today ? 'today' : _range.label.toLowerCase()}. '
-                        'Try a longer range.',
-              textAlign: TextAlign.center,
-              style: StudioType.body15(height: 1.5, color: c.textSecondary),
+            child: Column(
+              children: [
+                Text(
+                  filtering
+                      ? 'No events match. Try another place, search or filter.'
+                      : next == null
+                      ? 'Nothing on $rangeName.'
+                      : 'Nothing on $rangeName. Next up: ${next.title}, ${next.scheduleLine}.',
+                  textAlign: TextAlign.center,
+                  style: StudioType.body15(height: 1.5, color: c.textSecondary),
+                ),
+                if (next != null) ...[
+                  const SizedBox(height: 12),
+                  StudioButton(
+                    key: const ValueKey('events-next-up'),
+                    label: showRange != null ? 'Show ${showRange.label.toLowerCase()}' : 'See it',
+                    variant: StudioButtonVariant.outline,
+                    height: 40,
+                    onPressed: () {
+                      if (showRange == null) {
+                        openEventDetail(context, next);
+                        return;
+                      }
+                      _rangeChosen = true;
+                      setState(() => _range = showRange);
+                      _refine();
+                    },
+                  ),
+                ],
+              ],
             ),
           ),
         );
@@ -456,6 +518,7 @@ class _EventPageState extends State<EventPage> with ScrollsToTopOnDoubleTap<Even
               EventRangeTabs(
                 range: _range,
                 onRange: (r) {
+                  _rangeChosen = true;
                   setState(() => _range = r);
                   _refine();
                 },
